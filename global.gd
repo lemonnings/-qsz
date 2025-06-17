@@ -30,9 +30,7 @@ var SettingBuff = preload("res://Script/config/setting_buff.gd").new()
 @export var refresh_max_num : int = 3 
 
 
-# 世界等级（难度级）对应血量，伤害为：
-# lv1：*1 lv2：*1.75 lv3：*3 lv4：*5 lv5：*8 lv6：*12 lv7：*18 lv8：*26 lv9：*36 lv10：*50
-# 奖励：*1.5   *2     *2.6     *3.3    *4.1     *5      *6      *7.2     *8.5      *10
+# 世界等级（难度级）
 @export var world_level_multiple : float = 1
 @export var world_level_reward_multiple : float = 1
 @export var world_level : int = 1
