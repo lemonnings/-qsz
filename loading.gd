@@ -17,6 +17,6 @@ func _process(delta: float) -> void:
 	progressBar.value = progress[0] * 100
 	if scene_load_status == ResourceLoader.THREAD_LOAD_LOADED:
 		set_process(false)
-		await  get_tree().create_timer(1).timeout
+		await  get_tree().create_timer(0.3).timeout
 		SceneChange.change_scene(ResourceLoader.load_threaded_get(SceneChange.loading_path))
 	pass

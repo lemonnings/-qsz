@@ -359,7 +359,7 @@ func _on_boss_defeated(get_point : int):
 		if Global.main_menu_instance != null:
 			# 设置菜单状态
 			Global.in_menu = true
-			SceneChange.change_scene(Global.main_menu_instance, true)
+			SceneChange.change_scene("res://Scenes/main_menu.tscn", true)
 
 
 func get_required_lv_up_value(level: int) -> float:
@@ -389,31 +389,44 @@ func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
 	var reward3 = null
 	if refresh_id == 0 or refresh_id == 1:
 		reward1 = LvUp.get_reward_level(r1_rand, main_skill_name)
-		if reward1.name == "noReward":
+		if reward1 == null:
+			if refresh_id != 0:	
+				PC.refresh_num += 1
+			print("普通抽取池已空")
+		elif reward1.reward_name == "noReward":
 			if refresh_id != 0:
 				PC.refresh_num += 1
-			print("抽取池已空")
+			print("特殊技能抽取池已空")
 	if refresh_id == 0 or refresh_id == 2:
 		reward2 = LvUp.get_reward_level(r2_rand, main_skill_name)
-		if reward2.name == "noReward":
+		if reward2 == null:
+			if refresh_id != 0:	
+				PC.refresh_num += 1
+			print("普通抽取池已空")
+		elif reward2.reward_name == "noReward":
 			if refresh_id != 0:
 				PC.refresh_num += 1
-			print("抽取池已空")
+			print("特殊技能抽取池已空")
 	if refresh_id == 0 or refresh_id == 3:
 		reward3 = LvUp.get_reward_level(r3_rand, main_skill_name)
-		if reward3.name == "noReward":
-			if refresh_id != 0:
+		if reward3 == null:
+			if refresh_id != 0:	
 				PC.refresh_num += 1
-			print("抽取池已空")
+			print("普通抽取池已空")
+		elif reward3.reward_name == "noReward":
+			if refresh_id != 0:	
+				PC.refresh_num += 1
+			print("特殊技能抽取池已空")
 	# 创建背景变暗效果
 	if main_skill_name == '' and refresh_id == 0:
 		var dark_overlay = ColorRect.new()
 		dark_overlay.color = Color(0, 0, 0, 0.35)  # 黑色，50%透明度
-		dark_overlay.size = get_viewport().get_visible_rect().size * 2
-		dark_overlay.position = Vector2(-1000, -66)
-		dark_overlay.z_index = 100  # 确保在其他元素之上，但在CanvasLayer之下
+		dark_overlay.size = get_viewport().get_visible_rect().size * 4
+		dark_overlay.position = Vector2(-1000, 0)
+		dark_overlay.z_index = 0  # 确保在其他元素之上，但在CanvasLayer之下
 		dark_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
-		add_child(dark_overlay)
+		dark_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		$CanvasLayer.add_child(dark_overlay)
 		# 存储dark_overlay引用以便后续清理
 		set_meta("dark_overlay", dark_overlay)
 	

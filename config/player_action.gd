@@ -104,7 +104,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _reset_camera() -> void:
-	camera.zoom = Vector2(3.1, 3.1)
+	camera.zoom = Vector2(3.0, 3.0)
 	
 func _zoom_camera(zoom_delta: float) -> void:
 	var new_zoom = camera.zoom.x + zoom_delta

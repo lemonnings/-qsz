@@ -265,7 +265,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 			else: # 如果在该派系下没有可选奖励，则重试。
 				print_debug("在稀有度 '" + csv_rarity_name + "' 的派系 '" + selected_faction + "' 下未找到奖励。重抽派系。")
 				continue
-		else:
+		elif main_skill_name!= '':
 			var noReward = Reward.new()
 			noReward.reward_name = "noReward"
 			return noReward
