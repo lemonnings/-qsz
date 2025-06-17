@@ -204,7 +204,7 @@ func _select_reward_by_weight(available_rewards: Array[Reward]) -> Reward:
 # 主要的奖励选择函数：基于稀有度（CSV中的名称）、派系选择和个体权重来获取一个奖励。
 func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Reward:
 	print_debug("select_reward - initial csv_rarity_name: ", csv_rarity_name, ", main_skill_name: ", main_skill_name)
-	var max_rerolls = 1000 # 设置最大重抽次数，防止无限循环。
+	var max_rerolls = 100 # 设置最大重抽次数，防止无限循环。
 	var is_main_skill_advance = false
 	for i in range(max_rerolls):
 		var selected_faction = _select_faction_for_rarity(csv_rarity_name) # _select_faction_for_rarity 也需要使用CSV中的稀有度名称。
@@ -265,6 +265,10 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 			else: # 如果在该派系下没有可选奖励，则重试。
 				print_debug("在稀有度 '" + csv_rarity_name + "' 的派系 '" + selected_faction + "' 下未找到奖励。重抽派系。")
 				continue
+		else:
+			var noReward = Reward.new()
+			noReward.reward_name = "noReward"
+			return noReward
 	
 	print_debug("稀有度 '" + csv_rarity_name + "' 已达到最大重抽次数。将返回null或该稀有度下首个可用的奖励。")
 	# 如果达到最大重抽次数或未找到合适奖励时的回退逻辑。
@@ -282,10 +286,8 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 						var condition_met = callable_func.call()
 						if not condition_met:
 							fb_prereq_met = false
-							# print_debug("Fallback for " + csv_rarity_name + ": Prereq func '" + func_name + "' not met for reward '" + fallback_reward.id + "'")
 							break
 					else:
-						# print_debug("Fallback for " + csv_rarity_name + ": Prereq func '" + func_name + "' not found for reward '" + fallback_reward.id + "'")
 						fb_prereq_met = false # 如果找不到函数，也视为条件不满足
 						break
 			
@@ -293,8 +295,6 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 				return fallback_reward
 		# 如果在回退逻辑中仍然找不到完全符合条件的奖励 (for current csv_rarity_name)
 		print_debug("在稀有度 '" + csv_rarity_name + "' 的回退逻辑中，未能找到完全符合条件的奖励。将尝试其他稀有度。")
-	# else: (if all_rewards_for_rarity_fallback was empty for csv_rarity_name)
-		# print_debug("稀有度 '" + csv_rarity_name + "' 本身没有任何奖励可供回退。将尝试其他稀有度。")
 
 	# 尝试从其他稀有度获取奖励
 	print_debug("稀有度 '" + csv_rarity_name + "' 无可用奖励后，开始尝试查找其他稀有度的奖励。")
@@ -305,7 +305,6 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 			continue
 
 		var rewards_from_other_rarity = _get_rewards_by_rarity_str(other_rarity_name, main_skill_name)
-		# rewards_from_other_rarity.shuffle() # 可选：打乱顺序以增加多样性
 		
 		if not rewards_from_other_rarity.is_empty():
 			for potential_reward in rewards_from_other_rarity:
@@ -319,10 +318,8 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 							var callable_func = Callable(self, func_name)
 							if not callable_func.call():
 								prereq_ok = false
-								# print_debug("Other Rarity Check: Prereq func '" + func_name + "' not met for reward '" + potential_reward.id + "' from rarity '" + other_rarity_name + "'")
 								break
 						else: # 前置条件函数未找到
-							# print_debug("错误：其他稀有度奖励 '" + potential_reward.id + "' 的前置条件函数 '" + func_name + "' 未找到。")
 							prereq_ok = false
 							break
 				

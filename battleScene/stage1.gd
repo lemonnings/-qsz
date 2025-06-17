@@ -389,10 +389,22 @@ func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
 	var reward3 = null
 	if refresh_id == 0 or refresh_id == 1:
 		reward1 = LvUp.get_reward_level(r1_rand, main_skill_name)
+		if reward1.name == "noReward":
+			if refresh_id != 0:
+				PC.refresh_num += 1
+			print("抽取池已空")
 	if refresh_id == 0 or refresh_id == 2:
 		reward2 = LvUp.get_reward_level(r2_rand, main_skill_name)
+		if reward2.name == "noReward":
+			if refresh_id != 0:
+				PC.refresh_num += 1
+			print("抽取池已空")
 	if refresh_id == 0 or refresh_id == 3:
 		reward3 = LvUp.get_reward_level(r3_rand, main_skill_name)
+		if reward3.name == "noReward":
+			if refresh_id != 0:
+				PC.refresh_num += 1
+			print("抽取池已空")
 	# 创建背景变暗效果
 	if main_skill_name == '' and refresh_id == 0:
 		var dark_overlay = ColorRect.new()
