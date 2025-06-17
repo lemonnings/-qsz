@@ -1,5 +1,7 @@
 extends Node2D
 
+@export var background: Sprite2D
+
 @export var battle_scene: String
 @export var town_test_scene: String
 
@@ -14,8 +16,14 @@ extends Node2D
 @export var point_add_button: Button
 @export var next_button: Button
 
+@export var change_stage_button: Button
 @export var stage1_button: Button
 @export var stage2_button: Button
+
+@export var hero1_button: Button
+@export var hero2_button: Button
+@export var hero3_button: Button
+@export var hero4_button: Button
 
 @export var atk_speed_label: Label
 @export var move_speed_label: Label
@@ -45,12 +53,12 @@ func _process(_delta: float) -> void:
 	
 
 func _on_start_pressed() -> void :
-	_transition_to_layer(level_layer, [canvas_layer], [bgm_change_button, world_level_option])
+	pass
 	
 func _on_stage_1_pressed() -> void:
 	Global.in_town = false
 	reset_player_attr()
-	get_tree().change_scene_to_file(battle_scene)
+	SceneChange.change_scene(battle_scene, true)
 	
 func _on_stage_2_pressed() -> void:
 	Global.in_town = true
@@ -61,46 +69,63 @@ func reset_player_attr() -> void :
 	# 重置玩家奖励权重
 	if PlayerRewardWeights:
 		PlayerRewardWeights.reset_all_weights()
-	else:
-		printerr("PlayerRewardWeights autoload not found!")
+		
 	# 初始化一系列单局内会发生变化的变量
 	Global.in_menu = false
 	PC.is_game_over = false
+	
+	PC.selected_rewards = ["SplitSwordQi3","SplitSwordQi31"] # "swordWaveTrace"
+	
 	exec_pc_atk()
 	exec_pc_hp()
 	exec_pc_bullet_size()
 	exec_lukcy_level()
+	
 	PC.real_time = 0
+	PC.current_time = 0
+	
 	PC.pc_lv = 1
 	PC.pc_exp = 0
-	PC.current_time = 0
 	PC.pc_speed = 0
 	PC.pc_atk_speed = 0
+	
 	PC.invincible = false
-	PC.selected_rewards = []
+	
 	PC.ring_bullet_enabled = false
 	PC.ring_bullet_count = 8
-	PC.ring_bullet_size_multiplier = 0.7
+	PC.ring_bullet_size_multiplier = 0.9
 	PC.ring_bullet_damage_multiplier = 1
 	PC.ring_bullet_interval = 2.5
 	PC.ring_bullet_last_shot_time = 0.0
+	
 	# 重置反弹子弹相关属性
-	PC.rebound_size_multiplier = 0.4
+	PC.rebound_size_multiplier = 0.9
 	PC.rebound_damage_multiplier = 0.35
+	
 	PC.summon_count = 0 
 	PC.summon_count_max  = 3
 	PC.summon_damage_multiplier = 0.0
 	PC.summon_interval_multiplier = 1.0
 	PC.summon_bullet_size_multiplier = 1.0
+	
 	# 重置暴击相关属性
 	PC.crit_chance = 0.1 + (Global.crit_chance_level * 0.005) # 基础暴击率 + 局外成长
 	PC.crit_damage_multiplier = 1.5 + (Global.crit_damage_level * 0.01) # 基础暴击伤害倍率 + 局外成长
-	# 初始化减伤属性
+	
 	PC.damage_reduction_rate = min(0.0 + (Global.damage_reduction_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
 	PC.body_size = 0
 	PC.last_atk_speed = 0
 	PC.last_speed = 0
 	PC.last_lunky_level = 1
+	
+	# 重置主要技能等级
+	PC.main_skill_swordQi = 0
+	PC.main_skill_swordQi_advance = 0
+	PC.main_skill_swordQi_damage = 1
+	PC.swordQi_penetration_count = 5
+	PC.swordQi_other_sword_wave_damage = 0.5
+	
+	PC.refresh_num = Global.refresh_max_num
 	BuffManager.clear_all_buffs()
 	
 func exec_pc_atk() -> void:
@@ -115,15 +140,18 @@ func exec_pc_bullet_size() -> void:
 
 func exec_lukcy_level() -> void:
 	PC.now_lunky_level = Global.lunky_level
+	PC.now_red_p = Global.red_p
 	PC.now_gold_p = Global.gold_p
-	PC.now_orange_p = Global.orange_p
 	PC.now_purple_p = Global.purple_p
 	PC.now_blue_p = Global.blue_p
 	PC.now_green_p = Global.green_p
 
 
-func _on_shop_pressed() -> void:
+func _on_shop_pressed(not_move_background  : bool = true) -> void:
+	hero1_button.set_pressed(true)
 	_update_shop_content()
+	if not_move_background:
+		move_background_down()
 	if !in_shop:
 		_transition_to_layer(shop_layer, [canvas_layer], [world_level_option, bgm_change_button])
 
@@ -159,8 +187,8 @@ func get_total_increase(level) -> String:
 func get_total_increase_hp(level) -> String:
 	var total_hp = 1
 	var current_level = 1  # 当前已经处理到第几级
-	var hp_value = 1   # 当前每级增加的攻击力
-	var duration = 6      # 第一个攻击值(+1)持续2次升级
+	var hp_value = 1   
+	var duration = 6      
 
 	while current_level < level:
 		var remaining_levels = level - current_level
@@ -171,7 +199,7 @@ func get_total_increase_hp(level) -> String:
 
 		if current_level < level:
 			hp_value += 1
-			duration = 6 + int((hp_value + 4) * hp_value)  # 每个攻击力持续attack_value + 1次
+			duration = 6 + int((hp_value + 4) * hp_value)  
 	return str(total_hp)
 
 func get_exp_for_level(level: int) -> int:
@@ -207,8 +235,14 @@ func get_exp_for_level_most(level: int) -> int:
 	
 func _on_exit_pressed() -> void:
 	in_shop = false
+	move_background_up()
 	_transition_to_layer(canvas_layer, [shop_layer, level_layer], [bgm_change_button, world_level_option], true)
-	
+		
+func _on_exit_pressed_stage() -> void:
+	in_shop = false
+	move_background_up()
+	scale_background_to_1() 
+	_transition_to_layer(canvas_layer, [shop_layer, level_layer], [bgm_change_button, world_level_option], true)
 	
 func _on_next_pressed() -> void:
 	if page_no == 1:
@@ -274,7 +308,7 @@ func _on_bullet_size_pressed() -> void:
 			Global.total_points -= next_level_exp
 			shop_tip.start_animation('升级成功！', 0.25)
 			Global.save_game()
-			_on_shop_pressed()
+			_on_shop_pressed(false)
 		else:
 			shop_tip.start_animation('Point不足！', 0.25)
 			$Buzzer.play()
@@ -286,7 +320,7 @@ func _on_bullet_size_pressed() -> void:
 			Global.total_points -= next_level_exp
 			shop_tip.start_animation('升级成功！', 0.25)
 			Global.save_game()
-			_on_shop_pressed()
+			_on_shop_pressed(false)
 		else:
 			shop_tip.start_animation('Point不足！', 0.25)
 			$Buzzer.play()
@@ -302,7 +336,7 @@ func _on_point_add_pressed() -> void:
 			Global.total_points -= next_level_exp
 			shop_tip.start_animation('升级成功！', 0.25)
 			Global.save_game()
-			_on_shop_pressed()
+			_on_shop_pressed(false)
 		else:
 			shop_tip.start_animation('Point不足！', 0.25)
 			$Buzzer.play()
@@ -314,7 +348,7 @@ func _on_point_add_pressed() -> void:
 			Global.total_points -= next_level_exp
 			shop_tip.start_animation('升级成功！', 0.25)
 			Global.save_game()
-			_on_shop_pressed()
+			_on_shop_pressed(false)
 		else:
 			shop_tip.start_animation('Point不足！', 0.25)
 			$Buzzer.play()
@@ -330,7 +364,7 @@ func _on_move_speed_pressed() -> void:
 			Global.total_points -= next_level_exp
 			shop_tip.start_animation('升级成功！', 0.25)
 			Global.save_game()
-			_on_shop_pressed()
+			_on_shop_pressed(false)
 		else:
 			shop_tip.start_animation('Point不足！', 0.25)
 			$Buzzer.play()
@@ -342,7 +376,7 @@ func _on_move_speed_pressed() -> void:
 			Global.total_points -= next_level_exp
 			shop_tip.start_animation('升级成功！', 0.25)
 			Global.save_game()
-			_on_shop_pressed()
+			_on_shop_pressed(false)
 		else:
 			shop_tip.start_animation('Point不足！', 0.25)
 			$Buzzer.play()
@@ -358,7 +392,7 @@ func _on_atk_speed_pressed() -> void:
 			Global.total_points -= next_level_exp
 			shop_tip.start_animation('升级成功！', 0.25)
 			Global.save_game()
-			_on_shop_pressed()
+			_on_shop_pressed(false)
 		else:
 			shop_tip.start_animation('Point不足！', 0.25)
 			$Buzzer.play()
@@ -370,7 +404,7 @@ func _on_atk_speed_pressed() -> void:
 			Global.total_points -= next_level_exp
 			shop_tip.start_animation('升级成功！', 0.25)
 			Global.save_game()
-			_on_shop_pressed()
+			_on_shop_pressed(false)
 		else:
 			shop_tip.start_animation('Point不足！', 0.25)
 			$Buzzer.play()
@@ -423,3 +457,86 @@ func _on_world_level_item_focused(index: int) -> void:
 		Global.world_level_reward_multiple = 16
 	tip.start_animation('世界等级: ' + str(Global.world_level) + '，敌人属性' + str(Global.world_level_multiple * 100) + '%，收益' + str(Global.world_level_reward_multiple * 100) + '%！', 0.7)
 	Global.save_game()
+
+
+func _on_change_stage_button_pressed() -> void:
+	scale_background_to_2()
+	_transition_to_layer(level_layer, [shop_layer, canvas_layer], [bgm_change_button, world_level_option])
+
+
+func _on_atk_speed_mouse_entered() -> void:
+	atk_speed_label.visible = true
+
+
+func _on_atk_speed_mouse_exited() -> void:
+	atk_speed_label.visible = false
+	
+
+func _on_hp_move_speed_focus_entered() -> void:
+	move_speed_label.visible = true
+
+func _on_hp_move_speed_focus_exited() -> void:
+	move_speed_label.visible = false
+
+
+func _on_bullet_size_point_add_mouse_entered() -> void:
+	point_add_label.visible = true
+
+
+func _on_bullet_size_point_add_mouse_exited() -> void:
+	point_add_label.visible = false
+
+
+func _on_button_pressed() -> void:
+	shop_tip.start_animation('切换成功！', 0.35)
+	change_stage_button.disabled = false
+	hero2_button.set_pressed(false)
+	hero3_button.set_pressed(false)
+	hero4_button.set_pressed(false)
+
+func move_background_down() -> void:
+	if background:
+		var tween = create_tween()
+		var start_position = background.position
+		var target_position = start_position + Vector2(0, -240)
+		tween.tween_property(background, "position", target_position, 0.4)
+
+func move_background_up() -> void:
+	if background:
+		var tween = create_tween()
+		var start_position = background.position
+		var target_position = start_position + Vector2(0, 240)
+		tween.tween_property(background, "position", target_position, 0.4)
+
+func scale_background_to_2() -> void:
+	if background:
+		var tween = create_tween()
+		tween.tween_property(background, "scale", Vector2(2.0, 2.0), 0.4)
+		
+func scale_background_to_1() -> void:
+	if background:
+		var tween = create_tween()
+		tween.tween_property(background, "scale", Vector2(1.048, 1.097), 0.4)
+
+func _on_button_2_pressed() -> void:
+	shop_tip.start_animation('角色未开放！', 0.35)
+	change_stage_button.disabled = true
+	hero1_button.set_pressed(false)
+	hero3_button.set_pressed(false)
+	hero4_button.set_pressed(false)
+
+
+func _on_button_3_pressed() -> void:
+	shop_tip.start_animation('角色未开放！', 0.35)
+	change_stage_button.disabled = true
+	hero2_button.set_pressed(false)
+	hero1_button.set_pressed(false)
+	hero4_button.set_pressed(false)
+
+
+func _on_button_4_pressed() -> void:
+	shop_tip.start_animation('角色未开放！', 0.35)
+	change_stage_button.disabled = true
+	hero2_button.set_pressed(false)
+	hero3_button.set_pressed(false)
+	hero1_button.set_pressed(false)

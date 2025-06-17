@@ -3,7 +3,7 @@ extends Node
 const CONFIG_PATH = "user://game_config.cfg"
 
 # Buff配置管理器（需要在项目设置中设置为自动加载）
-var SettingBuff = preload("res://Script/setting_buff.gd").new()
+var SettingBuff = preload("res://Script/config/setting_buff.gd").new()
 
 @export var total_points : int = 1000
 
@@ -20,11 +20,14 @@ var SettingBuff = preload("res://Script/setting_buff.gd").new()
 
 # 跟升级抽卡有关的
 @export var lunky_level : int = 1
-@export var gold_p : float = 3.5
-@export var orange_p : float = 10
+@export var red_p : float = 3.5
+@export var gold_p : float = 10
 @export var purple_p : float = 18
 @export var blue_p : float = 25
 @export var green_p : float = 30
+
+# 刷新次数
+@export var refresh_max_num : int = 3 
 
 
 # 世界等级（难度级）对应血量，伤害为：
@@ -78,6 +81,12 @@ signal buff_removed(buff_id: String)
 signal buff_updated(buff_id: String, remaining_time: float, stack: int)
 signal buff_stack_changed(buff_id: String, new_stack: int)
 
+# 攻击相关
+signal skill_cooldown_complete
+
+# 剑气相关
+signal createSwordWave
+signal _fire_ring_bullets
 
 func _ready() -> void:
 	Global.monster_damage.connect(_on_monster_damage)
@@ -103,8 +112,8 @@ func save_game() -> void:
 		"point_add_level": point_add_level,
 		"bullet_size_level": bullet_size_level,
 		"lunky_level": lunky_level,
+		"red_p": red_p,
 		"gold_p": gold_p,
-		"orange_p": orange_p,
 		"purple_p": purple_p,
 		"blue_p": blue_p,
 		"green_p": green_p,
@@ -141,8 +150,8 @@ func load_game() -> void:
 	world_level_multiple = config.get_value("save", "world_level_multiple", world_level_multiple)
 	world_level_reward_multiple = config.get_value("save", "world_level_reward_multiple", world_level_reward_multiple)
 	lunky_level = config.get_value("save", "lunky_level", lunky_level)
+	red_p = config.get_value("save", "red_p", red_p)
 	gold_p = config.get_value("save", "gold_p", gold_p)
-	orange_p = config.get_value("save", "orange_p", orange_p)
 	purple_p = config.get_value("save", "purple_p", purple_p)
 	blue_p = config.get_value("save", "blue_p", blue_p)
 	green_p = config.get_value("save", "green_p", green_p)
@@ -152,8 +161,9 @@ func load_game() -> void:
 	
 var hit_scene = null
 
-func play_hit_anime(position : Vector2, is_crit: bool = false):
-	print('hit_anime_start')
+func play_hit_anime(position : Vector2, is_crit: bool = false, anime: int = 1):
+	if anime == 0:
+		return
 	if hit_scene == null:
 		hit_scene = ResourceLoader.load("res://Scenes/global/hit.tscn")
 	var hit_instantiate = hit_scene.instantiate()

@@ -1,5 +1,6 @@
 extends Control
 
+# 对话节点引用
 @onready var speaker_left: TextureRect = $SpeakerLeft
 @onready var speaker_middle: TextureRect = $SpeakerMiddle
 @onready var speaker_right: TextureRect = $SpeakerRight
@@ -78,10 +79,10 @@ func _read_dialog_data_from_csv(file_path: String) -> Array:
 				printerr("CSV header/row size mismatch in line: ", csv_line, " in file: ", file_path)
 				continue # 跳过格式错误的行或根据需要处理错误
 			var line_dict: Dictionary = {}
-			# 按类型处理
 			for i in range(headers.size()):
 				var key = headers[i].strip_edges()
 				var value_str = csv_line[i].strip_edges()
+				# 尝试推断类型（基本实现）
 				if value_str.to_lower() == "true":
 					line_dict[key] = true
 				elif value_str.to_lower() == "false":
@@ -100,7 +101,7 @@ func _read_dialog_data_from_csv(file_path: String) -> Array:
 # 从CSV文件读取对话数据的功能。
 func _read_dialog_data(file_path: String) -> Array:
 	var extension = file_path.get_extension().to_lower()
-	if extension == "csv":
+	if extension == "csv" or extension == "txt":
 		return _read_dialog_data_from_csv(file_path)
 	else:
 		printerr("Unsupported file type for dialog: ", file_path, ". Please use .csv files.")
@@ -112,12 +113,15 @@ func _process_current_dialog_line():
 		_end_dialog()
 		return
 
-	# _advance_dialog_with_transition 处理了潜在过渡之后调用
-	# 这块主要是防止动画没过渡完就跳过导致显示不正确
+	# 此函数在由 _advance_dialog_with_transition 处理的潜在过渡之后调用
+	# 因此，需要淡出的元素应该已经淡出。
+	# 我们现在设置新状态并淡入新元素。
+
 	current_line_data = current_dialog_data[current_dialog_index]
-	# 重置选项显示标志，为新对话行做准备
+	# 重置选项显示标志，为新的对话行做准备
 	choices_already_shown = false
 
+	# 发言人名称和面板可见性（立即，这些面板本身暂时没有过渡）
 	var speaker_name_text = current_line_data.get("speaker", "")
 	var ill_left_status = current_line_data.get("illustrationLeftStatus", false)
 	var ill_mid_status = current_line_data.get("illustrationMiddleStatus", false)
@@ -132,15 +136,16 @@ func _process_current_dialog_line():
 	elif ill_right_status:
 		speaker_name_panel_right.visible = true
 		speaker_name_right.text = speaker_name_text
-	else:
+	else: # 如果没有状态为true但存在发言人姓名，则默认为左侧
 		if not speaker_name_text.is_empty():
 			speaker_name_panel_left.visible = true
 			speaker_name_left.text = speaker_name_text
 
 	# 立绘 - 带过渡更新
-	_update_illustration(speaker_left, current_line_data.get("illustrationLeft", ""), ill_left_status, true)
-	_update_illustration(speaker_middle, current_line_data.get("illustrationMiddle", ""), ill_mid_status, true)
-	_update_illustration(speaker_right, current_line_data.get("illustrationRight", ""), ill_right_status, true)
+	print("ill_status",ill_left_status,ill_mid_status,ill_right_status)
+	_update_illustration(speaker_left, current_line_data.get("illustrationLeft", ""), ill_left_status is bool if ill_left_status else false, true)
+	_update_illustration(speaker_middle, current_line_data.get("illustrationMiddle", ""),  ill_mid_status is bool if ill_mid_status else false, true)
+	_update_illustration(speaker_right, current_line_data.get("illustrationRight", ""),  ill_right_status is bool if ill_right_status else false, true)
 
 	# 对话文本（打字机效果）
 	var dialog_content = current_line_data.get("dialog", "")
@@ -151,9 +156,15 @@ func _update_illustration(texture_rect: TextureRect, path: String, is_speaking: 
 	var should_be_visible = not path.is_empty() and ResourceLoader.exists(path)
 	var transition_duration = 0.35
 
+	# 清除此 TextureRect 上任何现有的补间动画以避免冲突
+	# 假设补间动画是作为其动画目标的 texture_rect 的子节点添加的
+	#for child in texture_rect.get_children():
+		#if child is Tween and child.is_valid():
+			#child.kill()
+			#child.queue_free()
+
 	var tween = get_tree().create_tween()
-	# 顺序动画
-	tween.set_parallel(false) 
+	tween.set_parallel(false) # 如果需要，确保顺序动画，尽管并行的 modulate/alpha 也可以
 	tween.set_trans(Tween.TRANS_LINEAR)
 	tween.set_ease(Tween.EASE_IN_OUT)
 
@@ -168,7 +179,7 @@ func _update_illustration(texture_rect: TextureRect, path: String, is_speaking: 
 				texture_rect.visible = false # 已经不可见或完全淡出
 				tween.kill() # 不需要动画
 				is_animating_illustrations = false
-		else:
+		else: # 应该可见
 			var new_texture = load(path)
 			if not texture_rect.visible or texture_rect.texture != new_texture:
 				# 如果不可见或纹理更改，则设置新纹理，使其透明，然后淡入
@@ -184,7 +195,7 @@ func _update_illustration(texture_rect: TextureRect, path: String, is_speaking: 
 			else:
 				tween.kill() # 如果状态已正确，则无需动画
 				is_animating_illustrations = false
-	else: 
+	else: # 无过渡，立即更改
 		tween.kill() # 如果不使用过渡，则终止补间动画
 		if not should_be_visible:
 			texture_rect.visible = false
@@ -234,11 +245,11 @@ func _check_for_choices():
 		# 标记选项已经显示
 		choices_already_shown = true
 		
-		# 如果有选项，则显示选项容器，先看选项1，只要选项1存在就算该行有选项
+		# 如果有选项，则显示选项容器
 		change_container.visible = true
 		change_button_1.text = choice1_text
-		change_button_1.visible = texture
-
+		change_button_1.visible = true
+		# 淡入选项
 		_fade_in_node(change_button_1)
 
 		var choice2_text = current_line_data.get("change2", "")
@@ -259,11 +270,13 @@ func _check_for_choices():
 			change_button_4.visible = true
 			_fade_in_node(change_button_4)
 	else:
+		# 如果没有选项，则允许通过输入（例如，单击/回车）继续
+		# 这部分需要根据您希望如何推进对话来实现
 		pass 
 
-func _fade_in_node(node: Control, duration: float = 0.15): 
+func _fade_in_node(node: Control, duration: float = 0.15): # 已调整默认持续时间
 	node.modulate.a = 0
-	var tween = get_tree().create_tween()
+	var tween = get_tree().create_tween() # 使用 get_tree().create_tween()
 	tween.tween_property(node, "modulate:a", 1.0, duration)
 
 # 辅助函数，用于在处理新行之前为正在更改/消失的立绘制作淡出动画
@@ -295,7 +308,7 @@ func _on_choice_pressed(choice_number: int):
 	for button in choice_buttons:
 		button.visible = false
 		button.modulate.a = 1.0 # 为下次重置 alpha 值
-	change_container.visible = false 
+	change_container.visible = false # Hide container after choices are processed and faded out
 	
 	# 重置选项显示标志，为下一行对话做准备
 	choices_already_shown = false
@@ -330,6 +343,7 @@ func _find_next_available_line():
 func _advance_dialog_line(condition_id: String = ""):
 	print("Advancing dialog line. Current index: ", current_dialog_index, " Next index: ", current_dialog_index + 1, " with condition: ", condition_id)
 	
+	# 检查当前行是否有 'changeEnd' 标志
 	var current_change_end = current_line_data.get("changeEnd", false)
 	
 	# 如果当前行有changeEnd且没有指定跳转条件，寻找下一个可用的对话行
@@ -372,9 +386,8 @@ func _end_dialog():
 	self.visible = false 
 
 
-func _input(event: InputEvent):
-	# 如果对话框隐藏（也就是不在对话状态中），则不处理输入
-	if not self.visible: return 
+func _input(event: InputEvent): # 确保为此节点设置 process_input(true) 或全局处理输入
+	if not self.visible: return # 如果对话框隐藏，则不处理输入
 
 	if event.is_action_pressed("ui_accept") or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed):
 		# 如果立绘正在进行动画，则阻止输入
