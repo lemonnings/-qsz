@@ -313,9 +313,11 @@ func find_nearest_enemy() -> Node2D:
 	# 获取场景中的所有敌人
 	var enemies = get_tree().get_nodes_in_group("enemies")
 	for enemy in enemies:
+		var distance = position.distance_to(enemy.position)
+		if distance > PC.swordQi_range + 15:
+			continue
 		if enemy and is_instance_valid(enemy):
 			# 计算距离
-			var distance = position.distance_to(enemy.position)
 			if distance < nearest_distance:
 				nearest_distance = distance
 				nearest_enemy = enemy

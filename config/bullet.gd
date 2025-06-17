@@ -1,7 +1,7 @@
 extends Area2D
 
 @export var bullet_speed: float = 575
-@export var bullet_range: float = 125.0  # 子弹射程
+@export var bullet_range: float = PC.swordQi_range  # 子弹射程
 @export var penetration_count: int = 1  # 穿透次数，默认为1
 
 # 预加载剑痕场景
@@ -298,10 +298,9 @@ func find_nearest_enemy() -> void:
 	var nearest_distance = INF
 	
 	for enemy in enemies:
+		var distance = global_position.distance_to(enemy.global_position)
 		if enemy and is_instance_valid(enemy) and enemy.has_method("_on_area_entered"):
-			var distance = global_position.distance_to(enemy.global_position)
-			# Only consider enemies within bullet_range + 15
-			if distance < (bullet_range + 15.0) and distance < nearest_distance:
+			if  distance < nearest_distance:
 				nearest_distance = distance
 				nearest_enemy = enemy
 	

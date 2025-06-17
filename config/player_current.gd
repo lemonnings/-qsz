@@ -37,6 +37,7 @@ extends Node
 @export var main_skill_swordQi_damage : float = 1
 @export var swordQi_penetration_count : int = 1
 @export var swordQi_other_sword_wave_damage : float = 0.5
+@export var swordQi_range :float = 120
 
 # 反弹子弹相关属性
 @export var rebound_size_multiplier : float = 0.4  # 反弹子弹大小倍数
