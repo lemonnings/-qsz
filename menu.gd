@@ -206,7 +206,7 @@ func get_exp_for_level(level: int) -> int:
 	level = level + 1
 	var base_exp = 200
 	var increment = 125
-	var multiplier = 1.03
+	var multiplier = 1.025
 	var exp_now = base_exp
 	for i in range(1, level):
 		exp_now = ceil((exp_now + increment) * multiplier)
