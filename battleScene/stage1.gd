@@ -9,15 +9,33 @@ extends Node2D
 
 @export var warning_scene: Control
 
-#@export var slime_spawn_timer: Timer # Removed
-#@export var bat_spawn_timer: Timer # Removed
-#@export var frog_spawn_timer: Timer # Removed
+var MIN_SPAWN_INTERVAL : float = 2.25
+var next_spawn_interval : float = 4
+var SPAWN_INTERVAL_DECREMENT : float = 0.05
+var SLIME_MAX_SPAWN_INCREASE_THRESHOLD : int = 8
+var SLIME_MIN_SPAWN_INCREASE_THRESHOLD : int = 10
+var BAT_MAX_SPAWN_INCREASE_THRESHOLD : int = 10
+var BAT_MIN_SPAWN_INCREASE_THRESHOLD : int = 15
+var FROG_MIN_SPAWN_INCREASE_THRESHOLD : int = 15
+var FROG_MAX_SPAWN_INCREASE_THRESHOLD : int = 20
+var slime_min_spawn : int = 2
+var slime_max_spawn : int = 4
+var slime_upper_limit : int = 12
+var bat_min_spawn : int = 1
+var bat_max_spawn : int = 2
+var bat_upper_limit : int = 8
+var frog_min_spawn : int = 1
+var frog_max_spawn : int = 1
+var frog_upper_limit : int = 4
+
 @export var monster_spawn_timer: Timer # Added new unified timer
 
 @export var point: int
 var monster_move_direction: int
 var map_mechanism_num: float
 var map_mechanism_num_max: float
+
+var spawn_count : int = 0
 
 var current_monster_count: int = 0
 var max_monster_limit: int = 90
@@ -89,17 +107,6 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	# 计算时间出怪 - Removed old timer logic
-	# slime_spawn_timer.wait_time -= 0.016 * delta
-	# #slime_spawn_timer.wait_time = clamp(slime_spawn_timer.wait_time, 0.125, 1.1)
-	# slime_spawn_timer.wait_time = clamp(slime_spawn_timer.wait_time, 0.125, 0.125)
-	# bat_spawn_timer.wait_time -= 0.011 * delta
-	# #bat_spawn_timer.wait_time = clamp(bat_spawn_timer.wait_time, 0.55, 2)
-	# bat_spawn_timer.wait_time = clamp(bat_spawn_timer.wait_time, 0.55, 0.55)
-	# frog_spawn_timer.wait_time -= 0.01 * delta
-	# #frog_spawn_timer.wait_time = clamp(frog_spawn_timer.wait_time, 2, 6)
-	# frog_spawn_timer.wait_time = clamp(frog_spawn_timer.wait_time, 2, 2)
-	
 	# 格式化分数显示
 	var formatted_point: String
 	if point >= 10000000:
@@ -125,17 +132,17 @@ func _physics_process(_delta: float) -> void:
 		# 随着时间增长，提高怪物的属性
 	#print(PC.current_time,' ',slime_spawn_timer.wait_time,' ',bat_spawn_timer.wait_time,' ',frog_spawn_timer.wait_time)
 	if PC.current_time < 0.3:
-		PC.current_time = PC.current_time + 0.00034
+		PC.current_time = PC.current_time + 0.00012
 	elif PC.current_time >= 0.3 and PC.current_time <= 1.92:
-		PC.current_time = PC.current_time + 0.001
+		PC.current_time = PC.current_time + 0.0003
 	elif PC.current_time > 1.92 and PC.current_time <= 6.4:
-		PC.current_time = PC.current_time + 0.0025
+		PC.current_time = PC.current_time + 0.0009
 	elif PC.current_time > 6.4 and PC.current_time <= 19.2 and Global.world_level != 1:
-		PC.current_time = PC.current_time + 0.007
+		PC.current_time = PC.current_time + 0.002
 	elif PC.current_time > 19.2 and PC.current_time <= 76.8 and Global.world_level != 1:
-		PC.current_time = PC.current_time + 0.022
+		PC.current_time = PC.current_time + 0.008
 	elif PC.current_time > 76.8 and PC.current_time <= 307.2 and Global.world_level != 1:
-		PC.current_time = PC.current_time + 0.075
+		PC.current_time = PC.current_time + 0.025
 	elif Global.world_level != 1:
 		PC.current_time = PC.current_time * 1.0012
 	else:
@@ -294,7 +301,6 @@ func _on_level_up_selection_complete() -> void:
 	# 断开信号连接
 	if Global.is_connected("level_up_selection_complete", _on_level_up_selection_complete):
 		Global.disconnect("level_up_selection_complete", _on_level_up_selection_complete)
-
 
 func _on_monster_spawn_timer_timeout() -> void:
 	spawn_count += 1

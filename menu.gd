@@ -74,7 +74,7 @@ func reset_player_attr() -> void :
 	Global.in_menu = false
 	PC.is_game_over = false
 	
-	PC.selected_rewards = ["SplitSwordQi3","SplitSwordQi31"] # "swordWaveTrace"
+	PC.selected_rewards = ["SplitSwordQi2"] # "swordWaveTrace"
 	
 	exec_pc_atk()
 	exec_pc_hp()
@@ -122,7 +122,7 @@ func reset_player_attr() -> void :
 	PC.main_skill_swordQi = 0
 	PC.main_skill_swordQi_advance = 0
 	PC.main_skill_swordQi_damage = 1
-	PC.swordQi_penetration_count = 5
+	PC.swordQi_penetration_count = 1
 	PC.swordQi_other_sword_wave_damage = 0.5
 	
 	PC.refresh_num = Global.refresh_max_num

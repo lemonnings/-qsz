@@ -1288,7 +1288,6 @@ func SplitSwordQi1():
 	
 func SplitSwordQi2():
 	PC.selected_rewards.append("SplitSwordQi2")
-	PC.selected_rewards.append("swordWaveTrace")
 	_level_up_action()
 	
 func SplitSwordQi3():

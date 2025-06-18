@@ -61,7 +61,7 @@ func setup_wave(wave_target_position: Vector2):
 	if sword_wave_sprite:
 		# 假设Sprite2D的原始尺寸适合通过scale.x设置长度，scale.y设置宽度
 		# 如果Sprite2D的原始高度不是1，SWORD_WAVE_WIDTH可能需要调整或用作像素尺寸
-		sword_wave_sprite.scale.x = (distance / 37.5) + 1
+		sword_wave_sprite.scale.x = (distance / 37.5) + 0.8
 		if PC.selected_rewards.has("SplitSwordQi21"):
 			sword_wave_sprite.scale.y = SWORD_WAVE_WIDTH * 1.25
 		else:
