@@ -120,7 +120,7 @@ func _on_body_entered(body: Node2D) -> void:
 	if(body is CharacterBody2D and not is_dead and not PC.invincible) :
 		Global.emit_signal("player_hit")
 		var damage_before_debuff = atk * (1.0 - PC.damage_reduction_rate)
-		var actual_damage = int(damage_before_debuff * debuff_manager.get_damage_multiplier())
+		var actual_damage = int(damage_before_debuff * debuff_manager.get_take_damage_multiplier())
 		PC.pc_hp -= actual_damage
 		if PC.pc_hp <= 0:
 			body.game_over()
@@ -141,7 +141,6 @@ func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: Strin
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
-
 		# 使用BulletCalculator处理完整的子弹碰撞逻辑
 		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self, false)
 		

@@ -131,6 +131,12 @@ func _reapply_remaining_debuff_effects():
 			target_enemy.modulate = active_debuffs[last_modulate_debuff_id].config.modulate_color
 
 
+func get_take_damage_multiplier() -> float:
+	var multiplier = 1.0
+	if active_debuffs.has("devulnerable"):
+		multiplier -= 0.25 # 造成-25%
+	return multiplier
+
 func get_damage_multiplier() -> float:
 	var multiplier = 1.0
 	if active_debuffs.has("vulnerable"):
@@ -140,7 +146,7 @@ func get_damage_multiplier() -> float:
 func get_speed_multiplier() -> float:
 	var multiplier = 1.0
 	if active_debuffs.has("slow"):
-		multiplier -= 0.9 # 减速效果，速度减少20%
+		multiplier -= 0.25 # 减速效果，速度减少20%
 	return multiplier
 
 func has_debuff(debuff_id: String) -> bool:

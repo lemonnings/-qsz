@@ -9,9 +9,10 @@ extends Node2D
 
 @export var warning_scene: Control
 
-@export var slime_spawn_timer: Timer
-@export var bat_spawn_timer: Timer
-@export var frog_spawn_timer: Timer
+#@export var slime_spawn_timer: Timer # Removed
+#@export var bat_spawn_timer: Timer # Removed
+#@export var frog_spawn_timer: Timer # Removed
+@export var monster_spawn_timer: Timer # Added new unified timer
 
 @export var point: int
 var monster_move_direction: int
@@ -74,22 +75,30 @@ func _ready() -> void:
 	
 	skill1.visible = true
 	skill1.update_skill(1, $Player.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+
+	# Initialize and start the new monster spawn timer
+	monster_spawn_timer = Timer.new()
+	add_child(monster_spawn_timer)
+	monster_spawn_timer.wait_time = 0.1 # Start almost immediately for the first spawn
+	monster_spawn_timer.one_shot = false # Make it recurring
+	monster_spawn_timer.connect("timeout", Callable(self, "_on_monster_spawn_timer_timeout"))
+	monster_spawn_timer.start()
 	
 	# 测试添加一些buff（可以删除这部分）
 	_test_buffs()
 
 
 func _process(delta: float) -> void:
-	# 计算时间出怪
-	slime_spawn_timer.wait_time -= 0.016 * delta
-	#slime_spawn_timer.wait_time = clamp(slime_spawn_timer.wait_time, 0.125, 1.1)
-	slime_spawn_timer.wait_time = clamp(slime_spawn_timer.wait_time, 0.125, 0.125)
-	bat_spawn_timer.wait_time -= 0.011 * delta
-	#bat_spawn_timer.wait_time = clamp(bat_spawn_timer.wait_time, 0.55, 2)
-	bat_spawn_timer.wait_time = clamp(bat_spawn_timer.wait_time, 0.55, 0.55)
-	frog_spawn_timer.wait_time -= 0.01 * delta
-	#frog_spawn_timer.wait_time = clamp(frog_spawn_timer.wait_time, 2, 6)
-	frog_spawn_timer.wait_time = clamp(frog_spawn_timer.wait_time, 2, 2)
+	# 计算时间出怪 - Removed old timer logic
+	# slime_spawn_timer.wait_time -= 0.016 * delta
+	# #slime_spawn_timer.wait_time = clamp(slime_spawn_timer.wait_time, 0.125, 1.1)
+	# slime_spawn_timer.wait_time = clamp(slime_spawn_timer.wait_time, 0.125, 0.125)
+	# bat_spawn_timer.wait_time -= 0.011 * delta
+	# #bat_spawn_timer.wait_time = clamp(bat_spawn_timer.wait_time, 0.55, 2)
+	# bat_spawn_timer.wait_time = clamp(bat_spawn_timer.wait_time, 0.55, 0.55)
+	# frog_spawn_timer.wait_time -= 0.01 * delta
+	# #frog_spawn_timer.wait_time = clamp(frog_spawn_timer.wait_time, 2, 6)
+	# frog_spawn_timer.wait_time = clamp(frog_spawn_timer.wait_time, 2, 2)
 	
 	# 格式化分数显示
 	var formatted_point: String
@@ -209,9 +218,10 @@ func _trigger_boss_event() -> void:
 	#frog_spawn_timer.wait_time += 4.0
 	
 	 # 停止计时器，防止在warning期间继续生成小怪
-	slime_spawn_timer.stop()
-	bat_spawn_timer.stop()
-	frog_spawn_timer.stop()
+	#slime_spawn_timer.stop() # Removed
+	#bat_spawn_timer.stop() # Removed
+	#frog_spawn_timer.stop() # Removed
+	monster_spawn_timer.stop() # Stop the new timer
 	
 	# 获取场景中的warning节点
 	var warning_node = get_node_or_null("CanvasLayer/Warning")
@@ -254,9 +264,10 @@ func _trigger_boss_event() -> void:
 
 func _on_warning_finished() -> void:
 	# 重新启动计时器 (如果需要的话，或者根据游戏逻辑决定是否重启)
-	# slime_spawn_timer.start()
-	# bat_spawn_timer.start()
-	# frog_spawn_timer.start()
+	# slime_spawn_timer.start() # Removed
+	# bat_spawn_timer.start() # Removed
+	# frog_spawn_timer.start() # Removed
+	# monster_spawn_timer.start() # Restart the new timer if needed after boss, or handle differently
 	await get_tree().create_timer(3).timeout
 	
 	Global.emit_signal("boss_bgm", 1)
@@ -285,55 +296,124 @@ func _on_level_up_selection_complete() -> void:
 		Global.disconnect("level_up_selection_complete", _on_level_up_selection_complete)
 
 
-func _spawn_slime() -> void:
-	if current_monster_count >= max_monster_limit:
-		return
-	var slime_node = slime_scene.instantiate()
-	monster_move_direction = randi_range(0, 9)
-	slime_node.move_direction = monster_move_direction
-	if monster_move_direction == 0:
-		slime_node.position = Vector2(-400, randf_range(15, 259))
-	if monster_move_direction == 1:
-		slime_node.position = Vector2(400, randf_range(15, 259))
-	if monster_move_direction >= 2 and monster_move_direction <= 8:
-		slime_node.position = Vector2( randf_range(-400, 400),300)
-	else:
-		slime_node.position = Vector2(400, randf_range(15, 259))
-	get_tree().current_scene.add_child(slime_node)
-	current_monster_count += 1
-	slime_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
+func _on_monster_spawn_timer_timeout() -> void:
+	spawn_count += 1
 
-func _spawn_frog() -> void:
-	if current_monster_count >= max_monster_limit:
-		return
-	var frog_node = frog_scene.instantiate()
-	monster_move_direction = randi_range(0, 1)
-	if monster_move_direction == 0:
-		frog_node.position = Vector2(-400, randf_range(15, 259))
-	if monster_move_direction == 1:
-		frog_node.position = Vector2(400, randf_range(15, 259))
-	get_tree().current_scene.add_child(frog_node)
-	current_monster_count += 1
-	frog_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
+	# Decrease next spawn interval
+	next_spawn_interval = max(MIN_SPAWN_INTERVAL, next_spawn_interval - SPAWN_INTERVAL_DECREMENT)
+	monster_spawn_timer.wait_time = next_spawn_interval
+
+	# Adjust monster spawn limits based on spawn_count
+	if spawn_count % SLIME_MAX_SPAWN_INCREASE_THRESHOLD == 0:
+		slime_max_spawn = min(slime_max_spawn + 1, slime_upper_limit)
+	if spawn_count % SLIME_MIN_SPAWN_INCREASE_THRESHOLD == 0:
+		slime_min_spawn = min(slime_min_spawn + 1, slime_max_spawn) # Ensure min doesn't exceed max
+	if spawn_count % BAT_MAX_SPAWN_INCREASE_THRESHOLD == 0:
+		bat_max_spawn = min(bat_max_spawn + 1, bat_upper_limit)
+	if spawn_count % BAT_MIN_SPAWN_INCREASE_THRESHOLD == 0:
+		bat_min_spawn = min(bat_min_spawn + 1, bat_max_spawn)
+	if spawn_count % FROG_MIN_SPAWN_INCREASE_THRESHOLD == 0:
+		frog_min_spawn = min(frog_min_spawn + 1, frog_max_spawn)
+	if spawn_count % FROG_MAX_SPAWN_INCREASE_THRESHOLD == 0:
+		frog_max_spawn = min(frog_max_spawn + 1, frog_upper_limit)
+
+	# Spawn monsters
+	var num_slimes_to_spawn = randi_range(slime_min_spawn, slime_max_spawn)
+	_spawn_slime(num_slimes_to_spawn)
+
+	var num_bats_to_spawn = randi_range(bat_min_spawn, bat_max_spawn)
+	_spawn_bat(num_bats_to_spawn)
+
+	var num_frogs_to_spawn = randi_range(frog_min_spawn, frog_max_spawn)
+	_spawn_frog(num_frogs_to_spawn)
 
 
-func _spawn_bat() -> void:
-	if current_monster_count >= max_monster_limit:
-		return
-	var bat_node = bat_scene.instantiate()
-	monster_move_direction = randi_range(0, 9)
-	bat_node.move_direction = monster_move_direction
-	if monster_move_direction == 0:
-		bat_node.position = Vector2(-400, randf_range(15, 244))
-	if monster_move_direction == 1:
-		bat_node.position = Vector2(400, randf_range(15, 244))
-	if monster_move_direction >= 2 and monster_move_direction <= 8:
-		bat_node.position = Vector2( randf_range(-400, 400),300)
-	else:
-		bat_node.position = Vector2(400, randf_range(15, 259))
-	get_tree().current_scene.add_child(bat_node)
-	current_monster_count += 1
-	bat_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
+func _spawn_slime(count: int) -> void:
+	for _i in range(count):
+		if current_monster_count >= max_monster_limit:
+			return
+		var slime_node = slime_scene.instantiate()
+		
+		# Determine spawn edge (0: top, 1: bottom, 2: left, 3: right)
+		var spawn_edge = randi_range(0, 3)
+		var spawn_position = Vector2.ZERO
+		
+		match spawn_edge:
+			0: # Top
+				spawn_position = Vector2(randf_range(-400, 400), -300)
+				slime_node.move_direction = randi_range(2,8) # Move towards player (downwards bias)
+			1: # Bottom
+				spawn_position = Vector2(randf_range(-400, 400), 300)
+				slime_node.move_direction = randi_range(2,8) # Move towards player (upwards bias)
+			2: # Left
+				spawn_position = Vector2(-400, randf_range(15, 259))
+				if randf() < 0.1:
+					slime_node.move_direction = 0 # Move right (away from player)
+				else:
+					slime_node.move_direction = randi_range(2,8) # Move towards player (rightwards bias)
+			3: # Right
+				spawn_position = Vector2(400, randf_range(15, 259))
+				if randf() < 0.1:
+					slime_node.move_direction = 1 # Move left (away from player)
+				else:
+					slime_node.move_direction = randi_range(2,8) # Move towards player (leftwards bias)
+
+		slime_node.position = spawn_position
+		get_tree().current_scene.add_child(slime_node)
+		current_monster_count += 1
+		slime_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
+
+func _spawn_frog(count: int) -> void:
+	for _i in range(count):
+		if current_monster_count >= max_monster_limit:
+			return
+		var frog_node = frog_scene.instantiate()
+		# Frog always spawns from left or right and moves towards player
+		var spawn_side = randi_range(0,1) # 0 for left, 1 for right
+		if spawn_side == 0:
+			frog_node.position = Vector2(-400, randf_range(15, 259))
+		else:
+			frog_node.position = Vector2(400, randf_range(15, 259))
+		# Frog move_direction is handled within its own script, typically towards player
+		get_tree().current_scene.add_child(frog_node)
+		current_monster_count += 1
+		frog_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
+
+
+func _spawn_bat(count: int) -> void:
+	for _i in range(count):
+		if current_monster_count >= max_monster_limit:
+			return
+		var bat_node = bat_scene.instantiate()
+
+		# Determine spawn edge (0: top, 1: bottom, 2: left, 3: right)
+		var spawn_edge = randi_range(0, 3)
+		var spawn_position = Vector2.ZERO
+
+		match spawn_edge:
+			0: # Top
+				spawn_position = Vector2(randf_range(-400, 400), -300)
+				bat_node.move_direction = randi_range(2,8) # Move towards player (downwards bias)
+			1: # Bottom
+				spawn_position = Vector2(randf_range(-400, 400), 300)
+				bat_node.move_direction = randi_range(2,8) # Move towards player (upwards bias)
+			2: # Left
+				spawn_position = Vector2(-400, randf_range(15, 244))
+				if randf() < 0.1:
+					bat_node.move_direction = 0 # Move right (away from player)
+				else:
+					bat_node.move_direction = randi_range(2,8) # Move towards player (rightwards bias)
+			3: # Right
+				spawn_position = Vector2(400, randf_range(15, 244))
+				if randf() < 0.1:
+					bat_node.move_direction = 1 # Move left (away from player)
+				else:
+					bat_node.move_direction = randi_range(2,8) # Move towards player (leftwards bias)
+
+		bat_node.position = spawn_position
+		get_tree().current_scene.add_child(bat_node)
+		current_monster_count += 1
+		bat_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
 
 func _on_monster_defeated():
 	current_monster_count -= 1
