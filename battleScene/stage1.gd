@@ -38,8 +38,8 @@ var map_mechanism_num_max: float
 var spawn_count : int = 0
 
 var current_monster_count: int = 0
-var max_monster_limit: int = 90
-const MAX_MONSTER_CAP: int = 240
+var max_monster_limit: int = 30
+const MAX_MONSTER_CAP: int = 60
 const MONSTER_LIMIT_INCREASE_INTERVAL: float = 3.0 # seconds
 var monster_limit_increase_timer: float = 0.0
 
@@ -80,7 +80,7 @@ func _ready() -> void:
 	PC.player_instance = $Player
 	Global.emit_signal("reset_camera")
 	map_mechanism_num = 0
-	map_mechanism_num_max = 10800
+	map_mechanism_num_max = 21600
 	Global.connect("player_lv_up", Callable(self, "_on_level_up"))
 	Global.connect("level_up_selection_complete", Callable(self, "_check_and_process_pending_level_ups"))
 	Global.connect("monster_mechanism_gained", Callable(self, "_on_monster_mechanism_gained"))
@@ -128,7 +128,7 @@ func _physics_process(_delta: float) -> void:
 			max_monster_limit += 1
 
 	if not boss_event_triggered:
-		map_mechanism_num += _delta * 60
+		map_mechanism_num += _delta * 30
 		# 随着时间增长，提高怪物的属性
 	#print(PC.current_time,' ',slime_spawn_timer.wait_time,' ',bat_spawn_timer.wait_time,' ',frog_spawn_timer.wait_time)
 	if PC.current_time < 0.3:
@@ -309,6 +309,8 @@ func _on_monster_spawn_timer_timeout() -> void:
 	next_spawn_interval = max(MIN_SPAWN_INTERVAL, next_spawn_interval - SPAWN_INTERVAL_DECREMENT)
 	monster_spawn_timer.wait_time = next_spawn_interval
 
+	if current_monster_count >= max_monster_limit:
+		return
 	# Adjust monster spawn limits based on spawn_count
 	if spawn_count % SLIME_MAX_SPAWN_INCREASE_THRESHOLD == 0:
 		slime_max_spawn = min(slime_max_spawn + 1, slime_upper_limit)
@@ -504,7 +506,8 @@ func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
 				PC.refresh_num += 1
 			print("特殊技能抽取池已空")
 	# 创建背景变暗效果
-	if main_skill_name == '' and refresh_id == 0:
+	# if main_skill_name == '' and refresh_id == 0:
+	if refresh_id == 0:
 		var dark_overlay = ColorRect.new()
 		dark_overlay.color = Color(0, 0, 0, 0.35)  # 黑色，50%透明度
 		dark_overlay.size = get_viewport().get_visible_rect().size * 4
