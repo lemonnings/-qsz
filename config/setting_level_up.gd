@@ -117,7 +117,7 @@ func get_reward_level(rand_num: float, main_skill_name: String = '') -> Reward:
 
 # 根据稀有度字符串从 all_rewards_list 中筛选奖励
 func _get_rewards_by_rarity_str(rarity_str: String, main_skill_name: String) -> Array[Reward]:
-	print_debug("_get_rewards_by_rarity_str - rarity_str: ", rarity_str, ", main_skill_name: ", main_skill_name)
+	#print_debug("_get_rewards_by_rarity_str - rarity_str: ", rarity_str, ", main_skill_name: ", main_skill_name)
 	var filtered_rewards: Array[Reward] = []
 	
 	for reward_item in all_rewards_list:
@@ -127,11 +127,11 @@ func _get_rewards_by_rarity_str(rarity_str: String, main_skill_name: String) -> 
 				filtered_rewards.append(reward_item)
 		else:
 			# 主技能进阶升级（5的倍数）：只抽取if_advance=true且faction匹配的技能，忽略稀有度
-			print_debug("_get_rewards_by_rarity_str - checking for main_skill_name advance: reward_id: ", reward_item.id, ", if_advance: ", reward_item.if_advance, ", faction: ", reward_item.faction, ", main_skill_name: ", main_skill_name)
+			#print_debug("_get_rewards_by_rarity_str - checking for main_skill_name advance: reward_id: ", reward_item.id, ", if_advance: ", reward_item.if_advance, ", faction: ", reward_item.faction, ", main_skill_name: ", main_skill_name)
 			if reward_item.if_advance == true and reward_item.faction == main_skill_name:
 				filtered_rewards.append(reward_item)
 
-	print_debug("_get_rewards_by_rarity_str - returning filtered_rewards size: ", filtered_rewards.size())
+	#print_debug("_get_rewards_by_rarity_str - returning filtered_rewards size: ", filtered_rewards.size())
 	return filtered_rewards
 	
 
@@ -203,7 +203,7 @@ func _select_reward_by_weight(available_rewards: Array[Reward]) -> Reward:
 
 # 主要的奖励选择函数：基于稀有度（CSV中的名称）、派系选择和个体权重来获取一个奖励。
 func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Reward:
-	print_debug("select_reward - initial csv_rarity_name: ", csv_rarity_name, ", main_skill_name: ", main_skill_name)
+	#print_debug("select_reward - initial csv_rarity_name: ", csv_rarity_name, ", main_skill_name: ", main_skill_name)
 	var max_rerolls = 100 # 设置最大重抽次数，防止无限循环。
 	var is_main_skill_advance = false
 	for i in range(max_rerolls):
@@ -212,10 +212,10 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 			selected_faction = main_skill_name
 			is_main_skill_advance = true
 			csv_rarity_name = ''
-			print_debug("select_reward - main_skill_name is not empty. selected_faction: ", selected_faction, ", is_main_skill_advance: ", is_main_skill_advance, ", csv_rarity_name set to empty.")
+			#print_debug("select_reward - main_skill_name is not empty. selected_faction: ", selected_faction, ", is_main_skill_advance: ", is_main_skill_advance, ", csv_rarity_name set to empty.")
 
 		var all_rewards_for_rarity = _get_rewards_by_rarity_str(csv_rarity_name, main_skill_name)
-		print_debug("select_reward - all_rewards_for_rarity size: ", all_rewards_for_rarity.size())
+		#print_debug("select_reward - all_rewards_for_rarity size: ", all_rewards_for_rarity.size())
 		var faction_specific_rewards: Array[Reward] = []
 
 		for r in all_rewards_for_rarity:
@@ -226,7 +226,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 				# 普通升级：按派系筛选
 				if r.faction == selected_faction:
 					faction_specific_rewards.append(r)
-		print_debug("select_reward - faction_specific_rewards size after loop: ", faction_specific_rewards.size())
+		#print_debug("select_reward - faction_specific_rewards size after loop: ", faction_specific_rewards.size())
 				
 		if faction_specific_rewards != null and faction_specific_rewards.size() != 0:
 			var chosen_reward = _select_reward_by_weight(faction_specific_rewards)

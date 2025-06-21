@@ -207,7 +207,7 @@ func handle_penetration() -> bool:
 	
 	# 返回true表示处理这次碰撞，如果穿透计数<=0则销毁子弹
 	if PC.selected_rewards.has("SplitSwordQi2") and !if_summon:
-		print("Bullet hit enemy, creating SwordWave at: ", global_position)
+		#print("Bullet hit enemy, creating SwordWave at: ", global_position)
 		_create_sword_wave_instance(global_position)
 		
 	# 标记这一帧已经处理过碰撞

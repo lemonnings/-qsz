@@ -5,7 +5,7 @@ func slime(query : String):
 		"atk": 5 * Global.world_level_multiple * min(((1 + (PC.current_time/10))),3.5),
 		"hp": 18 * Global.world_level_multiple * (1 + PC.current_time),
 		"speed": 50,
-		"exp": 100 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
+		"exp": 1000 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 150 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8)* (1 + (Global.point_add_level * 0.1)),
 		"mechanism": 5 * min((1 + (PC.current_time) / 20), 4)
 	}

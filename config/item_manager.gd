@@ -16,10 +16,10 @@ extends Node
 
 var items_data = {
 	"item_001": {
-		"item_name": "初级治疗药水",
+		"item_name": "野果",
 		"item_stack_max": 10,
 		"item_type": "immediate", # 立即生效
-		"item_icon": "res://assets/icons/potion_red.png",
+		"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
 		"item_price": 50,
 		"item_source": "怪物掉落, 商店购买",
 		"item_use_condition": "HP < MaxHP",
@@ -57,6 +57,12 @@ var items_data = {
 	# 更多物品可以添加到这里
 }
 
+# 物品效果处理函数
+var item_function = {
+	"item_001": "_on_item_001_picked_up",
+	"item_002": "_on_item_002_picked_up"
+}
+
 # 根据物品ID获取该物品的所有数据
 func get_item_all_data(item_id: String) -> Dictionary:
 	if items_data.has(item_id):
@@ -77,6 +83,27 @@ func get_item_property(item_id: String, property_name: String):
 	else:
 		printerr("Item not found: ", item_id)
 		return null
+
+# 野果拾取函数
+func _on_item_001_picked_up(player):
+	# 只有满血时才能拾取
+	if PC.pc_hp != PC.pc_max_hp:
+		PC.pc_hp += PC.pc_max_hp * 0.2
+		# 防止生命值超过上限
+		if PC.pc_hp > PC.pc_max_hp:
+			PC.pc_hp = PC.pc_max_hp
+		return true # 表示成功拾取
+	else:
+		return false # 表示无法拾取
+
+# 力量之戒拾取函数
+func _on_item_002_picked_up(player):
+	# 将力量之戒添加到 Global 的玩家背包中
+	if !Global.player_inventory.has("item_002"):
+		Global.player_inventory["item_002"] = 1
+	else:
+		Global.player_inventory["item_002"] += 1
+	return true # 表示成功拾取
 
 # 示例用法:
 # func _ready():

@@ -65,7 +65,7 @@ func _physics_process(delta: float) -> void:
 				Global.emit_signal("_fire_ring_bullets")
 			$death.play()
 			is_dead = true
-		
+			Global.emit_signal("drop_out_item","item_001", 1, global_position)
 			await get_tree().create_timer(0.35).timeout
 			queue_free()
 		

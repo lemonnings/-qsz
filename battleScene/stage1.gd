@@ -453,7 +453,7 @@ func _on_boss_defeated(get_point : int):
 func get_required_lv_up_value(level: int) -> float:
 	var value: float = 1000
 	for i in range(level):
-		value = (value + 200) * 1.1
+		value = (value + 250) * 1.04
 	return value
 
 func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
@@ -527,7 +527,6 @@ func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
 		lv_up_change_b1.modulate.a = 0.0
 		lv_up_change_b2.modulate.a = 0.0
 		lv_up_change_b3.modulate.a = 0.0
-	
 	
 	# 连接升级选择完成信号，用于清理dark_overlay
 	if !Global.is_connected("level_up_selection_complete", _on_level_up_selection_complete):
@@ -760,7 +759,6 @@ func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
 	skill3.set_game_paused(true)
 	skill4.set_game_paused(true)
 	get_tree().set_pause(true)
-
 	
 	# 0.5秒渐显动画
 	tween.tween_property(lv_up_change_b1, "modulate:a", 1.0, 0.3)
@@ -770,6 +768,10 @@ func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
 	
 
 func _check_and_process_pending_level_ups():
+	var dark_overlay = get_meta("dark_overlay", null)
+	if dark_overlay != null:
+		dark_overlay.queue_free()
+		remove_meta("dark_overlay")
 	skill1.set_game_paused(false)
 	skill2.set_game_paused(false)
 	skill3.set_game_paused(false)
@@ -784,9 +786,9 @@ func _check_and_process_pending_level_ups():
 		_on_level_up()
 		# 清理升级选择时创建的背景变暗效果（仅普通升级时）
 		now_main_skill_name = ""
-	var dark_overlay = get_meta("dark_overlay", null)
-	if dark_overlay != null:
-		dark_overlay.queue_free()
+	var dark_overlay_check_again = get_meta("dark_overlay", null)
+	if dark_overlay_check_again != null:
+		dark_overlay_check_again.queue_free()
 		remove_meta("dark_overlay")
 
 

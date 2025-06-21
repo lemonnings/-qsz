@@ -58,8 +58,6 @@ func _physics_process(delta: float) -> void:
 	
 	# 检查是否超出射程，开始渐隐
 	if not is_fading and traveled_distance >= bullet_range:
-		if PC.selected_rewards.has("swordWaveTrace") and !if_summon:
-			_create_sword_wave_instance(global_position)
 		start_fade_out()
 	
 	# 更新精灵旋转以匹配移动方向
@@ -144,11 +142,7 @@ func handle_penetration() -> bool:
 	# 如果这一帧已经处理过碰撞，忽略后续碰撞
 	if collision_processed_this_frame:
 		return false  # 返回false表示忽略这次碰撞
-	
-	# 返回true表示处理这次碰撞，如果穿透计数<=0则销毁子弹
-	if PC.selected_rewards.has("swordWaveTrace") and !if_summon:
-		print("Bullet hit enemy, creating SwordWave at: ", global_position)
-		_create_sword_wave_instance(global_position)
+
 		
 	# 标记这一帧已经处理过碰撞
 	collision_processed_this_frame = true
@@ -205,6 +199,3 @@ func find_nearest_enemy() -> void:
 			if  distance < nearest_distance:
 				nearest_distance = distance
 				nearest_enemy = enemy
-	
-	if nearest_enemy:
-		target_enemy = nearest_enemy

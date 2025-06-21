@@ -89,6 +89,9 @@ signal _fire_ring_bullets
 # 掉落
 signal drop_out_item(item_id: String, quantity: int, position: Vector2)
 
+# 玩家背包
+var player_inventory = {}
+
 
 func _ready() -> void:
 	Global.monster_damage.connect(_on_monster_damage)
