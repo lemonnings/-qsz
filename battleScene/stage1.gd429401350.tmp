@@ -761,13 +761,10 @@ func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
 	get_tree().set_pause(true)
 	
 	# 0.5秒渐显动画
-	if lv_up_change_b1.visible:
-		tween.tween_property(lv_up_change_b1, "modulate:a", 1.0, 0.5)
-	if lv_up_change_b2.visible:
-		tween.tween_property(lv_up_change_b2, "modulate:a", 1.0, 0.5)
-	if lv_up_change_b3.visible:
-		tween.tween_property(lv_up_change_b3, "modulate:a", 1.0, 0.5)
-	# await get_tree().create_timer(0.5).timeout # 移除此行，因为tween.set_ignore_time_scale(true)会处理暂停
+	tween.tween_property(lv_up_change_b1, "modulate:a", 1.0, 0.3)
+	tween.tween_property(lv_up_change_b2, "modulate:a", 1.0, 0.3)
+	tween.tween_property(lv_up_change_b3, "modulate:a", 1.0, 0.3)
+	# await get_tree().create_timer(0.3).timeout # 移除此行，因为tween.set_ignore_time_scale(true)会处理暂停
 	
 
 func _check_and_process_pending_level_ups():
@@ -831,7 +828,7 @@ func _test_buffs():
 func _on_skill_icon_1_mouse_entered() -> void:
 	var skill1Text = "[font_size=32]剑气  LV. " + str(PC.main_skill_swordQi) +"[/font_size]" 
 	skill1Text = skill1Text +  "\n基本伤害倍率： " + str((PC.main_skill_swordQi_damage * 100))  + "%"
-	skill1Text = skill1Text +  "\n基本攻击速度：" + str(("%.2f" % ($Player.fire_speed.wait_time))) + "秒/次"
+	skill1Text = skill1Text +  "\n基本攻击速度：" + str($Player.fire_speed.wait_time) + "秒/次"
 	skill1Text = skill1Text +  "\n附加效果："
 	if PC.selected_rewards.has("SplitSwordQi1"):
 		skill1Text = skill1Text +  "\n分光剑气"
@@ -884,11 +881,3 @@ func _on_refresh_button_2_pressed() -> void:
 	
 	var current_main_skill = now_main_skill_name if now_main_skill_name != "" else ""
 	_on_level_up(current_main_skill, 2)
-
-
-func _on_refresh_button_3_pressed() -> void:
-	if PC.refresh_num > 0:
-		PC.refresh_num -= 1
-	
-	var current_main_skill = now_main_skill_name if now_main_skill_name != "" else ""
-	_on_level_up(current_main_skill, 3)

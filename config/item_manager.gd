@@ -87,14 +87,19 @@ func get_item_property(item_id: String, property_name: String):
 # 野果拾取函数
 func _on_item_001_picked_up(player):
 	# 只有满血时才能拾取
-	if PC.pc_hp != PC.pc_max_hp:
-		PC.pc_hp += PC.pc_max_hp * 0.2
-		# 防止生命值超过上限
-		if PC.pc_hp > PC.pc_max_hp:
-			PC.pc_hp = PC.pc_max_hp
-		return true # 表示成功拾取
-	else:
-		return false # 表示无法拾取
+	#if PC.pc_hp != PC.pc_max_hp:
+		#PC.pc_hp += PC.pc_max_hp * 0.2
+		## 防止生命值超过上限
+		#if PC.pc_hp > PC.pc_max_hp:
+			#PC.pc_hp = PC.pc_max_hp
+		#return true # 表示成功拾取
+	#else:
+		#return false # 表示无法拾取
+	PC.pc_hp += PC.pc_max_hp * 0.2
+	# 防止生命值超过上限
+	if PC.pc_hp > PC.pc_max_hp:
+		PC.pc_hp = PC.pc_max_hp
+	return true # 表示成功拾取
 
 # 力量之戒拾取函数
 func _on_item_002_picked_up(player):
