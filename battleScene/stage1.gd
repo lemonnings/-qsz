@@ -38,9 +38,9 @@ var map_mechanism_num_max: float
 var spawn_count : int = 0
 
 var current_monster_count: int = 0
-var max_monster_limit: int = 30
+var max_monster_limit: int = 12
 const MAX_MONSTER_CAP: int = 60
-const MONSTER_LIMIT_INCREASE_INTERVAL: float = 3.0 # seconds
+const MONSTER_LIMIT_INCREASE_INTERVAL: float = 6.0 # seconds
 var monster_limit_increase_timer: float = 0.0
 
 @export var layer_ui: CanvasLayer
@@ -134,19 +134,19 @@ func _physics_process(_delta: float) -> void:
 	if PC.current_time < 0.3:
 		PC.current_time = PC.current_time + 0.00012
 	elif PC.current_time >= 0.3 and PC.current_time <= 1.92:
-		PC.current_time = PC.current_time + 0.0003
+		PC.current_time = PC.current_time + 0.00024
 	elif PC.current_time > 1.92 and PC.current_time <= 6.4:
-		PC.current_time = PC.current_time + 0.0009
+		PC.current_time = PC.current_time + 0.00048
 	elif PC.current_time > 6.4 and PC.current_time <= 19.2 and Global.world_level != 1:
-		PC.current_time = PC.current_time + 0.002
+		PC.current_time = PC.current_time + 0.00096
 	elif PC.current_time > 19.2 and PC.current_time <= 76.8 and Global.world_level != 1:
-		PC.current_time = PC.current_time + 0.008
+		PC.current_time = PC.current_time + 0.00192
 	elif PC.current_time > 76.8 and PC.current_time <= 307.2 and Global.world_level != 1:
-		PC.current_time = PC.current_time + 0.025
+		PC.current_time = PC.current_time + 0.00384
 	elif Global.world_level != 1:
-		PC.current_time = PC.current_time * 1.0012
+		PC.current_time = PC.current_time * 1.0002
 	else:
-		PC.current_time = PC.current_time + 0.005
+		PC.current_time = PC.current_time + 0.00064
 	
 	if map_mechanism_num >= map_mechanism_num_max and not boss_event_triggered:
 		boss_event_triggered = true
@@ -286,7 +286,7 @@ func _on_warning_finished() -> void:
 	for i in range(7):
 		Global.emit_signal("zoom_camera", -0.08)
 		await get_tree().create_timer(0.2).timeout
-	
+
 	boss_node.position = Vector2(-370, randf_range(185, 259))
 	get_tree().current_scene.add_child(boss_node)
 
@@ -309,8 +309,6 @@ func _on_monster_spawn_timer_timeout() -> void:
 	next_spawn_interval = max(MIN_SPAWN_INTERVAL, next_spawn_interval - SPAWN_INTERVAL_DECREMENT)
 	monster_spawn_timer.wait_time = next_spawn_interval
 
-	if current_monster_count >= max_monster_limit:
-		return
 	# Adjust monster spawn limits based on spawn_count
 	if spawn_count % SLIME_MAX_SPAWN_INCREASE_THRESHOLD == 0:
 		slime_max_spawn = min(slime_max_spawn + 1, slime_upper_limit)
@@ -324,6 +322,9 @@ func _on_monster_spawn_timer_timeout() -> void:
 		frog_min_spawn = min(frog_min_spawn + 1, frog_max_spawn)
 	if spawn_count % FROG_MAX_SPAWN_INCREASE_THRESHOLD == 0:
 		frog_max_spawn = min(frog_max_spawn + 1, frog_upper_limit)
+		
+	if current_monster_count >= max_monster_limit:
+		return
 
 	# Spawn monsters
 	var num_slimes_to_spawn = randi_range(slime_min_spawn, slime_max_spawn)
@@ -343,6 +344,12 @@ func _spawn_slime(count: int) -> void:
 		var slime_node = slime_scene.instantiate()
 		
 		# Determine spawn edge (0: top, 1: bottom, 2: left, 3: right)
+		# hero最多两张，初始一张200以太，使用后需要等1分钟才能部署第二张，消耗400以太，第三张800以太
+		# 维德尼尔：攻击15 HP60，skill1 攻击附带一枚羽毛，追踪一个单位造成30%atk，skill2 消耗200以太，在12秒内，攻击变为双发攻击，并额外提升0%攻击
+		# 5条进攻线路，初始有3排空间，商店解锁第4,5排，每个格子有6点容量
+		# 左右两侧部署以太捕获器，根据有多少排可用空间决定左右两侧的容量，每排+3，使用盈能法师后，可以提升捕获效率，初始捕获效率每秒10
+		# 盈能法师，提升效率5+总体提升3%，消耗100以太，容量3
+		# 以太发射器，每次攻击消耗3以太，造成10伤害，容量2，建造消耗150以太
 		var spawn_edge = randi_range(0, 3)
 		var spawn_position = Vector2.ZERO
 		
