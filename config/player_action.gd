@@ -15,9 +15,11 @@ extends CharacterBody2D
 @export var virtual_joystick_manager : Node 
 
 @export var bullet_scene : PackedScene
+@export var branch_scene : PackedScene
 @export var summon_scene : PackedScene
 
 @export var fire_speed : Timer
+@export var branch_fire_speed : Timer
 @export var invincible_time : Timer
 
 var active_summons: Array = []  # 当前活跃的召唤物列表
@@ -45,6 +47,7 @@ func _ready() -> void:
 	Global.connect("_fire_ring_bullets", Callable(self, "_fire_ring_bullets"))
 	
 	Global.connect("skill_cooldown_complete", Callable(self, "_on_fire"))
+	Global.connect("skill_cooldown_complete_branch", Callable(self, "_on_fire_branch"))
 	
 	camera.zoom = Vector2(3, 3)
 	
@@ -63,15 +66,14 @@ func _process(_delta: float) -> void:
 	elif not $RunningSound.playing:
 		$RunningSound.play()
 	
-	if !Global.in_town :
-		fire_speed.wait_time = 1.0 * pow(0.98, Global.atk_speed_level) / (1 + PC.pc_atk_speed)
-		
-		# 环形子弹逻辑
-		if PC.selected_rewards.has("ring_bullet") and not PC.is_game_over and not Global.in_menu:
-			PC.real_time += _delta
-			if PC.real_time - PC.ring_bullet_last_shot_time >= PC.ring_bullet_interval:
-				_fire_ring_bullets()
-				PC.ring_bullet_last_shot_time = PC.real_time
+	#if !Global.in_town :
+		#fire_speed.wait_time = 1.0 * pow(0.98, Global.atk_speed_level) / (1 + PC.pc_atk_speed)
+		## 环形子弹逻辑
+		#if PC.selected_rewards.has("ring_bullet") and not PC.is_game_over and not Global.in_menu:
+			#PC.real_time += _delta
+			#if PC.real_time - PC.ring_bullet_last_shot_time >= PC.ring_bullet_interval:
+				#_fire_ring_bullets()
+				#PC.ring_bullet_last_shot_time = PC.real_time
 
 
 # 处理鼠标滚轮缩放、键盘输入和触摸输入
@@ -182,15 +184,21 @@ func _on_fire_idle() -> void:
 	#_on_fire_detail()
 	pass
 	
-func _on_fire(skill_id:int) -> void:
+func _on_fire(skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
 		return
-	if skill_id == 1:
-		_on_fire_detail()
-	pass
+	_on_fire_detail()
 	
+	
+func _on_fire_branch(skill_id: int) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	_on_fire_detail_branch()
+
 
 func _on_fire_detail() -> void:
 	var bullet_node_size = PC.bullet_size
@@ -248,6 +256,33 @@ func _on_fire_detail() -> void:
 		if PC.selected_rewards.has("rebound"): back_bullet.is_rebound = false
 		get_tree().current_scene.add_child(back_bullet)
 	
+	
+func _on_fire_detail_branch() -> void:
+	var bullet_node_size = PC.bullet_size
+	var base_direction = Vector2.RIGHT # Default direction
+	var spawn_position = position 
+
+	# 直接攻击最近的敌人，不再使用预测瞄准
+	var nearest_enemy = find_nearest_enemy()
+	if nearest_enemy:
+		# 计算朝向最近敌人的方向
+		base_direction = (nearest_enemy.position - position).normalized()
+	else:
+		# 没有敌人时使用角色朝向
+		if not sprite_direction_right:
+			base_direction = Vector2.LEFT
+		else:
+			base_direction = Vector2.RIGHT
+
+	# Play sound
+	#$FireSound.play()
+
+	var main_bullet = branch_scene.instantiate()
+	main_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
+	main_bullet.set_direction(base_direction)
+	main_bullet.position = spawn_position
+	get_tree().current_scene.add_child(main_bullet)
+
 
 func reload_scene() -> void:
 	if Global.main_menu_instance != null:

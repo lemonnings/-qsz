@@ -39,6 +39,13 @@ extends Node
 @export var swordQi_other_sword_wave_damage : float = 0.5
 @export var swordQi_range :float = 120
 
+# 树枝相关属性
+@export var has_branch : bool = false
+@export var first_has_branch : bool = true
+@export var main_skill_branch_damage : float = 1
+@export var branch_split_count : int = 3
+@export var branch_range :float = 90
+
 # 反弹子弹相关属性
 @export var rebound_size_multiplier : float = 0.4  # 反弹子弹大小倍数
 @export var rebound_damage_multiplier : float = 0.35  # 反弹子弹伤害倍数

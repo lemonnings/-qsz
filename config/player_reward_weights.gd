@@ -7,6 +7,7 @@ var rarity_faction_weights: Dictionary = {}
 # 默认的初始权重，根据新的分类体系
 const INITIAL_FACTION_WEIGHTS: Dictionary = {
 	"normal": 1.0,           # 通用，通用型、基础属性提升
+	"branch": 1.0,           # 树枝
 	"swordQi": 1.0,           # 剑气
 	"summon": 1.0,           # 召唤，召唤物数量、召唤物属性提升等
 	#"bullet": 1.0,           # 剑气，弹体大小、反弹、分裂（三向、五向）等
