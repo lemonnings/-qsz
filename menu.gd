@@ -79,7 +79,7 @@ func reset_player_attr() -> void :
 	exec_pc_atk()
 	exec_pc_hp()
 	exec_pc_bullet_size()
-	exec_lukcy_level()
+	exec_lucky_level()
 	
 	PC.real_time = 0
 	PC.current_time = 0
@@ -138,7 +138,7 @@ func exec_pc_hp() -> void:
 func exec_pc_bullet_size() -> void:
 	PC.bullet_size = 1 + (Global.bullet_size_level * 0.02)
 
-func exec_lukcy_level() -> void:
+func exec_lucky_level() -> void:
 	PC.now_lunky_level = Global.lunky_level
 	PC.now_red_p = Global.red_p
 	PC.now_gold_p = Global.gold_p

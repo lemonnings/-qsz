@@ -50,7 +50,6 @@ func free_health_bar():
 		health_bar.queue_free()
 
 func _physics_process(delta: float) -> void:
-	
 	if hp <= 0:
 		free_health_bar()
 		if not is_dead: # Add this check
@@ -65,7 +64,14 @@ func _physics_process(delta: float) -> void:
 				Global.emit_signal("_fire_ring_bullets")
 			$death.play()
 			is_dead = true
-			Global.emit_signal("drop_out_item","item_001", 1, global_position)
+			if SettingMoster.slime("itemdrop") != null:
+				for key in SettingMoster.slime("itemdrop"):
+					var drop_chance = SettingMoster.slime("itemdrop")[key]
+					if randf() <= drop_chance:
+						Global.emit_signal("drop_out_item", key, 1, global_position)
+				# for item in SettingMoster.slime("itemdrop"):
+				# 	if randf() <= SettingMoster.slime("itemdrop")[item]:
+				# 		Global.emit_signal("drop_out_item", item, 1, global_position)
 			await get_tree().create_timer(0.35).timeout
 			queue_free()
 		

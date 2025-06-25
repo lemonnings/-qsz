@@ -206,7 +206,12 @@ func _physics_process(delta: float) -> void:
 				Global.emit_signal("_fire_ring_bullets")
 			$death.play()
 			is_dead = true
-		
+			if SettingMoster.frog("itemdrop") != null:
+				for key in SettingMoster.frog("itemdrop"):
+					var drop_chance = SettingMoster.frog("itemdrop")[key]
+					if randf() <= drop_chance:
+						Global.emit_signal("drop_out_item", key, 1, global_position)
+
 			await get_tree().create_timer(0.36).timeout
 			queue_free()
 		

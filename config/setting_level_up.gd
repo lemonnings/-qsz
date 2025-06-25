@@ -337,7 +337,7 @@ func check_G10_condition() -> bool:
 	return not PC.selected_rewards.has("spdToAH1")
 
 func check_G11_condition() -> bool:
-	return not PC.selected_rewards.has("lukcyToAH1")
+	return not PC.selected_rewards.has("luckyToAH1")
 
 func check_G12_condition() -> bool:
 	return not PC.selected_rewards.has("aSpdToAH1")
@@ -354,9 +354,9 @@ func check_blue_summon_condition() -> bool:
 func check_R16_condition() -> bool:
 	return not PC.selected_rewards.has("spdToAH2")
 
-# 检查是否已选择 “lukcyToAH2” (天命转攻血 II)
+# 检查是否已选择 “luckyToAH2” (天命转攻血 II)
 func check_R17_condition() -> bool:
-	return not PC.selected_rewards.has("lukcyToAH2")
+	return not PC.selected_rewards.has("luckyToAH2")
 
 # 检查是否已选择 “aSpdToAH2” (攻速转攻血 II)
 func check_R18_condition() -> bool:
@@ -386,9 +386,9 @@ func check_purple_summon_condition() -> bool:
 func check_SR20_condition() -> bool:
 	return not PC.selected_rewards.has("spdToAH3")
 
-# 检查是否已选择 “lukcyToAH3” (天命转攻血 III)
+# 检查是否已选择 “luckyToAH3” (天命转攻血 III)
 func check_SR21_condition() -> bool:
-	return not PC.selected_rewards.has("lukcyToAH3")
+	return not PC.selected_rewards.has("luckyToAH3")
 
 # 检查是否已选择 “aSpdToAH3” (攻速转攻血 III)
 func check_SR22_condition() -> bool:
@@ -575,7 +575,7 @@ func reward_G10():
 
 # G11: 天命加护 I - 记录选择，效果由其他地方计算 (天命转攻血)
 func reward_G11():
-	PC.selected_rewards.append("lukcyToAH1")
+	PC.selected_rewards.append("luckyToAH1")
 	_level_up_action()
 
 # G12: 刃舞归元 I - 记录选择，效果由其他地方计算 (攻速转攻血)
@@ -699,9 +699,9 @@ func reward_R16():
 	PC.selected_rewards.append("spdToAH2")
 	_level_up_action()
 
-# R17: 添加 "lukcyToAH2" 标记 (可能与幸运相关的攻击力/攻速转换有关)
+# R17: 添加 "luckyToAH2" 标记 (可能与幸运相关的攻击力/攻速转换有关)
 func reward_R17():
-	PC.selected_rewards.append("lukcyToAH2")
+	PC.selected_rewards.append("luckyToAH2")
 	_level_up_action()
 
 # R18: 添加 "aSpdToAH2" 标记 (可能与攻击速度相关的攻击力/攻速转换有关)
@@ -786,9 +786,9 @@ func reward_SR20():
 	PC.selected_rewards.append("spdToAH3")
 	_level_up_action()
 
-# SR21: 添加 "lukcyToAH3" 标记 (可能与幸运相关的攻击力/攻速转换有关，等级3)
+# SR21: 添加 "luckyToAH3" 标记 (可能与幸运相关的攻击力/攻速转换有关，等级3)
 func reward_SR21():
-	PC.selected_rewards.append("lukcyToAH3")
+	PC.selected_rewards.append("luckyToAH3")
 	_level_up_action()
 
 # SR23: 暴击率增加10%，攻击速度增加2%
@@ -1355,8 +1355,8 @@ func global_level_up():
 		PC.pc_atk = int(PC.pc_atk * (1 + (changeNum / 4))) # 攻速变化的1/4转化为攻击力百分比提升
 		PC.pc_max_hp = int(PC.pc_max_hp * (1 + (changeNum / 4))) # 攻速变化的1/4转化为HP上限百分比提升
 
-	# "lukcyToAH1": 幸运等级变化量的一部分转化为攻击和HP (等级1)
-	if PC.selected_rewards.has("lukcyToAH1") and PC.last_lunky_level != PC.now_lunky_level:
+	# "luckyToAH1": 幸运等级变化量的一部分转化为攻击和HP (等级1)
+	if PC.selected_rewards.has("luckyToAH1") and PC.last_lunky_level != PC.now_lunky_level:
 		var changeNum = PC.now_lunky_level - PC.last_lunky_level # 计算幸运等级变化
 		PC.pc_atk = int(PC.pc_atk * (1 + (changeNum / 100))) # 每点幸运等级变化转化为1%攻击力提升
 		PC.pc_max_hp = int(PC.pc_max_hp * (1 + (changeNum / 100))) # 每点幸运等级变化转化为1%HP上限提升
@@ -1373,8 +1373,8 @@ func global_level_up():
 		PC.pc_atk = int(PC.pc_atk * (1 + (changeNum / 3))) # 攻速变化的1/3转化为攻击力百分比提升
 		PC.pc_max_hp = int(PC.pc_max_hp * (1 + (changeNum / 3))) # 攻速变化的1/3转化为HP上限百分比提升
 
-	# "lukcyToAH2": 幸运等级变化量的一部分转化为攻击和HP (等级2)
-	if PC.selected_rewards.has("lukcyToAH2") and PC.last_lunky_level != PC.now_lunky_level:
+	# "luckyToAH2": 幸运等级变化量的一部分转化为攻击和HP (等级2)
+	if PC.selected_rewards.has("luckyToAH2") and PC.last_lunky_level != PC.now_lunky_level:
 		var changeNum = PC.now_lunky_level - PC.last_lunky_level
 		PC.pc_atk = int(PC.pc_atk * (1 + 0.0125 * changeNum)) # 每点幸运等级变化转化为1.25%攻击力提升
 		PC.pc_max_hp = int(PC.pc_max_hp * (1 + 0.0125 * changeNum)) # 每点幸运等级变化转化为1.25%HP上限提升
@@ -1391,8 +1391,8 @@ func global_level_up():
 		PC.pc_atk = int(PC.pc_atk * (1 + (changeNum / 2))) # 攻速变化的1/2转化为攻击力百分比提升
 		PC.pc_max_hp = int(PC.pc_max_hp * (1 + (changeNum / 2))) # 攻速变化的1/2转化为HP上限百分比提升
 
-	# "lukcyToAH3": 幸运等级变化量的一部分转化为攻击和HP (等级3)
-	if PC.selected_rewards.has("lukcyToAH3") and PC.last_lunky_level != PC.now_lunky_level:
+	# "luckyToAH3": 幸运等级变化量的一部分转化为攻击和HP (等级3)
+	if PC.selected_rewards.has("luckyToAH3") and PC.last_lunky_level != PC.now_lunky_level:
 		var changeNum = PC.now_lunky_level - PC.last_lunky_level
 		PC.pc_atk = int(PC.pc_atk * (1 + 0.015 * changeNum)) # 每点幸运等级变化转化为1.5%攻击力提升
 		PC.pc_max_hp = int(PC.pc_max_hp * (1 + 0.015 * changeNum)) # 每点幸运等级变化转化为1.5%HP上限提升
