@@ -287,5 +287,9 @@ func _on_area_entered(area: Area2D) -> void:
 		else:
 			Global.play_hit_anime(position, is_crit)
 
+func apply_knockback(direction: Vector2, force: float):
+	var tween = create_tween()
+	tween.tween_property(self, "position", global_position + direction * force, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
 func apply_debuff_effect(debuff_id: String):
 	emit_signal("debuff_applied", debuff_id)
