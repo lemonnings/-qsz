@@ -1250,6 +1250,11 @@ func reward_UR21_CritChanceDamage_AtkDown():
 	PC.pc_atk = int(PC.pc_atk * 0.97) # 攻击力变为原来的97%
 	_level_up_action()
 
+func reward_branch():
+	PC.has_branch = true
+	_level_up_action()
+
+
 # 剑气础升级
 
 func WSwordQi():

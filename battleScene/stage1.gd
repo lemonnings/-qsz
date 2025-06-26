@@ -116,6 +116,12 @@ func _process(delta: float) -> void:
 	else:
 		formatted_point = str(point)
 	
+	if PC.has_branch and PC.first_has_branch:
+		skill2.visible = true
+		skill2.update_skill(2, $Player.branch_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+		PC.first_has_branch = false
+
+	
 	score_label.text = formatted_point
 	
 var boss_event_triggered: bool = false # 新增标志位，防止重复触发

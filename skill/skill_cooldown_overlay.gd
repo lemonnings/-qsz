@@ -26,7 +26,10 @@ func _process(delta: float) -> void:
 func _on_timer_timeout() -> void:
 	$Timer.start()
 	$TextureProgressBar.value = 100
-	Global.emit_signal("skill_cooldown_complete", skill_id)
+	if skill_id == 1:
+		Global.emit_signal("skill_cooldown_complete", skill_id)
+	if skill_id == 2:
+		Global.emit_signal("skill_cooldown_complete_branch", skill_id)
 
 func set_game_paused(pause: bool):
 	is_paused = pause
