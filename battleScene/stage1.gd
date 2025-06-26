@@ -344,12 +344,14 @@ func _spawn_slime(count: int) -> void:
 		var slime_node = slime_scene.instantiate()
 		
 		# Determine spawn edge (0: top, 1: bottom, 2: left, 3: right)
-		# hero最多两张，初始一张200以太，使用后需要等1分钟才能部署第二张，消耗400以太，第三张800以太
-		# 维德尼尔：攻击15 HP60，skill1 攻击附带一枚羽毛，追踪一个单位造成30%atk，skill2 消耗200以太，在12秒内，攻击变为双发攻击，并额外提升0%攻击
-		# 5条进攻线路，初始有3排空间，商店解锁第4,5排，每个格子有6点容量
-		# 左右两侧部署以太捕获器，根据有多少排可用空间决定左右两侧的容量，每排+3，使用盈能法师后，可以提升捕获效率，初始捕获效率每秒10
-		# 盈能法师，提升效率5+总体提升3%，消耗100以太，容量3
-		# 以太发射器，每次攻击消耗3以太，造成10伤害，容量2，建造消耗150以太
+		# hero最多4张，初始一张0，cd 30s 200以太，使用后需要等1分钟才能部署第3张，消耗400以太，cd 2分钟，第4张800以太
+		# atk24.375-》48.75
+		# 维德尼尔：攻击15 HP60 攻速0.8，skill1 攻击附带一枚羽毛，追踪一个单位造成30/38~70%%atk，skill2 消耗200以太，在12秒内，攻速+100%，并额外提升0/5~25%攻击
+		# 被动 使用skill2后抽1张牌，skill2同时提升6%~30%暴击率
+		# 5条进攻线路，初始有5排空间，商店解锁第6,7排，每个格子有6点容量
+		# 右侧专有的能源区可以放向日葵，相当于一个容量18的格子，初始pp效率每秒+10
+		# 向日葵，提升效率5+总体提升3%，消耗100pp，容量3
+		# 豌豆射手，每次攻击消耗3以太，造成10伤害 攻速1，容量2，建造消耗150pp
 		var spawn_edge = randi_range(0, 3)
 		var spawn_position = Vector2.ZERO
 		
@@ -372,6 +374,21 @@ func _spawn_slime(count: int) -> void:
 					slime_node.move_direction = 1 # Move left (away from player)
 				else:
 					slime_node.move_direction = randi_range(2,8) # Move towards player (leftwards bias)
+			# 各类型的牌基本实现
+			# 向日葵
+			# 豌豆射手
+			# 菜问
+			# 指挥官 200pp 一次性，提升周围2格范围内攻速20%，造成15伤害 攻速1，容量3
+			# 基地建设 固有，0pp，获得1张向日葵
+			# 振奋 50pp 给战斗单位添加4层振奋buff，每层提升10%攻击，每5秒损失1层
+			# 整备预备 300pp 蓄能50：减少pp消耗 抽2张牌，每抽到1张单位牌回复50pp
+			# 定点轰炸 150pp 随机选择地图上的1个目标，对其周围1格敌人造成15atk，重复10次
+			# 卫护所 大型建筑，200pp，会对前一格每15秒产生一个容量2的卫护兵，攻击12 攻速1.2 hp50
+			# 聚居地 大型建筑，100pp，对周围一格范围内的所有地块添加3点容量
+			# 法师塔 大型建筑，150pp，atk25 aspd2 投射，范围全图 每次攻击消耗5pp
+			# 高台 小型建筑，50pp，容量3，放置在该格的战斗单位变为投射并额外提升30%atk
+			# 防御基底 大型建筑，50pp
+			# 过载 50pp，提升100%pp获得，持续10秒，10秒后损失30%当前pp
 
 		slime_node.position = spawn_position
 		get_tree().current_scene.add_child(slime_node)
@@ -384,17 +401,20 @@ func _spawn_frog(count: int) -> void:
 			return
 		var frog_node = frog_scene.instantiate()
 		# Frog always spawns from left or right and moves towards player
+		
 		var spawn_side = randi_range(0,1) # 0 for left, 1 for right
 		if spawn_side == 0:
 			frog_node.position = Vector2(-400, randf_range(15, 259))
 		else:
 			frog_node.position = Vector2(400, randf_range(15, 259))
 		# Frog move_direction is handled within its own script, typically towards player
+
+
 		get_tree().current_scene.add_child(frog_node)
 		current_monster_count += 1
 		frog_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
 
-
+#Peaceful medieval style preparation background music, with a focus on repetitive melodies, not too tense, referring to the daytime music of Plants vs. Zombies
 func _spawn_bat(count: int) -> void:
 	for _i in range(count):
 		if current_monster_count >= max_monster_limit:
@@ -402,6 +422,8 @@ func _spawn_bat(count: int) -> void:
 		var bat_node = bat_scene.instantiate()
 
 		# Determine spawn edge (0: top, 1: bottom, 2: left, 3: right)
+		
+
 		var spawn_edge = randi_range(0, 3)
 		var spawn_position = Vector2.ZERO
 
