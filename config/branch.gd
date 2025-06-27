@@ -40,10 +40,9 @@ func _ready() -> void:
 	_update_sprite_rotation()
 
 func _physics_process(delta: float) -> void:
-		
 	# 子弹始终保持移动（包括渐隐过程中）
 	position += direction * bullet_speed * delta
-	# 更新已飞行距离
+	# 更新已飞行距,
 	traveled_distance = start_position.distance_to(global_position)
 	# 树枝22: 每飞行0.2米，伤害提升2%
 	if PC.select_reward.has("branch22"):
@@ -51,16 +50,27 @@ func _physics_process(delta: float) -> void:
 		var damage_increase_multiplier = 1.0 + floor(distance_meters / 0.2) * 0.02
 		bullet_damage *= damage_increase_multiplier
 
-	# 树枝1: 行进至射程一半时分裂
+	# 树枝1: 行进至射程一半时分裂0.1 
 	if PC.select_reward.has("branch1") and not is_fading and traveled_distance >= bullet_range / 2:
 		_create_sword_wave_instance(global_position)
 		# 防止重复分裂
 		PC.select_reward.erase("branch1")
 
 	# 检查是否超出射程
-	# 不死生物：
-	# 祥瑞：3：祥瑞秘宝的最大数量提升至6,6：祥瑞秘宝最大数量提升至8，9：祥瑞秘宝最大数量提升至10,12，每波次结束后获得1个秘宝，祥瑞秘宝数量最大提升至13,15，每波次结束后获得2个秘宝，祥瑞秘宝数量最大提升至16,18，每波次结束后获得4个秘宝，祥瑞秘宝数量最大提升至24
-	# 雷电：
+	# 基准，战力类提升3：10%，6,24%，9:50%，12：:90%，15，150%，18，280%
+	# 不死：HP降至1以下会无敌2秒，期间提升,80%的攻速，冷却60秒 3：持续时间+2s，冷却-20s
+	# 6：期间额外提升80%攻击，并且在不死状态结束后恢复30%最大hp
+	# 9：持续时间+2s，冷却-15s
+	# 12：如果在冷却中hp再次降到0以下，会进入复燃状态，期间无法攻击，阻挡敌人，在不死的冷却完成后会复生并立刻触发不死
+	# 15，期间提升攻击攻速提升至100%，持续时间+2s，冷却-10s
+	# 18，期间提升攻击攻速提升至150%，持续时间+2s
+	# 祥瑞：3：祥瑞秘宝的最大数量提升至6,6：祥瑞秘宝最大数量提升至8，9：每波次结束后获得1个秘宝，祥瑞秘宝最大数量提升至10,12，每波次结束后获得2个秘宝，祥瑞秘宝数量最大提升至13,15，每波次结束后获得4个秘宝，祥瑞秘宝数量最大提升至16,18，每波次结束后获得8个秘宝，祥瑞秘宝数量最大提升至24
+	# 雷电：3,攻击有25%触发一道雷光，随机攻击场上一个敌人造成40%atk
+	# 6，触发概率提升至30%，攻击速度额外提升8%，雷光伤害对boss提升10%
+	# 9，触发概率提升至35%，伤害提升至75%atk
+	# 12，触发概率提升至40%，攻击速度提升量增至40%，雷光伤害对boss提升30%
+	# 15，触发概率提升至50%，伤害提升至90%atk，攻击速度提升量增至60%
+	# 18，伤害提升至150%atk，攻击速度提升量增至100%，雷光伤害对boss提升50%
 	# 烈焰：
 	# 凶兽：
 	# 
@@ -120,7 +130,7 @@ func _physics_process(delta: float) -> void:
 			if fade_progress >= 1.0:
 				queue_free()
 
-# 开始渐隐动画
+# 开始渐隐动画小羁绊英雄*2的有3个，加上1个*1的最多可以凑到7，携带6个领袖，*1的油5个，可以凑到12，专武有两个+1，铜银金各+1，彩+2，彩卡+1
 func start_fade_out() -> void:
 	if not is_fading:
 		is_fading = true
