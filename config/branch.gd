@@ -45,11 +45,6 @@ func _physics_process(delta: float) -> void:
 	position += direction * bullet_speed * delta
 	# 更新已飞行距离
 	traveled_distance = start_position.distance_to(global_position)
-	# 魔焰1：每前进1米，爆炸范围提升10%，伤害提升3%
-	# 魔焰2：如果飞行距离小于2米就爆炸，伤害额外提升30%
-	# 魔焰3：每使用2次魔焰，下一次会生成巨大魔焰，爆炸范围及造成伤害提升50%
-	# 魔焰12：发射后的前2米，爆炸范围及伤害提升量提升至300%
-	# 魔焰34：
 	# 树枝22: 每飞行0.2米，伤害提升2%
 	if PC.select_reward.has("branch22"):
 		var distance_meters = traveled_distance * 0.04
@@ -102,7 +97,7 @@ func _physics_process(delta: float) -> void:
 	# 14:190,15:205,16:240
 	# 17:270 18:310 19:360 20:420 21:490 22:570 23:660 24:760
 	# 6/8/10/13/16/24
-	# 奖励类型：25pp->1 蓝卡 5 紫卡 40 金卡 100 红卡 200 铜海克斯 25 银 100 金 175 虹 240 散件 20 成装 35 光明装 90 专武 160
+	# 奖励类型：25pp->1 蓝卡 5 紫卡 40 金卡 100 红卡 200 铜海克斯 25 银 100 金 175 虹 240 散件 20 成装 35 光明装 90 专武 160 秘宝特殊武器 100 秘宝特殊海克斯 200 
 	_update_sprite_rotation()
 	
 	# 处理渐隐动画（子弹边飞边消失）

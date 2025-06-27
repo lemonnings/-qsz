@@ -20,6 +20,10 @@ extends Node
 @export var last_speed : float = 0
 @export var last_atk_speed : float = 0
 
+# 魔焰相关变量
+@export var main_skill_moyan_damage : float = 1.0  # 魔焰基础伤害倍率
+@export var moyan_range : float = 200.0  # 魔焰基础射程
+
 # 跟升级抽卡有关系的
 @export var now_lunky_level : int = 1
 @export var now_red_p : float = 2
