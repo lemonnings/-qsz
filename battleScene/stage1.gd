@@ -65,6 +65,10 @@ var buff_manager: BuffManager
 @export var skill2: TextureButton
 @export var skill3: TextureButton
 @export var skill4: TextureButton
+var skill1_remain_time :float
+var skill2_remain_time :float
+var skill3_remain_time :float
+var skill4_remain_time :float
 
 var pending_level_ups: int = 0
 
@@ -120,6 +124,11 @@ func _process(delta: float) -> void:
 		skill2.visible = true
 		skill2.update_skill(2, $Player.branch_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
 		PC.first_has_branch = false
+
+	if PC.has_moyan and PC.first_has_moyan:
+		skill3.visible = true
+		skill3.update_skill(3, $Player.moyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+		PC.first_has_moyan = false
 
 	
 	score_label.text = formatted_point
@@ -492,6 +501,7 @@ func get_required_lv_up_value(level: int) -> float:
 	return value
 
 func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
+	await get_tree().create_timer(0.5).timeout
 	now_main_skill_name = main_skill_name # Always update now_main_skill_name from the parameter
 	pending_level_ups -= 1
 	Global.is_level_up = true
@@ -543,16 +553,18 @@ func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
 	# 创建背景变暗效果
 	# if main_skill_name == '' and refresh_id == 0:
 	if refresh_id == 0:
-		var dark_overlay = ColorRect.new()
-		dark_overlay.color = Color(0, 0, 0, 0.35)  # 黑色，50%透明度
-		dark_overlay.size = get_viewport().get_visible_rect().size * 4
-		dark_overlay.position = Vector2(-1000, 0)
-		dark_overlay.z_index = 0  # 确保在其他元素之上，但在CanvasLayer之下
-		dark_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
-		dark_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		$CanvasLayer.add_child(dark_overlay)
-		# 存储dark_overlay引用以便后续清理
-		set_meta("dark_overlay", dark_overlay)
+		var dark_overlayOld = get_meta("dark_overlay", null)
+		if dark_overlayOld != null:
+			var dark_overlay = ColorRect.new()
+			dark_overlay.color = Color(0, 0, 0, 0.35)  # 黑色，50%透明度
+			dark_overlay.size = get_viewport().get_visible_rect().size * 4
+			dark_overlay.position = Vector2(-1000, 0)
+			dark_overlay.z_index = 0  # 确保在其他元素之上，但在CanvasLayer之下
+			dark_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+			dark_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			$CanvasLayer.add_child(dark_overlay)
+			# 存储dark_overlay引用以便后续清理
+			set_meta("dark_overlay", dark_overlay)
 	
 	# 设置按钮初始状态为不可见
 	lv_up_change_b1.visible = true

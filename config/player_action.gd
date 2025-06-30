@@ -16,10 +16,12 @@ extends CharacterBody2D
 
 @export var bullet_scene : PackedScene
 @export var branch_scene : PackedScene
+@export var moyan_scene : PackedScene
 @export var summon_scene : PackedScene
 
 @export var fire_speed : Timer
 @export var branch_fire_speed : Timer
+@export var moyan_fire_speed : Timer
 @export var invincible_time : Timer
 
 var active_summons: Array = []  # 当前活跃的召唤物列表
@@ -48,6 +50,7 @@ func _ready() -> void:
 	
 	Global.connect("skill_cooldown_complete", Callable(self, "_on_fire"))
 	Global.connect("skill_cooldown_complete_branch", Callable(self, "_on_fire_branch"))
+	Global.connect("skill_cooldown_complete_moyan", Callable(self, "_on_fire_moyan"))
 	
 	camera.zoom = Vector2(3, 3)
 	
@@ -199,6 +202,12 @@ func _on_fire_branch(skill_id: int) -> void:
 		return
 	_on_fire_detail_branch()
 
+func _on_fire_moyan(skill_id: int) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	_on_fire_detail_moyan()
 
 func _on_fire_detail() -> void:
 	var bullet_node_size = PC.bullet_size
@@ -278,6 +287,33 @@ func _on_fire_detail_branch() -> void:
 	#$FireSound.play()
 
 	var main_bullet = branch_scene.instantiate()
+	main_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
+	main_bullet.set_direction(base_direction)
+	main_bullet.position = spawn_position
+	get_tree().current_scene.add_child(main_bullet)
+
+
+func _on_fire_detail_moyan() -> void:
+	var bullet_node_size = PC.bullet_size
+	var base_direction = Vector2.RIGHT # Default direction
+	var spawn_position = position 
+
+	# 直接攻击最近的敌人，不再使用预测瞄准
+	var nearest_enemy = find_nearest_enemy()
+	if nearest_enemy:
+		# 计算朝向最近敌人的方向
+		base_direction = (nearest_enemy.position - position).normalized()
+	else:
+		# 没有敌人时使用角色朝向
+		if not sprite_direction_right:
+			base_direction = Vector2.LEFT
+		else:
+			base_direction = Vector2.RIGHT
+
+	# Play sound
+	#$FireSound.play()
+
+	var main_bullet = moyan_scene.instantiate()
 	main_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
 	main_bullet.set_direction(base_direction)
 	main_bullet.position = spawn_position

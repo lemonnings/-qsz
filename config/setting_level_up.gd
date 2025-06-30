@@ -428,7 +428,12 @@ func check_red_summon_condition() -> bool:
 func check_bullet_size_condition() -> bool:
 	return PC.bullet_size <= 2.0
 
-
+func check_branch_condition()-> bool:
+	return PC.selected_rewards.has("branch") 
+	
+func check_moyan_condition()-> bool:
+	return PC.selected_rewards.has("moyan") 
+	
 func check_SplitSwordQi1()-> bool:
 	return PC.selected_rewards.has("SplitSwordQi1") 
 	
@@ -822,8 +827,10 @@ func reward_SR22():
 
 # 获得反弹能力
 func reward_rebound():
-	PC.selected_rewards.append("rebound")
-	Global.emit_signal("buff_added", "rebound", -1, 1) # -1 表示永久，1表示层数或效果值
+	#PC.selected_rewards.append("rebound")
+	#Global.emit_signal("buff_added", "rebound", -1, 1) # -1 表示永久，1表示层数或效果值
+	PC.pc_atk = PC.pc_atk * 1.11
+	PC.crit_damage_multiplier += 0.11
 	_level_up_action()
 
 # 反弹子弹变大 (通用)
@@ -840,7 +847,9 @@ func reward_rebound_size_up_gold():
 
 # 反弹攻击力提升 (蓝色品质)
 func reward_rebound_atk_up_blue():
-	PC.rebound_damage_multiplier = PC.rebound_damage_multiplier * 1.15 # 反弹伤害提升15%
+	#PC.rebound_damage_multiplier = PC.rebound_damage_multiplier * 1.15 # 反弹伤害提升15%
+	PC.pc_atk = PC.pc_atk * 1.08
+	PC.crit_damage_multiplier += 0.08
 	_level_up_action()
 
 # 反弹攻击力提升 (金色品质)
@@ -1251,7 +1260,13 @@ func reward_UR21_CritChanceDamage_AtkDown():
 	_level_up_action()
 
 func reward_branch():
+	PC.selected_rewards.append("branch")
 	PC.has_branch = true
+	_level_up_action()
+
+func reward_moyan():
+	PC.selected_rewards.append("moyan")
+	PC.has_moyan = true
 	_level_up_action()
 
 
@@ -1341,6 +1356,73 @@ func SplitSwordQi32():
 func SplitSwordQi33():
 	PC.selected_rewards.append("SplitSwordQi33")
 	_level_up_action()
+	
+
+func WBranch():
+	PC.main_skill_branch += 1
+	PC.main_skill_branch_damage += 0.02
+	_level_up_action()
+
+func GBranch():
+	PC.main_skill_branch += 1
+	PC.main_skill_branch_damage += 0.04
+	_level_up_action()
+	
+func BBranch():
+	PC.main_skill_branch += 1
+	PC.main_skill_branch_damage += 0.1
+	_level_up_action()
+
+func PBranch():
+	PC.main_skill_branch += 1
+	PC.main_skill_branch_damage += 0.16
+	_level_up_action()
+
+func GlBranch():
+	PC.main_skill_branch += 1
+	PC.main_skill_branch_damage += 0.26
+	_level_up_action()
+
+func RBranch():
+	PC.main_skill_branch += 1
+	PC.main_skill_branch_damage += 0.4
+	_level_up_action()
+	
+
+
+
+func Wmoyan():
+	PC.main_skill_moyan += 1
+	PC.main_skill_moyan_damage += 0.02
+	_level_up_action()
+
+func Gmoyan():
+	PC.main_skill_moyan += 1
+	PC.main_skill_moyan_damage += 0.04
+	_level_up_action()
+	
+func Bmoyan():
+	PC.main_skill_moyan += 1
+	PC.main_skill_moyan_damage += 0.1
+	_level_up_action()
+
+func Pmoyan():
+	PC.main_skill_moyan += 1
+	PC.main_skill_moyan_damage += 0.16
+	_level_up_action()
+
+func Glmoyan():
+	PC.main_skill_moyan += 1
+	PC.main_skill_moyan_damage += 0.26
+	_level_up_action()
+
+func Rmoyan():
+	PC.main_skill_moyan += 1
+	PC.main_skill_moyan_damage += 0.4
+	_level_up_action()
+	
+
+	
 	
 # 全局升级效果处理函数 (当选择某些特定被动后，升级时会触发额外属性转换)
 func global_level_up():

@@ -198,10 +198,6 @@ func _show_attack_indicator(type: int):
 					extend_duration
 				).set_delay(i * 0.025) # 每条线错开延伸
 
-func apply_knockback(direction: Vector2, force: float):
-	# Boss可以有击退抗性，或者完全免疫
-	pass
-
 			attack_indicator.visible = true
 		4: # 冲锋
 			# 禁止在冲锋选择目标后到冲锋结束前转向
@@ -800,3 +796,7 @@ func _attack_random_barrage():
 #func free_health_bar():
 	#if health_bar != null and health_bar.is_inside_tree():
 		#health_bar.queue_free()
+
+func apply_knockback(direction: Vector2, force: float):
+	# Boss可以有击退抗性，或者完全免疫
+	pass

@@ -21,8 +21,12 @@ extends Node
 @export var last_atk_speed : float = 0
 
 # 魔焰相关变量
+@export var main_skill_moyan = 0
+@export var main_skill_moyan_advance = 0
+@export var has_moyan : bool = false
+@export var first_has_moyan : bool = true
 @export var main_skill_moyan_damage : float = 1.0  # 魔焰基础伤害倍率
-@export var moyan_range : float = 200.0  # 魔焰基础射程
+@export var moyan_range : float = 220.0  # 魔焰基础射程
 
 # 跟升级抽卡有关系的
 @export var now_lunky_level : int = 1
@@ -44,11 +48,14 @@ extends Node
 @export var swordQi_range :float = 120
 
 # 树枝相关属性
+@export var main_skill_branch = 0
+@export var main_skill_branch_advance = 0
 @export var has_branch : bool = false
 @export var first_has_branch : bool = true
 @export var main_skill_branch_damage : float = 1
 @export var branch_split_count : int = 3
 @export var branch_range :float = 90
+
 
 # 反弹子弹相关属性
 @export var rebound_size_multiplier : float = 0.4  # 反弹子弹大小倍数

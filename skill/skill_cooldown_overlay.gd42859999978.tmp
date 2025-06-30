@@ -39,6 +39,6 @@ func set_game_paused(pause: bool):
 	remaining_time = $Timer.time_left
 	is_paused = pause
 	if pause:
-		$Timer.paused = true
+		$Timer.stop()
 	else:
-		$Timer.paused = false
+		$Timer.start(remaining_time)

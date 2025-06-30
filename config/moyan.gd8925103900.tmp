@@ -14,7 +14,7 @@ var start_position: Vector2  # 子弹起始位置
 var traveled_distance: float = 0.0  # 已飞行距离 
 var is_exploding: bool = false # 是否正在爆炸 
 @export var sprite : Sprite2D  # 获取精灵节点引用
-@export var collision_shape : CollisionShape2D  # 获取碰撞形状节点引用
+@export var collision_shape :CollisionShape2D  # 获取碰撞形状节点引用
 
 # 魔焰相关变量
 var initial_scale: Vector2  # 保存初始碰撞形状大小
@@ -50,7 +50,7 @@ func _ready() -> void:
 		bullet_damage *= 1.7
 		collision_shape.scale *= 1.7
 	
-	await get_tree().create_timer(4).timeout
+	await get_tree().create_timer(3).timeout
 	if !Global.is_level_up:
 		queue_free()
 	# 初始化时设置精灵方向
@@ -106,7 +106,7 @@ func play_explosion_and_die():
 	is_exploding = true
 
 	# 创建爆炸动画
-	var explosion = preload("res://Scenes/player/big_fire_bullet.tscn").instantiate()
+	var explosion = preload("res://Scenes/global/big_fire_bullet.tscn").instantiate()
 	get_tree().current_scene.add_child(explosion)
 	explosion.global_position = global_position
 	
@@ -123,52 +123,31 @@ func play_explosion_and_die():
 		sound_player.play()
 	
 	if anim_player:
-		anim_player.play()		
+		anim_player.play()
 		anim_player.connect("animation_finished", explosion.queue_free)
-		
+
 	# 隐藏子弹并禁用碰撞
 	sprite.visible = false
+	collision_shape.set_deferred("disabled", true)
+	print("Explosion node type: ", explosion)
+	print("Explosion position: ", explosion.global_position)
+	print("Explosion monitoring enabled: ", explosion.is_monitoring())
+	print("Explosion shape radius: ", explosion.gun_hit_circle.get_radius())  # 假设形状是 CircleShape2D
+	print("Explosion scale: ", explosion.scale)
 	
-	#collision_shape.set_deferred("disabled", true)
-	# 根据PC.bullet_size调整爆炸动画和碰撞形状的大小
-	
-	# 正确调整 CircleShape2D 的半径
-	var original_radius = 36.4 # 从 moyan_rectShape.tres 获取的原始半径
-	
-	#collision_shape.shape = explosion.gun_hit_circle
-	#collision_shape.shape.radius = original_radius * explosion.scale.x
-	var final_radius = original_radius * explosion.scale.x
-	print("Before await timer")
-	
-	# 新增的逻辑：以final_radius为半径进行范围检测
-	print("Starting damage calculation")
-	var space_state = get_world_2d().direct_space_state
-	var query = PhysicsShapeQueryParameters2D.new()
-	var circle_shape = CircleShape2D.new()
-	circle_shape.radius = final_radius / 1.4
-	query.set_shape(circle_shape)
-	query.transform = global_transform
-	query.collide_with_areas = true
-	query.collide_with_bodies = false
-	query.collision_mask = collision_mask
-	
-	print("After await timer")
-	var result = space_state.intersect_shape(query)
-	
-	for hit in result:
-		var area = hit.collider
-		if area is Area2D and area.is_in_group("enemies") and area.has_method("take_damage"):
+	await get_tree().physics_frame
+	var areas = explosion.get_overlapping_areas()
+	for area in areas:
+		if area.is_in_group("enemies") and area.has_method("take_damage"):
 			area.take_damage(bullet_damage * 0.8, false, false, "")
-			print("Damage dealt to: ", area.name)
-	print("Finished damage calculation")
+			print("aoe attack on " + area.name)
 	
 	# 直接销毁子弹
 	queue_free()
-	print("Node freed")
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("enemies"):
-		await play_explosion_and_die()
+		play_explosion_and_die()
 
 # 更新精灵旋转以匹配移动方向
 func _update_sprite_rotation() -> void:
@@ -188,7 +167,6 @@ func initialize_bullet_damage() -> void:
 
 	is_crit_hit = false
 	bullet_damage = base_damage
-	$CollisionShape2D.shape.radius = 5.7
 
 	if randf() < PC.crit_chance:
 		is_crit_hit = true

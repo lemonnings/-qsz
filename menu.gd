@@ -74,7 +74,7 @@ func reset_player_attr() -> void :
 	Global.in_menu = false
 	PC.is_game_over = false
 	
-	PC.selected_rewards = ["SplitSwordQi2"] # "swordWaveTrace"
+	PC.selected_rewards = [""] # "swordWaveTrace"
 	
 	exec_pc_atk()
 	exec_pc_hp()

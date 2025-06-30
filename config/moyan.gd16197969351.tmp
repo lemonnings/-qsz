@@ -50,7 +50,7 @@ func _ready() -> void:
 		bullet_damage *= 1.7
 		collision_shape.scale *= 1.7
 	
-	await get_tree().create_timer(4).timeout
+	await get_tree().create_timer(3).timeout
 	if !Global.is_level_up:
 		queue_free()
 	# 初始化时设置精灵方向
@@ -123,9 +123,9 @@ func play_explosion_and_die():
 		sound_player.play()
 	
 	if anim_player:
-		anim_player.play()		
+		anim_player.play()
 		anim_player.connect("animation_finished", explosion.queue_free)
-		
+
 	# 隐藏子弹并禁用碰撞
 	sprite.visible = false
 	
@@ -138,33 +138,30 @@ func play_explosion_and_die():
 	#collision_shape.shape = explosion.gun_hit_circle
 	#collision_shape.shape.radius = original_radius * explosion.scale.x
 	var final_radius = original_radius * explosion.scale.x
-	print("Before await timer")
+	print($CollisionShape2D.shape)
+	print($CollisionShape2D.shape.radius)
+	await get_tree().create_timer(0.3).timeout
 	
 	# 新增的逻辑：以final_radius为半径进行范围检测
-	print("Starting damage calculation")
 	var space_state = get_world_2d().direct_space_state
 	var query = PhysicsShapeQueryParameters2D.new()
 	var circle_shape = CircleShape2D.new()
-	circle_shape.radius = final_radius / 1.4
+	circle_shape.radius = final_radius/1.5
 	query.set_shape(circle_shape)
-	query.transform = global_transform
-	query.collide_with_areas = true
-	query.collide_with_bodies = false
-	query.collision_mask = collision_mask
+	query.transform = global_transform # 使用当前节点的全局变换
+	query.collide_with_areas = true # 检测Area2D
+	query.collide_with_bodies = false # 不检测PhysicsBody2D，因为我们只关心Area2D
+	query.collision_mask = collision_mask # 使用当前Area2D的碰撞掩码
 	
-	print("After await timer")
 	var result = space_state.intersect_shape(query)
 	
 	for hit in result:
 		var area = hit.collider
 		if area is Area2D and area.is_in_group("enemies") and area.has_method("take_damage"):
-			area.take_damage(bullet_damage * 0.8, false, false, "")
-			print("Damage dealt to: ", area.name)
-	print("Finished damage calculation")
+			area.take_damage(bullet_damage * 1000, false, false, "")
 	
 	# 直接销毁子弹
 	queue_free()
-	print("Node freed")
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("enemies"):

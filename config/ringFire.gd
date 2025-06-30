@@ -12,7 +12,7 @@ var current_angle: float = 0.0
 func _ready() -> void:
 	damage = PC.pc_atk * 0.3
 	for i in range(fire_count):
-		var fire_instance = preload("res://scenes/fire_instance.tscn").instantiate()
+		var fire_instance = preload("res://Scenes/bullet.tscn").instantiate()
 		add_child(fire_instance)
 		var angle = (2 * PI * i) / fire_count
 		fire_instance.position = Vector2(cos(angle), sin(angle)) * radius
