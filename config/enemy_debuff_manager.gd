@@ -140,7 +140,7 @@ func get_take_damage_multiplier() -> float:
 func get_damage_multiplier() -> float:
 	var multiplier = 1.0
 	if active_debuffs.has("vulnerable"):
-		multiplier += 0.5 # 易伤效果，受到伤害增加20%
+		multiplier += 0.2 # 易伤效果，受到伤害增加20%
 	return multiplier
 
 func get_speed_multiplier() -> float:

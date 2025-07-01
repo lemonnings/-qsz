@@ -443,6 +443,30 @@ func check_SplitSwordQi2()-> bool:
 func check_SplitSwordQi3()-> bool:
 	return PC.selected_rewards.has("SplitSwordQi3") 
 
+func check_branch1()-> bool:
+	return PC.selected_rewards.has("branch1") 
+
+func check_branch2()-> bool:
+	return PC.selected_rewards.has("branch2") 
+
+func check_branch3()-> bool:
+	return PC.selected_rewards.has("branch3") 
+
+func check_branch12()-> bool:
+	return PC.selected_rewards.has("branch1") and PC.selected_rewards.has("branch2")
+
+func check_branch12()-> bool:
+	return PC.selected_rewards.has("branch1") 
+
+func check_moyan12()-> bool:
+	return PC.selected_rewards.has("moyan1") and PC.selected_rewards.has("moyan2")
+
+func check_moyan13()-> bool:
+	return PC.selected_rewards.has("moyan1") and PC.selected_rewards.has("moyan3")
+
+func check_moyan23()-> bool:
+	return PC.selected_rewards.has("moyan3") and PC.selected_rewards.has("moyan2")
+
 # --- 以下为具体的奖励效果实现函数 --- 
 # 这些函数由CSV中的 on_selected 字段引用，并通过 _execute_reward_on_selected 调用
 
@@ -1388,8 +1412,41 @@ func RBranch():
 	PC.main_skill_branch_damage += 0.4
 	_level_up_action()
 	
+func Branch1():
+	PC.select_reward.append("branch1")
+	_level_up_action()
 
+func Branch2():
+	PC.select_reward.append("branch2")
+	_level_up_action()
 
+func Branch3():
+	PC.select_reward.append("branch3")
+	_level_up_action()
+
+func Branch4():
+	PC.select_reward.append("branch4")
+	_level_up_action()
+
+func Branch11():
+	PC.select_reward.append("branch11")
+	_level_up_action()
+
+func Branch21():
+	PC.select_reward.append("branch21")
+	_level_up_action()
+
+func Branch12():
+	PC.select_reward.append("branch12")
+	_level_up_action()
+
+func Branch31():
+	PC.select_reward.append("branch31")
+	_level_up_action()
+
+func Branch22():
+	PC.select_reward.append("branch22")
+	_level_up_action()
 
 func Wmoyan():
 	PC.main_skill_moyan += 1
@@ -1420,8 +1477,30 @@ func Rmoyan():
 	PC.main_skill_moyan += 1
 	PC.main_skill_moyan_damage += 0.4
 	_level_up_action()
-	
 
+func Moyan1():
+	PC.select_reward.append("moyan1")
+	_level_up_action()
+
+func Moyan2():
+	PC.select_reward.append("moyan2")
+	_level_up_action()
+
+func Moyan3():
+	PC.select_reward.append("moyan3")
+	_level_up_action()	
+
+func Moyan12():
+	PC.select_reward.append("moyan12")
+	_level_up_action()	
+
+func Moyan13():
+	PC.select_reward.append("moyan13")
+	_level_up_action()	
+
+func Moyan23():
+	PC.select_reward.append("moyan23")
+	_level_up_action()	
 	
 	
 # 全局升级效果处理函数 (当选择某些特定被动后，升级时会触发额外属性转换)

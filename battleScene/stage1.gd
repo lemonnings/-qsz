@@ -130,6 +130,15 @@ func _process(delta: float) -> void:
 		skill3.update_skill(3, $Player.moyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
 		PC.first_has_moyan = false
 
+	if PC.has_riyan and PC.first_has_riyan:
+		skill4.visible = true
+		skill4.update_skill(4, $Player.riyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+		PC.first_has_riyan = false
+
+	if PC.has_ringFire and PC.first_has_ringFire:
+		skill5.visible = true
+		skill5.update_skill(5, $Player.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+		PC.first_has_ringFire = false
 	
 	score_label.text = formatted_point
 	
@@ -216,6 +225,16 @@ func _physics_process(_delta: float) -> void:
 		
 	if Global.is_level_up == false:
 		lv_up_change.visible = false
+		# 基础，麦酒100gil，进货价30gil，米饭150gil，进货价50gil，
+		# 小料：太岁冻30gil，果味灯油50gil，
+		# 小吃，蛙肉串80gil
+
+
+
+		# 酒馆属性：知名度，每次狩猎后结算可以获得，每日经营也可以获得少量，可以解锁新的客人类型，并按比例提升菜单售价，每10点+1%
+		# 客人：分几个类型，居民，纯消费，提供100%正常菜单额度，点1~2份饮品+1~2分餐食，佣兵会倾向于点2~3份饮品类+1份餐食类，冒险者会倾向于点餐食类，他们偶尔会讨论战斗技巧，提升对对应种类怪的伤害
+		# 流动小贩会出售饰品，药剂师会提供强化药剂，铁匠可以帮忙以优惠的价格升级饰品或者厨具，大商人会额外给一份等值小费，贤者会给予一个只有在下次狩猎日有效的buff
+		# 进货商可以减免一种商品的10%进货价
 		
 	var target_value = (float(PC.pc_exp) / get_required_lv_up_value(PC.pc_lv)) * 100
 	if exp_bar.value != target_value:
@@ -225,7 +244,7 @@ func _physics_process(_delta: float) -> void:
 		else:
 			exp_bar.value = target_value
 			
-	if not boss_event_triggered: # 只有在boss事件未触发时才更新机制条
+	if not boss_event_triggered:
 		map_mechanism_bar.value = (map_mechanism_num / map_mechanism_num_max) * 100
 	else:
 		map_mechanism_bar.value = 100 # 例如设为满
@@ -235,6 +254,32 @@ func _physics_process(_delta: float) -> void:
 
 func _trigger_boss_event() -> void:
 	print("Boss event triggered!")
+		# 每个人10岁都会觉醒一个天赋，坎塞尔拿到了一套厨具，开始他以为只是跟大部分人一样决定了他未来的职业
+		# 但是直到后面得一次魔物入侵中，他用菜刀杀掉了一个魔物，发现菜刀不仅在一段时间内变得更锋利，而且魔物的一部分力量也被自身永久吸收了
+		# 这个镇子是在边疆地带，经常有驻扎士兵和冒险者来这边，一边干掉魔物一边发展酒馆
+		# 选择区域探索，每个区域有3个boss和1个隐藏Boss，
+		# 每个boss击败后有概率收服，添加为酒馆服务员，3个boss都击败后，在狂暴模式下会出现隐藏boss
+
+		# 外溢能量pp，在结束一局后可以转换为加点
+		# t1 atk point+ hp max30(t2 40 t3 60 t4 100) total60->t2 
+		# t2 atks spd cri% otherEquip
+		# t3 exp% bulletSize criatk% max25 （t3 40 t4 60) total 60->t3
+		# t4  atk% hp% point+ lky otherEquip max20(t4 40) total 60->t4
+		# t5 finaldmg% def% otherEquip max20
+		
+		# 厨刀 可以飞射出去
+		# 斩骨斧 近战武器
+		# 釜 近战范围砸地
+		# 匕 勺子，环绕
+		# 笊篱 长柄漏勺 远程爆炸
+		# 碾轮 直线范围
+		# 漏勺 散射
+		# 壶 类似树枝，分裂
+		# 鼎 日炎
+		# 每天可以选择作为经营日 狩猎日
+		# 经营获得的gil可以强化厨具，提升厨具的基本atk%，解锁局内lv上限，从15->20->25
+		# gil可以向旅行商人或者佣兵冒险者购买各种饰品和圣器，找镇里铁匠强化圣器，给服务员薪资礼物
+		# 饰品只要获得就可以永久增加属性，圣器为战前启用初始2个，通过饰品解锁到最多同时5个
 	#slime_spawn_timer.wait_time += 2.0
 	#bat_spawn_timer.wait_time += 3.0
 	#frog_spawn_timer.wait_time += 4.0

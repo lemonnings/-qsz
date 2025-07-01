@@ -28,6 +28,15 @@ extends Node
 @export var main_skill_moyan_damage : float = 1.0  # 魔焰基础伤害倍率
 @export var moyan_range : float = 220.0  # 魔焰基础射程
 
+# 日炎相关变量
+@export var has_riyan : bool = false
+@export var first_has_riyan : bool = true
+@export var first_has_riyan_pc : bool = true
+@export var riyan_range : float = 40.0
+@export var riyan_cooldown : float = 0.5
+@export var riyan_hp_max_damage : float = 0.4
+
+
 # 跟升级抽卡有关系的
 @export var now_lunky_level : int = 1
 @export var now_red_p : float = 2

@@ -32,6 +32,10 @@ func _on_timer_timeout() -> void:
 		Global.emit_signal("skill_cooldown_complete_branch", skill_id)
 	if skill_id == 3:
 		Global.emit_signal("skill_cooldown_complete_moyan", skill_id)
+	if skill_id == 4:
+		Global.emit_signal("skill_cooldown_complete_riyan", skill_id)
+	if skill_id == 5:
+		Global.emit_signal("skill_cooldown_complete_ringFire", skill_id)
 
 var remaining_time: float = 0
 

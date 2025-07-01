@@ -83,6 +83,12 @@ signal buff_stack_changed(buff_id: String, new_stack: int)
 signal skill_cooldown_complete
 signal skill_cooldown_complete_branch
 signal skill_cooldown_complete_moyan
+signal skill_cooldown_complete_riyan
+signal skill_cooldown_complete_ringFire
+
+# 其他攻击方式相关
+signal riyan_damage_triggered
+signal ringFire_damage_triggered
 
 # 剑气相关
 signal createSwordWave

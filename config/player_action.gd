@@ -18,6 +18,7 @@ extends CharacterBody2D
 @export var branch_scene : PackedScene
 @export var moyan_scene : PackedScene
 @export var summon_scene : PackedScene
+@export var riyan_scene : PackedScene
 
 @export var fire_speed : Timer
 @export var branch_fire_speed : Timer
@@ -37,10 +38,8 @@ var active_summons: Array = []  # 当前活跃的召唤物列表
 @export var zoom_speed : float = 0.05  # 缩放速度
 @onready var camera : Camera2D = $Camera2D
 
-
 # 主要定义player主体的行为以及部分子弹逻辑
 func _ready() -> void:
-	maxHP = PC.pc_hp
 	hp = PC.pc_hp
 	sprite_direction_right = not sprite.flip_h
 	Global.connect("player_hit", Callable(self, "_on_player_hit"))
@@ -51,9 +50,18 @@ func _ready() -> void:
 	Global.connect("skill_cooldown_complete", Callable(self, "_on_fire"))
 	Global.connect("skill_cooldown_complete_branch", Callable(self, "_on_fire_branch"))
 	Global.connect("skill_cooldown_complete_moyan", Callable(self, "_on_fire_moyan"))
+	Global.connect("skill_cooldown_complete_riyan", Callable(self, "_on_fire_riyan"))
+	Global.connect("skill_cooldown_complete_ringFire", Callable(self, "_on_fire_ringFire"))
 	
 	camera.zoom = Vector2(3, 3)
 	
+	if PC.has_riyan and PC.first_has_riyan_pc:
+	# 实例化日炎攻击
+		if riyan_scene:
+			var riyan_instance = riyan_scene.instantiate()
+			get_parent().add_child(riyan_instance)
+			riyan_instance.global_position = global_position
+			PC.first_has_riyan_pc = false
 	
 	## 初始化虚拟摇杆
 	#joystick_center = joystick_position
@@ -83,12 +91,10 @@ func _process(_delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	var handled_by_module = false
 	if pinch_zoom_module and pinch_zoom_module.has_method("handle_input_event"):
-		# Assuming handle_input_event returns true if it consumed the event
 		if pinch_zoom_module.handle_input_event(event):
 			handled_by_module = true
 
 	if not handled_by_module and virtual_joystick_manager and virtual_joystick_manager.has_method("handle_input_event"):
-		# Assuming handle_input_event returns true if it consumed the event
 		if virtual_joystick_manager.handle_input_event(event):
 			handled_by_module = true
 	
@@ -184,7 +190,6 @@ func _on_fire_idle() -> void:
 		return
 	if PC.is_game_over:
 		return
-	#_on_fire_detail()
 	pass
 	
 func _on_fire(skill_id: int) -> void:
@@ -208,6 +213,20 @@ func _on_fire_moyan(skill_id: int) -> void:
 	if PC.is_game_over:
 		return
 	_on_fire_detail_moyan()
+
+func _on_fire_riyan(skill_id: int) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	_on_fire_detail_riyan()
+
+func _on_fire_ringFire(skill_id: int) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	_on_fire_ringFire()
 
 func _on_fire_detail() -> void:
 	var bullet_node_size = PC.bullet_size
@@ -318,6 +337,14 @@ func _on_fire_detail_moyan() -> void:
 	main_bullet.set_direction(base_direction)
 	main_bullet.position = spawn_position
 	get_tree().current_scene.add_child(main_bullet)
+
+
+func _on_fire_detail_riyan() -> void:
+	Global.emit_signal("riyan_damage_triggered")
+
+
+func _on_fire_detail_ringFire() -> void:
+	Global.emit_signal("ringFire_damage_triggered")
 
 
 func reload_scene() -> void:

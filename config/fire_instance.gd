@@ -1,6 +1,6 @@
 extends Area2D
 
-var damage: float = 0.0
+var damage: float = PC.atk * 0.25
 var hit_cooldown: float = 0.3
 var hit_cooldowns: Dictionary = {}
 
@@ -35,11 +35,11 @@ func _physics_process(delta: float) -> void:
 
 func _on_area_entered(area: Area2D) -> void:
 	# 检查是否是敌人
-	if area.is_in_group("enemy"):
+	if area.is_in_group("enemeis"):
 		# 检查该火焰实例是否对这个敌人在冷却中
 		if not hit_cooldowns.has(area) or hit_cooldowns[area] <= 0:
 			# 造成伤害
 			if area.has_method("take_damage"):
-				area.take_damage(damage)
+				area.take_damage(damage, false, false)
 				# 设置该火焰实例对这个敌人的冷却时间
 				hit_cooldowns[area] = hit_cooldown
