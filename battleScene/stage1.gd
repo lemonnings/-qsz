@@ -225,7 +225,7 @@ func _physics_process(_delta: float) -> void:
 		
 	if Global.is_level_up == false:
 		lv_up_change.visible = false
-		# 基础，麦酒100gil，进货价30gil，米饭150gil，进货价50gil，
+		# 基础，黄酒，米酒，花果酒，枸杞酒，羊羔酒，锦江春，琼浆100/200/300/450/600/800/1000gil，进货价初始为30%，米饭150gil，进货价初始为33%，
 		# 小料：太岁冻30gil，果味灯油50gil，
 		# 小吃，蛙肉串80gil
 
@@ -482,7 +482,6 @@ func _spawn_bat(count: int) -> void:
 		var bat_node = bat_scene.instantiate()
 
 		# Determine spawn edge (0: top, 1: bottom, 2: left, 3: right)
-		
 
 		var spawn_edge = randi_range(0, 3)
 		var spawn_position = Vector2.ZERO
@@ -599,7 +598,7 @@ func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
 	# if main_skill_name == '' and refresh_id == 0:
 	if refresh_id == 0:
 		var dark_overlayOld = get_meta("dark_overlay", null)
-		if dark_overlayOld != null:
+		if dark_overlayOld == null:
 			var dark_overlay = ColorRect.new()
 			dark_overlay.color = Color(0, 0, 0, 0.35)  # 黑色，50%透明度
 			dark_overlay.size = get_viewport().get_visible_rect().size * 4

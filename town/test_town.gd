@@ -20,15 +20,11 @@ func _ready() -> void:
 		return
 		
 	Global.emit_signal("reset_camera")
-	# PC.player_instance = $Player # 请根据您的项目结构评估此行的必要性
 
 	# 确保在项目设置 -> Input Map 中定义了 "interact" 动作并绑定到 F 键
-	# 如果没有定义，这里会尝试动态添加一个。建议您在项目设置中手动配置。
 	if not InputMap.has_action("interact"):
 		InputMap.add_action("interact")
 		var event_f_key = InputEventKey.new()
-		# 对于Godot 4.x，使用 physical_keycode 更可靠，但 keycode 也可以
-		# event_f_key.keycode = KEY_F # Godot 3.x
 		event_f_key.physical_keycode = KEY_F # Godot 4.x
 		InputMap.action_add_event("interact", event_f_key)
 		print_rich("[color=yellow]Warning:[/color] Input action 'interact' was not found. Temporarily mapped to F key. Please configure it in Project > Project Settings > Input Map.")
