@@ -2,6 +2,8 @@ extends Node2D
 
 @export var dialog_control : Control
 @export var npc1 : AnimatableBody2D 
+@export var npc2 : AnimatableBody2D 
+@export var npc3 : AnimatableBody2D 
 @export var interaction_distance : float = 40.0 
 @export var dialog_file_to_start: String = "res://AssetBundle/Dialog/test_dialog.txt"
 
@@ -34,34 +36,29 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player):
 		return
 
-	# 检测 F 键 (映射到 "interact" 动作) 是否按下
+	# 检测 F 键 (映射到 "interact" 动作) 是否按下天才黑魔法师研究出来了可以从未知位面获得以太的方法，然后一直在吸收，直到吸收的太多了导致出现了裂隙，两个世界开始逐渐交汇
+	# 直到一次增大获取以太的实验出了事故，把黑魔法师传过来了，传到了朝天山上，过来了之后因为人生地不熟很怕，开启了幻境避免人打扰，却发现魔物在他不知道的地方越来越多。
+	# 主角进入了幻境探索，发现每次在击败一个地区的头目之后，幻境都会出现紊乱把他传送出去，但在这段时间击杀的魔物会转化为以太加强自身。
 	if Input.is_action_just_pressed("interact"):
 		if player.global_position.distance_to($NPC1/AnimatedSprite2D.global_position) < interaction_distance:
 			if not dialog_control.visible:
-				start_dialog_interaction()
+				start_dialog_interaction(1)
 			else:
 				print_debug("Dialog is already active.")
 
+		if player.global_position.distance_to($NPC2/AnimatedSprite2D.global_position) < interaction_distance:
+			if not dialog_control.visible:
+				start_dialog_interaction(2)
+			else:
+				print_debug("Dialog is already active.")
+# 右侧关卡阵，左侧山洞里密宗长老开隐藏本，左上铁匠圣器打造升级，右上修炼室局外养成加点，中间巨大水晶可以切换人物
+# 1个其他世界的黑魔法师，他的世界因为过渡开发以太能源矿，导致以太崩溃，浓缩的以太凝聚成了各种各样的魔物，并且大地上的以太大量减少，寸草不生，人类陷入生存危机。
 
-func start_dialog_interaction() -> void:
-	if not dialog_control:
-		printerr("Dialog control (Control) is not set in test_town.gd. Please assign it in the editor.")
-		return
-
-	# 确保 dialog_control 已经添加到场景树中，如果它不是当前场景的子节点，则添加它。
+func start_dialog_interaction(npc_id: int) -> void:
 	if not dialog_control.is_inside_tree():
 		add_child(dialog_control)
 	
 	# 确保 dialog_control 可见
 	dialog_control.visible = true
-	print_debug("Activated dialog_control in test_town.")
 
-	# 发出信号，dialog_manager.gd (在 current_dialog_instance 内部) 应该监听这个信号
 	Global.start_dialog.emit(dialog_file_to_start)
-	print_debug("Emitted start_dialog signal with: ", dialog_file_to_start)
-
-	# 提示：dialog_manager.gd 中的 _end_dialog() 函数应该负责 queue_free() 对话框实例自身。
-	# 例如，在 _end_dialog() 中添加 self.queue_free()
-	# 并且，dialog_manager.gd 的 _ready() 函数中需要连接 Global.start_dialog 信号。
-	# (e.g., Global.start_dialog.connect(_on_global_start_dialog))
-	
