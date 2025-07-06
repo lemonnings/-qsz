@@ -65,10 +65,12 @@ var buff_manager: BuffManager
 @export var skill2: TextureButton
 @export var skill3: TextureButton
 @export var skill4: TextureButton
+@export var skill5: TextureButton
 var skill1_remain_time :float
 var skill2_remain_time :float
 var skill3_remain_time :float
 var skill4_remain_time :float
+var skill5_remain_time :float
 
 var pending_level_ups: int = 0
 
@@ -83,8 +85,8 @@ var now_main_skill_name : String
 func _ready() -> void:
 	PC.player_instance = $Player
 	Global.emit_signal("reset_camera")
-	map_mechanism_num = 0
-	map_mechanism_num_max = 21600
+	map_mechanism_num = 10750
+	map_mechanism_num_max = 10800
 	Global.connect("player_lv_up", Callable(self, "_on_level_up"))
 	Global.connect("level_up_selection_complete", Callable(self, "_check_and_process_pending_level_ups"))
 	Global.connect("monster_mechanism_gained", Callable(self, "_on_monster_mechanism_gained"))

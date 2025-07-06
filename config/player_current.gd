@@ -28,15 +28,6 @@ extends Node
 @export var main_skill_moyan_damage : float = 1.0  # 魔焰基础伤害倍率
 @export var moyan_range : float = 220.0  # 魔焰基础射程
 
-# 日炎相关变量
-@export var has_riyan : bool = false
-@export var first_has_riyan : bool = true
-@export var first_has_riyan_pc : bool = true
-@export var riyan_range : float = 40.0
-@export var riyan_cooldown : float = 0.5
-@export var riyan_hp_max_damage : float = 0.4
-
-
 # 跟升级抽卡有关系的
 @export var now_lunky_level : int = 1
 @export var now_red_p : float = 2
@@ -65,6 +56,23 @@ extends Node
 @export var branch_split_count : int = 3
 @export var branch_range :float = 90
 
+# 日炎相关变量
+@export var main_skill_riyan = 0
+@export var main_skill_riyan_advance = 0
+@export var main_skill_riyan_damage : float = 1
+@export var has_riyan : bool = false
+@export var first_has_riyan : bool = true
+@export var first_has_riyan_pc : bool = true
+@export var riyan_range : float = 40.0
+@export var riyan_cooldown : float = 0.5
+@export var riyan_hp_max_damage : float = 0.4
+
+# 环火相关量
+@export var main_skill_ringFire = 0
+@export var main_skill_ringFire_advance = 0
+@export var main_skill_ringFire_damage : float = 1
+@export var has_ringFire : bool = false
+@export var first_has_ringFire : bool = true
 
 # 反弹子弹相关属性
 @export var rebound_size_multiplier : float = 0.4  # 反弹子弹大小倍数

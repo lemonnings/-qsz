@@ -731,7 +731,7 @@ func _on_area_entered(area: Area2D) -> void:
 		
 		# 处理子弹反弹
 		if collision_result["should_rebound"]:
-			area.create_rebound()	
+			area.call_deferred("create_rebound")
 		
 		# 根据穿透逻辑决定是否销毁子弹
 		if collision_result["should_delete_bullet"]:
@@ -786,7 +786,7 @@ func _attack_random_barrage():
 		
 		# 设置子弹方向和速度
 		bullet.set_direction(direction)
-		bullet.bullet_speed = 220.0
+		bullet.bullet_speed = 190.0
 		bullet.bullet_damage = atk
 		
 		await get_tree().create_timer(RANDOM_BARRAGE_INTERVAL).timeout

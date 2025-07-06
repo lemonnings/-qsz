@@ -455,8 +455,8 @@ func check_branch3()-> bool:
 func check_branch12()-> bool:
 	return PC.selected_rewards.has("branch1") and PC.selected_rewards.has("branch2")
 
-func check_branch12()-> bool:
-	return PC.selected_rewards.has("branch1") 
+#func check_branch1()-> bool:
+	#return PC.selected_rewards.has("branch1") 
 
 func check_moyan12()-> bool:
 	return PC.selected_rewards.has("moyan1") and PC.selected_rewards.has("moyan2")
@@ -1293,6 +1293,10 @@ func reward_moyan():
 	PC.has_moyan = true
 	_level_up_action()
 
+func reward_ringFire():
+	PC.selected_rewards.append("ringFire")
+	PC.has_ringFire = true
+	_level_up_action()
 
 # 剑气础升级
 

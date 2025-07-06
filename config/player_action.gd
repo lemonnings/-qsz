@@ -19,10 +19,12 @@ extends CharacterBody2D
 @export var moyan_scene : PackedScene
 @export var summon_scene : PackedScene
 @export var riyan_scene : PackedScene
+@export var ringfire_scene : PackedScene
 
 @export var fire_speed : Timer
 @export var branch_fire_speed : Timer
 @export var moyan_fire_speed : Timer
+@export var ringFire_fire_speed : Timer
 @export var invincible_time : Timer
 
 var active_summons: Array = []  # 当前活跃的召唤物列表
@@ -226,7 +228,7 @@ func _on_fire_ringFire(skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
-	_on_fire_ringFire()
+	_on_fire_detail_ringFire()
 
 func _on_fire_detail() -> void:
 	var bullet_node_size = PC.bullet_size
@@ -341,7 +343,6 @@ func _on_fire_detail_moyan() -> void:
 
 func _on_fire_detail_riyan() -> void:
 	Global.emit_signal("riyan_damage_triggered")
-
 
 func _on_fire_detail_ringFire() -> void:
 	Global.emit_signal("ringFire_damage_triggered")

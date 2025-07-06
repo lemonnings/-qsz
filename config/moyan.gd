@@ -139,26 +139,7 @@ func play_explosion_and_die():
 	#collision_shape.shape.radius = original_radius * explosion.scale.x
 	var final_radius = original_radius * explosion.scale.x
 	print("Before await timer")
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await get_tree().process_frame
+
 	# 新增的逻辑：以final_radius为半径进行范围检测
 	print("Starting damage calculation")
 	var space_state = get_world_2d().direct_space_state
@@ -170,7 +151,7 @@ func play_explosion_and_die():
 	query.collide_with_areas = true
 	query.collide_with_bodies = false
 	query.collision_mask = collision_mask
-	
+
 	print("After await timer")
 	var result = space_state.intersect_shape(query)
 	
