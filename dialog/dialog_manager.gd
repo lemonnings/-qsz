@@ -205,7 +205,7 @@ func _update_illustration(texture_rect: TextureRect, path: String, is_speaking: 
 			texture_rect.modulate = target_modulate
 		is_animating_illustrations = false
 
-
+# 话的候该停止动
 # 添加一个变量来跟踪当前的文本显示tween
 var current_text_tween: Tween = null
 

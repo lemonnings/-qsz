@@ -1,6 +1,6 @@
 extends Node2D
 
-@export var rotation_speed: float = PI * 1.2
+@export var rotation_speed: float = PI * 1
 @export var radius: float = 70.0
 @export var fire_count: int = 4
 @export var hit_cooldown: float = 0.3

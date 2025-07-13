@@ -85,7 +85,7 @@ var now_main_skill_name : String
 func _ready() -> void:
 	PC.player_instance = $Player
 	Global.emit_signal("reset_camera")
-	map_mechanism_num = 10750
+	map_mechanism_num = 0
 	map_mechanism_num_max = 10800
 	Global.connect("player_lv_up", Callable(self, "_on_level_up"))
 	Global.connect("level_up_selection_complete", Callable(self, "_check_and_process_pending_level_ups"))
@@ -124,22 +124,22 @@ func _process(delta: float) -> void:
 	
 	if PC.has_branch and PC.first_has_branch:
 		skill2.visible = true
-		skill2.update_skill(2, $Player.branch_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+		skill2.update_skill(2, $Player.branch_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		PC.first_has_branch = false
 
 	if PC.has_moyan and PC.first_has_moyan:
 		skill3.visible = true
-		skill3.update_skill(3, $Player.moyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+		skill3.update_skill(3, $Player.moyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/moyan.png")
 		PC.first_has_moyan = false
 
 	if PC.has_riyan and PC.first_has_riyan:
 		skill4.visible = true
-		skill4.update_skill(4, $Player.riyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+		skill4.update_skill(4, $Player.riyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/riyan.png")
 		PC.first_has_riyan = false
 
 	if PC.has_ringFire and PC.first_has_ringFire:
 		skill5.visible = true
-		skill5.update_skill(5, $Player.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+		skill5.update_skill(5, $Player.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/ringFire.png")
 		PC.first_has_ringFire = false
 	
 	score_label.text = formatted_point
@@ -361,8 +361,8 @@ func _on_level_up_selection_complete() -> void:
 		remove_meta("dark_overlay")
 	
 	# 断开信号连接
-	if Global.is_connected("level_up_selection_complete", _on_level_up_selection_complete):
-		Global.disconnect("level_up_selection_complete", _on_level_up_selection_complete)
+	#if Global.is_connected("level_up_selection_complete", _on_level_up_selection_complete):
+		#Global.disconnect("level_up_selection_complete", _on_level_up_selection_complete)
 
 func _on_monster_spawn_timer_timeout() -> void:
 	spawn_count += 1
@@ -541,13 +541,13 @@ func _on_boss_defeated(get_point : int):
 
 
 func get_required_lv_up_value(level: int) -> float:
-	var value: float = 1000
+	var value: float = 800
 	for i in range(level):
-		value = (value + 250) * 1.04
+		value = (value + 200) * 1.03
 	return value
 
 func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
-	await get_tree().create_timer(0.5).timeout
+	await get_tree().create_timer(0.25).timeout
 	now_main_skill_name = main_skill_name # Always update now_main_skill_name from the parameter
 	pending_level_ups -= 1
 	Global.is_level_up = true

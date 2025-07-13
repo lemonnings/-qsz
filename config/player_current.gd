@@ -63,9 +63,10 @@ extends Node
 @export var has_riyan : bool = false
 @export var first_has_riyan : bool = true
 @export var first_has_riyan_pc : bool = true
-@export var riyan_range : float = 40.0
+@export var riyan_range : float = 70.0
 @export var riyan_cooldown : float = 0.5
-@export var riyan_hp_max_damage : float = 0.4
+@export var riyan_hp_max_damage : float = 0.12
+@export var riyan_atk_damage : float = 0.08
 
 # 环火相关量
 @export var main_skill_ringFire = 0
