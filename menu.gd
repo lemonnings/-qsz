@@ -124,6 +124,43 @@ func reset_player_attr() -> void :
 	PC.main_skill_swordQi_damage = 1
 	PC.swordQi_penetration_count = 1
 	PC.swordQi_other_sword_wave_damage = 0.5
+	PC.swordQi_range = 120
+	
+	# 重置魔焰相关属性
+	PC.main_skill_moyan = 0
+	PC.main_skill_moyan_advance = 0
+	PC.has_moyan = false
+	PC.first_has_moyan = true
+	PC.main_skill_moyan_damage = 1.0
+	PC.moyan_range = 220.0
+	
+	# 重置树枝相关属性
+	PC.main_skill_branch = 0
+	PC.main_skill_branch_advance = 0
+	PC.has_branch = false
+	PC.first_has_branch = true
+	PC.main_skill_branch_damage = 1
+	PC.branch_split_count = 3
+	PC.branch_range = 90
+	
+	# 重置日炎相关属性
+	PC.main_skill_riyan = 0
+	PC.main_skill_riyan_advance = 0
+	PC.main_skill_riyan_damage = 1
+	PC.has_riyan = false
+	PC.first_has_riyan = true
+	PC.first_has_riyan_pc = true
+	PC.riyan_range = 70.0
+	PC.riyan_cooldown = 0.5
+	PC.riyan_hp_max_damage = 0.12
+	PC.riyan_atk_damage = 0.08
+	
+	# 重置环火相关属性
+	PC.main_skill_ringFire = 0
+	PC.main_skill_ringFire_advance = 0
+	PC.main_skill_ringFire_damage = 1
+	PC.has_ringFire = false
+	PC.first_has_ringFire = true
 	
 	PC.refresh_num = Global.refresh_max_num
 	BuffManager.clear_all_buffs()
@@ -204,8 +241,8 @@ func get_total_increase_hp(level) -> String:
 
 func get_exp_for_level(level: int) -> int:
 	level = level + 1
-	var base_exp = 200
-	var increment = 125
+	var base_exp = 20
+	var increment = 12
 	var multiplier = 1.025
 	var exp_now = base_exp
 	for i in range(1, level):
@@ -214,8 +251,8 @@ func get_exp_for_level(level: int) -> int:
 
 func get_exp_for_level_more(level: int) -> int:
 	level = level + 1
-	var base_exp = 400
-	var increment = 300
+	var base_exp = 40
+	var increment = 30
 	var multiplier = 1.1
 	var exp_now = base_exp
 	for i in range(1, level):
@@ -224,8 +261,8 @@ func get_exp_for_level_more(level: int) -> int:
 
 func get_exp_for_level_most(level: int) -> int:
 	level = level + 1
-	var base_exp = 600
-	var increment = 400
+	var base_exp = 60
+	var increment = 40
 	var multiplier = 1.2
 	var exp_now = base_exp
 	for i in range(1, level):

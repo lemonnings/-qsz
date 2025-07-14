@@ -7,16 +7,17 @@ var SettingBuff = preload("res://Script/config/setting_buff.gd").new()
 
 @export var total_points : int = 1000
 
-# 角色整备属性
+# 局外
 @export var atk_level : int = 0
 @export var hp_level : int = 0
 @export var atk_speed_level : int = 0
 @export var move_speed_level : int = 0
 @export var point_add_level : int = 0
 @export var bullet_size_level : int = 0
-@export var crit_chance_level : int = 0 # 局外暴击率等级
-@export var crit_damage_level : int = 0 # 局外暴击伤害等级
-@export var damage_reduction_level : int = 0 # 局外减伤等级
+@export var crit_chance_level : int = 0
+@export var crit_damage_level : int = 0
+@export var damage_reduction_level : int = 0
+@export var max_main_skill_num : int = 3
 
 # 跟升级抽卡有关的
 @export var lunky_level : int = 1
@@ -135,9 +136,13 @@ func save_game() -> void:
 		"purple_p": purple_p,
 		"blue_p": blue_p,
 		"green_p": green_p,
+		"player_inventory": player_inventory,
 		"crit_chance_level": crit_chance_level,
 		"crit_damage_level": crit_damage_level,
-		"damage_reduction_level": damage_reduction_level
+		"damage_reduction_level": damage_reduction_level,
+		"max_main_skill_num": max_main_skill_num,
+		"refresh_max_num": refresh_max_num
+		
 	}
 	for key in data:
 		config.set_value("save", key, data[key])
@@ -173,9 +178,12 @@ func load_game() -> void:
 	purple_p = config.get_value("save", "purple_p", purple_p)
 	blue_p = config.get_value("save", "blue_p", blue_p)
 	green_p = config.get_value("save", "green_p", green_p)
+	player_inventory = config.get_value("save", "player_inventory", player_inventory)
 	crit_chance_level = config.get_value("save", "crit_chance_level", crit_chance_level)
 	crit_damage_level = config.get_value("save", "crit_damage_level", crit_damage_level)
 	damage_reduction_level = config.get_value("save", "damage_reduction_level", damage_reduction_level)
+	max_main_skill_num = config.get_value("save", "max_main_skill_num", max_main_skill_num)
+	refresh_max_num = config.get_value("save", "refresh_max_num", refresh_max_num)
 	
 var hit_scene = null
 

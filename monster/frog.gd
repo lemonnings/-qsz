@@ -39,14 +39,6 @@ func _ready() -> void:
 	speed = base_speed # Initialize speed
 
 	# 初始化移动相关
-	# 初始化攻击和行动计时器
-	attack_cooldown_timer = Timer.new()
-	add_child(attack_cooldown_timer)
-	attack_cooldown_timer.one_shot = true # 确保只触发一次，需要手动重启
-	attack_cooldown_timer.wait_time = 0.1 # 初始一个较小的值，主要用于逻辑循环
-	attack_cooldown_timer.timeout.connect(_on_attack_cooldown_timeout)
-	# attack_cooldown_timer.start() # 不在这里立即启动，由状态机控制
-
 	action_timer = Timer.new()
 	add_child(action_timer)
 	action_timer.one_shot = true
@@ -122,10 +114,6 @@ func _on_flee_timeout():
 	if is_dead:
 		return
 	_enter_state(State.SEEKING_PLAYER)
-
-func _on_attack_cooldown_timeout(): # 这个函数现在更像是一个状态更新的tick
-	pass # 主要逻辑移到 _physics_process
-
 
 func _update_target_position_seeking():
 	if PC.player_instance:
@@ -246,14 +234,6 @@ func _physics_process(delta: float) -> void:
 		State.FLEEING:
 			_move_pattern(delta)
 
-		# 乾（qián）：象征天 深蓝 紫
-		# 坤（kūn）：象征地 深黄绿 褐
-		# 震（zhèn）：象征雷 黑 黄
-		# 巽（xùn）：象征风 浅绿 青
-		# 坎（kǎn）：象征水 浅蓝
-		# 离（lí）：象征火 黑 红
-		# 艮（gèn）：象征山 橙
-		# 兑（duì）：象征泽 深绿 
 	if hp < hpMax and hp > 0:
 		show_health_bar()
 	
@@ -281,16 +261,25 @@ func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
 		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self, false)
 		# 根据穿透逻辑决定是否销毁子弹
-		# 小坎，云游商人
-		# 坤：炼丹 小怪材料，boss材料加上坎卖的材料，可以组合炼丹
 		# 灯油，宣纸；木精，苔藓；毒囊，蛙皮；利爪，羽毛；魔核，树脂
 		# 
-		# 离：铁匠
-		# 乾：水晶维护
-		# 巽：传送阵
-		# 震：升级1
-		# 艮：升级2
-		# 兑：合成，开启隐藏关卡，如九幽
+		# 乾（qián）：象征天 深蓝色
+		# 坤（kūn）：象征地 褐色
+		# 震（zhèn）：象征雷 黄色
+		# 巽（xùn）：象征风 浅绿色
+		# 坎（kǎn）：象征水 浅蓝色
+		# 离（lí）：象征火 红色
+		# 艮（gèn）：象征山 橙色
+		# 兑（duì）：象征泽 深绿色
+		
+		# 乾：召唤水晶维护（切换角色的地方）
+		# 坤：炼丹（eg：小怪材料，boss材料加上坎卖的材料，可以组合炼丹）
+		# 离：铁匠（局外养成之一，强化法宝）
+		# 巽：关卡传送阵
+		# 坎，云游商人（每次完成关卡后刷新，如果通关刷新出好东西概率更高）
+		# 震：进阶（局外养成之二，被动/主动技能树->可以强化升级选项）
+		# 艮：修炼（局外养成之三，直接提升基础属性）
+		# 兑：合成（eg：通过材料合成新法宝，开启隐藏关卡）
 		if collision_result["should_delete_bullet"]:
 			area.queue_free()
 			

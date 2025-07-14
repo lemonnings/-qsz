@@ -72,14 +72,13 @@ var skill3_remain_time :float
 var skill4_remain_time :float
 var skill5_remain_time :float
 
-var pending_level_ups: int = 0
-
 @export var lv_up_change: Node2D
 @export var lv_up_change_b1: Button
 @export var lv_up_change_b2: Button
 @export var lv_up_change_b3: Button
 
-var now_main_skill_name : String
+# 升级管理器
+var level_up_manager: LevelUpManager
 
 # 主要是第一个场景的基本ui和出怪逻辑，包含了升级逻辑
 func _ready() -> void:
@@ -87,6 +86,13 @@ func _ready() -> void:
 	Global.emit_signal("reset_camera")
 	map_mechanism_num = 0
 	map_mechanism_num_max = 10800
+	
+	# 初始化升级管理器
+	level_up_manager = LevelUpManager.new()
+	add_child(level_up_manager)
+	var skill_nodes_array: Array[TextureButton] = [skill1, skill2, skill3, skill4]
+	level_up_manager.initialize($CanvasLayer, lv_up_change, lv_up_change_b1, lv_up_change_b2, lv_up_change_b3, layer_ui, skill_nodes_array)
+	
 	Global.connect("player_lv_up", Callable(self, "_on_level_up"))
 	Global.connect("level_up_selection_complete", Callable(self, "_check_and_process_pending_level_ups"))
 	Global.connect("monster_mechanism_gained", Callable(self, "_on_monster_mechanism_gained"))
@@ -206,10 +212,10 @@ func _physics_process(_delta: float) -> void:
 		var seconds = int(PC.real_time) % 60
 		now_time.text = "%02d : %02d" % [minutes, seconds]
 	
-	if PC.pc_exp >= get_required_lv_up_value(PC.pc_lv):
-		pending_level_ups += 1
+	if PC.pc_exp >= level_up_manager.get_required_lv_up_value(PC.pc_lv):
+		level_up_manager.add_pending_level_up()
 		PC.pc_lv += 1
-		PC.pc_exp = clamp((PC.pc_exp - get_required_lv_up_value(PC.pc_lv)), 0, get_required_lv_up_value(PC.pc_lv))
+		PC.pc_exp = clamp((PC.pc_exp - level_up_manager.get_required_lv_up_value(PC.pc_lv)), 0, level_up_manager.get_required_lv_up_value(PC.pc_lv))
 		Global.emit_signal("player_lv_up")
 		
 	var target_value_hp = (float(PC.pc_hp) / PC.pc_max_hp) * 100
@@ -238,7 +244,7 @@ func _physics_process(_delta: float) -> void:
 		# 流动小贩会出售饰品，药剂师会提供强化药剂，铁匠可以帮忙以优惠的价格升级饰品或者厨具，大商人会额外给一份等值小费，贤者会给予一个只有在下次狩猎日有效的buff
 		# 进货商可以减免一种商品的10%进货价
 		
-	var target_value = (float(PC.pc_exp) / get_required_lv_up_value(PC.pc_lv)) * 100
+	var target_value = (float(PC.pc_exp) / level_up_manager.get_required_lv_up_value(PC.pc_lv)) * 100
 	if exp_bar.value != target_value:
 		if abs(target_value - exp_bar.value) > 2:
 			var tween = create_tween()
@@ -352,15 +358,8 @@ func _on_warning_finished() -> void:
 
 
 func _on_level_up_selection_complete() -> void:
-	# 清理升级选择时创建的背景变暗效果
-	var dark_overlay = get_meta("dark_overlay", null)
-	if dark_overlay != null:
-		dark_overlay.queue_free()
-		remove_meta("dark_overlay")
-	
-	# 断开信号连接
-	#if Global.is_connected("level_up_selection_complete", _on_level_up_selection_complete):
-		#Global.disconnect("level_up_selection_complete", _on_level_up_selection_complete)
+	# 委托给升级管理器处理
+	level_up_manager._on_level_up_selection_complete(get_viewport())
 
 func _on_monster_spawn_timer_timeout() -> void:
 	spawn_count += 1
@@ -474,14 +473,11 @@ func _spawn_frog(count: int) -> void:
 		current_monster_count += 1
 		frog_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
 
-#Peaceful medieval style preparation background music, with a focus on repetitive melodies, not too tense, referring to the daytime music of Plants vs. Zombies
 func _spawn_bat(count: int) -> void:
 	for _i in range(count):
 		if current_monster_count >= max_monster_limit:
 			return
 		var bat_node = bat_scene.instantiate()
-
-		# Determine spawn edge (0: top, 1: bottom, 2: left, 3: right)
 
 		var spawn_edge = randi_range(0, 3)
 		var spawn_position = Vector2.ZERO
@@ -538,352 +534,14 @@ func _on_boss_defeated(get_point : int):
 			SceneChange.change_scene("res://Scenes/main_menu.tscn", true)
 
 
-func get_required_lv_up_value(level: int) -> float:
-	var value: float = 800
-	for i in range(level):
-		value = (value + 200) * 1.03
-	return value
-
-func _on_level_up(main_skill_name : String = '', refresh_id : int = 0):
-	await get_tree().create_timer(0.25).timeout
-	now_main_skill_name = main_skill_name # Always update now_main_skill_name from the parameter
-	pending_level_ups -= 1
-	Global.is_level_up = true
-	lv_up_change.visible = true
-	
-	PC.last_speed = PC.pc_speed
-	PC.last_atk_speed = PC.pc_atk_speed
-	PC.last_lunky_level = PC.now_lunky_level
-	
-	# 确定刷出来的三个升级奖励的等级
-	var r1_rand = randf_range(0, 100)
-	var r2_rand = randf_range(0, 100)
-	var r3_rand = randf_range(0, 100)
-	
-	# 0是默认三个抽选的，123是单独刷新
-	var reward1 = null
-	var reward2 = null
-	var reward3 = null
-	if refresh_id == 0 or refresh_id == 1:
-		reward1 = LvUp.get_reward_level(r1_rand, main_skill_name)
-		if reward1 == null:
-			if refresh_id != 0:	
-				PC.refresh_num += 1
-			print("普通抽取池已空")
-		elif reward1.reward_name == "noReward":
-			if refresh_id != 0:
-				PC.refresh_num += 1
-			print("特殊技能抽取池已空")
-	if refresh_id == 0 or refresh_id == 2:
-		reward2 = LvUp.get_reward_level(r2_rand, main_skill_name)
-		if reward2 == null:
-			if refresh_id != 0:	
-				PC.refresh_num += 1
-			print("普通抽取池已空")
-		elif reward2.reward_name == "noReward":
-			if refresh_id != 0:
-				PC.refresh_num += 1
-			print("特殊技能抽取池已空")
-	if refresh_id == 0 or refresh_id == 3:
-		reward3 = LvUp.get_reward_level(r3_rand, main_skill_name)
-		if reward3 == null:
-			if refresh_id != 0:	
-				PC.refresh_num += 1
-			print("普通抽取池已空")
-		elif reward3.reward_name == "noReward":
-			if refresh_id != 0:	
-				PC.refresh_num += 1
-			print("特殊技能抽取池已空")
-	# 创建背景变暗效果
-	# if main_skill_name == '' and refresh_id == 0:
-	if refresh_id == 0:
-		var dark_overlayOld = get_meta("dark_overlay", null)
-		if dark_overlayOld == null:
-			var dark_overlay = ColorRect.new()
-			dark_overlay.color = Color(0, 0, 0, 0.35)  # 黑色，50%透明度
-			dark_overlay.size = get_viewport().get_visible_rect().size * 4
-			dark_overlay.position = Vector2(-1000, 0)
-			dark_overlay.z_index = 0  # 确保在其他元素之上，但在CanvasLayer之下
-			dark_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
-			dark_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			$CanvasLayer.add_child(dark_overlay)
-			# 存储dark_overlay引用以便后续清理
-			set_meta("dark_overlay", dark_overlay)
-	
-	# 设置按钮初始状态为不可见
-	lv_up_change_b1.visible = true
-	lv_up_change_b2.visible = true
-	lv_up_change_b3.visible = true
-	if refresh_id == 0:
-		lv_up_change_b1.modulate.a = 0.0
-		lv_up_change_b2.modulate.a = 0.0
-		lv_up_change_b3.modulate.a = 0.0
-	
-	# 连接升级选择完成信号，用于清理dark_overlay
-	if !Global.is_connected("level_up_selection_complete", _on_level_up_selection_complete):
-		Global.connect("level_up_selection_complete", _on_level_up_selection_complete)
-	
-	var rect_ready = Rect2(4, 176, 8, 16)
-	var rect_off = Rect2(20, 176, 8, 16)
-	var rect_on = Rect2(36, 176, 8, 16)
-		
-	if reward1 != null:
-		# 配置button内部要显示的数据
-		var lvcb1: Sprite2D = lv_up_change_b1.get_node("Pic")
-		var lvTitle1: RichTextLabel = lv_up_change_b1.get_node("Panel/Title")
-		var lvcbd1: RichTextLabel = lv_up_change_b1.get_node("Panel/Detail")
-		var lvSkillLv1: RichTextLabel = lv_up_change_b1.get_node("Panel/SkillLv")
-		var lvAdvanceProgress11: Sprite2D = lv_up_change_b1.get_node("Panel/AdvanceProgress1")
-		var lvAdvanceProgress12: Sprite2D = lv_up_change_b1.get_node("Panel/AdvanceProgress2")
-		var lvAdvanceProgress13: Sprite2D = lv_up_change_b1.get_node("Panel/AdvanceProgress3")
-		var lvAdvanceProgress14: Sprite2D = lv_up_change_b1.get_node("Panel/AdvanceProgress4")
-		var lvAdvanceProgress15: Sprite2D = lv_up_change_b1.get_node("Panel/AdvanceProgress5")
-		lvSkillLv1.visible = false
-		lvAdvanceProgress11.visible = false
-		lvAdvanceProgress12.visible = false
-		lvAdvanceProgress13.visible = false
-		lvAdvanceProgress14.visible = false
-		lvAdvanceProgress15.visible = false
-		lvcbd1.size = Vector2(158, 141)
-		lvcbd1.position = Vector2(0, 62)
-		
-		# 如果抽取到的是主要技能，则渲染进阶状态
-		if reward1.if_main_skill and !reward1.if_advance:
-			lvcbd1.size = Vector2(158, 89)
-			lvcbd1.position = Vector2(0, 102)
-			lvSkillLv1.visible = true
-			lvAdvanceProgress11.visible = true
-			lvAdvanceProgress12.visible = true
-			lvAdvanceProgress13.visible = true
-			lvAdvanceProgress14.visible = true
-			lvAdvanceProgress15.visible = true
-			
-			lvAdvanceProgress11.region_rect = rect_off
-			lvAdvanceProgress12.region_rect = rect_off
-			lvAdvanceProgress13.region_rect = rect_off
-			lvAdvanceProgress14.region_rect = rect_off
-			lvAdvanceProgress15.region_rect = rect_off
-			
-			var mainLV = LvUp._select_PC_main_skill_lv(reward1.faction)
-			lvSkillLv1.text = "LV. " + str(mainLV)
-			
-			var lights_to_turn_on = min(mainLV % 5, mainLV)
-			if lights_to_turn_on >= 0 :
-				lvAdvanceProgress11.region_rect = rect_ready
-			if lights_to_turn_on >= 1 :
-				lvAdvanceProgress11.region_rect = rect_on
-				lvAdvanceProgress12.region_rect = rect_ready
-			if lights_to_turn_on >= 2 :
-				lvAdvanceProgress12.region_rect = rect_on
-				lvAdvanceProgress13.region_rect = rect_ready
-			if lights_to_turn_on >= 3 :
-				lvAdvanceProgress13.region_rect = rect_on
-				lvAdvanceProgress14.region_rect = rect_ready
-			if lights_to_turn_on >= 4 :
-				lvAdvanceProgress14.region_rect = rect_on
-				lvAdvanceProgress15.region_rect = rect_ready
-		
-		lvcb1.region_rect = GU.parse_rect_from_func_string(reward1.icon)
-		lvTitle1.text = "[color=" +reward1.rarity +"]" +  reward1.reward_name + "[/color]"
-		lvcbd1.text = reward1.detail
-		var callbackB1: Callable = Callable(LvUp, reward1.on_selected)
-		var connect_array = lv_up_change_b1.pressed.get_connections()
-		if !connect_array.is_empty():
-			for conn in connect_array:
-				lv_up_change_b1.pressed.disconnect(conn.callable)
-		lv_up_change_b1.pressed.connect(callbackB1)
-	elif refresh_id == 0:
-		lv_up_change_b1.visible = false
-	
-	if reward2 != null:
-		var lvcb2: Sprite2D = lv_up_change_b2.get_node("Pic")
-		var lvTitle2: RichTextLabel = lv_up_change_b2.get_node("Panel/Title")
-		var lvcbd2: RichTextLabel = lv_up_change_b2.get_node("Panel/Detail")
-		var lvSkillLv2: RichTextLabel = lv_up_change_b2.get_node("Panel/SkillLv")
-		var lvAdvanceProgress21: Sprite2D = lv_up_change_b2.get_node("Panel/AdvanceProgress1")
-		var lvAdvanceProgress22: Sprite2D = lv_up_change_b2.get_node("Panel/AdvanceProgress2")
-		var lvAdvanceProgress23: Sprite2D = lv_up_change_b2.get_node("Panel/AdvanceProgress3")
-		var lvAdvanceProgress24: Sprite2D = lv_up_change_b2.get_node("Panel/AdvanceProgress4")
-		var lvAdvanceProgress25: Sprite2D = lv_up_change_b2.get_node("Panel/AdvanceProgress5")
-		lvSkillLv2.visible = false
-		lvAdvanceProgress21.visible = false
-		lvAdvanceProgress22.visible = false
-		lvAdvanceProgress23.visible = false
-		lvAdvanceProgress24.visible = false
-		lvAdvanceProgress25.visible = false
-		lvcbd2.size = Vector2(158, 141)
-		lvcbd2.position = Vector2(0, 62)
-		
-		
-			# 如果抽取到的是主要技能，则渲染进阶状态
-		if reward2.if_main_skill and !reward2.if_advance:
-			lvcbd2.size = Vector2(158, 89)
-			lvcbd2.position = Vector2(0, 102)
-			lvSkillLv2.visible = true
-			lvAdvanceProgress21.visible = true
-			lvAdvanceProgress22.visible = true
-			lvAdvanceProgress23.visible = true
-			lvAdvanceProgress24.visible = true
-			lvAdvanceProgress25.visible = true
-			
-			lvAdvanceProgress21.region_rect = rect_off
-			lvAdvanceProgress22.region_rect = rect_off
-			lvAdvanceProgress23.region_rect = rect_off
-			lvAdvanceProgress24.region_rect = rect_off
-			lvAdvanceProgress25.region_rect = rect_off
-			
-			var mainLV = LvUp._select_PC_main_skill_lv(reward2.faction)
-			lvSkillLv2.text = "LV. " + str(mainLV)
-			
-			var lights_to_turn_on = min(mainLV % 5, mainLV)
-			if lights_to_turn_on >= 0 :
-				lvAdvanceProgress21.region_rect = rect_ready
-			if lights_to_turn_on >= 1 :
-				lvAdvanceProgress21.region_rect = rect_on
-				lvAdvanceProgress22.region_rect = rect_ready
-			if lights_to_turn_on >= 2 :
-				lvAdvanceProgress22.region_rect = rect_on
-				lvAdvanceProgress23.region_rect = rect_ready
-			if lights_to_turn_on >= 3 :
-				lvAdvanceProgress23.region_rect = rect_on
-				lvAdvanceProgress24.region_rect = rect_ready
-			if lights_to_turn_on >= 4 :
-				lvAdvanceProgress24.region_rect = rect_on
-				lvAdvanceProgress25.region_rect = rect_ready
-				
-		lvTitle2.text = "[color=" +reward2.rarity +"]" +  reward2.reward_name + "[/color]"
-		lvcb2.region_rect = GU.parse_rect_from_func_string(reward2.icon)
-		lvcbd2.text = reward2.detail
-		var callbackB2: Callable = Callable(LvUp, reward2.on_selected)
-		var connect_array2 = lv_up_change_b2.pressed.get_connections()
-		if !connect_array2.is_empty():
-			for conn in connect_array2:
-				lv_up_change_b2.pressed.disconnect(conn.callable)
-		lv_up_change_b2.pressed.connect(callbackB2)
-	elif refresh_id == 0:
-		lv_up_change_b2.visible = false
-	
-	if reward3 != null:
-		var lvcb3: Sprite2D = lv_up_change_b3.get_node("Pic")
-		var lvTitle3: RichTextLabel = lv_up_change_b3.get_node("Panel/Title")
-		var lvcbd3: RichTextLabel = lv_up_change_b3.get_node("Panel/Detail")
-		var lvSkillLv3: RichTextLabel = lv_up_change_b3.get_node("Panel/SkillLv")
-		var lvAdvanceProgress31: Sprite2D = lv_up_change_b3.get_node("Panel/AdvanceProgress1")
-		var lvAdvanceProgress32: Sprite2D = lv_up_change_b3.get_node("Panel/AdvanceProgress2")
-		var lvAdvanceProgress33: Sprite2D = lv_up_change_b3.get_node("Panel/AdvanceProgress3")
-		var lvAdvanceProgress34: Sprite2D = lv_up_change_b3.get_node("Panel/AdvanceProgress4")
-		var lvAdvanceProgress35: Sprite2D = lv_up_change_b3.get_node("Panel/AdvanceProgress5")
-		lvSkillLv3.visible = false
-		lvAdvanceProgress31.visible = false
-		lvAdvanceProgress32.visible = false
-		lvAdvanceProgress33.visible = false
-		lvAdvanceProgress34.visible = false
-		lvAdvanceProgress35.visible = false
-		lvcbd3.size = Vector2(158, 141)
-		lvcbd3.position = Vector2(0, 62)
-		
-		# 如果抽取到的是主要技能，则渲染进阶状态
-		if reward3.if_main_skill and !reward3.if_advance:
-			lvcbd3.size = Vector2(158, 89)
-			lvcbd3.position = Vector2(0, 102)
-			lvSkillLv3.visible = true
-			lvAdvanceProgress31.visible = true
-			lvAdvanceProgress32.visible = true
-			lvAdvanceProgress33.visible = true
-			lvAdvanceProgress34.visible = true
-			lvAdvanceProgress35.visible = true
-			
-			lvAdvanceProgress31.region_rect = rect_off
-			lvAdvanceProgress32.region_rect = rect_off
-			lvAdvanceProgress33.region_rect = rect_off
-			lvAdvanceProgress34.region_rect = rect_off
-			lvAdvanceProgress35.region_rect = rect_off
-			
-			var mainLV = LvUp._select_PC_main_skill_lv(reward3.faction)
-			lvSkillLv3.text = "LV. " + str(mainLV)
-			
-			var lights_to_turn_on = min(mainLV % 5, mainLV)
-			if lights_to_turn_on >= 0 :
-				lvAdvanceProgress31.region_rect = rect_ready
-			if lights_to_turn_on >= 1 :
-				lvAdvanceProgress31.region_rect = rect_on
-				lvAdvanceProgress32.region_rect = rect_ready
-			if lights_to_turn_on >= 2 :
-				lvAdvanceProgress32.region_rect = rect_on
-				lvAdvanceProgress33.region_rect = rect_ready
-			if lights_to_turn_on >= 3 :
-				lvAdvanceProgress33.region_rect = rect_on
-				lvAdvanceProgress34.region_rect = rect_ready
-			if lights_to_turn_on >= 4 :
-				lvAdvanceProgress34.region_rect = rect_on
-				lvAdvanceProgress35.region_rect = rect_ready
-				
-		lvTitle3.text = "[color=" +reward3.rarity +"]" +  reward3.reward_name + "[/color]"
-		lvcb3.region_rect = GU.parse_rect_from_func_string(reward3.icon)
-		lvcbd3.text = reward3.detail
-		var callbackB3: Callable = Callable(LvUp, reward3.on_selected)
-		var connect_array3 = lv_up_change_b3.pressed.get_connections()
-		if !connect_array3.is_empty():
-			for conn in connect_array3:
-				lv_up_change_b3.pressed.disconnect(conn.callable)
-		lv_up_change_b3.pressed.connect(callbackB3)
-
-	elif refresh_id == 0:
-		lv_up_change_b3.visible = false
-	
-	# 创建渐显动画
-	var tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tween.set_parallel(true)  # 允许并行动画
-	tween.set_ignore_time_scale(true) # 确保tween在暂停时也能运行
-	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-
-	# 设置升级界面相关节点在暂停时仍能处理
-	layer_ui.process_mode = Node.PROCESS_MODE_ALWAYS # 通常不需要对根CanvasLayer设置
-	lv_up_change.process_mode = Node.PROCESS_MODE_ALWAYS
-	lv_up_change_b1.process_mode = Node.PROCESS_MODE_ALWAYS
-	lv_up_change_b2.process_mode = Node.PROCESS_MODE_ALWAYS
-	lv_up_change_b3.process_mode = Node.PROCESS_MODE_ALWAYS
-	
-	# 立即暂停游戏
-	skill1.set_game_paused(true)
-	skill2.set_game_paused(true)
-	skill3.set_game_paused(true)
-	skill4.set_game_paused(true)
-	get_tree().set_pause(true)
-	
-	# 0.5秒渐显动画
-	if lv_up_change_b1.visible:
-		tween.tween_property(lv_up_change_b1, "modulate:a", 1.0, 0.5)
-	if lv_up_change_b2.visible:
-		tween.tween_property(lv_up_change_b2, "modulate:a", 1.0, 0.5)
-	if lv_up_change_b3.visible:
-		tween.tween_property(lv_up_change_b3, "modulate:a", 1.0, 0.5)
-	# await get_tree().create_timer(0.5).timeout # 移除此行，因为tween.set_ignore_time_scale(true)会处理暂停
+func _on_level_up(main_skill_name: String = '', refresh_id: int = 0):
+	# 委托给升级管理器处理
+	level_up_manager.handle_level_up(main_skill_name, refresh_id, get_tree(), get_viewport())
 	
 
 func _check_and_process_pending_level_ups():
-	var dark_overlay = get_meta("dark_overlay", null)
-	if dark_overlay != null:
-		dark_overlay.queue_free()
-		remove_meta("dark_overlay")
-	skill1.set_game_paused(false)
-	skill2.set_game_paused(false)
-	skill3.set_game_paused(false)
-	skill4.set_game_paused(false)
-	var advance_change = int(PC.main_skill_swordQi / 5)
-	if PC.main_skill_swordQi != 0 and (PC.main_skill_swordQi % 5 == 0) and PC.main_skill_swordQi_advance < advance_change :
-		PC.main_skill_swordQi_advance += 1
-		_on_level_up("swordQi")
-		# 主技能进阶完成后清空now_main_skill_name
-	# 如果没有主技能进阶，或者主技能进阶处理完毕后，再处理普通待升级
-	elif pending_level_ups > 0: 
-		_on_level_up()
-		# 清理升级选择时创建的背景变暗效果（仅普通升级时）
-		now_main_skill_name = ""
-	var dark_overlay_check_again = get_meta("dark_overlay", null)
-	if dark_overlay_check_again != null:
-		dark_overlay_check_again.queue_free()
-		remove_meta("dark_overlay")
+	# 委托给升级管理器处理
+	level_up_manager.check_and_process_pending_level_ups(get_tree(), get_viewport())
 
 
 func _on_attr_button_focus_entered() -> void:
@@ -960,26 +618,15 @@ func _on_skill_icon_1_mouse_exited() -> void:
 
 
 func _on_refresh_button_pressed() -> void:
-	if PC.refresh_num > 0:
-		PC.refresh_num -= 1
-	
-	# 只有在当前升级界面确实是主技能进阶时才传递main_skill_name
-	# 通过检查当前是否有有效的main_skill_name来判断
-	var current_main_skill = now_main_skill_name if now_main_skill_name != "" else ""
-	_on_level_up(current_main_skill, 1)
+	# 委托给升级管理器处理
+	level_up_manager.handle_refresh_button(1, get_tree(), get_viewport())
 
 
 func _on_refresh_button_2_pressed() -> void:
-	if PC.refresh_num > 0:
-		PC.refresh_num -= 1
-	
-	var current_main_skill = now_main_skill_name if now_main_skill_name != "" else ""
-	_on_level_up(current_main_skill, 2)
+	# 委托给升级管理器处理
+	level_up_manager.handle_refresh_button(2, get_tree(), get_viewport())
 
 
 func _on_refresh_button_3_pressed() -> void:
-	if PC.refresh_num > 0:
-		PC.refresh_num -= 1
-	
-	var current_main_skill = now_main_skill_name if now_main_skill_name != "" else ""
-	_on_level_up(current_main_skill, 3)
+	# 委托给升级管理器处理
+	level_up_manager.handle_refresh_button(3, get_tree(), get_viewport())

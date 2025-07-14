@@ -16,6 +16,7 @@ extends Node
 @export var current_time : float = 0
 @export var real_time : float = 0
 
+@export var now_main_skill_num : int = 1
 @export var last_lunky_level : int = 1
 @export var last_speed : float = 0
 @export var last_atk_speed : float = 0

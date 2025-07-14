@@ -455,8 +455,11 @@ func check_branch3()-> bool:
 func check_branch12()-> bool:
 	return PC.selected_rewards.has("branch1") and PC.selected_rewards.has("branch2")
 
-#func check_branch1()-> bool:
-	#return PC.selected_rewards.has("branch1") 
+func check_get_new_main_skill()-> bool:
+	if PC.now_main_skill_num + 1 < Global.max_main_skill_num:
+		return true
+	else:
+		return false
 
 func check_moyan12()-> bool:
 	return PC.selected_rewards.has("moyan1") and PC.selected_rewards.has("moyan2")
@@ -1284,21 +1287,25 @@ func reward_UR21_CritChanceDamage_AtkDown():
 	_level_up_action()
 
 func reward_branch():
+	PC.now_main_skill_num = PC.now_main_skill_num + 1
 	PC.selected_rewards.append("branch")
 	PC.has_branch = true
 	_level_up_action()
 
 func reward_moyan():
+	PC.now_main_skill_num = PC.now_main_skill_num + 1
 	PC.selected_rewards.append("moyan")
 	PC.has_moyan = true
 	_level_up_action()
 
 func reward_ringFire():
+	PC.now_main_skill_num = PC.now_main_skill_num + 1
 	PC.selected_rewards.append("ringFire")
 	PC.has_ringFire = true
 	_level_up_action()
 	
 func reward_riyan():
+	PC.now_main_skill_num = PC.now_main_skill_num + 1
 	PC.selected_rewards.append("riyan")
 	PC.has_riyan = true
 	_level_up_action()
@@ -1510,7 +1517,92 @@ func Moyan13():
 func Moyan23():
 	PC.select_reward.append("moyan23")
 	_level_up_action()	
+
+
+func WringFire():
+	PC.main_skill_ringFire += 1
+	PC.main_skill_ringFire_damage += 0.02
+	_level_up_action()
+
+func GringFire():
+	PC.main_skill_riyan += 1
+	PC.main_skill_ringFire_damage += 0.04
+	_level_up_action()
 	
+func BringFire():
+	PC.main_skill_riyan += 1
+	PC.main_skill_ringFire_damage += 0.1
+	_level_up_action()
+
+func PringFire():
+	PC.main_skill_riyan += 1
+	PC.main_skill_ringFire_damage += 0.16
+	_level_up_action()
+
+func GlringFire():
+	PC.main_skill_riyan += 1
+	PC.main_skill_ringFire_damage += 0.26
+	_level_up_action()
+
+func RringFire():
+	PC.main_skill_riyan += 1
+	PC.main_skill_ringFire_damage += 0.4
+	_level_up_action()
+
+func RingFire1():
+	PC.select_reward.append("ringFire1")
+	_level_up_action()
+
+func RingFire2():
+	PC.select_reward.append("ringFire2")
+	_level_up_action()
+
+func RingFire3():
+	PC.select_reward.append("ringFire3")
+	_level_up_action()	
+
+	
+func Wriyan():
+	PC.main_skill_riyan += 1
+	PC.main_skill_riyan_damage += 0.02
+	_level_up_action()
+
+func Griyan():
+	PC.main_skill_riyan += 1
+	PC.main_skill_riyan_damage += 0.04
+	_level_up_action()
+	
+func Briyan():
+	PC.main_skill_riyan += 1
+	PC.main_skill_riyan_damage += 0.1
+	_level_up_action()
+
+func Priyan():
+	PC.main_skill_riyan += 1
+	PC.main_skill_riyan_damage += 0.16
+	_level_up_action()
+
+func Glriyan():
+	PC.main_skill_riyan += 1
+	PC.main_skill_riyan_damage += 0.26
+	_level_up_action()
+
+func Rriyan():
+	PC.main_skill_riyan += 1
+	PC.main_skill_riyan_damage += 0.4
+	_level_up_action()
+
+func Riyan1():
+	PC.select_reward.append("riyan1")
+	_level_up_action()
+
+func Riyan2():
+	PC.select_reward.append("riyan2")
+	_level_up_action()
+
+func Riyan3():
+	PC.select_reward.append("riyan3")
+	_level_up_action()	
 	
 # 全局升级效果处理函数 (当选择某些特定被动后，升级时会触发额外属性转换)
 func global_level_up():
