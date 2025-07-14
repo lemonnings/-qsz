@@ -45,11 +45,11 @@ func _process(delta: float) -> void:
 			else:
 				print_debug("Dialog is already active.")
 
-		if player.global_position.distance_to($NPC2/AnimatedSprite2D.global_position) < interaction_distance:
-			if not dialog_control.visible:
-				start_dialog_interaction(2)
-			else:
-				print_debug("Dialog is already active.")
+		#if player.global_position.distance_to($NPC2/AnimatedSprite2D.global_position) < interaction_distance:
+			#if not dialog_control.visible:
+				#start_dialog_interaction(2)
+			#else:
+				#print_debug("Dialog is already active.")
 # 右侧关卡阵，左侧山洞里密宗长老开隐藏本，左上铁匠圣器打造升级，右上修炼室局外养成加点，中间巨大水晶可以切换人物
 # 1个其他世界的黑魔法师，他的世界因为过渡开发以太能源矿，导致以太崩溃，浓缩的以太凝聚成了各种各样的魔物，并且大地上的以太大量减少，寸草不生，人类陷入生存危机。
 

@@ -97,6 +97,11 @@ signal _fire_ring_bullets
 # 掉落
 signal drop_out_item(item_id: String, quantity: int, position: Vector2)
 
+# 对话键
+signal press_f
+signal press_g
+signal press_h
+
 # 玩家背包
 var player_inventory = {}
 

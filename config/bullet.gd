@@ -1,6 +1,6 @@
 extends Area2D
 
-@export var bullet_speed: float = 575
+@export var bullet_speed: float = 375
 @export var bullet_range: float = PC.swordQi_range  # 子弹射程
 @export var penetration_count: int = 1  # 穿透次数，默认为1
 

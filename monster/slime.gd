@@ -134,16 +134,19 @@ func _on_body_entered(body: Node2D) -> void:
 			body.game_over()
 
 
-
 func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:
+	var damage_offset = Vector2(35, 20)
 	var final_damage = int(damage * debuff_manager.get_damage_multiplier())
 	if damage_type == "sword_wave":
 		var current_time = Time.get_ticks_msec() / 1000.0
+		if PC.selected_rewards.has("SplitSwordQi22"):
+			current_time = current_time / 2
 		if current_time - last_sword_wave_damage_time >= SWORD_WAVE_DAMAGE_INTERVAL:
 			hp -= final_damage
 			last_sword_wave_damage_time = current_time
 	else:
 		hp -= final_damage
+		Global.emit_signal("monster_damage", 1, final_damage, global_position - damage_offset)
 
 
 func _on_area_entered(area: Area2D) -> void:

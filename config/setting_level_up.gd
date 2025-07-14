@@ -1297,6 +1297,11 @@ func reward_ringFire():
 	PC.selected_rewards.append("ringFire")
 	PC.has_ringFire = true
 	_level_up_action()
+	
+func reward_riyan():
+	PC.selected_rewards.append("riyan")
+	PC.has_riyan = true
+	_level_up_action()
 
 # 剑气础升级
 

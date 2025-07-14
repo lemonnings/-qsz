@@ -24,6 +24,7 @@ extends CharacterBody2D
 @export var fire_speed : Timer
 @export var branch_fire_speed : Timer
 @export var moyan_fire_speed : Timer
+@export var riyan_fire_speed : Timer
 @export var ringFire_fire_speed : Timer
 @export var invincible_time : Timer
 

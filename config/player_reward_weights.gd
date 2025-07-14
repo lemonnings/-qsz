@@ -9,7 +9,7 @@ const INITIAL_FACTION_WEIGHTS: Dictionary = {
 	"normal": 4.0,           # 通用，通用型、基础属性提升
 	"branch": 2.0,           # 树枝
 	"moyan": 2.0,           # 魔焰
-	#"riyan": 2.0,           # 日炎
+	"riyan": 2.0,           # 日炎
 	"ringFire": 2.0,           # 环火
 	"swordQi": 4.0,           # 剑气
 	"summon": 2.0,           # 召唤，召唤物数量、召唤物属性提升等

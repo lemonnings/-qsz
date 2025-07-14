@@ -54,7 +54,7 @@ func _physics_process(delta: float) -> void:
 	if PC.selected_rewards.has("branch1") and not is_fading and traveled_distance >= bullet_range / 2:
 		_create_sword_wave_instance(global_position)
 		# 防止重复分裂
-		PC.selected_rewards.erase("branch1")
+		#PC.selected_rewards.erase("branch1")
 
 	# 检查是否超出射程
 	# 羁绊设计：基于中国，北欧，希腊，埃及神话，每个神话有N个专属的主羁绊，然后有共通的若干个子羁绊
