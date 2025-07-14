@@ -118,3 +118,160 @@ func _on_lucky_level_up(lunky_up: float) -> void:
 
 func get_reward_acquisition_count(fallback_reward_id: String):
 	return selected_rewards.count(fallback_reward_id)
+
+
+func reset_player_attr() -> void :
+	# 重置玩家奖励权重
+	if PlayerRewardWeights:
+		PlayerRewardWeights.reset_all_weights()
+		
+	# 初始化一系列单局内会发生变化的变量
+	Global.in_menu = false
+	PC.is_game_over = false
+	
+	PC.selected_rewards = [""] # "swordWaveTrace"
+	
+	exec_pc_atk()
+	exec_pc_hp()
+	exec_pc_bullet_size()
+	exec_lucky_level()
+	
+	PC.real_time = 0
+	PC.current_time = 0
+	
+	PC.pc_lv = 1
+	PC.pc_exp = 0
+	PC.pc_speed = 0
+	PC.pc_atk_speed = 0
+	
+	PC.invincible = false
+	
+	PC.ring_bullet_enabled = false
+	PC.ring_bullet_count = 8
+	PC.ring_bullet_size_multiplier = 0.9
+	PC.ring_bullet_damage_multiplier = 1
+	PC.ring_bullet_interval = 2.5
+	PC.ring_bullet_last_shot_time = 0.0
+	
+	# 重置反弹子弹相关属性
+	PC.rebound_size_multiplier = 0.9
+	PC.rebound_damage_multiplier = 0.35
+	
+	PC.summon_count = 0 
+	PC.summon_count_max  = 3
+	PC.summon_damage_multiplier = 0.0
+	PC.summon_interval_multiplier = 1.0
+	PC.summon_bullet_size_multiplier = 1.0
+	
+	# 重置暴击相关属性
+	PC.crit_chance = 0.1 + (Global.crit_chance_level * 0.005) # 基础暴击率 + 局外成长
+	PC.crit_damage_multiplier = 1.5 + (Global.crit_damage_level * 0.01) # 基础暴击伤害倍率 + 局外成长
+	
+	PC.damage_reduction_rate = min(0.0 + (Global.damage_reduction_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
+	PC.body_size = 0
+	PC.last_atk_speed = 0
+	PC.last_speed = 0
+	PC.last_lunky_level = 1
+	
+	# 重置主要技能等级
+	PC.main_skill_swordQi = 0
+	PC.main_skill_swordQi_advance = 0
+	PC.main_skill_swordQi_damage = 1
+	PC.swordQi_penetration_count = 1
+	PC.swordQi_other_sword_wave_damage = 0.5
+	PC.swordQi_range = 120
+	
+	# 重置魔焰相关属性
+	PC.main_skill_moyan = 0
+	PC.main_skill_moyan_advance = 0
+	PC.has_moyan = false
+	PC.first_has_moyan = true
+	PC.main_skill_moyan_damage = 1.0
+	PC.moyan_range = 220.0
+	
+	# 重置树枝相关属性
+	PC.main_skill_branch = 0
+	PC.main_skill_branch_advance = 0
+	PC.has_branch = false
+	PC.first_has_branch = true
+	PC.main_skill_branch_damage = 1
+	PC.branch_split_count = 3
+	PC.branch_range = 90
+	
+	# 重置日炎相关属性
+	PC.main_skill_riyan = 0
+	PC.main_skill_riyan_advance = 0
+	PC.main_skill_riyan_damage = 1
+	PC.has_riyan = false
+	PC.first_has_riyan = true
+	PC.first_has_riyan_pc = true
+	PC.riyan_range = 70.0
+	PC.riyan_cooldown = 0.5
+	PC.riyan_hp_max_damage = 0.12
+	PC.riyan_atk_damage = 0.08
+	
+	# 重置环火相关属性
+	PC.main_skill_ringFire = 0
+	PC.main_skill_ringFire_advance = 0
+	PC.main_skill_ringFire_damage = 1
+	PC.has_ringFire = false
+	PC.first_has_ringFire = true
+	
+	PC.refresh_num = Global.refresh_max_num
+	BuffManager.clear_all_buffs()
+	
+
+func exec_pc_atk() -> void:
+	PC.pc_atk = int (15 + int(get_total_increase(Global.atk_level)))
+	
+func exec_pc_hp() -> void:
+	PC.pc_max_hp = int (15 + int(get_total_increase_hp(Global.hp_level)))
+	PC.pc_hp = PC.pc_max_hp
+	
+func exec_pc_bullet_size() -> void:
+	PC.bullet_size = 1 + (Global.bullet_size_level * 0.02)
+
+func exec_lucky_level() -> void:
+	PC.now_lunky_level = Global.lunky_level
+	PC.now_red_p = Global.red_p
+	PC.now_gold_p = Global.gold_p
+	PC.now_purple_p = Global.purple_p
+	PC.now_blue_p = Global.blue_p
+	PC.now_green_p = Global.green_p
+
+
+func get_total_increase(level) -> String:
+	var total_attack = 1
+	var current_level = 1  # 当前已经处理到第几级
+	var attack_value = 1   # 当前每级增加的攻击力
+	var duration = 2       # 第一个攻击值(+1)持续2次升级
+
+	while current_level < level:
+		var remaining_levels = level - current_level
+		var add_times = min(duration, remaining_levels)
+
+		total_attack += attack_value * add_times
+		current_level += add_times
+
+		if current_level < level:
+			attack_value += 1
+			duration = int(attack_value * attack_value)  # 每个攻击力持续attack_value + 1次
+	return str(total_attack)
+
+func get_total_increase_hp(level) -> String:
+	var total_hp = 1
+	var current_level = 1  # 当前已经处理到第几级
+	var hp_value = 1   
+	var duration = 6      
+
+	while current_level < level:
+		var remaining_levels = level - current_level
+		var add_times = min(duration, remaining_levels)
+
+		total_hp += hp_value * add_times
+		current_level += add_times
+
+		if current_level < level:
+			hp_value += 1
+			duration = 6 + int((hp_value + 4) * hp_value)  
+	return str(total_hp)

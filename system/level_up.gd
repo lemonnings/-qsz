@@ -239,11 +239,8 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 
 # 检查并处理待升级
 func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport: Viewport = null) -> void:
-	if viewport != null:
-		var dark_overlay = viewport.get_meta("dark_overlay", null)
-		if dark_overlay != null:
-			dark_overlay.queue_free()
-			viewport.remove_meta("dark_overlay")
+	# 清理dark_overlay
+	_cleanup_dark_overlay()
 	
 	# 恢复技能节点状态
 	for skill_node in skill_nodes:
@@ -260,21 +257,17 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 		handle_level_up("", 0, scene_tree, viewport)
 		# 清理升级选择时创建的背景变暗效果（仅普通升级时）
 		now_main_skill_name = ""
-	
-	if viewport != null:
-		var dark_overlay_check_again = viewport.get_meta("dark_overlay", null)
-		if dark_overlay_check_again != null:
-			dark_overlay_check_again.queue_free()
-			viewport.remove_meta("dark_overlay")
 
 # 升级选择完成回调
 func _on_level_up_selection_complete(viewport: Viewport = null) -> void:
 	# 清理升级选择时创建的背景变暗效果
-	if viewport != null:
-		var dark_overlay = viewport.get_meta("dark_overlay", null)
-		if dark_overlay != null:
-			dark_overlay.queue_free()
-			viewport.remove_meta("dark_overlay")
+	_cleanup_dark_overlay()
+	# 隐藏升级界面
+	lv_up_change.visible = false
+	Global.is_level_up = false
+	# 恢复游戏
+	if get_tree():
+		get_tree().set_pause(false)
 
 # 刷新按钮处理函数
 func handle_refresh_button(refresh_id: int, scene_tree: SceneTree = null, viewport: Viewport = null) -> void:
@@ -312,3 +305,10 @@ func get_required_lv_up_value(level: int) -> float:
 	for i in range(level):
 		value = (value + 200) * 1.03
 	return value
+
+# 清理dark_overlay的私有函数
+func _cleanup_dark_overlay() -> void:
+	var dark_overlay = get_meta("dark_overlay", null)
+	if dark_overlay != null:
+		dark_overlay.queue_free()
+		remove_meta("dark_overlay")
