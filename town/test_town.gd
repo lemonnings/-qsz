@@ -20,7 +20,7 @@ func _ready() -> void:
 	if not Global:
 		printerr("Global singleton not found. Make sure it's autoloaded.")
 		return
-		
+
 	Global.emit_signal("reset_camera")
 
 	# 确保在项目设置 -> Input Map 中定义了 "interact" 动作并绑定到 F 键
@@ -29,7 +29,6 @@ func _ready() -> void:
 		var event_f_key = InputEventKey.new()
 		event_f_key.physical_keycode = KEY_F # Godot 4.x
 		InputMap.action_add_event("interact", event_f_key)
-		print_rich("[color=yellow]Warning:[/color] Input action 'interact' was not found. Temporarily mapped to F key. Please configure it in Project > Project Settings > Input Map.")
 
 
 func _process(delta: float) -> void:

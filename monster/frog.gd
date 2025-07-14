@@ -59,9 +59,9 @@ func _enter_state(new_state: State):
 	current_state = new_state
 	match current_state:
 		State.SEEKING_PLAYER:
+			# 在这个状态下，持续寻找玩家
 			# print("Entering SEEKING_PLAYER")
 			$AnimatedSprite2D.play("run")
-			# 在这个状态下，持续寻找玩家
 		State.ATTACKING:
 			# print("Entering ATTACKING")
 			$AnimatedSprite2D.play("attack") # 或者一个准备攻击的动画
@@ -72,9 +72,8 @@ func _enter_state(new_state: State):
 			# print("Entering FIRING")
 			$AnimatedSprite2D.play("attack")
 			_spawn_fireball()
-			_enter_state(State.FLEEING) # 发射后立即进入逃跑状态
+			_enter_state(State.FLEEING) # 发射后立即进入远离状态
 		State.FLEEING:
-			# print("Entering FLEEING")
 			$AnimatedSprite2D.play("run")
 			_determine_flee_target()
 			action_timer.wait_time = FLEE_DURATION
@@ -214,7 +213,16 @@ func _physics_process(delta: float) -> void:
 
 			await get_tree().create_timer(0.36).timeout
 			queue_free()
-		
+			# 巨大树精：skill1 冲锋，skill2 八方树枝， skill3 点名连续放四次不会消失的带毒减速藤蔓， skill4, 从左右随机缓慢生长的直线，skill5 引灵，随机冰或者火
+			# 如果是冰，可以放到一个区域，阻碍直线生长，如果是火，可以放到带毒减速藤蔓烧掉
+			# 高难下添加，每2秒不断叠加的1%巨木之韧的减伤，最多70层，引灵添加风，风会在脚下生成一个风圈，踩中后获得移速加成但持续扣血，在每次使用八方攻击时候的尽头都会留下一个持续1秒的木灵珠，如果冰火都处理成功，可以
+			# 额外获得冰火灵珠，当三个灵珠都存在时，获得屏障穿透buff，提升50%最终伤害并且清除掉boss的减伤，持续15秒。
+		# 区域1幻境外围-森林，boss1巨大树精，boss2巨型粘液怪
+		# 区域2幻境外围-山间
+		# 区域3幻境深处-异域（机械城）
+		# 区域4深处，城堡
+		# 区域5深处，火山
+		# 区域6核心，山顶
 	if current_state != State.FLEEING and PC.player_instance: # 非逃跑状态下 (SEEKING_PLAYER, ATTACKING, FIRING)，朝向玩家
 		var player_pos = PC.player_instance.global_position
 		if global_position.x > player_pos.x: # 青蛙在玩家右侧
@@ -238,6 +246,14 @@ func _physics_process(delta: float) -> void:
 		State.FLEEING:
 			_move_pattern(delta)
 
+		# 乾（qián）：象征天 深蓝 紫
+		# 坤（kūn）：象征地 深黄绿 褐
+		# 震（zhèn）：象征雷 黑 黄
+		# 巽（xùn）：象征风 浅绿 青
+		# 坎（kǎn）：象征水 浅蓝
+		# 离（lí）：象征火 黑 红
+		# 艮（gèn）：象征山 橙
+		# 兑（duì）：象征泽 深绿 
 	if hp < hpMax and hp > 0:
 		show_health_bar()
 	
@@ -264,8 +280,17 @@ func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: Strin
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
 		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self, false)
-		
 		# 根据穿透逻辑决定是否销毁子弹
+		# 小坎，云游商人
+		# 坤：炼丹 小怪材料，boss材料加上坎卖的材料，可以组合炼丹
+		# 灯油，宣纸；木精，苔藓；毒囊，蛙皮；利爪，羽毛；魔核，树脂
+		# 
+		# 离：铁匠
+		# 乾：水晶维护
+		# 巽：传送阵
+		# 震：升级1
+		# 艮：升级2
+		# 兑：合成，开启隐藏关卡，如九幽
 		if collision_result["should_delete_bullet"]:
 			area.queue_free()
 			

@@ -309,8 +309,6 @@ func _trigger_boss_event() -> void:
 	var warning_audio = warning_node.get_node_or_null("warning") as AudioStreamPlayer
 	if warning_audio:
 		warning_audio.play()
-	else:
-		print("Warning: Could not find audio node 'warning'")
 	
 	# 显示节点并开始动画
 	warning_node.visible = true
