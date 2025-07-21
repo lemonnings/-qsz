@@ -83,9 +83,14 @@ var level_up_manager: LevelUpManager
 # 主要是第一个场景的基本ui和出怪逻辑，包含了升级逻辑
 func _ready() -> void:
 	PC.player_instance = $Player
+	# 连接技能攻速更新信号
+	Global.connect("skill_attack_speed_updated", Callable(self, "update_skill_cooldowns"))
 	Global.emit_signal("reset_camera")
 	map_mechanism_num = 0
 	map_mechanism_num_max = 10800
+	
+	# 重置DPS计数器
+	Global.reset_dps_counter()
 	
 	# 初始化升级管理器
 	level_up_manager = LevelUpManager.new()
@@ -116,6 +121,9 @@ func _ready() -> void:
 	
 	# 测试添加一些buff（可以删除这部分）
 	_test_buffs()
+	
+	# 初始化技能冷却时间显示
+	update_skill_cooldowns()
 
 
 func _process(delta: float) -> void:
@@ -150,7 +158,35 @@ func _process(delta: float) -> void:
 	
 	score_label.text = formatted_point
 	
+	# 更新DPS显示
+	var current_dps = Global.get_current_dps()
+	var formatted_dps = "%.1f" % current_dps
+	current_multi.text = "DPS: " + formatted_dps
+	
 var boss_event_triggered: bool = false # 新增标志位，防止重复触发
+
+# 更新技能冷却时间显示
+func update_skill_cooldowns() -> void:
+	# 更新主攻击技能
+	if skill1.visible:
+		skill1.update_skill(1, $Player.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+	
+	# 更新分支技能
+	if PC.has_branch and skill2.visible:
+		skill2.update_skill(2, $Player.branch_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+	
+	# 更新魔焰技能
+	if PC.has_moyan and skill3.visible:
+		skill3.update_skill(3, $Player.moyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/moyan.png")
+	
+	# 更新日焰技能
+	if PC.has_riyan and skill4.visible:
+		skill4.update_skill(4, $Player.riyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/riyan.png")
+	
+	# 更新环形火焰技能
+	if PC.has_ringFire and skill5.visible:
+		skill5.update_skill(5, $Player.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/ringFire.png")
+
 
 func _physics_process(_delta: float) -> void:
 	monster_limit_increase_timer += _delta
@@ -164,45 +200,16 @@ func _physics_process(_delta: float) -> void:
 		# 随着时间增长，提高怪物的属性
 	#print(PC.current_time,' ',slime_spawn_timer.wait_time,' ',bat_spawn_timer.wait_time,' ',frog_spawn_timer.wait_time)
 	if PC.current_time < 0.3:
-		PC.current_time = PC.current_time + 0.00012
-	elif PC.current_time >= 0.3 and PC.current_time <= 1.92:
 		PC.current_time = PC.current_time + 0.00024
-	elif PC.current_time > 1.92 and PC.current_time <= 6.4:
+	elif PC.current_time > 0.6 and PC.current_time <= 6.4:
 		PC.current_time = PC.current_time + 0.00048
-	elif PC.current_time > 6.4 and PC.current_time <= 19.2 and Global.world_level != 1:
-		PC.current_time = PC.current_time + 0.00096
-	elif PC.current_time > 19.2 and PC.current_time <= 76.8 and Global.world_level != 1:
-		PC.current_time = PC.current_time + 0.00192
-	elif PC.current_time > 76.8 and PC.current_time <= 307.2 and Global.world_level != 1:
-		PC.current_time = PC.current_time + 0.00384
-	elif Global.world_level != 1:
-		PC.current_time = PC.current_time * 1.0002
 	else:
-		PC.current_time = PC.current_time + 0.00064
+		PC.current_time = PC.current_time + 0.001
 	
 	if map_mechanism_num >= map_mechanism_num_max and not boss_event_triggered:
 		boss_event_triggered = true
 		_trigger_boss_event()
 		return
-
-	# rampage_notice
-	if PC.current_time >= 0.3 and PC.current_time < 0.301:
-		Global.emit_signal("rampage_notice", 1)
-	
-	if PC.current_time >= 1.2 and PC.current_time < 1.203:
-		Global.emit_signal("rampage_notice", 2)
-	
-	if PC.current_time >= 4 and PC.current_time < 4.009:
-		Global.emit_signal("rampage_notice", 3)
-	
-	if PC.current_time >= 12 and PC.current_time < 12.027:
-		Global.emit_signal("rampage_notice", 4)
-	
-	if PC.current_time >= 48 and PC.current_time < 48.081:
-		Global.emit_signal("rampage_notice", 5)
-	
-	if PC.current_time >= 192 and PC.current_time < 192.486:
-		Global.emit_signal("rampage_notice", 6)
 	
 	PC.real_time += _delta
 	

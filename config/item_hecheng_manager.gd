@@ -1,148 +1,205 @@
 extends Node
 
-# 物品数据字典
-# item_id: 唯一ID
-# item_name: 道具名
-# item_stack_max: 最大堆叠数量
-# item_type: 物品类型 ("immediate", "equip", "artifact")
-# item_icon: 图标路径 (String)
-# item_price: 价格 (Int/Float)
-# item_source: 物品来源 (String)
-# item_use_condition: 使用条件 (String)
-# item_detail: 详情 (String)
-# item_rare: 品质 (String/Int, e.g., "common", "rare", "epic" / 1, 2, 3)
-# item_color: 掉落时显示的颜色 (Color / String, e.g., Color(1,1,1) / "white")
-# item_anime: 掉落时显示的动画 (String - 动画资源路径或名称)
+# 物品合成管理器 - 专门负责合成逻辑
+# 配方数据结构说明:
+# recipe_id: 配方唯一ID
+# required_items: 需求物品列表 [{"item_id": String, "count": int}]
+# result_items: 合成结果列表 [{"item_id": String, "min_count": int, "max_count": int, "probability": float}]
+# recipe_name: 配方名称
+# recipe_description: 配方描述
 
-var items_data = {
-	"item_001": {
-		"item_name": "野果",
-		"item_stack_max": 10,
-		"item_type": "immediate", # 立即生效
-		"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
-		"item_price": 50,
-		"item_source": "怪物掉落, 商店购买",
-		"item_use_condition": "HP < MaxHP",
-		"item_detail": "恢复少量生命值。",
-		"item_rare": "common", # 普通
-		"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
-		"item_anime": "res://assets/animations/item_pickup_common.tres"
+# 合成配方数据
+var recipes_data = {
+	"recipe_001": {
+		"recipe_name": "贤者之石",
+		"recipe_description": "使用贤者之石碎片合成完整的贤者之石",
+		"required_items": [
+			{"item_id": "item_003", "count": 10}
+		],
+		"result_items": [
+			{"item_id": "item_005", "min_count": 1, "max_count": 1, "probability": 1.0}
+		]
 	},
-	"item_002": {
-		"item_name": "力量之戒",
-		"item_stack_max": 1,
-		"item_type": "equip", # 装备
-		"item_icon": "res://assets/icons/ring_strength.png",
-		"item_price": 500,
-		"item_source": "宝箱开启, Boss掉落",
-		"item_use_condition": "可装备栏位",
-		"item_detail": "装备后增加攻击力。",
-		"item_rare": "rare", # 稀有
-		"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
-		"item_anime": "res://assets/animations/item_pickup_rare.tres"
+	"recipe_002": {
+		"recipe_name": "九幽秘钥",
+		"recipe_description": "使用九幽秘钥碎片合成完整的九幽秘钥",
+		"required_items": [
+			{"item_id": "item_004", "count": 10}
+		],
+		"result_items": [
+			{"item_id": "item_006", "min_count": 1, "max_count": 1, "probability": 0.8},
+			{"item_id": "item_004", "min_count": 1, "max_count": 3, "probability": 0.2}
+		]
 	},
-	"item_003": {
-		"item_name": "贤者之石碎片",
-		"item_stack_max": 99,
-		"item_type": "artifact", # 圣器 (或用于合成圣器的材料)
-		"item_icon": "res://assets/icons/philosopher_stone_shard.png",
-		"item_price": 1000, # 单个价格，或者表示其价值
-		"item_source": "特定事件, 隐藏任务",
-		"item_use_condition": "收集特定数量可合成",
-		"item_detail": "古老圣器的碎片，蕴含着神秘的力量。",
-		"item_rare": "epic", # 史诗
-		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
-		"item_anime": "res://assets/animations/item_pickup_epic.tres"
+	"recipe_003": {
+		"recipe_name": "强化野果",
+		"recipe_description": "使用多个野果合成强化野果",
+		"required_items": [
+			{"item_id": "item_001", "count": 5}
+		],
+		"result_items": [
+			{"item_id": "item_007", "min_count": 1, "max_count": 2, "probability": 0.7},
+			{"item_id": "item_001", "min_count": 1, "max_count": 1, "probability": 0.3}
+		]
 	},
-	"item_004": {
-		"item_name": "九幽秘钥碎片",
-		"item_stack_max": 99,
-		"item_type": "artifact", # 圣器 (或用于合成圣器的材料)
-		"item_icon": "res://assets/icons/philosopher_stone_shard.png",
-		"item_price": 1000, # 单个价格，或者表示其价值
-		"item_source": "特定事件, 隐藏任务",
-		"item_use_condition": "收集特定数量可合成",
-		"item_detail": "九幽秘钥的碎片，蕴含着神秘的力量，收集满10个后或许可以和密宗长老对话来知晓此物的用法",
-		"item_rare": "epic", # 史诗
-		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
-		"item_anime": "res://assets/animations/item_pickup_epic.tres"
+	"recipe_004": {
+		"recipe_name": "复合装备",
+		"recipe_description": "使用力量之戒和贤者之石碎片合成复合装备",
+		"required_items": [
+			{"item_id": "item_002", "count": 1},
+			{"item_id": "item_003", "count": 3}
+		],
+		"result_items": [
+			{"item_id": "item_008", "min_count": 1, "max_count": 1, "probability": 0.6},
+			{"item_id": "item_002", "min_count": 1, "max_count": 1, "probability": 0.4}
+		]
 	}
-	# 更多物品可以添加到这里
+	# 更多配方可以添加到这里
 }
 
-# 物品效果处理函数
-var item_function = {
-	"item_001": "_on_item_001_picked_up",
-	"item_002": "_on_item_002_picked_up",
-	"item_004": "_on_item_004_picked_up"
-}
-
-# 根据物品ID获取该物品的所有数据
-func get_item_all_data(item_id: String) -> Dictionary:
-	if items_data.has(item_id):
-		return items_data[item_id]
+# 获取配方信息
+func get_recipe_data(recipe_id: String) -> Dictionary:
+	if recipes_data.has(recipe_id):
+		return recipes_data[recipe_id]
 	else:
-		printerr("Item not found: ", item_id)
+		printerr("Recipe not found: ", recipe_id)
 		return {}
 
-# 根据物品ID和属性名获取特定属性值
-func get_item_property(item_id: String, property_name: String):
-	if items_data.has(item_id):
-		var item_info = items_data[item_id]
-		if item_info.has(property_name):
-			return item_info[property_name]
+# 检查是否有足够的材料进行合成
+func can_craft(recipe_id: String, craft_count: int = 1) -> bool:
+	var recipe = get_recipe_data(recipe_id)
+	if recipe.is_empty():
+		return false
+	
+	# 检查配方是否已解锁
+	if !Global.is_recipe_unlocked(recipe_id):
+		return false
+	
+	# 检查每个需求物品是否足够
+	for required_item in recipe.required_items:
+		var item_id = required_item.item_id
+		var needed_count = required_item.count * craft_count
+		
+		# 检查玩家背包中是否有足够的物品
+		if !Global.player_inventory.has(item_id):
+			return false
+		if Global.player_inventory[item_id] < needed_count:
+			return false
+	
+	return true
+
+# 执行合成操作
+func craft_items(recipe_id: String, craft_count: int = 1) -> Dictionary:
+	var result = {
+		"success": false,
+		"message": "",
+		"obtained_items": []
+	}
+	
+	# 检查配方是否存在
+	var recipe = get_recipe_data(recipe_id)
+	if recipe.is_empty():
+		result.message = "配方不存在"
+		return result
+	
+	# 检查配方是否已解锁
+	if !Global.is_recipe_unlocked(recipe_id):
+		result.message = "配方尚未解锁"
+		return result
+	
+	# 检查材料是否足够
+	if !can_craft(recipe_id, craft_count):
+		result.message = "材料不足"
+		return result
+	
+	# 消耗材料
+	for required_item in recipe.required_items:
+		var item_id = required_item.item_id
+		var consume_count = required_item.count * craft_count
+		Global.player_inventory[item_id] -= consume_count
+		
+		# 如果物品数量为0，从背包中移除
+		if Global.player_inventory[item_id] <= 0:
+			Global.player_inventory.erase(item_id)
+	
+	# 执行合成并获得物品
+	var total_obtained_items = []
+	for i in range(craft_count):
+		var obtained_items = _process_craft_results(recipe.result_items)
+		total_obtained_items.append_array(obtained_items)
+	
+	# 将获得的物品添加到背包
+	for item_info in total_obtained_items:
+		var item_id = item_info.item_id
+		var count = item_info.count
+		
+		if !Global.player_inventory.has(item_id):
+			Global.player_inventory[item_id] = count
 		else:
-			printerr("Property not found for item '", item_id, "': ", property_name)
-			return null
-	else:
-		printerr("Item not found: ", item_id)
-		return null
+			Global.player_inventory[item_id] += count
+	
+	result.success = true
+	result.message = "合成成功"
+	result.obtained_items = total_obtained_items
+	return result
 
-# 野果拾取函数
-func _on_item_001_picked_up(player):
-	# 只有满血时才能拾取
-	#if PC.pc_hp != PC.pc_max_hp:
-		#PC.pc_hp += PC.pc_max_hp * 0.2
-		## 防止生命值超过上限
-		#if PC.pc_hp > PC.pc_max_hp:
-			#PC.pc_hp = PC.pc_max_hp
-		#return true # 表示成功拾取
-	#else:
-		#return false # 表示无法拾取
-	PC.pc_hp += PC.pc_max_hp * 0.2
-	# 防止生命值超过上限
-	if PC.pc_hp > PC.pc_max_hp:
-		PC.pc_hp = PC.pc_max_hp
-	return true # 表示成功拾取
+# 处理合成结果（包含概率和随机数量）
+func _process_craft_results(result_items: Array) -> Array:
+	var obtained_items = []
+	
+	for result_item in result_items:
+		var probability = result_item.probability
+		
+		# 根据概率判断是否获得该物品
+		if randf() <= probability:
+			var min_count = result_item.min_count
+			var max_count = result_item.max_count
+			var actual_count = randi_range(min_count, max_count)
+			
+			obtained_items.append({
+				"item_id": result_item.item_id,
+				"count": actual_count
+			})
+	
+	return obtained_items
 
-# 力量之戒拾取函数
-func _on_item_002_picked_up(player):
-	# 将力量之戒添加到 Global 的玩家背包中
-	if !Global.player_inventory.has("item_002"):
-		Global.player_inventory["item_002"] = 1
-	else:
-		Global.player_inventory["item_002"] += 1
-	return true # 表示成功拾取
+# 获取所有可用的配方列表
+func get_all_recipes() -> Array:
+	return recipes_data.keys()
 
-func _on_item_004_picked_up(player):
-	# 将力量之戒添加到 Global 的玩家背包中
-	if !Global.player_inventory.has("item_004"):
-		Global.player_inventory["item_004"] = 1
-	else:
-		Global.player_inventory["item_004"] += 1
-	return true # 表示成功拾取
+# 获取玩家可以制作的配方列表（已解锁且材料充足）
+func get_craftable_recipes() -> Array:
+	var craftable = []
+	for recipe_id in recipes_data.keys():
+		if can_craft(recipe_id):
+			craftable.append(recipe_id)
+	return craftable
+
+# 获取已解锁的配方列表（不考虑材料是否充足）
+func get_unlocked_recipes() -> Array:
+	var unlocked = []
+	for recipe_id in recipes_data.keys():
+		if Global.is_recipe_unlocked(recipe_id):
+			unlocked.append(recipe_id)
+	return unlocked
 
 # 示例用法:
 # func _ready():
-# 	var potion_details = get_item_all_data("item_001")
-# 	if potion_details:
-# 		print("药水名称: ", potion_details.item_name)
-# 		print("药水价格: ", potion_details.item_price)
-#
-# 	var ring_type = get_item_property("item_002", "item_type")
-# 	if ring_type != null:
-# 		print("戒指类型: ", ring_type)
-#
-# 	var non_existent_item = get_item_property("item_999", "item_name")
-# 	if non_existent_item == null:
-# 		print("尝试获取不存在的物品属性，返回null")
+# 	# 检查配方解锁状态
+# 	print("贤者之石配方是否解锁: ", Global.is_recipe_unlocked("recipe_001"))
+# 	
+# 	# 获取已解锁的配方
+# 	var unlocked_recipes = get_unlocked_recipes()
+# 	print("已解锁的配方: ", unlocked_recipes)
+# 	
+# 	# 获取可制作的配方（已解锁且材料充足）
+# 	var craftable_recipes = get_craftable_recipes()
+# 	print("可制作的配方: ", craftable_recipes)
+# 	
+# 	# 尝试合成贤者之石
+# 	var craft_result = craft_items("recipe_001", 1)
+# 	if craft_result.success:
+# 		print("合成成功！获得物品: ", craft_result.obtained_items)
+# 	else:
+# 		print("合成失败: ", craft_result.message)
+# 		# 可能的失败原因：配方不存在、配方未解锁、材料不足

@@ -43,11 +43,16 @@ var active_summons: Array = []  # 当前活跃的召唤物列表
 
 # 主要定义player主体的行为以及部分子弹逻辑
 func _ready() -> void:
+	# 将player节点添加到player组中
+	add_to_group("player")
+	
 	hp = PC.pc_hp
 	sprite_direction_right = not sprite.flip_h
 	Global.connect("player_hit", Callable(self, "_on_player_hit"))
 	Global.connect("zoom_camera", Callable(self, "_zoom_camera"))
 	Global.connect("reset_camera", Callable(self, "_reset_camera"))
+	# 初始化技能攻速
+	update_skill_attack_speeds()
 	Global.connect("_fire_ring_bullets", Callable(self, "_fire_ring_bullets"))
 	
 	Global.connect("skill_cooldown_complete", Callable(self, "_on_fire"))
@@ -81,7 +86,12 @@ func _process(_delta: float) -> void:
 		$RunningSound.play()
 	
 	#if !Global.in_town :
-		#fire_speed.wait_time = 1.0 * pow(0.98, Global.atk_speed_level) / (1 + PC.pc_atk_speed)
+	# 更新技能攻速（当攻速属性改变时）
+	if PC.last_atk_speed != PC.pc_atk_speed:
+		update_skill_attack_speeds()
+		# 发射信号通知技能攻速更新
+		Global.emit_signal("skill_attack_speed_updated")
+		PC.last_atk_speed = PC.pc_atk_speed
 		## 环形子弹逻辑
 		#if PC.selected_rewards.has("ring_bullet") and not PC.is_game_over and not Global.in_menu:
 			#PC.real_time += _delta
@@ -180,6 +190,9 @@ func game_over():
 		#防止出现gameover动画候杀了怪升级了
 		PC.pc_exp = -1000000
 		PC.is_game_over = true
+		
+		# 停止DPS计数器
+		Global.stop_dps_counter()
 		
 		Global.save_game()
 		$GameOver.play()
@@ -437,6 +450,28 @@ func stop_invincible() -> void:
 	sprite.modulate = Color(1, 1, 1)
 	PC.invincible = false
 	
+# 更新所有技能的攻击速度
+func update_skill_attack_speeds() -> void:
+	# 基础攻速公式：初始攻速 / (1 + PC.pc_atk_speed)
+	# 主攻击
+	fire_speed.wait_time = 1.0 / (1 + PC.pc_atk_speed)
+	
+	# 分支攻击
+	if branch_fire_speed:
+		branch_fire_speed.wait_time = 1.5 / (1 + PC.pc_atk_speed)
+	
+	# 魔焰攻击
+	if moyan_fire_speed:
+		moyan_fire_speed.wait_time = 2.0 / (1 + PC.pc_atk_speed)
+	
+	# 日焰攻击
+	if riyan_fire_speed:
+		riyan_fire_speed.wait_time = 3.0 / (1 + PC.pc_atk_speed)
+	
+	# 环形火焰攻击
+	if ringFire_fire_speed:
+		ringFire_fire_speed.wait_time = 2.5 / (1 + PC.pc_atk_speed)
+
 # 发射环形子弹
 func _fire_ring_bullets() -> void:
 	var bullet_count = PC.ring_bullet_count

@@ -122,7 +122,16 @@ func initialize_bullet_damage() -> void:
 		if randf() < PC.crit_chance:
 			is_crit_hit = true
 			bullet_damage *= PC.crit_damage_multiplier
+#每级进度9000+当前lv，每秒提升400，每级提升3%atk，点击升相当于直接+下一级的完整经验，此外，绿额外提升1%atk，蓝2%，紫3%+进度获取速度+10%，金4%+20%，红5%+40%
+#有提升获取进度的，白+20%，绿25%，蓝33%，紫45%，金60%，红90%
+#局外升级，获取进度提升+2%~40%
 
+	if can_crit:
+		if randf() < PC.crit_chance:
+			is_crit_hit = true
+			bullet_damage *= PC.crit_damage_multiplier
+#冰针 可以直线穿透，每次穿透伤害衰减40%，可以通过强化到15%，可以向目标方向90度随机喷射3~6个冰花，造成原有15%伤害，进阶向120度喷射4~8个，进阶2向150度喷射6~10个
+#宽度提升，被击中的敌人附加减速15%，强化到25%，有10%概率冰冻，对boss无效但会额外造成200%伤害，
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary: # Returns {"damage": float, "is_crit": bool}
 	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": is_summon_bullet}

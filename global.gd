@@ -53,6 +53,7 @@ signal level_up_selection_complete
 signal monster_damage
 signal monster_mechanism_gained
 signal boss_defeated
+signal skill_attack_speed_updated
 
 # 对话相关
 signal start_dialog(dialog_file_path: String) # Signal to start a dialog sequence
@@ -64,9 +65,6 @@ signal normal_bgm
 # 影机相关
 signal zoom_camera
 signal reset_camera
-
-# 狂暴化警告
-signal rampage_notice
 
 # Boss血条控制信号
 signal boss_hp_bar_show
@@ -106,12 +104,42 @@ signal press_h
 # 玩家背包
 var player_inventory = {}
 
+# 合成书获取进度 - 记录每个合成配方是否已解锁
+# 格式: {"recipe_id": bool}
+var recipe_unlock_progress = {
+	"recipe_001": false,  # 贤者之石
+	"recipe_002": false,  # 九幽秘钥
+	"recipe_003": false,  # 强化野果
+	"recipe_004": false   # 复合装备
+}
+
+# 物品与配方解锁的映射关系
+# 当使用特定物品时，解锁对应的配方
+# 注意：立即生效的物品（如野果）不通过使用解锁配方，而是通过其他方式（如拾取时）解锁
+var item_recipe_unlock_map = {
+	"item_003": ["recipe_001"],  # 贤者之石碎片解锁贤者之石配方
+	"item_004": ["recipe_002"],  # 九幽秘钥碎片解锁九幽秘钥配方
+	"item_002": ["recipe_004"]   # 力量之戒解锁复合装备配方
+}
+
+# DPS计数器相关
+var dps_damage_records = []  # 存储过去30秒的伤害记录
+@export var current_dps: float = 0.0  # 当前DPS值
+var dps_timer: Timer  # DPS计算定时器
+
 
 func _ready() -> void:
 	Global.monster_damage.connect(_on_monster_damage)
 	
 	# 初始化buff配置管理器
 	add_child(SettingBuff)
+	
+	# 初始化DPS计时器
+	dps_timer = Timer.new()
+	dps_timer.wait_time = 1.0  # 每秒计算一次DPS
+	dps_timer.timeout.connect(_calculate_dps)
+	dps_timer.autostart = false
+	add_child(dps_timer)
 	
 	# 游戏启动时立即加载鼠标动画
 	MouseAnimation.start_mouse_animation()
@@ -141,7 +169,8 @@ func save_game() -> void:
 		"crit_damage_level": crit_damage_level,
 		"damage_reduction_level": damage_reduction_level,
 		"max_main_skill_num": max_main_skill_num,
-		"refresh_max_num": refresh_max_num
+		"refresh_max_num": refresh_max_num,
+		"recipe_unlock_progress": recipe_unlock_progress
 		
 	}
 	for key in data:
@@ -184,6 +213,7 @@ func load_game() -> void:
 	damage_reduction_level = config.get_value("save", "damage_reduction_level", damage_reduction_level)
 	max_main_skill_num = config.get_value("save", "max_main_skill_num", max_main_skill_num)
 	refresh_max_num = config.get_value("save", "refresh_max_num", refresh_max_num)
+	recipe_unlock_progress = config.get_value("save", "recipe_unlock_progress", recipe_unlock_progress)
 	
 var hit_scene = null
 
@@ -214,3 +244,86 @@ func _on_monster_damage(damage_type_int: int, damage_value: float, world_positio
 	damage_label_instance.z_index = 100
 	damage_label_instance.show_damage_number(damage_type_int, damage_value, world_position)
 	damage_label_instance.global_position = world_position
+	
+	# 记录伤害到DPS计数器
+	record_damage_for_dps(damage_value)
+
+# 记录伤害用于DPS计算
+func record_damage_for_dps(damage: float) -> void:
+	var current_time = Time.get_ticks_msec() / 1000.0
+	dps_damage_records.append({"damage": damage, "time": current_time})
+
+# 计算DPS（每秒调用一次）
+func _calculate_dps() -> void:
+	var current_time = Time.get_ticks_msec() / 1000.0
+	var total_damage = 0.0
+	
+	# 移除30秒前的记录并计算总伤害
+	for i in range(dps_damage_records.size() - 1, -1, -1):
+		var record = dps_damage_records[i]
+		if current_time - record["time"] > 30.0:
+			dps_damage_records.remove_at(i)
+		else:
+			total_damage += record["damage"]
+	
+	# 计算DPS（过去30秒的总伤害除以30）
+	current_dps = total_damage / 30.0
+	print(current_dps)
+
+# 重置DPS计数器（游戏开始时调用）
+func reset_dps_counter() -> void:
+	dps_damage_records.clear()
+	current_dps = 0.0
+	dps_timer.start()
+
+# 停止DPS计数器（游戏结束时调用）
+func stop_dps_counter() -> void:
+	dps_timer.stop()
+
+# 获取当前DPS值
+func get_current_dps() -> float:
+	return current_dps
+
+# 解锁配方
+func unlock_recipe(recipe_id: String) -> bool:
+	if recipe_unlock_progress.has(recipe_id):
+		if !recipe_unlock_progress[recipe_id]:
+			recipe_unlock_progress[recipe_id] = true
+			print("配方已解锁: ", recipe_id)
+			return true
+		else:
+			print("配方已经解锁过了: ", recipe_id)
+			return false
+	else:
+		printerr("未知的配方ID: ", recipe_id)
+		return false
+
+# 检查配方是否已解锁
+func is_recipe_unlocked(recipe_id: String) -> bool:
+	if recipe_unlock_progress.has(recipe_id):
+		return recipe_unlock_progress[recipe_id]
+	else:
+		printerr("未知的配方ID: ", recipe_id)
+		return false
+
+# 通过物品使用解锁配方
+func unlock_recipes_by_item(item_id: String) -> Array:
+	var unlocked_recipes = []
+	if item_recipe_unlock_map.has(item_id):
+		var recipe_ids = item_recipe_unlock_map[item_id]
+		for recipe_id in recipe_ids:
+			if unlock_recipe(recipe_id):
+				unlocked_recipes.append(recipe_id)
+	return unlocked_recipes
+
+# 获取所有已解锁的配方
+func get_unlocked_recipes() -> Array:
+	var unlocked = []
+	for recipe_id in recipe_unlock_progress.keys():
+		if recipe_unlock_progress[recipe_id]:
+			unlocked.append(recipe_id)
+	return unlocked
+
+# 获取配方解锁进度（用于UI显示）
+func get_recipe_unlock_progress() -> Dictionary:
+	return recipe_unlock_progress.duplicate()

@@ -140,6 +140,13 @@ func _level_up_action() :
 	_load_rewards_from_csv("res://Config/reward.csv")
 	global_level_up()
 	
+	# 更新技能攻击速度（当攻速属性改变时）
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.has_method("update_skill_attack_speeds"):
+		player.update_skill_attack_speeds()
+		# 发射信号通知技能攻速更新
+		Global.emit_signal("skill_attack_speed_updated")
+	
 	get_tree().set_pause(false)
 	
 	Global.is_level_up = false

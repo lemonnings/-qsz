@@ -60,33 +60,6 @@ func apply_drop_animation(item_node):
 	# 主要掉落动画
 	tween.tween_method(Callable(self, "_update_item_position_bezier").bind(item_node, initial_pos, initial_pos + control_offset, final_pos), 0.0, 1.0, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
-	## 第一次反弹
-	## 计算第一次反弹的起始点 (即主要掉落的终点)
-	#var first_bounce_start_pos = final_pos
-	## 第一次反弹的高度和水平偏移量可以小一些
-	#var first_bounce_height = -target_y_offset * 0.3 # 反弹为其初始掉落高度的30%
-	#var first_bounce_x_offset = random_x_offset * 0.2
-	#var first_bounce_control = Vector2(first_bounce_x_offset / 2.0, first_bounce_height * 1.5) # 控制点影响弧度
-	#var first_bounce_end_pos = Vector2(first_bounce_start_pos.x + first_bounce_x_offset, final_pos.y) # Y轴与初始落点一致
-	#
-	#tween.chain() # 链接到上一个tween动画之后执行
-	#tween.tween_method(Callable(self, "_update_item_position_bezier").bind(item_node, first_bounce_start_pos, first_bounce_start_pos + first_bounce_control, first_bounce_end_pos), 0.0, 1.0, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-##
-	## 第二次反弹 (更小幅)
-	#var second_bounce_start_pos = first_bounce_end_pos
-	#var second_bounce_height = -target_y_offset * 0.1 # 反弹为其初始掉落高度的10%
-	#var second_bounce_x_offset = first_bounce_x_offset * 0.3
-	#var second_bounce_control = Vector2(second_bounce_x_offset / 2.0, second_bounce_height * 1.5)
-	#var second_bounce_end_pos = Vector2(second_bounce_start_pos.x + second_bounce_x_offset, final_pos.y) # Y轴与初始落点一致
-#
-	#tween.chain()
-	#tween.tween_method(Callable(self, "_update_item_position_bezier").bind(item_node, second_bounce_start_pos, second_bounce_start_pos + second_bounce_control, second_bounce_end_pos), 0.0, 1.0, 0.15).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-
-	# 可选：掉落后轻微缩放动画，模拟触地效果
-	# tween.chain()
-	# tween.tween_property(item_node, "scale", item_node.scale * Vector2(1.1, 0.8), 0.05).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	# tween.tween_property(item_node, "scale", item_node.scale, 0.05).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-
 
 # 这个方法被 Tween 调用，用于更新物品位置以形成弧线
 func _update_item_position_bezier(t: float, node, start_pos: Vector2, control_pos: Vector2, end_pos: Vector2):

@@ -3,7 +3,7 @@ extends Node
 func slime(query : String):
 	var data = {
 		"atk": 5 * Global.world_level_multiple * min(((1 + (PC.current_time/10))),3.5),
-		"hp": 18 * Global.world_level_multiple * (1 + PC.current_time),
+		"hp": (18 * Global.world_level_multiple * (1 + PC.current_time)) + Global.current_dps * 0.04,
 		"speed": 42,
 		"exp": 300 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 10 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8)* (1 + (Global.point_add_level * 0.1)),
@@ -16,7 +16,7 @@ func slime(query : String):
 func bat(query : String):
 	var data = {
 		"atk": 7 * Global.world_level_multiple * min(((1 + (PC.current_time/10))), 3.5),
-		"hp": 36 * Global.world_level_multiple * (1 + PC.current_time),
+		"hp": (36 * Global.world_level_multiple * (1 + PC.current_time)) + Global.current_dps * 0.05,
 		"speed": 60,
 		"exp": 400 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 15 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.point_add_level * 0.1)),
@@ -29,7 +29,7 @@ func bat(query : String):
 func frog(query : String):
 	var data = {
 		"atk": 5 * Global.world_level_multiple * min(((1 + (PC.current_time/10))), 3.5),
-		"hp": 32 * Global.world_level_multiple * (1 + PC.current_time),
+		"hp": (32 * Global.world_level_multiple * (1 + PC.current_time)) + Global.current_dps * 0.045,
 		"speed": 50,
 		"exp": 600 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 20 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.point_add_level * 0.1)),
@@ -41,7 +41,7 @@ func frog(query : String):
 func bigSlime(query : String):
 	var data = {
 		"atk": 7 * Global.world_level_multiple * min(((1 + (PC.current_time/10))),3.5),
-		"hp": 64 * Global.world_level_multiple * (1 + PC.current_time),
+		"hp": (64 * Global.world_level_multiple * (1 + PC.current_time)) + Global.current_dps * 0.09,
 		"speed": 40,
 		"exp": 750 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 25 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8)* (1 + (Global.point_add_level * 0.1)),

@@ -77,6 +77,14 @@ var item_function = {
 	"item_004": "_on_item_004_picked_up"
 }
 
+# 可使用物品列表（这些物品可以通过使用来解锁配方）
+# 注意：立即生效的物品（如野果）不应该在这里，它们在拾取时直接生效
+var usable_items = {
+	"item_002": true,  # 力量之戒可以使用（装备时解锁配方）
+	"item_003": true,  # 贤者之石碎片可以使用
+	"item_004": true   # 九幽秘钥碎片可以使用
+}
+
 # 根据物品ID获取该物品的所有数据
 func get_item_all_data(item_id: String) -> Dictionary:
 	if items_data.has(item_id):
@@ -113,6 +121,8 @@ func _on_item_001_picked_up(player):
 	# 防止生命值超过上限
 	if PC.pc_hp > PC.pc_max_hp:
 		PC.pc_hp = PC.pc_max_hp
+
+	
 	return true # 表示成功拾取
 
 # 力量之戒拾取函数
@@ -125,24 +135,126 @@ func _on_item_002_picked_up(player):
 	return true # 表示成功拾取
 
 func _on_item_004_picked_up(player):
-	# 将力量之戒添加到 Global 的玩家背包中
+	# 将九幽秘钥碎片添加到 Global 的玩家背包中
 	if !Global.player_inventory.has("item_004"):
 		Global.player_inventory["item_004"] = 1
 	else:
 		Global.player_inventory["item_004"] += 1
 	return true # 表示成功拾取
 
+# 使用物品（主要用于解锁配方）
+func use_item(item_id: String, count: int = 1) -> Dictionary:
+	var result = {
+		"success": false,
+		"message": "",
+		"unlocked_recipes": []
+	}
+	
+	# 检查物品是否存在
+	if !items_data.has(item_id):
+		result.message = "物品不存在"
+		return result
+	
+	# 检查物品是否可使用
+	if !usable_items.has(item_id) or !usable_items[item_id]:
+		result.message = "该物品无法使用"
+		return result
+	
+	# 检查背包中是否有足够的物品
+	if !Global.player_inventory.has(item_id):
+		result.message = "背包中没有该物品"
+		return result
+	
+	if Global.player_inventory[item_id] < count:
+		result.message = "物品数量不足"
+		return result
+	
+	# 执行物品使用效果
+	var use_success = _execute_item_use_effect(item_id, count)
+	if !use_success:
+		result.message = "物品使用失败"
+		return result
+	
+	# 消耗物品（某些物品使用后不消耗，如装备）
+	var item_type = get_item_property(item_id, "item_type")
+	if item_type != "equip":  # 装备类物品不消耗
+		Global.player_inventory[item_id] -= count
+		if Global.player_inventory[item_id] <= 0:
+			Global.player_inventory.erase(item_id)
+	
+	# 尝试解锁配方
+	var unlocked_recipes = Global.unlock_recipes_by_item(item_id)
+	result.unlocked_recipes = unlocked_recipes
+	
+	result.success = true
+	result.message = "物品使用成功"
+	if unlocked_recipes.size() > 0:
+		result.message += "，解锁了新配方！"
+	
+	return result
+
+# 执行物品使用效果
+func _execute_item_use_effect(item_id: String, count: int) -> bool:
+	match item_id:
+		"item_002":  # 力量之戒
+			# 装备效果（这里只是示例，实际装备逻辑可能更复杂）
+			print("装备了力量之戒")
+			return true
+			
+		"item_003":  # 贤者之石碎片
+			# 研究碎片，获得知识（解锁配方）
+			print("研究了贤者之石碎片，获得了古老的知识")
+			return true
+			
+		"item_004":  # 九幽秘钥碎片
+			# 研究碎片，获得知识（解锁配方）
+			print("研究了九幽秘钥碎片，感受到了神秘的力量")
+			return true
+			
+		_:
+			printerr("未知的物品使用效果: ", item_id)
+			return false
+
+# 检查物品是否可使用
+func can_use_item(item_id: String) -> bool:
+	if !items_data.has(item_id):
+		return false
+	return usable_items.has(item_id) and usable_items[item_id]
+
+# 获取物品使用描述
+func get_item_use_description(item_id: String) -> String:
+	match item_id:
+		"item_002":
+			return "装备后增加攻击力"
+		"item_003":
+			return "研究后可能解锁新的合成配方"
+		"item_004":
+			return "研究后可能解锁新的合成配方"
+		_:
+			return "未知效果"
+
 # 示例用法:
 # func _ready():
-# 	var potion_details = get_item_all_data("item_001")
-# 	if potion_details:
-# 		print("药水名称: ", potion_details.item_name)
-# 		print("药水价格: ", potion_details.item_price)
+# 	# 获取物品信息
+# 	var ring_details = get_item_all_data("item_002")
+# 	if ring_details:
+# 		print("物品名称: ", ring_details.item_name)
+# 		print("物品价格: ", ring_details.item_price)
 #
-# 	var ring_type = get_item_property("item_002", "item_type")
-# 	if ring_type != null:
-# 		print("戒指类型: ", ring_type)
+# 	# 使用物品并解锁配方
+# 	var use_result = use_item("item_003", 1)  # 使用贤者之石碎片
+# 	if use_result.success:
+# 		print("物品使用成功: ", use_result.message)
+# 		if use_result.unlocked_recipes.size() > 0:
+# 			print("解锁的配方: ", use_result.unlocked_recipes)
+# 	else:
+# 		print("物品使用失败: ", use_result.message)
 #
-# 	var non_existent_item = get_item_property("item_999", "item_name")
-# 	if non_existent_item == null:
-# 		print("尝试获取不存在的物品属性，返回null")
+# 	# 检查物品是否可使用
+# 	if can_use_item("item_002"):
+# 		print("力量之戒可以使用")
+# 		print("使用描述: ", get_item_use_description("item_002"))
+#
+# 	# 查看已解锁的配方
+# 	var unlocked_recipes = Global.get_unlocked_recipes()
+# 	print("已解锁的配方: ", unlocked_recipes)

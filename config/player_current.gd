@@ -124,7 +124,7 @@ func reset_player_attr() -> void :
 	# 重置玩家奖励权重
 	if PlayerRewardWeights:
 		PlayerRewardWeights.reset_all_weights()
-		
+
 	# 初始化一系列单局内会发生变化的变量
 	Global.in_menu = false
 	PC.is_game_over = false
