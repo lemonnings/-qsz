@@ -4,6 +4,7 @@ extends Area2D
 
 var player_node: Node2D
 @export var damage_timer: Timer
+var is_initialized: bool = false
 
 # @export var riyan_cooldown : float = 0.5
 # @export var riyan_hp_max_damage : float = 0.4
@@ -29,6 +30,10 @@ func _exit_tree() -> void:
 		damage_timer.queue_free()
 
 func _on_get_riyan():
+	# 如果已经初始化过，直接返回
+	if is_initialized:
+		return
+	
 	player_node = get_tree().get_first_node_in_group("player")
 	
 	global_position = player_node.global_position
@@ -57,3 +62,6 @@ func _on_get_riyan():
 	
 	damage_timer.start()
 	set_process(true)
+	
+	# 标记为已初始化
+	is_initialized = true

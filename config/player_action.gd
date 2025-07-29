@@ -458,19 +458,19 @@ func update_skill_attack_speeds() -> void:
 	
 	# 分支攻击
 	if branch_fire_speed:
-		branch_fire_speed.wait_time = 1.5 / (1 + PC.pc_atk_speed)
+		branch_fire_speed.wait_time = 2.0 / (1 + PC.pc_atk_speed)
 	
 	# 魔焰攻击
 	if moyan_fire_speed:
-		moyan_fire_speed.wait_time = 2.0 / (1 + PC.pc_atk_speed)
+		moyan_fire_speed.wait_time = 4.0 / (1 + PC.pc_atk_speed)
 	
 	# 日焰攻击
 	if riyan_fire_speed:
-		riyan_fire_speed.wait_time = 3.0 / (1 + PC.pc_atk_speed)
+		riyan_fire_speed.wait_time = 0.051 / (1 + PC.pc_atk_speed)
 	
 	# 环形火焰攻击
 	if ringFire_fire_speed:
-		ringFire_fire_speed.wait_time = 2.5 / (1 + PC.pc_atk_speed)
+		ringFire_fire_speed.wait_time = 0.051 / (1 + PC.pc_atk_speed)
 
 # 发射环形子弹
 func _fire_ring_bullets() -> void:

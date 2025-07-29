@@ -29,7 +29,7 @@ func bat(query : String):
 func frog(query : String):
 	var data = {
 		"atk": 5 * Global.world_level_multiple * min(((1 + (PC.current_time/10))), 3.5),
-		"hp": (32 * Global.world_level_multiple * (1 + PC.current_time)) + Global.current_dps * 0.045,
+		"hp": (30 * Global.world_level_multiple * (1 + PC.current_time)) + Global.current_dps * 0.045,
 		"speed": 50,
 		"exp": 600 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 20 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.point_add_level * 0.1)),
