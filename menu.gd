@@ -225,7 +225,7 @@ func get_total_increase_hp(level) -> String:
 	var total_hp = 1
 	var current_level = 1  # 当前已经处理到第几级
 	var hp_value = 1   
-	var duration = 6      
+	var duration = 6
 
 	while current_level < level:
 		var remaining_levels = level - current_level
@@ -284,14 +284,14 @@ func _on_exit_pressed_stage() -> void:
 func _on_next_pressed() -> void:
 	if page_no == 1:
 		page_no = 2
-		atk_speed_button.text = '攻击速度'
-		move_speed_button.text = '移动速度'
-		point_add_button.text = '子弹大小'
+		atk_speed_button.text = '流光'
+		move_speed_button.text = '追风'
+		point_add_button.text = '护体'
 	elif page_no == 2:
 		page_no = 1
-		atk_speed_button.text = '攻击'
-		move_speed_button.text = 'HP'
-		point_add_button.text = 'Point获取'
+		atk_speed_button.text = '破虚'
+		move_speed_button.text = '玄元'
+		point_add_button.text = '化灵'
 	_update_shop_content()
 
 func _transition_to_layer(target_layer: CanvasLayer, hide_layers: Array, show_controls: Array = [], show_controls_immediately: bool = false) -> void:

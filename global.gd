@@ -30,6 +30,18 @@ var SettingBuff = preload("res://Script/config/setting_buff.gd").new()
 # 刷新次数
 @export var refresh_max_num : int = 3 
 
+# 修炼解锁进度Cultivation
+@export var cultivation_unlock_progress : int = 0
+
+# 修炼等级变量
+@export var cultivation_poxu_level : int = 0        # 破虚 - 提升攻击力
+@export var cultivation_xuanyuan_level : int = 0    # 玄元 - 提升生命值
+@export var cultivation_liuguang_level : int = 0    # 流光 - 提升攻速
+@export var cultivation_hualing_level : int = 0     # 化灵 - 提升灵气获取
+@export var cultivation_fengrui_level : int = 0     # 锋锐 - 提升暴击率
+@export var cultivation_huti_level : int = 0        # 护体 - 提升减伤率
+@export var cultivation_zhuifeng_level : int = 0    # 追风 - 提升移速
+@export var cultivation_liejin_level : int = 0      # 烈劲 - 提升暴击伤害
 
 # 世界等级（难度级）
 @export var world_level_multiple : float = 1
@@ -170,7 +182,16 @@ func save_game() -> void:
 		"damage_reduction_level": damage_reduction_level,
 		"max_main_skill_num": max_main_skill_num,
 		"refresh_max_num": refresh_max_num,
-		"recipe_unlock_progress": recipe_unlock_progress
+		"recipe_unlock_progress": recipe_unlock_progress,
+		"cultivation_unlock_progress": cultivation_unlock_progress,
+		"cultivation_poxu_level": cultivation_poxu_level,
+		"cultivation_xuanyuan_level": cultivation_xuanyuan_level,
+		"cultivation_liuguang_level": cultivation_liuguang_level,
+		"cultivation_hualing_level": cultivation_hualing_level,
+		"cultivation_fengrui_level": cultivation_fengrui_level,
+		"cultivation_huti_level": cultivation_huti_level,
+		"cultivation_zhuifeng_level": cultivation_zhuifeng_level,
+		"cultivation_liejin_level": cultivation_liejin_level
 		
 	}
 	for key in data:
@@ -214,6 +235,15 @@ func load_game() -> void:
 	max_main_skill_num = config.get_value("save", "max_main_skill_num", max_main_skill_num)
 	refresh_max_num = config.get_value("save", "refresh_max_num", refresh_max_num)
 	recipe_unlock_progress = config.get_value("save", "recipe_unlock_progress", recipe_unlock_progress)
+	cultivation_unlock_progress = config.get_value("save", "cultivation_unlock_progress", cultivation_unlock_progress)
+	cultivation_poxu_level = config.get_value("save", "cultivation_poxu_level", cultivation_poxu_level)
+	cultivation_xuanyuan_level = config.get_value("save", "cultivation_xuanyuan_level", cultivation_xuanyuan_level)
+	cultivation_liuguang_level = config.get_value("save", "cultivation_liuguang_level", cultivation_liuguang_level)
+	cultivation_hualing_level = config.get_value("save", "cultivation_hualing_level", cultivation_hualing_level)
+	cultivation_fengrui_level = config.get_value("save", "cultivation_fengrui_level", cultivation_fengrui_level)
+	cultivation_huti_level = config.get_value("save", "cultivation_huti_level", cultivation_huti_level)
+	cultivation_zhuifeng_level = config.get_value("save", "cultivation_zhuifeng_level", cultivation_zhuifeng_level)
+	cultivation_liejin_level = config.get_value("save", "cultivation_liejin_level", cultivation_liejin_level)
 	
 var hit_scene = null
 
