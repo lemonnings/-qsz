@@ -20,12 +20,16 @@ extends Node2D
 @export var danluTips : Control
 @export var portalTips : Control
 
+@export var dark_overlay : Control  # 黑色滤镜
+
 @export var interaction_distance : float = 35.0 
 var dialog_file_to_start: String = "res://AssetBundle/Dialog/test_dialog.txt"
 var qian_dialog: String = "res://AssetBundle/Dialog/qian_dialog.txt"
 
 var transition_tween: Tween
-
+# UI动画相关变量
+var ui_tweens: Dictionary = {}
+var ui_states: Dictionary = {}
 
 var player: CharacterBody2D
 
@@ -34,10 +38,57 @@ func _ready() -> void:
 	if $Player is CharacterBody2D:
 		player = $Player
 
+	PC.movement_disabled = false
+	PC.is_game_over = false
+	# 初始化UI状态
+	ui_states["cystalTips"] = false
+	ui_states["levelUpManTips"] = false
+	ui_states["portalTips"] = false
+	ui_states["dark_overlay"] = false
+	
+	# 确保UI元素初始状态正确
+	cystalTips.visible = false
+	cystalTips.modulate.a = 0.0
+	levelUpManTips.visible = false
+	levelUpManTips.modulate.a = 0.0
+	portalTips.visible = false
+	portalTips.modulate.a = 0.0
+	
+	# 初始化黑色滤镜
+	if dark_overlay:
+		dark_overlay.visible = false
+		dark_overlay.modulate.a = 0.0
+
 	Global.emit_signal("reset_camera")
 	Global.connect("press_f", Callable(self, "press_interact"))
 	Global.connect("press_g", Callable(self, "press_interact2"))
 	Global.connect("press_h", Callable(self, "press_interact3"))
+
+# UI动画处理函数
+func animate_ui_element(ui_element: Control, ui_name: String, should_show: bool) -> void:
+	# 如果状态没有改变，直接返回
+	if ui_states[ui_name] == should_show:
+		return
+	
+	# 更新状态
+	ui_states[ui_name] = should_show
+	
+	# 停止之前的动画
+	if ui_tweens.has(ui_name) and ui_tweens[ui_name]:
+		ui_tweens[ui_name].kill()
+	
+	# 创建新的动画
+	ui_tweens[ui_name] = create_tween()
+	
+	if should_show:
+		# 渐入动画
+		ui_element.visible = true
+		ui_element.modulate.a = 0.0
+		ui_tweens[ui_name].tween_property(ui_element, "modulate:a", 1.0, 0.15)
+	else:
+		# 渐出动画
+		ui_tweens[ui_name].tween_property(ui_element, "modulate:a", 0.0, 0.15)
+		ui_tweens[ui_name].tween_callback(func(): ui_element.visible = false)
 
 func _process(delta: float) -> void:
 	if not is_instance_valid(player):
@@ -45,30 +96,30 @@ func _process(delta: float) -> void:
 
 	# 检测 F 键 (映射到 "interact" 动作) 是否按下
 	if player.global_position.distance_to(cystal2.global_position) < interaction_distance:
-		cystalTips.visible = true
+		animate_ui_element(cystalTips, "cystalTips", true)
 		cystalTips.change_label1_text("切换英雄 [F]")
 	else:
-		cystalTips.visible = false
+		animate_ui_element(cystalTips, "cystalTips", false)
 		
 				
 	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance:
-		levelUpManTips.visible = true
+		animate_ui_element(levelUpManTips, "levelUpManTips", true)
 		levelUpManTips.change_name("乾
 		<引导者>")
 		levelUpManTips.change_label1_text("修习 [F]")
 		levelUpManTips.change_function2_visible(true)
 		levelUpManTips.change_label2_text("交谈 [G]")
 	else:
-		levelUpManTips.visible = false
+		animate_ui_element(levelUpManTips, "levelUpManTips", false)
 	
 				
 	if player.global_position.distance_to(portal.global_position) < interaction_distance:
+		animate_ui_element(portalTips, "portalTips", true)
 		portalTips.change_name("传送阵
 		<关卡选择>")
 		portalTips.change_label1_text("传送 [F]")
-		portalTips.visible = true
 	else:
-		portalTips.visible = false
+		animate_ui_element(portalTips, "portalTips", false)
 	
 	if Input.is_action_just_pressed("interact"):
 		press_interact()
@@ -83,8 +134,21 @@ func press_interact():
 			start_dialog_interaction("crystal")
 	
 	if player.global_position.distance_to(portal.global_position) < interaction_distance:
-			_transition_to_layer(levelChangeLayer, [canvasLayer], [], true)
-			levelChangeLayer.visible = true
+		# 禁用玩家移动
+		PC.movement_disabled = true
+		
+		# 立即显示黑色滤镜，避免被层级切换影响
+		if dark_overlay:
+			# 停止之前的动画
+			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
+				ui_tweens["dark_overlay"].kill()
+			
+			# 直接设置状态并显示滤镜，不依赖其他动画
+			dark_overlay.visible = true
+			dark_overlay.modulate.a = 1  # 直接设置透明度
+		
+		# 显示关卡选择界面，但不使用会重置透明度的过渡动画
+		levelChangeLayer.visible = true
 # 在一个以魔法为主的世界里，人们依靠水晶（灵石）里存储的以太来释放法术，法术在日常生活中逐渐被滥用，在一次大规模战争中，因过度开采“以太矿”引发了能量崩溃，浓缩以太异化为魔物，大地生机断绝。
 # 这个世界的一名黑魔法师为了拯救故土，研发跨位面以太汲取术，在一次实验中，因为过量吸收以太，导致其世界与本位面通过“裂隙”产生交融，黑魔法师也在实验事故中被传至龙门山，他因恐慌展开了一道幻境屏障，却未察觉时空裂隙正导致魔物的涌入，而大量未经提纯的以太也一并涌入龙门山，诱使龙门山的魔物也开始滋生。
 # 察觉到龙门山被幻境封锁，山脚下的村民向管辖这片区域的八玄阁求助，八玄阁派出的中级弟子在进入幻境后便杳无音讯，这让八玄阁的上层开始重视这件事，并准备先派一名八部中的领袖来解决此事。
@@ -147,12 +211,21 @@ func start_dialog_interaction(npc_id: String) -> void:
 
 
 func _on_exit_pressed() -> void:
+	# 恢复玩家移动
+	PC.movement_disabled = false
+	
+	# 直接隐藏黑色滤镜，无需动画
+	if dark_overlay:
+		dark_overlay.visible = false
+		dark_overlay.modulate.a = 0.0
+	
+	# 隐藏关卡选择界面
 	levelChangeLayer.visible = false
-	_transition_to_layer(canvasLayer, [levelChangeLayer], [], true)
 
 	
 func _on_stage_1_pressed() -> void:
 	Global.in_town = false
+	PC.movement_disabled = false
 	PC.reset_player_attr()
 	SceneChange.change_scene(battle_scene, true)
 	
@@ -172,9 +245,9 @@ func _switch_layers(target_layer: CanvasLayer, hide_layers: Array, show_controls
 	for layer in hide_layers:
 		if layer:
 			layer.visible = false
-			# 重置所有子节点的透明度
+			# 重置所有子节点的透明度，但跳过黑色滤镜
 			for child in layer.get_children():
-				if child.has_method("set_modulate"):
+				if child.has_method("set_modulate") and child != dark_overlay:
 					child.modulate.a = 1.0
 	
 	# 处理控件显示
@@ -191,21 +264,21 @@ func _transition_to_layer(target_layer: CanvasLayer, hide_layers: Array, show_co
 	transition_tween = create_tween()
 	transition_tween.set_parallel(true)
 	
-	# 淡出当前显示的层的所有子节点
+	# 淡出当前显示的层的所有子节点，但跳过黑色滤镜
 	for layer in hide_layers:
 		if layer and layer.visible:
 			for child in layer.get_children():
-				if child.has_method("set_modulate"):
+				if child.has_method("set_modulate") and child != dark_overlay:
 					transition_tween.tween_property(child, "modulate:a", 0.0, 0.125)
 	
 	# 等待淡出完成后切换显示状态
 	transition_tween.tween_callback(_switch_layers.bind(target_layer, hide_layers, show_controls, show_controls_immediately)).set_delay(0.125)
 	
-	# 淡入目标层的所有子节点
+	# 淡入目标层的所有子节点，但跳过黑色滤镜
 	if target_layer:
 		target_layer.visible = true
 		for child in target_layer.get_children():
-			if child.has_method("set_modulate"):
+			if child.has_method("set_modulate") and child != dark_overlay:
 				child.modulate.a = 0.0
 				transition_tween.tween_property(child, "modulate:a", 1.0, 0.125).set_delay(0.25)
 	

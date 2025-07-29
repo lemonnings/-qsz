@@ -99,19 +99,20 @@ func _physics_process(delta: float) -> void:
 					sprite.flip_h = false
 	
 	
-	# 处理敌人之间的碰撞
+	# 处理敌人之间的碰撞 - 直接防止重叠
 	var overlapping_bodies = get_overlapping_areas()
+	
 	for body in overlapping_bodies:
 		if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
-			var direction_to_other = global_position.direction_to(body.global_position)
 			var distance = global_position.distance_to(body.global_position)
-			# 只有在距离很近时才施加推力，避免远距离的不必要推动
-			if distance < 20.0:
-				# 使用更温和的推力，并根据距离调整强度
-				var push_strength = 0.3 * (20.0 - distance) / 20.0 # 距离越近推力越强
-				# 使用lerp使移动更平滑
-				var target_offset = -direction_to_other * push_strength * delta * 50
-				position = position.lerp(position + target_offset, 0.5)
+			var min_distance = 18.0  # 最小允许距离
+			
+			# 如果距离太近，直接调整位置
+			if distance < min_distance and distance > 0.1:
+				var direction_away = (global_position - body.global_position).normalized()
+				var overlap = min_distance - distance
+				# 两个物体各自移动一半的重叠距离
+				position += direction_away * (overlap * 0.5)
 	
 	# 确保史莱姆不会因为推动而移出边界太快
 	if move_direction == 0 and position.x <= -534:

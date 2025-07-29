@@ -154,7 +154,7 @@ func _zoom_camera(zoom_delta: float) -> void:
 		camera.zoom = Vector2(new_zoom, new_zoom)
 
 func _physics_process(_delta: float) -> void:
-	if not PC.is_game_over:
+	if not PC.is_game_over and not PC.movement_disabled:
 		# 获取输入向量（键盘或虚拟摇杆）
 		var input_vector = Vector2.ZERO
 		

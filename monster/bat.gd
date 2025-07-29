@@ -55,15 +55,20 @@ func _physics_process(delta: float) -> void:
 	if hp < hpMax and hp > 0:
 		show_health_bar()
 
-	# 处理敌人之间的碰撞
+	# 处理敌人之间的碰撞 - 直接防止重叠
 	var overlapping_bodies = get_overlapping_areas()
+	
 	for body in overlapping_bodies:
 		if body.is_in_group("enemies") and body.is_in_group("fly") and body != self:
-			var direction_to_other = global_position.direction_to(body.global_position)
-			# 将自己推离另一个敌人
-			# 这个力量可以根据需要调整
-			var push_strength = 2.0 # 可以根据需要调整推力大小
-			position -= direction_to_other * push_strength * delta * 100 # 乘以一个系数使效果更明显
+			var distance = global_position.distance_to(body.global_position)
+			var min_distance = 22.0  # 飞行敌人需要稍大的间隔
+			
+			# 如果距离太近，直接调整位置
+			if distance < min_distance and distance > 0.1:
+				var direction_away = (global_position - body.global_position).normalized()
+				var overlap = min_distance - distance
+				# 两个物体各自移动一半的重叠距离
+				position += direction_away * (overlap * 0.5)
 
 		
 	if not is_dead:

@@ -106,6 +106,7 @@ extends Node
 @export var refresh_num : int = 3 
 
 @export var is_game_over : bool = false
+@export var movement_disabled : bool = false  # 控制玩家移动是否被禁用
 
 func _ready():
 	Global.connect("lucky_level_up", Callable(self, "_on_lucky_level_up"))

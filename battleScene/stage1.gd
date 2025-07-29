@@ -521,6 +521,11 @@ func _on_monster_defeated():
 	
 func show_game_over():
 	gameover_label.visible = true
+	# 等待2秒后返回主城
+	await get_tree().create_timer(2).timeout
+	Global.emit_signal("normal_bgm")
+	# 返回主城
+	SceneChange.change_scene("res://Scenes/main_town.tscn", true)
 
 func _on_boss_defeated(get_point : int):
 	if not PC.is_game_over:
