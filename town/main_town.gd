@@ -2,6 +2,7 @@ extends Node2D
 
 @export var dialog_control : Control
 @export var levelChangeLayer : CanvasLayer
+@export var cultivationLayer : CanvasLayer
 @export var canvasLayer : CanvasLayer
 
 @export var battle_scene: String
@@ -22,6 +23,9 @@ extends Node2D
 
 @export var dark_overlay : Control  # 黑色滤镜
 
+@export var cultivation_msg : RichTextLabel
+@export var point_label : Label
+
 @export var interaction_distance : float = 35.0 
 var dialog_file_to_start: String = "res://AssetBundle/Dialog/test_dialog.txt"
 var qian_dialog: String = "res://AssetBundle/Dialog/qian_dialog.txt"
@@ -35,6 +39,8 @@ var player: CharacterBody2D
 
 
 func _ready() -> void:
+	Global.load_game()
+	
 	if $Player is CharacterBody2D:
 		player = $Player
 
@@ -58,6 +64,13 @@ func _ready() -> void:
 	if dark_overlay:
 		dark_overlay.visible = false
 		dark_overlay.modulate.a = 0.0
+	
+	# 初始化界面层（CanvasLayer本身不需要设置modulate）
+	if levelChangeLayer:
+		levelChangeLayer.visible = false
+	
+	if cultivationLayer:
+		cultivationLayer.visible = false
 
 	Global.emit_signal("reset_camera")
 	Global.connect("press_f", Callable(self, "press_interact"))
@@ -137,18 +150,31 @@ func press_interact():
 		# 禁用玩家移动
 		PC.movement_disabled = true
 		
-		# 立即显示黑色滤镜，避免被层级切换影响
+		# 渐进显示黑色滤镜
 		if dark_overlay:
 			# 停止之前的动画
 			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
 				ui_tweens["dark_overlay"].kill()
 			
-			# 直接设置状态并显示滤镜，不依赖其他动画
+			# 创建渐进显示动画
+			ui_tweens["dark_overlay"] = create_tween()
 			dark_overlay.visible = true
-			dark_overlay.modulate.a = 1  # 直接设置透明度
+			dark_overlay.modulate.a = 0.0
+			ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
 		
-		# 显示关卡选择界面，但不使用会重置透明度的过渡动画
+		# 渐进显示关卡选择界面
+		if ui_tweens.has("levelChangeLayer") and ui_tweens["levelChangeLayer"]:
+			ui_tweens["levelChangeLayer"].kill()
+		
+		ui_tweens["levelChangeLayer"] = create_tween()
+		ui_tweens["levelChangeLayer"].set_parallel(true)
 		levelChangeLayer.visible = true
+		
+		# 对CanvasLayer的所有子节点进行动画
+		for child in levelChangeLayer.get_children():
+			if child.has_method("set_modulate"):
+				child.modulate.a = 0.0
+				ui_tweens["levelChangeLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
 # 在一个以魔法为主的世界里，人们依靠水晶（灵石）里存储的以太来释放法术，法术在日常生活中逐渐被滥用，在一次大规模战争中，因过度开采“以太矿”引发了能量崩溃，浓缩以太异化为魔物，大地生机断绝。
 # 这个世界的一名黑魔法师为了拯救故土，研发跨位面以太汲取术，在一次实验中，因为过量吸收以太，导致其世界与本位面通过“裂隙”产生交融，黑魔法师也在实验事故中被传至龙门山，他因恐慌展开了一道幻境屏障，却未察觉时空裂隙正导致魔物的涌入，而大量未经提纯的以太也一并涌入龙门山，诱使龙门山的魔物也开始滋生。
 # 察觉到龙门山被幻境封锁，山脚下的村民向管辖这片区域的八玄阁求助，八玄阁派出的中级弟子在进入幻境后便杳无音讯，这让八玄阁的上层开始重视这件事，并准备先派一名八部中的领袖来解决此事。
@@ -174,7 +200,35 @@ func press_interact():
 # 震：进阶（局外养成之二，被动/主动技能树->可以强化升级选项）短发凌乱，藤黄色劲装，腰间别着闪电形状的小铃铛。活力四射的热血少年，总是充满干劲。说话大声，行动迅速，常常不等别人说完就行动。虽然冲动但很讲义气，喜欢挑战高难度的技能升级。有点孩子气，但关键时刻很可靠。经常因为太急躁而犯小错误，然后红着脸道歉。
 # 艮：修炼（局外养成之三，直接提升基础属性）敦实体格，雄黄色朴素衣裳。沉稳内敛的修行者，话不多但每句都很有分量。修炼时能保持数小时不动，专注力极强。有点固执，认定的事情很难改变。虽然看起来严肃，但对真心求教的人会耐心指导。
 # 兑：合成（eg：通过材料合成新法宝，开启隐藏关卡）石绿色轻便衣裳，衣角缝着贝壳风铃，手里捏着符咒。说话风趣幽默，很会调节气氛。对合成有独特天赋，经常能想到别人想不到的组合。有点话痨。
-
+	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance:
+		PC.movement_disabled = true
+		
+		# 渐进显示黑色滤镜
+		if dark_overlay:
+			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
+				ui_tweens["dark_overlay"].kill()
+			
+			ui_tweens["dark_overlay"] = create_tween()
+			dark_overlay.visible = true
+			dark_overlay.modulate.a = 0.0
+			ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
+			
+		refresh_point()
+		
+		# 渐进显示修炼界面
+		if ui_tweens.has("cultivationLayer") and ui_tweens["cultivationLayer"]:
+			ui_tweens["cultivationLayer"].kill()
+		
+		ui_tweens["cultivationLayer"] = create_tween()
+		ui_tweens["cultivationLayer"].set_parallel(true)
+		cultivationLayer.visible = true
+		
+		# 对CanvasLayer的所有子节点进行动画
+		for child in cultivationLayer.get_children():
+			if child.has_method("set_modulate"):
+				child.modulate.a = 0.0
+				ui_tweens["cultivationLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
+		
 # G交互
 func press_interact2():
 	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance:
@@ -214,13 +268,43 @@ func _on_exit_pressed() -> void:
 	# 恢复玩家移动
 	PC.movement_disabled = false
 	
-	# 直接隐藏黑色滤镜，无需动画
-	if dark_overlay:
-		dark_overlay.visible = false
-		dark_overlay.modulate.a = 0.0
+	# 创建渐出动画
+	var exit_tween = create_tween()
+	exit_tween.set_parallel(true)
 	
-	# 隐藏关卡选择界面
-	levelChangeLayer.visible = false
+	# 渐出黑色滤镜
+	if dark_overlay and dark_overlay.visible:
+		exit_tween.tween_property(dark_overlay, "modulate:a", 0.0, 0.2)
+		exit_tween.tween_callback(func(): 
+			dark_overlay.visible = false
+			dark_overlay.modulate.a = 0.0
+		).set_delay(0.2)
+	
+	# 渐出关卡选择界面
+	if levelChangeLayer.visible:
+		for child in levelChangeLayer.get_children():
+			if child.has_method("set_modulate"):
+				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)
+		exit_tween.tween_callback(func(): 
+			levelChangeLayer.visible = false
+			# 重置子节点透明度
+			for child in levelChangeLayer.get_children():
+				if child.has_method("set_modulate"):
+					child.modulate.a = 1.0
+		).set_delay(0.2)
+	
+	# 渐出修炼界面
+	if cultivationLayer.visible:
+		for child in cultivationLayer.get_children():
+			if child.has_method("set_modulate"):
+				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)
+		exit_tween.tween_callback(func(): 
+			cultivationLayer.visible = false
+			# 重置子节点透明度
+			for child in cultivationLayer.get_children():
+				if child.has_method("set_modulate"):
+					child.modulate.a = 1.0
+		).set_delay(0.2)
 
 	
 func _on_stage_1_pressed() -> void:
@@ -282,3 +366,333 @@ func _transition_to_layer(target_layer: CanvasLayer, hide_layers: Array, show_co
 				child.modulate.a = 0.0
 				transition_tween.tween_property(child, "modulate:a", 1.0, 0.125).set_delay(0.25)
 	
+
+func refresh_point() -> void:
+	point_label.text = "真气 " + str(Global.total_points)
+
+func _on_poxu_mouse_entered() -> void:
+	var current_level = Global.cultivation_poxu_level
+	var next_level = current_level + 1
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	var current_bonus = CL.get_cultivation_bonus_text("atk", current_level)
+	var next_bonus = CL.get_cultivation_bonus_text("atk", next_level)
+	
+	cultivation_msg.text = "[font_size=64]破虚  LV " + str(current_level) + "[/font_size]
+
+当前：" + current_bonus + "
+下一级：" + next_bonus + "
+修炼消耗： " + str(next_level_exp) + " Point
+
+再次点击即可修炼"
+	cultivation_msg.visible = true
+
+func _on_poxu_mouse_exited() -> void:
+	cultivation_msg.visible = false
+
+func _on_poxu_pressed() -> void:
+	var current_level = Global.cultivation_poxu_level
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	
+	if Global.total_points >= next_level_exp:
+		Global.cultivation_poxu_level += 1
+		Global.total_points -= next_level_exp
+		
+		$LevelUP.play()
+		
+		print("破虚修炼成功！当前等级：" + str(Global.cultivation_poxu_level))
+		
+		Global.save_game()
+		refresh_point()
+		
+		if cultivation_msg.visible:
+			_on_poxu_mouse_entered()
+	else:
+		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
+		$Buzzer.play()
+
+# 玄元修炼相关函数
+func _on_xuanyuan_mouse_entered() -> void:
+	var current_level = Global.cultivation_xuanyuan_level
+	var next_level = current_level + 1
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	var current_bonus = CL.get_cultivation_bonus_text("hp", current_level)
+	var next_bonus = CL.get_cultivation_bonus_text("hp", next_level)
+	
+	cultivation_msg.text = "[font_size=64]玄元  LV " + str(current_level) + "[/font_size]
+
+当前：" + current_bonus + "
+下一级：" + next_bonus + "
+修炼消耗： " + str(next_level_exp) + " Point
+
+再次点击即可修炼"
+	cultivation_msg.visible = true
+
+func _on_xuanyuan_mouse_exited() -> void:
+	cultivation_msg.visible = false
+
+func _on_xuanyuan_pressed() -> void:
+	var current_level = Global.cultivation_xuanyuan_level
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	
+	if Global.total_points >= next_level_exp:
+		Global.cultivation_xuanyuan_level += 1
+		Global.total_points -= next_level_exp
+		
+		$LevelUP.play()
+		
+		print("玄元修炼成功！当前等级：" + str(Global.cultivation_xuanyuan_level))
+		
+		Global.save_game()
+		refresh_point()
+		
+		if cultivation_msg.visible:
+			_on_xuanyuan_mouse_entered()
+	else:
+		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
+		$Buzzer.play()
+
+# 流光修炼相关函数
+func _on_liuguang_mouse_entered() -> void:
+	var current_level = Global.cultivation_liuguang_level
+	var next_level = current_level + 1
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	var current_bonus = CL.get_cultivation_bonus_text("atk_speed", current_level)
+	var next_bonus = CL.get_cultivation_bonus_text("atk_speed", next_level)
+	
+	cultivation_msg.text = "[font_size=64]流光  LV " + str(current_level) + "[/font_size]
+
+当前：" + current_bonus + "
+下一级：" + next_bonus + "
+修炼消耗： " + str(next_level_exp) + " Point
+
+再次点击即可修炼"
+	cultivation_msg.visible = true
+
+func _on_liuguang_mouse_exited() -> void:
+	cultivation_msg.visible = false
+
+func _on_liuguang_pressed() -> void:
+	var current_level = Global.cultivation_liuguang_level
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	
+	if Global.total_points >= next_level_exp:
+		Global.cultivation_liuguang_level += 1
+		Global.total_points -= next_level_exp
+		
+		$LevelUP.play()
+		
+		print("流光修炼成功！当前等级：" + str(Global.cultivation_liuguang_level))
+		
+		Global.save_game()
+		refresh_point()
+		
+		if cultivation_msg.visible:
+			_on_liuguang_mouse_entered()
+	else:
+		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
+		$Buzzer.play()
+
+# 化灵修炼相关函数
+func _on_hualing_mouse_entered() -> void:
+	var current_level = Global.cultivation_hualing_level
+	var next_level = current_level + 1
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	var current_bonus = CL.get_cultivation_bonus_text("spirit_gain", current_level)
+	var next_bonus = CL.get_cultivation_bonus_text("spirit_gain", next_level)
+	
+	cultivation_msg.text = "[font_size=64]化灵  LV " + str(current_level) + "[/font_size]
+
+当前：" + current_bonus + "
+下一级：" + next_bonus + "
+修炼消耗： " + str(next_level_exp) + " Point
+
+再次点击即可修炼"
+	cultivation_msg.visible = true
+
+func _on_hualing_mouse_exited() -> void:
+	cultivation_msg.visible = false
+
+func _on_hualing_pressed() -> void:
+	var current_level = Global.cultivation_hualing_level
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	
+	if Global.total_points >= next_level_exp:
+		Global.cultivation_hualing_level += 1
+		Global.total_points -= next_level_exp
+		
+		$LevelUP.play()
+		
+		print("化灵修炼成功！当前等级：" + str(Global.cultivation_hualing_level))
+		
+		Global.save_game()
+		refresh_point()
+		
+		if cultivation_msg.visible:
+			_on_hualing_mouse_entered()
+	else:
+		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
+		$Buzzer.play()
+
+# 锋锐修炼相关函数
+func _on_fengrui_mouse_entered() -> void:
+	var current_level = Global.cultivation_fengrui_level
+	var next_level = current_level + 1
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	var current_bonus = CL.get_cultivation_bonus_text("crit_chance", current_level)
+	var next_bonus = CL.get_cultivation_bonus_text("crit_chance", next_level)
+	
+	cultivation_msg.text = "[font_size=64]锋锐  LV " + str(current_level) + "[/font_size]
+
+当前：" + current_bonus + "
+下一级：" + next_bonus + "
+修炼消耗： " + str(next_level_exp) + " Point
+
+再次点击即可修炼"
+	cultivation_msg.visible = true
+
+func _on_fengrui_mouse_exited() -> void:
+	cultivation_msg.visible = false
+
+func _on_fengrui_pressed() -> void:
+	var current_level = Global.cultivation_fengrui_level
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	
+	if Global.total_points >= next_level_exp:
+		Global.cultivation_fengrui_level += 1
+		Global.total_points -= next_level_exp
+		
+		$LevelUP.play()
+		
+		print("锋锐修炼成功！当前等级：" + str(Global.cultivation_fengrui_level))
+		
+		Global.save_game()
+		refresh_point()
+		
+		if cultivation_msg.visible:
+			_on_fengrui_mouse_entered()
+	else:
+		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
+		$Buzzer.play()
+
+# 护体修炼相关函数
+func _on_huti_mouse_entered() -> void:
+	var current_level = Global.cultivation_huti_level
+	var next_level = current_level + 1
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	var current_bonus = CL.get_cultivation_bonus_text("damage_reduction", current_level)
+	var next_bonus = CL.get_cultivation_bonus_text("damage_reduction", next_level)
+	
+	cultivation_msg.text = "[font_size=64]护体  LV " + str(current_level) + "[/font_size]
+
+当前：" + current_bonus + "
+下一级：" + next_bonus + "
+修炼消耗： " + str(next_level_exp) + " Point
+
+再次点击即可修炼"
+	cultivation_msg.visible = true
+
+func _on_huti_mouse_exited() -> void:
+	cultivation_msg.visible = false
+
+func _on_huti_pressed() -> void:
+	var current_level = Global.cultivation_huti_level
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	
+	if Global.total_points >= next_level_exp:
+		Global.cultivation_huti_level += 1
+		Global.total_points -= next_level_exp
+		
+		$LevelUP.play()
+		
+		print("护体修炼成功！当前等级：" + str(Global.cultivation_huti_level))
+		
+		Global.save_game()
+		refresh_point()
+		
+		if cultivation_msg.visible:
+			_on_huti_mouse_entered()
+	else:
+		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
+		$Buzzer.play()
+
+# 追风修炼相关函数
+func _on_zhuifeng_mouse_entered() -> void:
+	var current_level = Global.cultivation_zhuifeng_level
+	var next_level = current_level + 1
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	var current_bonus = CL.get_cultivation_bonus_text("move_speed", current_level)
+	var next_bonus = CL.get_cultivation_bonus_text("move_speed", next_level)
+	
+	cultivation_msg.text = "[font_size=64]追风  LV " + str(current_level) + "[/font_size]
+
+当前：" + current_bonus + "
+下一级：" + next_bonus + "
+修炼消耗： " + str(next_level_exp) + " Point
+
+再次点击即可修炼"
+	cultivation_msg.visible = true
+
+func _on_zhuifeng_mouse_exited() -> void:
+	cultivation_msg.visible = false
+
+func _on_zhuifeng_pressed() -> void:
+	var current_level = Global.cultivation_zhuifeng_level
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	
+	if Global.total_points >= next_level_exp:
+		Global.cultivation_zhuifeng_level += 1
+		Global.total_points -= next_level_exp
+		
+		$LevelUP.play()
+		
+		print("追风修炼成功！当前等级：" + str(Global.cultivation_zhuifeng_level))
+		
+		Global.save_game()
+		refresh_point()
+		
+		if cultivation_msg.visible:
+			_on_zhuifeng_mouse_entered()
+	else:
+		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
+		$Buzzer.play()
+
+# 烈劲修炼相关函数
+func _on_liejin_mouse_entered() -> void:
+	var current_level = Global.cultivation_liejin_level
+	var next_level = current_level + 1
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	var current_bonus = CL.get_cultivation_bonus_text("crit_damage", current_level)
+	var next_bonus = CL.get_cultivation_bonus_text("crit_damage", next_level)
+	
+	cultivation_msg.text = "[font_size=64]烈劲  LV " + str(current_level) + "[/font_size]
+
+当前：" + current_bonus + "
+下一级：" + next_bonus + "
+修炼消耗： " + str(next_level_exp) + " Point
+
+再次点击即可修炼"
+	cultivation_msg.visible = true
+
+func _on_liejin_mouse_exited() -> void:
+	cultivation_msg.visible = false
+
+func _on_liejin_pressed() -> void:
+	var current_level = Global.cultivation_liejin_level
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	
+	if Global.total_points >= next_level_exp:
+		Global.cultivation_liejin_level += 1
+		Global.total_points -= next_level_exp
+		
+		$LevelUP.play()
+		
+		print("烈劲修炼成功！当前等级：" + str(Global.cultivation_liejin_level))
+		
+		Global.save_game()
+		refresh_point()
+		
+		if cultivation_msg.visible:
+			_on_liejin_mouse_entered()
+	else:
+		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
+		$Buzzer.play()

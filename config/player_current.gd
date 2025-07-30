@@ -143,7 +143,7 @@ func reset_player_attr() -> void :
 	PC.pc_lv = 1
 	PC.pc_exp = 0
 	PC.pc_speed = 0
-	PC.pc_atk_speed = 0
+	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.03)
 	
 	PC.invincible = false
 	
@@ -165,10 +165,10 @@ func reset_player_attr() -> void :
 	PC.summon_bullet_size_multiplier = 1.0
 	
 	# 重置暴击相关属性
-	PC.crit_chance = 0.1 + (Global.crit_chance_level * 0.005) # 基础暴击率 + 局外成长
-	PC.crit_damage_multiplier = 1.5 + (Global.crit_damage_level * 0.01) # 基础暴击伤害倍率 + 局外成长
+	PC.crit_chance = 0.1 + (Global.cultivation_fengrui_level * 0.005) # 基础暴击率 + 局外成长
+	PC.crit_damage_multiplier = 1.5 + (Global.cultivation_liejin_level * 0.01) # 基础暴击伤害倍率 + 局外成长
 	
-	PC.damage_reduction_rate = min(0.0 + (Global.damage_reduction_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
+	PC.damage_reduction_rate = min(0.0 + (Global.cultivation_huti_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
 	PC.body_size = 0
 	PC.last_atk_speed = 0
 	PC.last_speed = 0
@@ -223,14 +223,14 @@ func reset_player_attr() -> void :
 	
 
 func exec_pc_atk() -> void:
-	PC.pc_atk = int (15 + int(get_total_increase(Global.atk_level)))
+	PC.pc_atk = int (15 + int(get_total_increase(Global.cultivation_poxu_level)))
 	
 func exec_pc_hp() -> void:
-	PC.pc_max_hp = int (15 + int(get_total_increase_hp(Global.hp_level)))
+	PC.pc_max_hp = int (15 + int(get_total_increase_hp(Global.cultivation_xuanyuan_level)))
 	PC.pc_hp = PC.pc_max_hp
 	
 func exec_pc_bullet_size() -> void:
-	PC.bullet_size = 1 + (Global.bullet_size_level * 0.02)
+	PC.bullet_size = 1
 
 func exec_lucky_level() -> void:
 	PC.now_lunky_level = Global.lunky_level

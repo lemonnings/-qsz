@@ -7,16 +7,6 @@ var SettingBuff = preload("res://Script/config/setting_buff.gd").new()
 
 @export var total_points : int = 1000
 
-# 局外
-@export var atk_level : int = 0
-@export var hp_level : int = 0
-@export var atk_speed_level : int = 0
-@export var move_speed_level : int = 0
-@export var point_add_level : int = 0
-@export var bullet_size_level : int = 0
-@export var crit_chance_level : int = 0
-@export var crit_damage_level : int = 0
-@export var damage_reduction_level : int = 0
 @export var max_main_skill_num : int = 3
 
 # 跟升级抽卡有关的
@@ -164,12 +154,6 @@ func save_game() -> void:
 		"world_level": world_level,
 		"world_level_multiple": world_level_multiple,
 		"world_level_reward_multiple": world_level_reward_multiple,
-		"atk_level": atk_level,
-		"hp_level": hp_level,
-		"atk_speed_level": atk_speed_level,
-		"move_speed_level": move_speed_level,
-		"point_add_level": point_add_level,
-		"bullet_size_level": bullet_size_level,
 		"lunky_level": lunky_level,
 		"red_p": red_p,
 		"gold_p": gold_p,
@@ -177,9 +161,6 @@ func save_game() -> void:
 		"blue_p": blue_p,
 		"green_p": green_p,
 		"player_inventory": player_inventory,
-		"crit_chance_level": crit_chance_level,
-		"crit_damage_level": crit_damage_level,
-		"damage_reduction_level": damage_reduction_level,
 		"max_main_skill_num": max_main_skill_num,
 		"refresh_max_num": refresh_max_num,
 		"recipe_unlock_progress": recipe_unlock_progress,
@@ -213,12 +194,6 @@ func load_game() -> void:
 		return 
 	
 	total_points = config.get_value("save", "total_points", total_points)
-	atk_level = config.get_value("save", "atk_level", atk_level)
-	hp_level = config.get_value("save", "hp_level", hp_level)
-	atk_speed_level = config.get_value("save", "atk_speed_level", atk_speed_level)
-	move_speed_level = config.get_value("save", "move_speed_level", move_speed_level)
-	point_add_level = config.get_value("save", "point_add_level", point_add_level)
-	bullet_size_level = config.get_value("save", "bullet_size_level", bullet_size_level)
 	world_level = config.get_value("save", "world_level", world_level)
 	world_level_multiple = config.get_value("save", "world_level_multiple", world_level_multiple)
 	world_level_reward_multiple = config.get_value("save", "world_level_reward_multiple", world_level_reward_multiple)
@@ -229,9 +204,6 @@ func load_game() -> void:
 	blue_p = config.get_value("save", "blue_p", blue_p)
 	green_p = config.get_value("save", "green_p", green_p)
 	player_inventory = config.get_value("save", "player_inventory", player_inventory)
-	crit_chance_level = config.get_value("save", "crit_chance_level", crit_chance_level)
-	crit_damage_level = config.get_value("save", "crit_damage_level", crit_damage_level)
-	damage_reduction_level = config.get_value("save", "damage_reduction_level", damage_reduction_level)
 	max_main_skill_num = config.get_value("save", "max_main_skill_num", max_main_skill_num)
 	refresh_max_num = config.get_value("save", "refresh_max_num", refresh_max_num)
 	recipe_unlock_progress = config.get_value("save", "recipe_unlock_progress", recipe_unlock_progress)

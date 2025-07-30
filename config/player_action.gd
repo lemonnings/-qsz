@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-@export var move_speed : float = 120.0 * (1 + (Global.move_speed_level * 0.02) + PC.pc_speed)
+@export var move_speed : float = 120.0 * (1 + (Global.cultivation_zhuifeng_level * 0.02) + PC.pc_speed)
 
 @export var hp : int = 0
 @export var maxHP : int = 0
