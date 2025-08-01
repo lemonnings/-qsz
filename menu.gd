@@ -38,14 +38,25 @@ extends Node2D
 @export var page_no: int = 1
 
 @export var bgm_change_button: Button
+@export var audio_settings_button: Button
 
 var in_shop: bool
 var transition_tween: Tween
+var audio_settings_ui: AudioSettingsUI
 
 func _ready() -> void:
+	# 设置音效使用SFX总线
+	setup_audio_buses()
 	Global.load_game()
 	Global.in_menu = true
 	world_level_option.selected = Global.world_level - 1
+
+func setup_audio_buses() -> void:
+	# 设置所有音效使用SFX总线
+	if has_node("LevelUP"):
+		$LevelUP.bus = "SFX"
+	if has_node("Buzzer"):
+		$Buzzer.bus = "SFX"
 	
 func _process(_delta: float) -> void:
 	point_label.text = "剩余Point  " + str(Global.total_points)
@@ -449,6 +460,15 @@ func _on_atk_speed_pressed() -> void:
 
 func _on_bgm_change_pressed() -> void:
 	Bgm.random_bgm()
+
+func _on_audio_settings_pressed() -> void:
+	# 显示音频设置UI
+	if audio_settings_ui == null:
+		audio_settings_ui = AudioSettingsUI.show_audio_settings(self)
+	else:
+		# 如果已经存在，就关闭它
+		audio_settings_ui.queue_free()
+		audio_settings_ui = null
 
 
 func _on_world_level_item_focused(index: int) -> void:

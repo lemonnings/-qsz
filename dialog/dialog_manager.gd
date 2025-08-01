@@ -364,6 +364,7 @@ func _advance_dialog_line(condition_id: String = ""):
 			_process_current_dialog_line()
 
 func _end_dialog():
+	PC.movement_disabled = false
 	print("Dialog ended.")
 	# 重置所有立绘状态
 	speaker_left.visible = false

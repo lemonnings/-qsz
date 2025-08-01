@@ -36,10 +36,19 @@ var cultivation_level_vars = [
 var transition_tween: Tween
 
 func _ready() -> void:
+	# 设置音效使用SFX总线
+	setup_audio_buses()
 	# 更新界面显示
 	update_cultivation_display()
 	# 连接按钮信号
 	connect_button_signals()
+
+func setup_audio_buses() -> void:
+	# 设置所有音效使用SFX总线主菜单 新的游戏 读取存档 设置 
+	if has_node("LevelUP"):
+		$LevelUP.bus = "SFX"
+	if has_node("Buzzer"):
+		$Buzzer.bus = "SFX"
 
 func _process(_delta: float) -> void:
 	if point_label:

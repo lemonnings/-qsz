@@ -1,9 +1,28 @@
 extends Node
 
 func _ready() -> void:
+	# 设置所有AudioStreamPlayer使用BGM总线
+	setup_bgm_bus()
 	random_bgm()
 	Global.connect("normal_bgm", Callable(self, "random_bgm"))
 	Global.connect("boss_bgm", Callable(self, "boss_bgm"))
+
+func setup_bgm_bus() -> void:
+	# 将所有BGM播放器设置为使用BGM音频总线
+	$AudioStreamPlayer.bus = "BGM"
+	$AudioStreamPlayer2.bus = "BGM"
+	$AudioStreamPlayer3.bus = "BGM"
+	$AudioStreamPlayer4.bus = "BGM"
+	$AudioStreamPlayer5.bus = "BGM"
+	$AudioStreamPlayer6.bus = "BGM"
+	$AudioStreamPlayer7.bus = "BGM"
+	$AudioStreamPlayer8.bus = "BGM"
+	$AudioStreamPlayer9.bus = "BGM"
+	$AudioStreamPlayer10.bus = "BGM"
+	$AudioStreamPlayer11.bus = "BGM"
+	$AudioStreamPlayer12.bus = "BGM"
+	$AudioStreamPlayer13.bus = "BGM"
+	$AudioStreamPlayer14.bus = "BGM"
 
 func stop_all_bgm() -> void:
 	$AudioStreamPlayer.stop()

@@ -63,6 +63,9 @@ func _ready() -> void:
 	
 	camera.zoom = Vector2(3, 3)
 	
+	# 设置音效使用SFX总线
+	setup_audio_buses()
+	
 	if PC.has_riyan and PC.first_has_riyan_pc:
 	# 实例化日炎攻击
 		if riyan_scene:
@@ -74,6 +77,17 @@ func _ready() -> void:
 	## 初始化虚拟摇杆
 	#joystick_center = joystick_position
 	#joystick_current = joystick_center
+
+func setup_audio_buses() -> void:
+	# 设置所有音效使用SFX总线
+	if has_node("RunningSound"):
+		$RunningSound.bus = "SFX"
+	if has_node("GameOver"):
+		$GameOver.bus = "SFX"
+	if has_node("FireSound"):
+		$FireSound.bus = "SFX"
+	if has_node("HitSound"):
+		$HitSound.bus = "SFX"
 
 func _process(_delta: float) -> void:
 	# Rotation:

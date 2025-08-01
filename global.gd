@@ -5,6 +5,9 @@ const CONFIG_PATH = "user://game_config.cfg"
 # Buff配置管理器（需要在项目设置中设置为自动加载）
 var SettingBuff = preload("res://Script/config/setting_buff.gd").new()
 
+# 音频管理器
+var AudioManager = preload("res://Script/system/audio_manager.gd").new()
+
 @export var total_points : int = 1000
 
 @export var max_main_skill_num : int = 3
@@ -136,6 +139,9 @@ func _ready() -> void:
 	# 初始化buff配置管理器
 	add_child(SettingBuff)
 	
+	# 初始化音频管理器
+	add_child(AudioManager)
+	
 	# 初始化DPS计时器
 	dps_timer = Timer.new()
 	dps_timer.wait_time = 1.0  # 每秒计算一次DPS
@@ -145,6 +151,24 @@ func _ready() -> void:
 	
 	# 游戏启动时立即加载鼠标动画
 	MouseAnimation.start_mouse_animation()
+
+func _input(event: InputEvent) -> void:
+	# 全局快捷键：F1打开音频设置
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_F1:
+			show_audio_settings()
+
+# 显示音频设置UI的全局函数
+func show_audio_settings() -> void:
+	var current_scene = get_tree().current_scene
+	if current_scene:
+		# 检查是否已经有音频设置UI打开
+		var existing_ui = current_scene.get_node_or_null("AudioSettingsUI")
+		if existing_ui:
+			existing_ui.queue_free()
+		else:
+			var audio_ui = AudioSettingsUI.show_audio_settings(current_scene)
+			audio_ui.name = "AudioSettingsUI"
 
 
 func save_game() -> void:
@@ -172,7 +196,11 @@ func save_game() -> void:
 		"cultivation_fengrui_level": cultivation_fengrui_level,
 		"cultivation_huti_level": cultivation_huti_level,
 		"cultivation_zhuifeng_level": cultivation_zhuifeng_level,
-		"cultivation_liejin_level": cultivation_liejin_level
+		"cultivation_liejin_level": cultivation_liejin_level,
+		# 音频设置
+		"master_volume": AudioManager.get_master_volume(),
+		"bgm_volume": AudioManager.get_bgm_volume(),
+		"sfx_volume": AudioManager.get_sfx_volume()
 		
 	}
 	for key in data:
@@ -183,6 +211,9 @@ func save_game() -> void:
 		print("save success")
 	else:
 		push_error("save error")
+	
+	# 同时保存音频设置到专用文件
+	AudioManager.save_audio_settings()
 		
 
 func load_game() -> void:
@@ -217,6 +248,17 @@ func load_game() -> void:
 	cultivation_zhuifeng_level = config.get_value("save", "cultivation_zhuifeng_level", cultivation_zhuifeng_level)
 	cultivation_liejin_level = config.get_value("save", "cultivation_liejin_level", cultivation_liejin_level)
 	
+	# 加载音频设置
+	var master_vol = config.get_value("save", "master_volume", 1.0)
+	var bgm_vol = config.get_value("save", "bgm_volume", 1.0)
+	var sfx_vol = config.get_value("save", "sfx_volume", 1.0)
+	
+	# 应用音频设置
+	if AudioManager:
+		AudioManager.set_master_volume(master_vol)
+		AudioManager.set_bgm_volume(bgm_vol)
+		AudioManager.set_sfx_volume(sfx_vol)
+	
 var hit_scene = null
 
 func play_hit_anime(position : Vector2, is_crit: bool = false, anime: int = 1):
@@ -227,6 +269,13 @@ func play_hit_anime(position : Vector2, is_crit: bool = false, anime: int = 1):
 	var hit_instantiate = hit_scene.instantiate()
 	hit_instantiate.position = position + Vector2(-1,5)
 	get_tree().current_scene.add_child(hit_instantiate)
+	
+	# 设置音效使用SFX总线
+	if hit_instantiate.gun_hit_crit_sound:
+		hit_instantiate.gun_hit_crit_sound.bus = "SFX"
+	if hit_instantiate.gun_hit_sound:
+		hit_instantiate.gun_hit_sound.bus = "SFX"
+	
 	if is_crit:
 		hit_instantiate.gun_hit_crit_anime.play("hit") # Assuming crit animation name is also "hit"
 		hit_instantiate.gun_hit_crit_sound.play(0.0)

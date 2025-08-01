@@ -1,0 +1,142 @@
+"filename", "language", "Asset Properties Definition", "GDScript", "Markdown", "GDScene", "XML", "comment", "blank", "total"
+"d:\IdeaProjects\-qsz\.idea\-qsz.iml", "XML", 0, 0, 0, 0, 9, 0, 0, 9
+"d:\IdeaProjects\-qsz\.idea\misc.xml", "XML", 0, 0, 0, 0, 6, 0, 0, 6
+"d:\IdeaProjects\-qsz\.idea\modules.xml", "XML", 0, 0, 0, 0, 8, 0, 0, 8
+"d:\IdeaProjects\-qsz\.idea\vcs.xml", "XML", 0, 0, 0, 0, 6, 0, 0, 6
+"d:\IdeaProjects\-qsz\battleScene\boss_test.gd", "GDScript", 0, 146, 0, 0, 0, 5, 32, 183
+"d:\IdeaProjects\-qsz\battleScene\boss_test.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\battleScene\stage1.gd", "GDScript", 0, 389, 0, 0, 0, 132, 124, 645
+"d:\IdeaProjects\-qsz\battleScene\stage1.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\base_bullet.gd", "GDScript", 0, 122, 0, 0, 0, 48, 44, 214
+"d:\IdeaProjects\-qsz\config\base_bullet.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\branch.gd", "GDScript", 0, 165, 0, 0, 0, 82, 55, 302
+"d:\IdeaProjects\-qsz\config\branch.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\buff_manager.gd", "GDScript", 0, 93, 0, 0, 0, 27, 32, 152
+"d:\IdeaProjects\-qsz\config\buff_manager.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\buff_ui.gd", "GDScript", 0, 234, 0, 0, 0, 59, 62, 355
+"d:\IdeaProjects\-qsz\config\buff_ui.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\bullet.gd", "GDScript", 0, 200, 0, 0, 0, 67, 63, 330
+"d:\IdeaProjects\-qsz\config\bullet.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\bullet_cal.gd", "GDScript", 0, 71, 0, 0, 0, 26, 18, 115
+"d:\IdeaProjects\-qsz\config\bullet_cal.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\enemy_debuff_manager.gd", "GDScript", 0, 125, 0, 0, 0, 8, 30, 163
+"d:\IdeaProjects\-qsz\config\enemy_debuff_manager.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\fire_instance.gd", "GDScript", 0, 36, 0, 0, 0, 7, 8, 51
+"d:\IdeaProjects\-qsz\config\fire_instance.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\item_hecheng_manager.gd", "GDScript", 0, 131, 0, 0, 0, 47, 28, 206
+"d:\IdeaProjects\-qsz\config\item_hecheng_manager.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\item_manager.gd", "GDScript", 0, 161, 0, 0, 0, 71, 29, 261
+"d:\IdeaProjects\-qsz\config\item_manager.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\moyan.gd", "GDScript", 0, 168, 0, 0, 0, 52, 55, 275
+"d:\IdeaProjects\-qsz\config\moyan.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\player_action.gd", "GDScript", 0, 317, 0, 0, 0, 83, 102, 502
+"d:\IdeaProjects\-qsz\config\player_action.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\player_current.gd", "GDScript", 0, 205, 0, 0, 0, 21, 53, 279
+"d:\IdeaProjects\-qsz\config\player_current.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\player_reward_weights.gd", "GDScript", 0, 50, 0, 0, 0, 22, 16, 88
+"d:\IdeaProjects\-qsz\config\player_reward_weights.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\ringFire.gd", "GDScript", 0, 42, 0, 0, 0, 1, 10, 53
+"d:\IdeaProjects\-qsz\config\ringFire.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\riyan.gd", "GDScript", 0, 45, 0, 0, 0, 6, 17, 68
+"d:\IdeaProjects\-qsz\config\riyan.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\setting_buff.gd", "GDScript", 0, 95, 0, 0, 0, 5, 16, 116
+"d:\IdeaProjects\-qsz\config\setting_buff.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\setting_level_up.gd", "GDScript", 0, 1150, 0, 0, 0, 228, 309, 1687
+"d:\IdeaProjects\-qsz\config\setting_level_up.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\setting_moster.gd", "GDScript", 0, 45, 0, 0, 0, 0, 7, 52
+"d:\IdeaProjects\-qsz\config\setting_moster.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\summon.gd", "GDScript", 0, 156, 0, 0, 0, 29, 41, 226
+"d:\IdeaProjects\-qsz\config\summon.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\cultivation.gd", "GDScript", 0, 184, 0, 0, 0, 30, 39, 253
+"d:\IdeaProjects\-qsz\cultivation.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\dialog\dialog_manager.gd", "GDScript", 0, 334, 0, 0, 0, 54, 68, 456
+"d:\IdeaProjects\-qsz\dialog\dialog_manager.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\global.gd", "GDScript", 0, 232, 0, 0, 0, 41, 59, 332
+"d:\IdeaProjects\-qsz\global.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\loading.gd", "GDScript", 0, 19, 0, 0, 0, 0, 4, 23
+"d:\IdeaProjects\-qsz\loading.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\menu.gd", "GDScript", 0, 463, 0, 0, 0, 15, 102, 580
+"d:\IdeaProjects\-qsz\menu.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\monster\bat.gd", "GDScript", 0, 140, 0, 0, 0, 12, 33, 185
+"d:\IdeaProjects\-qsz\monster\bat.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\monster\bigSlime.gd", "GDScript", 0, 131, 0, 0, 0, 11, 32, 174
+"d:\IdeaProjects\-qsz\monster\bigSlime.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\monster\boss_a copy.gd", "GDScript", 0, 267, 0, 0, 0, 61, 78, 406
+"d:\IdeaProjects\-qsz\monster\boss_a copy.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\monster\boss_a.gd", "GDScript", 0, 548, 0, 0, 0, 103, 152, 803
+"d:\IdeaProjects\-qsz\monster\boss_a.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\monster\frog.gd", "GDScript", 0, 221, 0, 0, 0, 52, 44, 317
+"d:\IdeaProjects\-qsz\monster\frog.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\monster\slime.gd", "GDScript", 0, 140, 0, 0, 0, 13, 31, 184
+"d:\IdeaProjects\-qsz\monster\slime.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\monster\small_fire_bullet.gd", "GDScript", 0, 33, 0, 0, 0, 10, 13, 56
+"d:\IdeaProjects\-qsz\monster\small_fire_bullet.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\sceneChange.gd", "GDScript", 0, 26, 0, 0, 0, 0, 7, 33
+"d:\IdeaProjects\-qsz\sceneChange.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\scenes\fire_instance.tscn", "GDScene", 0, 0, 0, 4, 0, 0, 2, 6
+"d:\IdeaProjects\-qsz\skill\big_fire_bullet.gd", "GDScript", 0, 4, 0, 0, 0, 0, 2, 6
+"d:\IdeaProjects\-qsz\skill\big_fire_bullet.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\skill\frog_attack.gd", "GDScript", 0, 26, 0, 0, 0, 10, 8, 44
+"d:\IdeaProjects\-qsz\skill\frog_attack.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\skill\skill_cooldown_overlay.gd", "GDScript", 0, 45, 0, 0, 0, 0, 8, 53
+"d:\IdeaProjects\-qsz\skill\skill_cooldown_overlay.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\skill\sword_wave.gd", "GDScript", 0, 67, 0, 0, 0, 28, 21, 116
+"d:\IdeaProjects\-qsz\skill\sword_wave.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\action_tips.gd", "GDScript", 0, 28, 0, 0, 0, 0, 14, 42
+"d:\IdeaProjects\-qsz\system\action_tips.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\bgm.gd", "GDScript", 0, 55, 0, 0, 0, 0, 7, 62
+"d:\IdeaProjects\-qsz\system\bgm.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\boss_hp_bar.gd", "GDScript", 0, 223, 0, 0, 0, 86, 63, 372
+"d:\IdeaProjects\-qsz\system\boss_hp_bar.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\damage_display.gd", "GDScript", 0, 57, 0, 0, 0, 23, 16, 96
+"d:\IdeaProjects\-qsz\system\damage_display.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\drop_normal.gd", "GDScript", 0, 16, 0, 0, 0, 6, 6, 28
+"d:\IdeaProjects\-qsz\system\drop_normal.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\hit.gd", "GDScript", 0, 13, 0, 0, 0, 1, 6, 20
+"d:\IdeaProjects\-qsz\system\hit.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\item_drop_system.gd", "GDScript", 0, 42, 0, 0, 0, 15, 17, 74
+"d:\IdeaProjects\-qsz\system\item_drop_system.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\level_up.gd", "GDScript", 0, 229, 0, 0, 0, 43, 42, 314
+"d:\IdeaProjects\-qsz\system\level_up.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\mouse_animation.gd", "GDScript", 0, 28, 0, 0, 0, 7, 9, 44
+"d:\IdeaProjects\-qsz\system\mouse_animation.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\pinch_zoom.gd", "GDScript", 0, 50, 0, 0, 0, 16, 18, 84
+"d:\IdeaProjects\-qsz\system\pinch_zoom.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\predictive_aiming.gd", "GDScript", 0, 228, 0, 0, 0, 69, 77, 374
+"d:\IdeaProjects\-qsz\system\predictive_aiming.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\tips.gd", "GDScript", 0, 46, 0, 0, 0, 7, 14, 67
+"d:\IdeaProjects\-qsz\system\tips.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\trans_black.gd", "GDScript", 0, 1, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\trans_black.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\virtual_joystick.gd", "GDScript", 0, 62, 0, 0, 0, 15, 17, 94
+"d:\IdeaProjects\-qsz\system\virtual_joystick.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\town\main_town.gd", "GDScript", 0, 450, 0, 0, 0, 85, 164, 699
+"d:\IdeaProjects\-qsz\town\main_town.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\town\test_town.gd", "GDScript", 0, 37, 0, 0, 0, 12, 15, 64
+"d:\IdeaProjects\-qsz\town\test_town.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\util\README_warn_circle.md", "Markdown", 0, 0, 232, 0, 0, 0, 65, 297
+"d:\IdeaProjects\-qsz\util\README_warn_rect.md", "Markdown", 0, 0, 168, 0, 0, 0, 51, 219
+"d:\IdeaProjects\-qsz\util\README_warn_sector.md", "Markdown", 0, 0, 176, 0, 0, 0, 58, 234
+"d:\IdeaProjects\-qsz\util\circle_drawer.gd", "GDScript", 0, 21, 0, 0, 0, 5, 7, 33
+"d:\IdeaProjects\-qsz\util\circle_drawer.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\util\global_util.gd", "GDScript", 0, 10, 0, 0, 0, 0, 2, 12
+"d:\IdeaProjects\-qsz\util\global_util.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\util\rect_drawer.gd", "GDScript", 0, 27, 0, 0, 0, 5, 7, 39
+"d:\IdeaProjects\-qsz\util\rect_drawer.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\util\sector_drawer.gd", "GDScript", 0, 32, 0, 0, 0, 9, 10, 51
+"d:\IdeaProjects\-qsz\util\sector_drawer.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\util\warn_circle_example.gd", "GDScript", 0, 61, 0, 0, 0, 32, 16, 109
+"d:\IdeaProjects\-qsz\util\warn_circle_example.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\util\warn_circle_example_updated.gd", "GDScript", 0, 148, 0, 0, 0, 52, 35, 235
+"d:\IdeaProjects\-qsz\util\warn_circle_example_updated.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\util\warn_circle_util.gd", "GDScript", 0, 178, 0, 0, 0, 48, 44, 270
+"d:\IdeaProjects\-qsz\util\warn_circle_util.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\util\warn_rect_example.gd", "GDScript", 0, 110, 0, 0, 0, 42, 27, 179
+"d:\IdeaProjects\-qsz\util\warn_rect_example.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\util\warn_rect_util.gd", "GDScript", 0, 114, 0, 0, 0, 25, 35, 174
+"d:\IdeaProjects\-qsz\util\warn_rect_util.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\util\warn_sector_example.gd", "GDScript", 0, 144, 0, 0, 0, 41, 38, 223
+"d:\IdeaProjects\-qsz\util\warn_sector_example.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"d:\IdeaProjects\-qsz\util\warn_sector_util.gd", "GDScript", 0, 132, 0, 0, 0, 21, 35, 188
+"d:\IdeaProjects\-qsz\util\warn_sector_util.gd.uid", "Asset Properties Definition", 1, 0, 0, 0, 0, 0, 1, 2
+"Total", "-", 66, 9568, 576, 4, 29, 2131, 2836, 15210

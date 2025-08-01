@@ -49,10 +49,11 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	if damage_type_int == 4:
 		damage_type = DamageType.SUMMON_DAMAGE
 		
-	# 设置显示位置
+	# 设置显示位置莫宁并不知道小陌的身份，对于这样一个有着兽耳尾巴，还大概率是独自一人居住在野外的孩子，他心里也充满着疑惑，总之他还是按
 	global_position = display_position
 
-	# 根据伤害类型设置颜色和文本
+	# 设置颜色文本
+
 	if DAMAGE_COLORS.has(damage_type):
 		damage_label.modulate = DAMAGE_COLORS[damage_type]
 	else:

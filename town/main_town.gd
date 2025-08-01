@@ -39,10 +39,19 @@ var player: CharacterBody2D
 
 
 func _ready() -> void:
+	# 设置音效使用SFX总线
+	setup_audio_buses()
 	Global.load_game()
 	
 	if $Player is CharacterBody2D:
 		player = $Player
+
+func setup_audio_buses() -> void:
+	# 设置所有音效使用SFX总线
+	if has_node("LevelUP"):
+		$LevelUP.bus = "SFX"
+	if has_node("Buzzer"):
+		$Buzzer.bus = "SFX"
 
 	PC.movement_disabled = false
 	PC.is_game_over = false
@@ -107,7 +116,6 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player):
 		return
 
-	# 检测 F 键 (映射到 "interact" 动作) 是否按下
 	if player.global_position.distance_to(cystal2.global_position) < interaction_distance:
 		animate_ui_element(cystalTips, "cystalTips", true)
 		cystalTips.change_label1_text("切换英雄 [F]")
@@ -147,16 +155,12 @@ func press_interact():
 			start_dialog_interaction("crystal")
 	
 	if player.global_position.distance_to(portal.global_position) < interaction_distance:
-		# 禁用玩家移动
 		PC.movement_disabled = true
 		
-		# 渐进显示黑色滤镜
 		if dark_overlay:
-			# 停止之前的动画
 			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
 				ui_tweens["dark_overlay"].kill()
 			
-			# 创建渐进显示动画
 			ui_tweens["dark_overlay"] = create_tween()
 			dark_overlay.visible = true
 			dark_overlay.modulate.a = 0.0
@@ -175,35 +179,10 @@ func press_interact():
 			if child.has_method("set_modulate"):
 				child.modulate.a = 0.0
 				ui_tweens["levelChangeLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
-# 在一个以魔法为主的世界里，人们依靠水晶（灵石）里存储的以太来释放法术，法术在日常生活中逐渐被滥用，在一次大规模战争中，因过度开采“以太矿”引发了能量崩溃，浓缩以太异化为魔物，大地生机断绝。
-# 这个世界的一名黑魔法师为了拯救故土，研发跨位面以太汲取术，在一次实验中，因为过量吸收以太，导致其世界与本位面通过“裂隙”产生交融，黑魔法师也在实验事故中被传至龙门山，他因恐慌展开了一道幻境屏障，却未察觉时空裂隙正导致魔物的涌入，而大量未经提纯的以太也一并涌入龙门山，诱使龙门山的魔物也开始滋生。
-# 察觉到龙门山被幻境封锁，山脚下的村民向管辖这片区域的八玄阁求助，八玄阁派出的中级弟子在进入幻境后便杳无音讯，这让八玄阁的上层开始重视这件事，并准备先派一名八部中的领袖来解决此事。
-# 经过一番探测后，八玄阁发现这个幻境的构造超出了他们所有人的知识范畴（因为都不是一个世界的），因此决定除了派遣本阁弟子之外，也广招天下侠士前来共同探索这个幻境。
-# 主角团是来协助解决这件事的侠士，精通传送技术的巽在村落外围铺设了返回锚点，然后把主角传送到了幻境的外围。
-# 在幻境外围和幻境内部连续击败几个镇守一个区域的boss后，幻境的效力下降，开启了通往幻境深处的道路，在幻境深处可以抓住幻境的始作俑者黑魔法师诺姆。
-# 在战斗中击败了诺姆后，诺姆无奈的表示自己的幻境在展开之后就发现无法关闭了，这个世界的以太太过丰富，导致幻境的后备能源几乎是无尽的，而且幻境的核心处由于凝结了过多的以太，有一个连他都无法控制的boss诞生了。
-# 一部分简单设定
-# 地图分为4个区域，外围，内部，深处，核心；每次进入地图的某个区域，会有一个以太活跃度的设定，通过在区域里战斗的时间+杀怪提升活跃度，活跃度达到满值后随机出现一个这个区域的boss（比如外围会随机从千年树精，晶矿化巨虎，腐蚀粘液怪中出现一个）
-# 其中每个区域都有一个探索度，以太活跃度的提升也可以同步提升探索进度，当探索度高于70%后，下次关卡中以太活跃度满值后出现的boss就是镇守这个区域的最终boss，击败后可以开启下个区域
-# 通过收集关卡内掉落，还可以合成进入隐藏地图的钥匙，用来开启特殊关卡
-# 杀怪后获得的真气、灵石：在外围击杀了一众小怪之后，主角发现这些小怪身上因为有大量的“以太”（可以解释成这个世界中的真气一类的），在击杀了之后一部分以太外溢，可以吸收了之后增加实力，另一部分过于精纯的以太化作了灵石（游戏内货币）。因为魔法世界的人都把以太当做外置能量，用来释放魔法，而修仙的是吸纳这些能量储存在自己身体里。
-# hp归0之后：巽预设了返回的地点，由兑绘制的返回符，是在遇到生命危险时可以紧急传回的符咒，击杀了boss之后，也可以用来返回村落处
-# 队友：初始是奕秋，击败诺姆之后诺姆也是可用角色，后面可以通过支线来添加其他角色，暂时做两个
-# 奕秋，初始武器：剑气，专属技能：闪避、兽化，可掌握技能：加速，乱击，可掌握武器：扫帚，赤曜，环火
-# 诺姆，初始武器：冰针，专属技能：魔纹、激情咏唱，可掌握技能：魔罩，究极，掌握武器：世界树之枝，魔焰，星弹
-# NPC：
-# 乾：召唤水晶维护（切换角色的地方）自信满满，有点傲娇的天才少年。自认为是"天命之子"，说话时常带着"本座认为..."的口吻。虽然有点自大，但确实有真才实学，能准确判断每个人最适合的角色定位。喜欢用星象和命运来解释事物，有点中二但很可爱。
-# 坤：炼丹（eg：小怪材料，boss材料加上坎卖的材料，可以组合炼丹）圆脸，赭石色粗布道袍，有一些烧焦的破烂痕迹，袖口沾着药草碎屑。温柔体贴，像大哥哥一样照顾每个人。有点笨拙但非常认真，经常因为炼丹太专注而忘记吃饭。对各种材料的特性了如指掌，但不善言辞，说话时常常结巴
-# 离：铁匠（局外养成之一，强化法宝）铁匠围裙，但花纹繁复一些，衣角焦黑，随身携带沾着火星的锤子。说话声音洪亮，喜欢大笑。对锻造工艺极其热爱，一谈到法宝就眼睛发亮。有点火爆脾气，但来得快去得也快。非常重视承诺，答应的事一定会做到。虽然看起来粗犷，但对细节非常讲究。
-# 巽：关卡传送阵，长发束起，穿着花青色轻便服饰，周围飘着羽毛。机智灵活，像风一样难以捉摸。说话带点神秘感，喜欢用谜语和暗示。作为传送阵的管理者，知道很多秘密通道和捷径。有点爱玩，喜欢捉弄别人，但心地不坏。经常突然出现又突然消失，让人捉摸不透。
-# 坎，云游商人（每次完成关卡后刷新，如果通关刷新出好东西概率更高）年龄最小，湖蓝色短衫，手持一把画着水波纹的折扇。是精明的商人，说话滴水不漏。擅长察言观色，能准确判断对方想要什么。有点狡猾，但不会做太过分的事。
-# 震：进阶（局外养成之二，被动/主动技能树->可以强化升级选项）短发凌乱，藤黄色劲装，腰间别着闪电形状的小铃铛。活力四射的热血少年，总是充满干劲。说话大声，行动迅速，常常不等别人说完就行动。虽然冲动但很讲义气，喜欢挑战高难度的技能升级。有点孩子气，但关键时刻很可靠。经常因为太急躁而犯小错误，然后红着脸道歉。
-# 艮：修炼（局外养成之三，直接提升基础属性）敦实体格，雄黄色朴素衣裳。沉稳内敛的修行者，话不多但每句都很有分量。修炼时能保持数小时不动，专注力极强。有点固执，认定的事情很难改变。虽然看起来严肃，但对真心求教的人会耐心指导。
-# 兑：合成（eg：通过材料合成新法宝，开启隐藏关卡）石绿色轻便衣裳，衣角缝着贝壳风铃，手里捏着符咒。说话风趣幽默，很会调节气氛。对合成有独特天赋，经常能想到别人想不到的组合。有点话痨。
+
 	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance:
 		PC.movement_disabled = true
 		
-		# 渐进显示黑色滤镜
 		if dark_overlay:
 			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
 				ui_tweens["dark_overlay"].kill()
@@ -237,23 +216,11 @@ func press_interact2():
 		
 # H交互
 func press_interact3():
-	#1层，主动技能闪避，解锁世界树之枝，召唤蓝紫，幸运提升，剑气/树枝强化初始等级提升1~3
-	#2层，闪避无敌时间增加，闪避cd降低，主动技能加速，解锁扫帚，召唤金红，经验获得提升，魔焰初始1~3
-	#3层，加速效果提升，持续时间增加，cd降低，主动技能魔化，解锁ry，召唤金红进阶，幸运系，幸运提升，ry初始1~3
-	#4层，魔化效果提升，持续时间增加，cd降低，主动技能乱击，解锁环火，主武器+1，经验获得提升，环火初始1~3
-	#5层，乱击范围提升，子弹数量提升，cd降低，幸运，经验获得提升，幸运系金红
-
-	#1层，主动技能魔罩，解锁炽炎，催化系蓝紫
-	#催化，提升怪的数量，换取其他加成，白绿怪+5%，蓝紫+10%，金红+15%，经验加成+15%/22%/37%/44%/59%/66%，最终伤害提升4%/5.5%/9.5%/11%/15%/16.5%
-	# 提升怪的属性，换取经验加成或者减伤率2%~8.3%
-	#2层，命运系，初始20面骰，1大失败20大成功，2~10失败，11~19成功
-	#紫，成功判定点+1
-	#金，大成功判定点+1
-	#红，
 	pass
 
 
 func start_dialog_interaction(npc_id: String) -> void:
+	PC.movement_disabled = true
 	if not dialog_control.is_inside_tree():
 		add_child(dialog_control)
 	
@@ -265,14 +232,11 @@ func start_dialog_interaction(npc_id: String) -> void:
 
 
 func _on_exit_pressed() -> void:
-	# 恢复玩家移动
 	PC.movement_disabled = false
 	
-	# 创建渐出动画
 	var exit_tween = create_tween()
 	exit_tween.set_parallel(true)
 	
-	# 渐出黑色滤镜
 	if dark_overlay and dark_overlay.visible:
 		exit_tween.tween_property(dark_overlay, "modulate:a", 0.0, 0.2)
 		exit_tween.tween_callback(func(): 
@@ -317,67 +281,30 @@ func _on_stage_2_pressed() -> void:
 	Global.in_town = true
 	PC.reset_player_attr()
 
-
-
-
-# 凌奕秋，初始武器：剑气，特殊技能：闪避、魔化，可掌握技能：加速，乱击，可掌握武器：扫帚，ry，环火
-# 诺姆，初始武器：冰针，特殊技能：魔纹、激情咏唱，可掌握技能：魔罩，究极，掌握武器：世界树之枝，炽炎，星弹
-
-
-func _switch_layers(target_layer: CanvasLayer, hide_layers: Array, show_controls: Array, show_controls_immediately: bool) -> void:
-	# 隐藏旧层
-	for layer in hide_layers:
-		if layer:
-			layer.visible = false
-			# 重置所有子节点的透明度，但跳过黑色滤镜
-			for child in layer.get_children():
-				if child.has_method("set_modulate") and child != dark_overlay:
-					child.modulate.a = 1.0
-	
-	# 处理控件显示
-	for control in show_controls:
-		if control:
-			control.visible = show_controls_immediately
-			
-			
-
-func _transition_to_layer(target_layer: CanvasLayer, hide_layers: Array, show_controls: Array = [], show_controls_immediately: bool = false) -> void:
-	if transition_tween:
-		transition_tween.kill()
-	
-	transition_tween = create_tween()
-	transition_tween.set_parallel(true)
-	
-	# 淡出当前显示的层的所有子节点，但跳过黑色滤镜
-	for layer in hide_layers:
-		if layer and layer.visible:
-			for child in layer.get_children():
-				if child.has_method("set_modulate") and child != dark_overlay:
-					transition_tween.tween_property(child, "modulate:a", 0.0, 0.125)
-	
-	# 等待淡出完成后切换显示状态
-	transition_tween.tween_callback(_switch_layers.bind(target_layer, hide_layers, show_controls, show_controls_immediately)).set_delay(0.125)
-	
-	# 淡入目标层的所有子节点，但跳过黑色滤镜
-	if target_layer:
-		target_layer.visible = true
-		for child in target_layer.get_children():
-			if child.has_method("set_modulate") and child != dark_overlay:
-				child.modulate.a = 0.0
-				transition_tween.tween_property(child, "modulate:a", 1.0, 0.125).set_delay(0.25)
-	
-
 func refresh_point() -> void:
 	point_label.text = "真气 " + str(Global.total_points)
 
-func _on_poxu_mouse_entered() -> void:
-	var current_level = Global.cultivation_poxu_level
+# 修炼配置数据
+var cultivation_configs = {
+	"poxu": {"name": "破虚", "type": "atk", "level_var": "cultivation_poxu_level"},
+	"xuanyuan": {"name": "玄元", "type": "hp", "level_var": "cultivation_xuanyuan_level"},
+	"liuguang": {"name": "流光", "type": "atk_speed", "level_var": "cultivation_liuguang_level"},
+	"hualing": {"name": "化灵", "type": "spirit_gain", "level_var": "cultivation_hualing_level"},
+	"fengrui": {"name": "锋锐", "type": "crit_chance", "level_var": "cultivation_fengrui_level"},
+	"huti": {"name": "护体", "type": "damage_reduction", "level_var": "cultivation_huti_level"},
+	"zhuifeng": {"name": "追风", "type": "move_speed", "level_var": "cultivation_zhuifeng_level"},
+	"liejin": {"name": "烈劲", "type": "crit_damage", "level_var": "cultivation_liejin_level"}
+}
+
+func _on_cme(cultivation_key: String) -> void:
+	var config = cultivation_configs[cultivation_key]
+	var current_level = Global.get(config["level_var"])
 	var next_level = current_level + 1
 	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	var current_bonus = CL.get_cultivation_bonus_text("atk", current_level)
-	var next_bonus = CL.get_cultivation_bonus_text("atk", next_level)
+	var current_bonus = CL.get_cultivation_bonus_text(config["type"], current_level)
+	var next_bonus = CL.get_cultivation_bonus_text(config["type"], next_level)
 	
-	cultivation_msg.text = "[font_size=64]破虚  LV " + str(current_level) + "[/font_size]
+	cultivation_msg.text = "[font_size=64]" + config["name"] + "  LV " + str(current_level) + "[/font_size]
 
 当前：" + current_bonus + "
 下一级：" + next_bonus + "
@@ -385,314 +312,100 @@ func _on_poxu_mouse_entered() -> void:
 
 再次点击即可修炼"
 	cultivation_msg.visible = true
+
+func _on_cmex(_cultivation_key: String) -> void:
+	cultivation_msg.visible = false
+
+func _on_cmp(cultivation_key: String) -> void:
+	var config = cultivation_configs[cultivation_key]
+	var current_level = Global.get(config["level_var"])
+	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	
+	if Global.total_points >= next_level_exp:
+		Global.set(config["level_var"], current_level + 1)
+		Global.total_points -= next_level_exp
+		
+		$LevelUP.play()
+		
+		print(config["name"] + "修炼成功！当前等级：" + str(Global.get(config["level_var"])))
+		
+		Global.save_game()
+		refresh_point()
+		
+		if cultivation_msg.visible:
+			_on_cme(cultivation_key)
+	else:
+		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
+		$Buzzer.play()
+
+func _on_poxu_mouse_entered() -> void:
+	_on_cme("poxu")
 
 func _on_poxu_mouse_exited() -> void:
-	cultivation_msg.visible = false
+	_on_cmex("poxu")
 
 func _on_poxu_pressed() -> void:
-	var current_level = Global.cultivation_poxu_level
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	
-	if Global.total_points >= next_level_exp:
-		Global.cultivation_poxu_level += 1
-		Global.total_points -= next_level_exp
-		
-		$LevelUP.play()
-		
-		print("破虚修炼成功！当前等级：" + str(Global.cultivation_poxu_level))
-		
-		Global.save_game()
-		refresh_point()
-		
-		if cultivation_msg.visible:
-			_on_poxu_mouse_entered()
-	else:
-		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
-		$Buzzer.play()
+	_on_cmp("poxu")
 
-# 玄元修炼相关函数
 func _on_xuanyuan_mouse_entered() -> void:
-	var current_level = Global.cultivation_xuanyuan_level
-	var next_level = current_level + 1
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	var current_bonus = CL.get_cultivation_bonus_text("hp", current_level)
-	var next_bonus = CL.get_cultivation_bonus_text("hp", next_level)
-	
-	cultivation_msg.text = "[font_size=64]玄元  LV " + str(current_level) + "[/font_size]
-
-当前：" + current_bonus + "
-下一级：" + next_bonus + "
-修炼消耗： " + str(next_level_exp) + " Point
-
-再次点击即可修炼"
-	cultivation_msg.visible = true
+	_on_cme("xuanyuan")
 
 func _on_xuanyuan_mouse_exited() -> void:
-	cultivation_msg.visible = false
+	_on_cmex("xuanyuan")
 
 func _on_xuanyuan_pressed() -> void:
-	var current_level = Global.cultivation_xuanyuan_level
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	
-	if Global.total_points >= next_level_exp:
-		Global.cultivation_xuanyuan_level += 1
-		Global.total_points -= next_level_exp
-		
-		$LevelUP.play()
-		
-		print("玄元修炼成功！当前等级：" + str(Global.cultivation_xuanyuan_level))
-		
-		Global.save_game()
-		refresh_point()
-		
-		if cultivation_msg.visible:
-			_on_xuanyuan_mouse_entered()
-	else:
-		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
-		$Buzzer.play()
+	_on_cmp("xuanyuan")
 
-# 流光修炼相关函数
 func _on_liuguang_mouse_entered() -> void:
-	var current_level = Global.cultivation_liuguang_level
-	var next_level = current_level + 1
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	var current_bonus = CL.get_cultivation_bonus_text("atk_speed", current_level)
-	var next_bonus = CL.get_cultivation_bonus_text("atk_speed", next_level)
-	
-	cultivation_msg.text = "[font_size=64]流光  LV " + str(current_level) + "[/font_size]
-
-当前：" + current_bonus + "
-下一级：" + next_bonus + "
-修炼消耗： " + str(next_level_exp) + " Point
-
-再次点击即可修炼"
-	cultivation_msg.visible = true
+	_on_cme("liuguang")
 
 func _on_liuguang_mouse_exited() -> void:
-	cultivation_msg.visible = false
+	_on_cmex("liuguang")
 
 func _on_liuguang_pressed() -> void:
-	var current_level = Global.cultivation_liuguang_level
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	
-	if Global.total_points >= next_level_exp:
-		Global.cultivation_liuguang_level += 1
-		Global.total_points -= next_level_exp
-		
-		$LevelUP.play()
-		
-		print("流光修炼成功！当前等级：" + str(Global.cultivation_liuguang_level))
-		
-		Global.save_game()
-		refresh_point()
-		
-		if cultivation_msg.visible:
-			_on_liuguang_mouse_entered()
-	else:
-		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
-		$Buzzer.play()
+	_on_cmp("liuguang")
 
-# 化灵修炼相关函数
 func _on_hualing_mouse_entered() -> void:
-	var current_level = Global.cultivation_hualing_level
-	var next_level = current_level + 1
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	var current_bonus = CL.get_cultivation_bonus_text("spirit_gain", current_level)
-	var next_bonus = CL.get_cultivation_bonus_text("spirit_gain", next_level)
-	
-	cultivation_msg.text = "[font_size=64]化灵  LV " + str(current_level) + "[/font_size]
-
-当前：" + current_bonus + "
-下一级：" + next_bonus + "
-修炼消耗： " + str(next_level_exp) + " Point
-
-再次点击即可修炼"
-	cultivation_msg.visible = true
+	_on_cme("hualing")
 
 func _on_hualing_mouse_exited() -> void:
-	cultivation_msg.visible = false
+	_on_cmex("hualing")
 
 func _on_hualing_pressed() -> void:
-	var current_level = Global.cultivation_hualing_level
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	
-	if Global.total_points >= next_level_exp:
-		Global.cultivation_hualing_level += 1
-		Global.total_points -= next_level_exp
-		
-		$LevelUP.play()
-		
-		print("化灵修炼成功！当前等级：" + str(Global.cultivation_hualing_level))
-		
-		Global.save_game()
-		refresh_point()
-		
-		if cultivation_msg.visible:
-			_on_hualing_mouse_entered()
-	else:
-		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
-		$Buzzer.play()
+	_on_cmp("hualing")
 
-# 锋锐修炼相关函数
 func _on_fengrui_mouse_entered() -> void:
-	var current_level = Global.cultivation_fengrui_level
-	var next_level = current_level + 1
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	var current_bonus = CL.get_cultivation_bonus_text("crit_chance", current_level)
-	var next_bonus = CL.get_cultivation_bonus_text("crit_chance", next_level)
-	
-	cultivation_msg.text = "[font_size=64]锋锐  LV " + str(current_level) + "[/font_size]
-
-当前：" + current_bonus + "
-下一级：" + next_bonus + "
-修炼消耗： " + str(next_level_exp) + " Point
-
-再次点击即可修炼"
-	cultivation_msg.visible = true
+	_on_cme("fengrui")
 
 func _on_fengrui_mouse_exited() -> void:
-	cultivation_msg.visible = false
+	_on_cmex("fengrui")
 
 func _on_fengrui_pressed() -> void:
-	var current_level = Global.cultivation_fengrui_level
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	
-	if Global.total_points >= next_level_exp:
-		Global.cultivation_fengrui_level += 1
-		Global.total_points -= next_level_exp
-		
-		$LevelUP.play()
-		
-		print("锋锐修炼成功！当前等级：" + str(Global.cultivation_fengrui_level))
-		
-		Global.save_game()
-		refresh_point()
-		
-		if cultivation_msg.visible:
-			_on_fengrui_mouse_entered()
-	else:
-		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
-		$Buzzer.play()
+	_on_cmp("fengrui")
 
-# 护体修炼相关函数
 func _on_huti_mouse_entered() -> void:
-	var current_level = Global.cultivation_huti_level
-	var next_level = current_level + 1
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	var current_bonus = CL.get_cultivation_bonus_text("damage_reduction", current_level)
-	var next_bonus = CL.get_cultivation_bonus_text("damage_reduction", next_level)
-	
-	cultivation_msg.text = "[font_size=64]护体  LV " + str(current_level) + "[/font_size]
-
-当前：" + current_bonus + "
-下一级：" + next_bonus + "
-修炼消耗： " + str(next_level_exp) + " Point
-
-再次点击即可修炼"
-	cultivation_msg.visible = true
+	_on_cme("huti")
 
 func _on_huti_mouse_exited() -> void:
-	cultivation_msg.visible = false
+	_on_cmex("huti")
 
 func _on_huti_pressed() -> void:
-	var current_level = Global.cultivation_huti_level
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	
-	if Global.total_points >= next_level_exp:
-		Global.cultivation_huti_level += 1
-		Global.total_points -= next_level_exp
-		
-		$LevelUP.play()
-		
-		print("护体修炼成功！当前等级：" + str(Global.cultivation_huti_level))
-		
-		Global.save_game()
-		refresh_point()
-		
-		if cultivation_msg.visible:
-			_on_huti_mouse_entered()
-	else:
-		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
-		$Buzzer.play()
+	_on_cmp("huti")
 
-# 追风修炼相关函数
 func _on_zhuifeng_mouse_entered() -> void:
-	var current_level = Global.cultivation_zhuifeng_level
-	var next_level = current_level + 1
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	var current_bonus = CL.get_cultivation_bonus_text("move_speed", current_level)
-	var next_bonus = CL.get_cultivation_bonus_text("move_speed", next_level)
-	
-	cultivation_msg.text = "[font_size=64]追风  LV " + str(current_level) + "[/font_size]
-
-当前：" + current_bonus + "
-下一级：" + next_bonus + "
-修炼消耗： " + str(next_level_exp) + " Point
-
-再次点击即可修炼"
-	cultivation_msg.visible = true
+	_on_cme("zhuifeng")
 
 func _on_zhuifeng_mouse_exited() -> void:
-	cultivation_msg.visible = false
+	_on_cmex("zhuifeng")
 
 func _on_zhuifeng_pressed() -> void:
-	var current_level = Global.cultivation_zhuifeng_level
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	
-	if Global.total_points >= next_level_exp:
-		Global.cultivation_zhuifeng_level += 1
-		Global.total_points -= next_level_exp
-		
-		$LevelUP.play()
-		
-		print("追风修炼成功！当前等级：" + str(Global.cultivation_zhuifeng_level))
-		
-		Global.save_game()
-		refresh_point()
-		
-		if cultivation_msg.visible:
-			_on_zhuifeng_mouse_entered()
-	else:
-		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
-		$Buzzer.play()
+	_on_cmp("zhuifeng")
 
-# 烈劲修炼相关函数
 func _on_liejin_mouse_entered() -> void:
-	var current_level = Global.cultivation_liejin_level
-	var next_level = current_level + 1
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	var current_bonus = CL.get_cultivation_bonus_text("crit_damage", current_level)
-	var next_bonus = CL.get_cultivation_bonus_text("crit_damage", next_level)
-	
-	cultivation_msg.text = "[font_size=64]烈劲  LV " + str(current_level) + "[/font_size]
-
-当前：" + current_bonus + "
-下一级：" + next_bonus + "
-修炼消耗： " + str(next_level_exp) + " Point
-
-再次点击即可修炼"
-	cultivation_msg.visible = true
+	_on_cme("liejin")
 
 func _on_liejin_mouse_exited() -> void:
-	cultivation_msg.visible = false
+	_on_cmex("liejin")
 
 func _on_liejin_pressed() -> void:
-	var current_level = Global.cultivation_liejin_level
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
-	
-	if Global.total_points >= next_level_exp:
-		Global.cultivation_liejin_level += 1
-		Global.total_points -= next_level_exp
-		
-		$LevelUP.play()
-		
-		print("烈劲修炼成功！当前等级：" + str(Global.cultivation_liejin_level))
-		
-		Global.save_game()
-		refresh_point()
-		
-		if cultivation_msg.visible:
-			_on_liejin_mouse_entered()
-	else:
-		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
-		$Buzzer.play()
+	_on_cmp("liejin")
