@@ -13,7 +13,7 @@ func _on_body_entered(body):
 		var item_func_name = ItemManager.item_function.get(item_id)
 
 		# 检查是否有对应的处理函数
-		if ItemManager.has_method(item_func_name):
+		if item_func_name != null and ItemManager.has_method(item_func_name):
 			# 调用函数并传递玩家节点作为参数
 			var can_pick_up = ItemManager.call(item_func_name, body)
 			
@@ -25,3 +25,18 @@ func _on_body_entered(body):
 				tween.tween_property(self, "modulate:a", 0, 0.5)
 				await tween.finished
 				queue_free() # 动画结束后销毁物品
+		else:
+			# 如果没有对应的处理函数，提供默认的拾取行为
+			printerr("Warning: No pickup function found for item_id '", item_id, "', using default pickup behavior")
+			# 默认行为：直接添加到背包
+			if !Global.player_inventory.has(item_id):
+				Global.player_inventory[item_id] = 1
+			else:
+				Global.player_inventory[item_id] += 1
+			
+			# 创建渐隐和向上飘动动画
+			var tween = create_tween().set_parallel(true)
+			tween.tween_property(self, "position:y", position.y - 50, 0.5) # 向上飘动50个像素
+			tween.tween_property(self, "modulate:a", 0, 0.5)
+			await tween.finished
+			queue_free() # 动画结束后销毁物品

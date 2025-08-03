@@ -45,14 +45,14 @@ var items_data = {
 		"item_name": "贤者之石碎片",
 		"item_stack_max": 99,
 		"item_type": "artifact", # 圣器 (或用于合成圣器的材料)
-		"item_icon": "res://assets/icons/philosopher_stone_shard.png",
+		"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
 		"item_price": 1000, # 单个价格，或者表示其价值
 		"item_source": "特定事件, 隐藏任务",
 		"item_use_condition": "收集特定数量可合成",
 		"item_detail": "古老圣器的碎片，蕴含着神秘的力量。",
 		"item_rare": "epic", # 史诗
 		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
-		"item_anime": "res://assets/animations/item_pickup_epic.tres"
+		"item_anime": "res://assets/animations/item_pickup_common.tres"
 	},
 	"item_004": {
 		"item_name": "九幽秘钥碎片",
@@ -66,6 +66,58 @@ var items_data = {
 		"item_rare": "epic", # 史诗
 		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 		"item_anime": "res://assets/animations/item_pickup_epic.tres"
+	},
+	"item_005": {
+		"item_name": "贤者之石",
+		"item_stack_max": 1,
+		"item_type": "artifact", # 圣器
+		"item_icon": "res://assets/icons/philosopher_stone.png",
+		"item_price": 10000,
+		"item_source": "合成获得",
+		"item_use_condition": "特殊用途",
+		"item_detail": "完整的贤者之石，蕴含着强大的炼金术力量。",
+		"item_rare": "legendary", # 传说
+		"item_color": Color(1.0, 0.8, 0.0, 1), # 金色
+		"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+	},
+	"item_006": {
+		"item_name": "九幽秘钥",
+		"item_stack_max": 1,
+		"item_type": "artifact", # 圣器
+		"item_icon": "res://assets/icons/jiuyou_key.png",
+		"item_price": 10000,
+		"item_source": "合成获得",
+		"item_use_condition": "开启九幽之门",
+		"item_detail": "完整的九幽秘钥，可以开启通往九幽的神秘之门。",
+		"item_rare": "legendary", # 传说
+		"item_color": Color(1.0, 0.8, 0.0, 1), # 金色
+		"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+	},
+	"item_007": {
+		"item_name": "强化野果",
+		"item_stack_max": 10,
+		"item_type": "immediate", # 立即生效
+		"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/enhanced_fruit.png",
+		"item_price": 200,
+		"item_source": "合成获得",
+		"item_use_condition": "HP < MaxHP",
+		"item_detail": "经过特殊处理的野果，恢复效果更佳。",
+		"item_rare": "rare", # 稀有
+		"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
+		"item_anime": "res://assets/animations/item_pickup_rare.tres"
+	},
+	"item_008": {
+		"item_name": "复合装备",
+		"item_stack_max": 1,
+		"item_type": "equip", # 装备
+		"item_icon": "res://assets/icons/composite_equipment.png",
+		"item_price": 2000,
+		"item_source": "合成获得",
+		"item_use_condition": "可装备栏位",
+		"item_detail": "融合了力量之戒和贤者之石力量的复合装备。",
+		"item_rare": "epic", # 史诗
+		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
+		"item_anime": "res://assets/animations/item_pickup_epic.tres"
 	}
 	# 更多物品可以添加到这里
 }
@@ -74,6 +126,7 @@ var items_data = {
 var item_function = {
 	"item_001": "_on_item_001_picked_up",
 	"item_002": "_on_item_002_picked_up",
+	"item_003": "_on_item_003_picked_up",
 	"item_004": "_on_item_004_picked_up"
 }
 
@@ -132,6 +185,15 @@ func _on_item_002_picked_up(player):
 		Global.player_inventory["item_002"] = 1
 	else:
 		Global.player_inventory["item_002"] += 1
+	return true # 表示成功拾取
+
+# 贤者之石碎片拾取函数
+func _on_item_003_picked_up(player):
+	# 将贤者之石碎片添加到 Global 的玩家背包中
+	if !Global.player_inventory.has("item_003"):
+		Global.player_inventory["item_003"] = 1
+	else:
+		Global.player_inventory["item_003"] += 1
 	return true # 表示成功拾取
 
 func _on_item_004_picked_up(player):

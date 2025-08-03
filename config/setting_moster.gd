@@ -8,7 +8,7 @@ func slime(query : String):
 		"exp": 300 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 10 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8)* (1 + (Global.cultivation_hualing_level * 0.05)),
 		"mechanism": 5 * min((1 + (PC.current_time) / 20), 4),
-		"itemdrop" : {"item_001": 0.02 * (1 + (Global.lunky_level * 0.025)), "item_004": 0.001 * (1 + (Global.lunky_level * 0.025))}
+		"itemdrop" : {"item_001": 0.02 * (1 + (Global.lunky_level * 0.025)), "item_003": 0.5 * (1 + (Global.lunky_level * 0.025))}
 	}
 	return data.get(query, null)
 

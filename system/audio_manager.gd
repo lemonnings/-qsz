@@ -29,7 +29,7 @@ func _ready() -> void:
 
 func setup_audio_buses() -> void:
 	# 检查并创建音频总线
-	var bus_layout = AudioServer.get_bus_layout()
+	# 注意：在Godot 4中，不需要调用get_bus_layout()
 	
 	# 确保BGM总线存在
 	if AudioServer.get_bus_index(BGM_BUS) == -1:

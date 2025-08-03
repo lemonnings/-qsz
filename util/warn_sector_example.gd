@@ -3,7 +3,7 @@ extends Node2D
 # WarnSectorUtil 使用示例
 # 展示如何在boss脚本中使用扇形AOE预警工具
 
-var WarnSectorUtil = preload("res://util/warn_sector_util.gd")
+var WarnSectorUtil = preload("res://Script/util/warn_sector_util.gd")
 
 func _ready():
 	# 示例：在boss脚本中使用

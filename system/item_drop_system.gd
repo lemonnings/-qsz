@@ -28,6 +28,12 @@ func _on_drop_out_item(item_id: String, quantity: int, drop_position: Vector2):
 			var icon_texture = load(item_data.item_icon)
 			sprite.texture = icon_texture
 			
+		# 设置物品名称和颜色
+		if dropped_item_instance.has_node("ItemNameLabel"):
+			var name_label = dropped_item_instance.get_node("ItemNameLabel")
+			name_label.text = item_data.item_name
+			name_label.modulate = item_data.item_color
+			
 		# 添加到场景树 (通常添加到当前场景或一个专门的掉落物容器节点下)
 		# 这里假设你希望将掉落物添加到当前主场景的直接子节点
 		# 你可能需要根据你的场景结构调整 get_tree().current_scene

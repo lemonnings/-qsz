@@ -108,14 +108,13 @@ signal press_h
 
 # 玩家背包
 var player_inventory = {}
-
 # 合成书获取进度 - 记录每个合成配方是否已解锁
 # 格式: {"recipe_id": bool}
-var recipe_unlock_progress = {
-	"recipe_001": false,  # 贤者之石
-	"recipe_002": false,  # 九幽秘钥
-	"recipe_003": false,  # 强化野果
-	"recipe_004": false   # 复合装备
+@export var recipe_unlock_progress = {
+	"recipe_001": true,  # 贤者之石
+	"recipe_002": true,  # 九幽秘钥
+	"recipe_003": true,  # 强化野果
+	"recipe_004": true   # 复合装备
 }
 
 # 物品与配方解锁的映射关系

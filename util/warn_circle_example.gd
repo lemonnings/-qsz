@@ -3,7 +3,7 @@ extends Node2D
 # WarnCircleUtil 使用示例
 # 展示如何在boss脚本中使用圆形AOE预警工具
 
-var WarnCircleUtil = preload("res://util/warn_circle_util.gd")
+var WarnCircleUtil = preload("res://Script/util/warn_circle_util.gd")
 
 func _ready():
 	# 示例：在boss脚本中使用

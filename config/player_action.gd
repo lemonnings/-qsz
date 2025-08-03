@@ -93,6 +93,8 @@ func _process(_delta: float) -> void:
 	# Rotation:
 	#if joystick_right and joystick_right.is_pressed:
 		#rotation = joystick_right.output.angle()
+	if Global.in_town:
+		move_speed = 240.0 * (1 + (Global.cultivation_zhuifeng_level * 0.02) + PC.pc_speed)
 		
 	if velocity == Vector2.ZERO or PC.is_game_over:
 		$RunningSound.stop()

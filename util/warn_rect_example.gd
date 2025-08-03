@@ -3,7 +3,7 @@ extends Node2D
 # WarnRectUtil 使用示例
 # 展示如何在boss脚本中使用矩形AOE预警工具
 
-var WarnRectUtil = preload("res://util/warn_rect_util.gd")
+var WarnRectUtil = preload("res://Script/util/warn_rect_util.gd")
 
 func _ready():
 	# 示例：在boss脚本中使用

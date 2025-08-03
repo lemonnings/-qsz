@@ -3,7 +3,7 @@ extends Node2D
 # WarnCircleUtil 更新后的使用示例
 # 展示两种释放模式的使用方法
 
-var WarnCircleUtil = preload("res://util/warn_circle_util.gd")
+var WarnCircleUtil = preload("res://Script/util/warn_circle_util.gd")
 
 func _ready():
 	# 示例：在boss脚本中使用两种模式

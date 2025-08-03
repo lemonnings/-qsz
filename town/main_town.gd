@@ -3,7 +3,12 @@ extends Node2D
 @export var dialog_control : Control
 @export var levelChangeLayer : CanvasLayer
 @export var cultivationLayer : CanvasLayer
+@export var setting : Panel
+@export var settingButton : Button
 @export var canvasLayer : CanvasLayer
+@export var synthesisLayer : CanvasLayer
+
+@export var tip : Node
 
 @export var battle_scene: String
 
@@ -42,6 +47,7 @@ func _ready() -> void:
 	# 设置音效使用SFX总线
 	setup_audio_buses()
 	Global.load_game()
+	Global.in_town = true
 	
 	if $Player is CharacterBody2D:
 		player = $Player
@@ -58,6 +64,7 @@ func setup_audio_buses() -> void:
 	# 初始化UI状态
 	ui_states["cystalTips"] = false
 	ui_states["levelUpManTips"] = false
+	ui_states["danluTips"] = false
 	ui_states["portalTips"] = false
 	ui_states["dark_overlay"] = false
 	
@@ -66,6 +73,8 @@ func setup_audio_buses() -> void:
 	cystalTips.modulate.a = 0.0
 	levelUpManTips.visible = false
 	levelUpManTips.modulate.a = 0.0
+	danluTips.visible = false
+	danluTips.modulate.a = 0.0
 	portalTips.visible = false
 	portalTips.modulate.a = 0.0
 	
@@ -80,6 +89,9 @@ func setup_audio_buses() -> void:
 	
 	if cultivationLayer:
 		cultivationLayer.visible = false
+	
+	if synthesisLayer:
+		synthesisLayer.visible = false
 
 	Global.emit_signal("reset_camera")
 	Global.connect("press_f", Callable(self, "press_interact"))
@@ -134,6 +146,16 @@ func _process(delta: float) -> void:
 		animate_ui_element(levelUpManTips, "levelUpManTips", false)
 	
 				
+	if player.global_position.distance_to(danlu.global_position) < interaction_distance+20:
+		animate_ui_element(danluTips, "danluTips", true)
+		danluTips.change_name("兑
+		<合成>")
+		danluTips.change_label1_text("合成 [F]")
+		danluTips.change_function2_visible(true)
+		danluTips.change_label2_text("交谈 [G]")
+	else:
+		animate_ui_element(danluTips, "danluTips", false)
+				
 	if player.global_position.distance_to(portal.global_position) < interaction_distance:
 		animate_ui_element(portalTips, "portalTips", true)
 		portalTips.change_name("传送阵
@@ -150,6 +172,7 @@ func _process(delta: float) -> void:
 		
 # F交互
 func press_interact():
+	settingButton.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if player.global_position.distance_to(cystal2.global_position) < interaction_distance:
 		if not dialog_control.visible:
 			start_dialog_interaction("crystal")
@@ -207,9 +230,36 @@ func press_interact():
 			if child.has_method("set_modulate"):
 				child.modulate.a = 0.0
 				ui_tweens["cultivationLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
+
+	if player.global_position.distance_to(danlu.global_position) < interaction_distance + 20:
+		PC.movement_disabled = true
+		
+		if dark_overlay:
+			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
+				ui_tweens["dark_overlay"].kill()
+			
+			ui_tweens["dark_overlay"] = create_tween()
+			dark_overlay.visible = true
+			dark_overlay.modulate.a = 0.0
+			ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
+		
+		# 渐进显示合成界面
+		if ui_tweens.has("synthesisLayer") and ui_tweens["synthesisLayer"]:
+			ui_tweens["synthesisLayer"].kill()
+		
+		ui_tweens["synthesisLayer"] = create_tween()
+		ui_tweens["synthesisLayer"].set_parallel(true)
+		synthesisLayer.visible = true
+		
+		# 对CanvasLayer的所有子节点进行动画
+		for child in synthesisLayer.get_children():
+			if child.has_method("set_modulate"):
+				child.modulate.a = 0.0
+				ui_tweens["synthesisLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
 		
 # G交互
 func press_interact2():
+	settingButton.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance:
 		if not dialog_control.visible:
 			start_dialog_interaction("qian")
@@ -233,6 +283,7 @@ func start_dialog_interaction(npc_id: String) -> void:
 
 func _on_exit_pressed() -> void:
 	PC.movement_disabled = false
+	settingButton.mouse_filter = Control.MOUSE_FILTER_STOP
 	
 	var exit_tween = create_tween()
 	exit_tween.set_parallel(true)
@@ -261,15 +312,45 @@ func _on_exit_pressed() -> void:
 	if cultivationLayer.visible:
 		for child in cultivationLayer.get_children():
 			if child.has_method("set_modulate"):
-				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)
+				exit_tween.tween_property(child, "modulate:a", 0.0, 0.1)
 		exit_tween.tween_callback(func(): 
 			cultivationLayer.visible = false
 			# 重置子节点透明度
 			for child in cultivationLayer.get_children():
 				if child.has_method("set_modulate"):
 					child.modulate.a = 1.0
-		).set_delay(0.2)
+		).set_delay(0.1)
 
+	# 渐出合成界面
+	if synthesisLayer.visible:
+		for child in synthesisLayer.get_children():
+			if child.has_method("set_modulate"):
+				exit_tween.tween_property(child, "modulate:a", 0.0, 0.1)
+		exit_tween.tween_callback(func(): 
+			synthesisLayer.visible = false
+			# 重置子节点透明度
+			for child in synthesisLayer.get_children():
+				if child.has_method("set_modulate"):
+					child.modulate.a = 1.0
+		).set_delay(0.1)
+
+	# 渐出设置界面
+	if setting.visible:
+		# 先淡出子节点
+		for child in setting.get_children():
+			if child.has_method("set_modulate"):
+				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)
+		
+		# 然后淡出设置面板本身
+		exit_tween.tween_property(setting, "modulate:a", 0.0, 0.2)
+		exit_tween.tween_callback(func(): 
+			setting.visible = false
+			setting.modulate.a = 1.0
+			# 重置子节点透明度
+			for child in setting.get_children():
+				if child.has_method("set_modulate"):
+					child.modulate.a = 1.0
+		).set_delay(0.2)
 	
 func _on_stage_1_pressed() -> void:
 	Global.in_town = false
@@ -308,7 +389,7 @@ func _on_cme(cultivation_key: String) -> void:
 
 当前：" + current_bonus + "
 下一级：" + next_bonus + "
-修炼消耗： " + str(next_level_exp) + " Point
+修炼消耗： " + str(next_level_exp) + " 真气
 
 再次点击即可修炼"
 	cultivation_msg.visible = true
@@ -328,7 +409,8 @@ func _on_cmp(cultivation_key: String) -> void:
 		$LevelUP.play()
 		
 		print(config["name"] + "修炼成功！当前等级：" + str(Global.get(config["level_var"])))
-		
+		tip.start_animation(config["name"] + "修炼成功！当前等级：" + str(Global.get(config["level_var"])), 0.5)
+
 		Global.save_game()
 		refresh_point()
 		
@@ -409,3 +491,35 @@ func _on_liejin_mouse_exited() -> void:
 
 func _on_liejin_pressed() -> void:
 	_on_cmp("liejin")
+
+
+func _on_setting_pressed() -> void:
+	if !setting.visible:
+		PC.movement_disabled = true
+		
+		if dark_overlay:
+			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
+				ui_tweens["dark_overlay"].kill()
+			
+			ui_tweens["dark_overlay"] = create_tween()
+			dark_overlay.visible = true
+			dark_overlay.modulate.a = 0.0
+			ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
+		
+		# 渐进显示设置界面
+		if ui_tweens.has("setting") and ui_tweens["setting"]:
+			ui_tweens["setting"].kill()
+		
+		ui_tweens["setting"] = create_tween()
+		ui_tweens["setting"].set_parallel(true)
+		setting.visible = true
+		setting.modulate.a = 0.0
+		
+		# 然后对设置面板的所有子节点进行动画
+		for child in setting.get_children():
+			if child.has_method("set_modulate"):
+				child.modulate.a = 0.0
+				ui_tweens["setting"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
+		
+		# 先显示设置面板本身
+		ui_tweens["setting"].tween_property(setting, "modulate:a", 1.0, 0.15)
