@@ -163,8 +163,8 @@ func reset_player_attr() -> void :
 	PC.first_has_riyan_pc = true
 	PC.riyan_range = 70.0
 	PC.riyan_cooldown = 0.5
-	PC.riyan_hp_max_damage = 0.12
-	PC.riyan_atk_damage = 0.08
+	PC.riyan_hp_max_damage = 0.04
+	PC.riyan_atk_damage = 0.03
 	
 	# 重置环火相关属性
 	PC.main_skill_ringFire = 0

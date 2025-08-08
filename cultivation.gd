@@ -91,11 +91,26 @@ func update_single_cultivation_display(index: int) -> void:
 		if !is_unlocked:
 			cultivation_buttons[index].text += "\n(未解锁)"
 	
-	# 更新标签显示
+	# 更新标签显示属性/技能/法宝三个tab页
+	# 法宝分为：基础属性，带有固有的两个词条和1个随机的词条，随机的词条可以洗练（消耗元素），可以额外打造第4,第5个词条（消耗木元素土元素）
+	# 强化，消耗金元素火元素可以强化，提供基础属性上升，每强化5级，词条的提升属性也会提升25%，初始最高15级，通过强化提升到20/25/30/35/40
+	# 持有技能（注灵），消耗水元素，分为被动和主动，每个技能最高10级，5级之后需要消耗灵髓升级
+	# 回炉，返还在该法宝上投入的50%~75%的资源，初始50，通过回炉效果提升5%~25%
+	# 法宝分为三类，核心法宝1个，护身法宝2个和随身法宝3个，品质分为灵，玄，御三级，玄级提供数值增益+携带一个攻击相关的被动，御级是防御相关的，灵级提供更强的主动技能
+	# 只有核心法宝的主动技能可以生效，只有御级法宝可以作为护身法宝，随身法宝没有限制，但不会提供主动技能效果
+	
+	# 词条，
+	# 进攻：攻击+5~10，攻击+2.5%~5%，攻速3%~6%，暴击率2%~4%，暴击伤害4%~8%，最终伤害1.5%~3%
+	# 特殊：灵气获取10%~20%，经验获取8%~16%，天命3~6，弹体大小5%~10%
+	# 防御：减伤率0.6%~1.2%，HP+15~30，HP+2.5%~5%，移速2.5%~5%
 	if index < cultivation_labels.size() and cultivation_labels[index]:
 		if is_unlocked:
 			var current_level = get_cultivation_level(item["level_var"])
-			var next_level_exp = get_cultivation_exp_for_level(current_level)
+			var next_level_exp = 0
+			if index == 0 or index == 1 or index == 3 or index == 7:
+				next_level_exp = get_cultivation_exp_for_level_normal(current_level)
+			else:
+				next_level_exp = get_cultivation_exp_for_level_high(current_level)
 			var current_bonus = get_cultivation_bonus_text(item["type"], current_level)
 			var next_bonus = get_cultivation_bonus_text(item["type"], current_level + 1)
 			
@@ -105,12 +120,20 @@ func update_single_cultivation_display(index: int) -> void:
 			cultivation_labels[index].text = "需要解锁进度: " + str(item["unlock_progress"])
 			cultivation_labels[index].visible = false
 
-func get_cultivation_exp_for_level(level: int) -> int:
-	# 参考menu.gd中的升级公式，修炼系统使用更高的消耗
-	# 
+func get_cultivation_exp_for_level_normal(level: int) -> int:
 	level = level + 1
 	var base_exp = 50
 	var increment = 25
+	var multiplier = 1.05
+	var exp_now = base_exp
+	for i in range(1, level):
+		exp_now = ceil((exp_now + increment) * multiplier)
+	return exp_now
+
+func get_cultivation_exp_for_level_high(level: int) -> int:
+	level = level + 1
+	var base_exp = 100
+	var increment = 50
 	var multiplier = 1.15
 	var exp_now = base_exp
 	for i in range(1, level):
@@ -125,7 +148,7 @@ func get_cultivation_bonus_text(type: String, level: int) -> String:
 		"hp":
 			return "+" + str(level * 5) + " 生命值"
 		"atk_speed":
-			return "+" + str(level * 3) + "% 攻速"
+			return "+" + str(level * 2) + "% 攻速"
 		"spirit_gain":
 			return "+" + str(level * 5) + "% 灵气获取"
 		"crit_chance":
@@ -147,7 +170,7 @@ func get_cultivation_bonus_value(type: String, level: int) -> float:
 		"hp":
 			return level * 5.0
 		"atk_speed":
-			return level * 0.03  # 3%转换为0.03
+			return level * 0.02
 		"spirit_gain":
 			return level * 0.05  # 5%转换为0.05
 		"crit_chance":
@@ -174,7 +197,19 @@ func _on_cultivation_button_pressed(index: int) -> void:
 		return
 	
 	var current_level = get_cultivation_level(item["level_var"])
-	var next_level_exp = get_cultivation_exp_for_level(current_level)
+	
+	# 检查等级上限：非0,1,3,7索引的修炼项目最高50级
+	if index != 0 and index != 1 and index != 3 and index != 7:
+		if current_level >= 50:
+			if tip:
+				tip.start_animation('修炼已达到最高等级！', 0.25)
+			return
+
+	var next_level_exp = 0
+	if index == 0 or index == 1 or index == 3 or index == 7:
+		next_level_exp = get_cultivation_exp_for_level_normal(current_level)
+	else:
+		next_level_exp = get_cultivation_exp_for_level_high(current_level)
 	
 	if Global.total_points >= next_level_exp:
 		# 升级成功
@@ -194,7 +229,7 @@ func _on_cultivation_button_pressed(index: int) -> void:
 	else:
 		# Point不足
 		if tip:
-			tip.start_animation('Point不足！', 0.25)
+			tip.start_animation('真气不足！', 0.25)
 		# 播放错误音效（如果存在）
 		if has_node("Buzzer"):
 			$Buzzer.play()

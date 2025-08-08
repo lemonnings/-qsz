@@ -18,7 +18,7 @@ func _ready() -> void:
 	area_entered.connect(_on_area_entered)
 
 func _physics_process(delta: float) -> void:
-	damage = PC.pc_atk * 0.6 * PC.main_skill_ringFire_damage
+	damage = PC.pc_atk * 0.2 * PC.main_skill_ringFire_damage
 	if(PC.selected_rewards.has("ringFire3")):
 		damage = damage * 1.25
 	if(PC.selected_rewards.has("ringFire13")):

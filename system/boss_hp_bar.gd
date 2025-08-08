@@ -47,8 +47,6 @@ func _ready():
 	Global.connect("boss_hp_bar_take_damage", Callable(self, "_on_boss_hp_bar_take_damage"))
 	# 初始化时，根据health_bar_shown设置此Control节点自身的可见性。
 	visible = health_bar_shown
-	# 设置整体透明度为80%
-	#self.modulate.a = 0.8 # 初始透明度，渐入动画会覆盖它
 
 	# --- UI定位逻辑 (此Control节点) --- #
 	grow_horizontal = GROW_DIRECTION_BOTH

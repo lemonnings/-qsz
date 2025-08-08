@@ -7,7 +7,7 @@ var is_dead : bool = false
 var move_direction : int = 1
 
 var base_speed : float = SettingMoster.slime("speed")
-var speed : float # Actual speed after debuffs
+var speed : float
 var hpMax : float = SettingMoster.slime("hp")
 var hp : float = SettingMoster.slime("hp")
 var atk : float = SettingMoster.slime("atk")
@@ -114,7 +114,6 @@ func _physics_process(delta: float) -> void:
 				# 两个物体各自移动一半的重叠距离
 				position += direction_away * (overlap * 0.5)
 	
-	# 确保史莱姆不会因为推动而移出边界太快
 	if move_direction == 0 and position.x <= -534:
 		free_health_bar()
 		queue_free()

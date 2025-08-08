@@ -1,6 +1,6 @@
 extends Area2D
 
-@export var damage_interval: float = 0.2
+@export var damage_interval: float = 0.25
 
 var player_node: Node2D
 @export var damage_timer: Timer

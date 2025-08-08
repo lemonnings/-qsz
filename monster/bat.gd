@@ -91,8 +91,6 @@ func _physics_process(delta: float) -> void:
 				else:
 					sprite.flip_h = false
 	
-	# 确保蝙蝠不会因为推动而移出边界太快，这里可以添加更复杂的边界检查逻辑
-	# 例如: position.x = clamp(position.x, min_x, max_x)
 
 	if move_direction == 0 and position.x <= -534:
 		free_health_bar()

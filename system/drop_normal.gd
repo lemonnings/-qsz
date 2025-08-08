@@ -21,8 +21,8 @@ func _on_body_entered(body):
 			if can_pick_up:
 				# 创建渐隐和向上飘动动画
 				var tween = create_tween().set_parallel(true)
-				tween.tween_property(self, "position:y", position.y - 50, 0.5) # 向上飘动50个像素
-				tween.tween_property(self, "modulate:a", 0, 0.5)
+				tween.tween_property(self, "position:y", position.y - 50, 0.4) # 向上飘动50个像素
+				tween.tween_property(self, "modulate:a", 0, 0.4)
 				await tween.finished
 				queue_free() # 动画结束后销毁物品
 		else:
@@ -36,7 +36,7 @@ func _on_body_entered(body):
 			
 			# 创建渐隐和向上飘动动画
 			var tween = create_tween().set_parallel(true)
-			tween.tween_property(self, "position:y", position.y - 50, 0.5) # 向上飘动50个像素
-			tween.tween_property(self, "modulate:a", 0, 0.5)
+			tween.tween_property(self, "position:y", position.y - 50, 0.4) # 向上飘动50个像素
+			tween.tween_property(self, "modulate:a", 0, 0.4)
 			await tween.finished
 			queue_free() # 动画结束后销毁物品
