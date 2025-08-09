@@ -32,22 +32,22 @@ func _ready():
 
 func _init_buff_configs():
 	# 示例buff配置，你可以根据需要添加更多
-	buff_configs["attack_boost"] = BuffData.new(
-		"attack_boost",
-		"攻击力提升",
+	buff_configs["xueqi"] = BuffData.new(
+		"xueqi",
+		"血气",
 		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
 		BuffType.TEMPORARY,
 		5,
-		"增加玩家的攻击力，每层提升10%攻击力。持续时间内可叠加多层效果。"
+		"基础武器攻击附带2*层数%当前HP的伤害。"
 	)
 	
-	buff_configs["speed_boost"] = BuffData.new(
-		"speed_boost",
-		"移动速度提升",
+	buff_configs["pozhen"] = BuffData.new(
+		"pozhen",
+		"破阵",
 		"res://AssetBundle/Sprites/UI/buff_speed.png",
 		BuffType.TEMPORARY,
 		3,
-		"提升玩家的移动速度，每层增加15%移动速度。让你在战场上更加灵活。"
+		"基础武器攻击有5*层数%概率直击，额外造成30%无视敌方减伤的伤害."
 	)
 	
 	buff_configs["health_regen"] = BuffData.new(
