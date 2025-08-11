@@ -381,7 +381,11 @@ func _on_cme(cultivation_key: String) -> void:
 	var config = cultivation_configs[cultivation_key]
 	var current_level = Global.get(config["level_var"])
 	var next_level = current_level + 1
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	var next_level_exp = 0
+	if cultivation_key == "poxu" or cultivation_key == "xuanyuan" or cultivation_key == "hualing" or cultivation_key == "liejin":
+		next_level_exp = CL.get_cultivation_exp_for_level_normal(current_level)
+	else:
+		next_level_exp = CL.get_cultivation_exp_for_level_high(current_level)
 	var current_bonus = CL.get_cultivation_bonus_text(config["type"], current_level)
 	var next_bonus = CL.get_cultivation_bonus_text(config["type"], next_level)
 	
@@ -400,7 +404,11 @@ func _on_cmex(_cultivation_key: String) -> void:
 func _on_cmp(cultivation_key: String) -> void:
 	var config = cultivation_configs[cultivation_key]
 	var current_level = Global.get(config["level_var"])
-	var next_level_exp = CL.get_cultivation_exp_for_level(current_level)
+	var next_level_exp = 0
+	if cultivation_key == "poxu" or cultivation_key == "xuanyuan" or cultivation_key == "hualing" or cultivation_key == "liejin":
+		next_level_exp = CL.get_cultivation_exp_for_level_normal(current_level)
+	else:
+		next_level_exp = CL.get_cultivation_exp_for_level_high(current_level)
 	
 	if Global.total_points >= next_level_exp:
 		Global.set(config["level_var"], current_level + 1)

@@ -18,13 +18,14 @@ func _physics_process(delta: float) -> void:
 		current_angle += rotation_speed * delta
 		if current_angle > 2 * PI:
 			current_angle -= 2 * PI
-		
+
 		for i in range(get_child_count()):
 			var child = get_child(i)
 			var angle = current_angle + (2 * PI * i) / fire_count
 			child.position = Vector2(cos(angle), sin(angle)) * radius
 			child.rotation = angle + PI / 2
-			
+
+
 func _on_ringFire_damage_triggered():
 	var current_fire_count = fire_count
 	var current_rotation_speed = rotation_speed

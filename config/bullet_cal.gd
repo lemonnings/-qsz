@@ -40,6 +40,19 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 			rebound_base_damage *= PC.crit_damage_multiplier
 		final_damage_val = rebound_base_damage
 	
+	# 处理破阵的直击效果（无视敌方减伤）
+	if area.has_meta("direct_hit"):
+		# 直击伤害无视敌方减伤，直接造成30%额外伤害
+		final_damage_val *= 1.3
+	
+	# 处理惊鸿的额外攻击
+	if area.has_meta("extra_attack"):
+		var extra_multiplier = area.get_meta("extra_attack_multiplier")
+		final_damage_val *= (1.0 + extra_multiplier)
+	
+	# 应用全局buff效果
+	final_damage_val = apply_global_buff_effects(final_damage_val)
+	
 	result["final_damage"] = final_damage_val
 	result["is_crit"] = is_crit
 	
@@ -112,3 +125,44 @@ static func should_create_rebound(bullet: Area2D) -> bool:
 		return true
 	else:
 		return false  # 只有父级子弹且非反弹子弹才能反弹
+
+# 应用全局buff效果到最终伤害
+static func apply_global_buff_effects(damage: float) -> float:
+	var final_damage = damage
+	
+	# 沉静：1秒内没有移动，提升6*层数%的最终伤害
+	if BuffManager.has_buff("chenjing"):
+		var chenjing_stack = BuffManager.get_buff_stack("chenjing")
+		if PC.player_instance and PC.player_instance.has_method("get_last_move_time"):
+			var last_move = PC.player_instance.get_last_move_time()
+			var current = Time.get_time_dict_from_system()["unix"]
+			if current - last_move >= 1.0:  # 1秒
+				final_damage *= (1.0 + 0.06 * chenjing_stack)
+	
+	# 炼体：每1%的减伤率额外提升0.2*层数%的最终伤害
+	if BuffManager.has_buff("lianti"):
+		var lianti_stack = BuffManager.get_buff_stack("lianti")
+		var damage_reduction_percent = PC.damage_reduction_rate * 100
+		var damage_bonus = damage_reduction_percent * 0.002 * lianti_stack
+		final_damage *= (1.0 + damage_bonus)
+	
+	# 健步：当移动速度加成>20%时，提升4*层数%的最终伤害
+	if BuffManager.has_buff("jianbu"):
+		var jianbu_stack = BuffManager.get_buff_stack("jianbu")
+		if PC.pc_speed > 0.2:
+			final_damage *= (1.0 + 0.04 * jianbu_stack)
+	
+	# 蛮力：当移动速度加成<0%时，提升5*层数%的最终伤害
+	if BuffManager.has_buff("manli"):
+		var manli_stack = BuffManager.get_buff_stack("manli")
+		if PC.pc_speed < 0:
+			final_damage *= (1.0 + 0.05 * manli_stack)
+	
+	# 融会贯通：当前每拥有一个buff，提升0.8*层数%最终伤害
+	if BuffManager.has_buff("ronghui"):
+		var ronghui_stack = BuffManager.get_buff_stack("ronghui")
+		var active_buff_count = BuffManager.get_active_buff_ids().size()
+		var damage_bonus = active_buff_count * 0.008 * ronghui_stack
+		final_damage *= (1.0 + damage_bonus)
+	
+	return final_damage

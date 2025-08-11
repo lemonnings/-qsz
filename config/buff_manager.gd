@@ -8,7 +8,7 @@ var buff_container: HBoxContainer
 static var active_buffs: Dictionary = {}
 
 # Buff数据字典 {buff_id: {remaining_time, stack, buff_data}}
-var buff_data: Dictionary = {}
+static var buff_data: Dictionary = {}
 
 func _ready():
 	# 连接全局信号
@@ -126,17 +126,17 @@ func update_buff(buff_id: String, remaining_time: float, stack: int):
 	Global.emit_signal("buff_updated", buff_id, remaining_time, stack)
 
 # 公共方法：检查buff是否存在
-func has_buff(buff_id: String) -> bool:
+static func has_buff(buff_id: String) -> bool:
 	return active_buffs.has(buff_id)
 
 # 公共方法：获取buff剩余时间
-func get_buff_remaining_time(buff_id: String) -> float:
+static func get_buff_remaining_time(buff_id: String) -> float:
 	if buff_data.has(buff_id):
 		return buff_data[buff_id]["remaining_time"]
 	return 0.0
 
 # 公共方法：获取buff层数
-func get_buff_stack(buff_id: String) -> int:
+static func get_buff_stack(buff_id: String) -> int:
 	if buff_data.has(buff_id):
 		return buff_data[buff_id]["stack"]
 	return 0
@@ -147,5 +147,5 @@ static func clear_all_buffs():
 		remove_buff(buff_id)
 
 # 公共方法：获取所有活跃buff的ID列表
-func get_active_buff_ids() -> Array:
+static func get_active_buff_ids() -> Array:
 	return active_buffs.keys()

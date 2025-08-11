@@ -126,7 +126,7 @@ func _physics_process(delta: float) -> void:
 
 func _on_body_entered(body: Node2D) -> void:
 	if(body is CharacterBody2D and not is_dead and not PC.invincible) :
-		Global.emit_signal("player_hit")
+		Global.emit_signal("player_hit", self)
 		var damage_before_debuff = atk * (1.0 - PC.damage_reduction_rate)
 		var actual_damage = int(damage_before_debuff * debuff_manager.get_take_damage_multiplier())
 		PC.pc_hp -= actual_damage

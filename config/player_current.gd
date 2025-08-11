@@ -1,13 +1,17 @@
 extends Node
 
 @export var player_instance: Node = null
-@export var pc_atk : int = 50
-@export var pc_hp : int = 100
-@export var pc_lv : int = 1
-@export var pc_exp : int = 0
-@export var pc_max_hp : int = 100
-@export var pc_speed : float = 0
-@export var pc_atk_speed : float = 0
+@export var pc_atk : int = 50 # 局内攻击
+@export var pc_final_atk : float = 0.0 # 局内最终伤害（例如0.1代表最后结算时伤害为110%）
+@export var pc_hp : int = 100 # 局内HP
+@export var pc_lv : int = 1 # 局内等级
+@export var pc_exp : int = 0 # 局内经验
+@export var pc_max_hp : int = 100 # 局内最大hp
+@export var pc_speed : float = 0 # 局内移速
+@export var pc_atk_speed : float = 0 # 局内攻速加成
+@export var crit_chance : float = 0.0  # 局内暴击率
+@export var crit_damage_multiplier : float = 0.5  # 局内暴击伤害倍率 (例如0.5代表150%伤害) 
+@export var damage_reduction_rate : float = 0.0 # 局内减伤率 (例如0.1代表10%减伤)
 @export var bullet_size : float = 0
 @export var bullet_type1 : int = 0
 @export var bullet_type2 : int = 0
@@ -35,7 +39,7 @@ extends Node
 @export var now_gold_p : float = 5
 @export var now_purple_p : float = 15
 @export var now_blue_p : float = 35
-@export var now_green_p : float = 44
+@export var now_green_p : float = 43
 @export var selected_rewards = []
 
 # 存储主要技能等级
@@ -96,11 +100,6 @@ extends Node
 @export var summon_interval_multiplier : float = 1.0  # 召唤物发射间隔倍数
 @export var summon_bullet_size_multiplier : float = 1.0  # 召唤物子弹大小倍数 
 
-
-# 暴击相关属性
-@export var crit_chance : float = 0.0  # 局内暴击率
-@export var crit_damage_multiplier : float = 0.5  # 局内暴击伤害倍率 (例如1.5代表150%伤害) 
-@export var damage_reduction_rate : float = 0.0 # 局内减伤率 (例如0.1代表10%减伤)
 
 # 刷新次数
 @export var refresh_num : int = 3 

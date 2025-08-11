@@ -46,62 +46,80 @@ func _init_buff_configs():
 		"破阵",
 		"res://AssetBundle/Sprites/UI/buff_speed.png",
 		BuffType.TEMPORARY,
-		3,
-		"基础武器攻击有5*层数%概率直击，额外造成30%无视敌方减伤的伤害."
+		5,
+		"基础武器攻击有5*层数%概率直击，额外造成30%无视敌方减伤的伤害。"
 	)
 	
-	buff_configs["health_regen"] = BuffData.new(
-		"health_regen",
-		"生命回复",
+	buff_configs["tiegu"] = BuffData.new(
+		"tiegu",
+		"铁骨",
 		"res://AssetBundle/Sprites/UI/buff_health.png",
 		BuffType.PERMANENT,
-		1,
-		"持续回复生命值，每秒回复最大生命值的2%。这是一个永久性的被动效果。"
+		5,
+		"受到伤害后，反弹被角色减伤率而降低的25*层数%的伤害。"
 	)
 	
-	buff_configs["crit_chance"] = BuffData.new(
-		"crit_chance",
-		"暴击率提升",
+	buff_configs["jinghong"] = BuffData.new(
+		"jinghong",
+		"惊鸿",
 		"res://AssetBundle/Sprites/UI/buff_crit.png",
 		BuffType.TEMPORARY,
-		10,
-		"增加暴击几率，每层提升5%暴击率。暴击时造成200%伤害。"
+		5,
+		"基础武器每攻击3次，额外攻击1次，该次攻击造成15*层数%的伤害。"
 	)
 	
-	buff_configs["damage_reduction"] = BuffData.new(
-		"damage_reduction",
-		"伤害减免",
+	buff_configs["tafeng"] = BuffData.new(
+		"tafeng",
+		"踏风",
 		"res://AssetBundle/Sprites/UI/buff_shield.png",
 		BuffType.TEMPORARY,
-		1,
-		"减少受到的伤害，提供20%的伤害减免效果。在危险时刻保护你的安全。"
+		5,
+		"每10%的移动速度加成转化为0.5*层数%的冷却缩减。"
 	)
 	
-	buff_configs["rebound"] = BuffData.new(
-		"rebound",
-		"续剑",
+	buff_configs["chenjing"] = BuffData.new(
+		"chenjing",
+		"沉静",
 		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
 		BuffType.PERMANENT,
-		1,
-		"剑气击中敌人后会反弹"
+		5,
+		"1秒内没有移动，提升6*层数%的最终伤害。"
 	)
 	
-	buff_configs["three_way"] = BuffData.new(
-		"three_way",
-		"三向剑气",
+	buff_configs["lianti"] = BuffData.new(
+		"lianti",
+		"炼体",
 		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
 		BuffType.PERMANENT,
-		1,
-		"剑气会对前方三个方向射出"
+		5,
+		"每1%的减伤率额外提升0.2*层数%的最终伤害。"
 	)
 	
-	buff_configs["five_way"] = BuffData.new(
-		"five_way",
-		"五向剑气",
+	buff_configs["jianbu"] = BuffData.new(
+		"jianbu",
+		"健步",
 		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
 		BuffType.PERMANENT,
-		1,
-		"剑气会对前方五个方向射出"
+		5,
+		"当移动速度加成>20%时，提升4*层数%的最终伤害。"
+	)
+
+	buff_configs["manli"] = BuffData.new(
+		"manli",
+		"蛮力",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.PERMANENT,
+		5,
+		"当移动速度加成<0%时，提升5*层数%的最终伤害。"
+	)
+
+	buff_configs["ronghui"] = BuffData.new(
+		"ronghui",
+		"融会贯通",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.PERMANENT,
+		5,
+		"当前每拥有一个buff，提升0.8*层数%最终伤害。"
 	)
 
 func get_buff_data(buff_id: String) -> BuffData:

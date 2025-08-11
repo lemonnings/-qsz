@@ -51,7 +51,7 @@ func _load_rewards_from_csv(file_path: String):
 			is_first_line = false
 
 			# 验证CSV文件的表头是否与预期的格式一致。
-			var expected_headers = ["id", "rarity", "reward_name", "if_main_skill", "icon", "detail", "max_acquisitions", "faction", "weight", "if_advance", "precondition", "on_selected"]
+			var expected_headers = ["id", "rarity", "reward_name", "if_main_skill", "icon", "detail", "max_acquisitions", "faction", "weight", "if_advance", "precondition"]
 
 			if headers.size() != expected_headers.size() or not headers == expected_headers:
 				printerr("CSV表头与预期格式不匹配。预期: ", expected_headers, ", 实际: ", headers)
@@ -80,7 +80,7 @@ func _load_rewards_from_csv(file_path: String):
 			new_reward.weight = float(weight_str) if weight_str.is_valid_float() else 1.0
 			new_reward.if_advance = reward_data.get("if_advance", "false").to_lower() == "true"
 			new_reward.precondition = reward_data.get("precondition", "")
-			new_reward.on_selected = reward_data.get("on_selected", "")
+			new_reward.on_selected = "reward_" + new_reward.id
 
 			all_rewards_list.append(new_reward)
 			# print("已加载奖励: ", new_reward.name) # 用于调试，打印加载的奖励名称。

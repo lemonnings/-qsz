@@ -91,8 +91,10 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	
 	# 创建背景变暗效果
 	if refresh_id == 0:
-		var dark_overlayOld = get_meta("dark_overlay", null)
-		if dark_overlayOld == null:
+		var dark_overlayOld = null
+		if has_meta("dark_overlay"):
+			dark_overlayOld = get_meta("dark_overlay")
+		if dark_overlayOld == null or not is_instance_valid(dark_overlayOld):
 			var dark_overlay = ColorRect.new()
 			dark_overlay.color = Color(0, 0, 0, 0.35)  # 黑色，50%透明度
 			if viewport:
@@ -188,13 +190,13 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 	lvAdvanceProgress3.visible = false
 	lvAdvanceProgress4.visible = false
 	lvAdvanceProgress5.visible = false
-	lvcbd.size = Vector2(158, 141)
-	lvcbd.position = Vector2(0, 62)
+	lvcbd.size = Vector2(160, 219)
+	lvcbd.position = Vector2(0, 59)
 	
 	# 如果抽取到的是主要技能，则渲染进阶状态
 	if reward.if_main_skill and !reward.if_advance:
-		lvcbd.size = Vector2(158, 89)
-		lvcbd.position = Vector2(0, 102)
+		lvcbd.size = Vector2(160, 175)
+		lvcbd.position = Vector2(0, 103)
 		lvSkillLv.visible = true
 		lvAdvanceProgress1.visible = true
 		lvAdvanceProgress2.visible = true
@@ -301,14 +303,15 @@ func set_now_main_skill_name(value: String) -> void:
 
 # 获取升级所需经验值
 func get_required_lv_up_value(level: int) -> float:
-	var value: float = 800
+	var value: float = 1000
 	for i in range(level):
-		value = (value + 200) * 1.03
+		value = (value + 300) * 1.05
 	return value
 
 # 清理dark_overlay的私有函数
 func _cleanup_dark_overlay() -> void:
-	var dark_overlay = get_meta("dark_overlay", null)
-	if dark_overlay != null:
-		dark_overlay.queue_free()
+	if has_meta("dark_overlay"):
+		var dark_overlay = get_meta("dark_overlay")
+		if dark_overlay != null and is_instance_valid(dark_overlay):
+			dark_overlay.queue_free()
 		remove_meta("dark_overlay")

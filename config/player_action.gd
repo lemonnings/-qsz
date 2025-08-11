@@ -7,6 +7,9 @@ extends CharacterBody2D
 
 @export var animator : AnimatedSprite2D
 
+var last_move_time: float = 0.0
+var chenjing_outline: Sprite2D = null
+
 #@export var joystick_left : VirtualJoystick
 #
 #@export var joystick_right : VirtualJoystick
@@ -65,6 +68,14 @@ func _ready() -> void:
 	
 	# 设置音效使用SFX总线
 	setup_audio_buses()
+	
+	# 创建沉静buff的勾线效果
+	chenjing_outline = Sprite2D.new()
+	chenjing_outline.texture = create_outline_texture()
+	chenjing_outline.modulate = Color(0.7, 0.9, 1.0, 0.5)  # 浅蓝色，50%透明度
+	chenjing_outline.z_index = 10  # 确保在最上层
+	chenjing_outline.visible = false
+	add_child(chenjing_outline)
 	
 	if PC.has_riyan and PC.first_has_riyan_pc:
 	# 实例化日炎攻击
@@ -197,7 +208,11 @@ func _physics_process(_delta: float) -> void:
 			animator.play("idle")
 		else:
 			animator.play("run")
-			
+			last_move_time = Time.get_unix_time_from_system()
+		
+		# 更新沉静buff视觉效果
+		update_chenjing_visual()
+		
 		move_and_slide()
 
 
@@ -386,7 +401,20 @@ func reload_scene() -> void:
 		SceneChange.change_scene("res://Scenes/main_menu.tscn", true)
 
 
-func _on_player_hit() -> void:
+func _on_player_hit(attacker: Node2D = null) -> void:
+	# 处理铁骨buff的反弹效果
+	if BuffManager.has_buff("tiegu"):
+		var tiegu_stack = BuffManager.get_buff_stack("tiegu")
+		var reflected_damage = PC.pc_max_hp * 0.25 * tiegu_stack
+		# 找到攻击者并反弹伤害
+		if attacker and is_instance_valid(attacker) and attacker.has_method("take_damage"):
+			attacker.take_damage(int(reflected_damage), false, false, "reflection")
+		else:
+			# 如果没有指定攻击者，查找最近的敌人
+			var nearest_enemy = find_nearest_enemy()
+			if nearest_enemy and is_instance_valid(nearest_enemy) and nearest_enemy.has_method("take_damage"):
+				nearest_enemy.take_damage(int(reflected_damage), false, false, "reflection")
+
 	PC.invincible = true
 	invincible_time.start(0.0)
 	if PC.pc_hp > 0:
@@ -408,6 +436,7 @@ func determine_summon_type() -> int:
 	else:
 		PC.new_summon = ""
 		return 0  # 蓝色随机召唤物
+
 
 
 # 添加新召唤物（当获得召唤物奖励时调用）
@@ -465,28 +494,84 @@ func update_summons_properties() -> void:
 func stop_invincible() -> void:
 	sprite.modulate = Color(1, 1, 1)
 	PC.invincible = false
+
+func get_last_move_time() -> float:
+	return last_move_time
+
+# 创建4px的勾线纹理
+func create_outline_texture() -> ImageTexture:
+	var size = Vector2(64, 64)
+	var image = Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+	image.fill(Color.TRANSPARENT)
+	
+	# 绘制4px的边框
+	var border_color = Color(0.7, 0.9, 1.0, 1.0)
+	var thickness = 4
+	
+	# 绘制边框
+	for x in range(size.x):
+		for y in range(thickness):
+			image.set_pixel(x, y, border_color)
+			image.set_pixel(x, size.y - 1 - y, border_color)
+	
+	for y in range(size.y):
+		for x in range(thickness):
+			image.set_pixel(x, y, border_color)
+			image.set_pixel(size.x - 1 - x, y, border_color)
+	
+	var texture = ImageTexture.create_from_image(image)
+	return texture
+
+# 更新沉静buff视觉效果
+func update_chenjing_visual():
+	if not chenjing_outline:
+		return
+	
+	if BuffManager.has_buff("chenjing"):
+		var last_move = get_last_move_time()
+		var current = Time.get_time_dict_from_system()["unix"]
+		
+		if current - last_move >= 1.0:  # 1秒未移动
+			chenjing_outline.visible = true
+			chenjing_outline.global_position = global_position
+			# 添加脉动效果
+			var alpha = 0.5 + 0.2 * sin(Time.get_time_dict_from_system()["unix"] * 3.0)
+			chenjing_outline.modulate.a = alpha
+		else:
+			chenjing_outline.visible = false
+	else:
+		chenjing_outline.visible = false
 	
 # 更新所有技能的攻击速度
 func update_skill_attack_speeds() -> void:
-	# 基础攻速公式：初始攻速 / (1 + PC.pc_atk_speed)
+	# 计算踏风buff的冷却缩减
+	var cooldown_reduction = 0.0
+	if BuffManager.has_buff("tafeng"):
+		var tafeng_stack = BuffManager.get_buff_stack("tafeng")
+		var move_speed_percent = PC.pc_speed * 100
+		cooldown_reduction = (move_speed_percent / 10.0) * 0.005 * tafeng_stack
+	
+	# 基础攻速公式：初始攻速 / (1 + PC.pc_atk_speed + 冷却缩减)
+	var total_speed_multiplier = 1 + PC.pc_atk_speed + cooldown_reduction
+	
 	# 主攻击
-	fire_speed.wait_time = 1.0 / (1 + PC.pc_atk_speed)
+	fire_speed.wait_time = 1.0 / total_speed_multiplier
 	
 	# 分支攻击
 	if branch_fire_speed:
-		branch_fire_speed.wait_time = 2.0 / (1 + PC.pc_atk_speed)
+		branch_fire_speed.wait_time = 2.0 / total_speed_multiplier
 	
 	# 魔焰攻击
 	if moyan_fire_speed:
-		moyan_fire_speed.wait_time = 4.0 / (1 + PC.pc_atk_speed)
+		moyan_fire_speed.wait_time = 4.0 / total_speed_multiplier
 	
 	# 日焰攻击
 	if riyan_fire_speed:
-		riyan_fire_speed.wait_time = 0.051 / (1 + PC.pc_atk_speed)
+		riyan_fire_speed.wait_time = 0.051 / total_speed_multiplier
 	
 	# 环形火焰攻击
 	if ringFire_fire_speed:
-		ringFire_fire_speed.wait_time = 0.051 / (1 + PC.pc_atk_speed)
+		ringFire_fire_speed.wait_time = 0.051 / total_speed_multiplier
 
 # 发射环形子弹
 func _fire_ring_bullets() -> void:

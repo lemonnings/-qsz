@@ -50,7 +50,7 @@ var AudioManager = preload("res://Script/system/audio_manager.gd").new()
 
 # 鼠标动画通过autoload管理
 
-signal player_hit
+signal player_hit(attacker: Node2D)
 signal player_lv_up
 signal lucky_level_up
 signal setup_summons
