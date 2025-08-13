@@ -487,7 +487,7 @@ func reward_N01():
 
 # N02: 破阵 I - 攻击+2.5%, 攻击速度+1%
 func reward_N02():
-	PC.pc_atk = int(PC.pc_atk * 1.025)
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.025)
 	PC.pc_atk_speed += 0.01
 	_level_up_action()
 
@@ -517,13 +517,13 @@ func reward_N06():
 # N07: 健步 I - 移动速度+6.5%, 攻击-1.2%, 暴击伤害+1%
 func reward_N07(): 
 	PC.pc_speed += 0.065
-	PC.pc_atk = int(PC.pc_atk * 0.988) 
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.012) 
 	PC.crit_damage_multiplier += 0.01 
 	_level_up_action()
 	
 	
 func reward_N08():
-	PC.pc_atk = int(PC.pc_atk * 1.04)
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.04)
 	PC.pc_atk_speed -= 0.015
 	_level_up_action()
 
@@ -540,7 +540,7 @@ func reward_N10_CritDamage():
 func reward_N11_CritChanceDamage_AtkDown():
 	PC.crit_chance += 0.025 # 暴击率+2.5%
 	PC.crit_damage_multiplier += 0.0625 # 暴击伤害+6.25%
-	PC.pc_atk = int(PC.pc_atk * 0.988) # 攻击-1.2%
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.012) # 攻击-1.2%
 	_level_up_action()
 
 # N12: 铁骨 I - 减伤率+2% (上限70%)
@@ -561,7 +561,7 @@ func reward_G01():
 
 # G02: 破阵 II - 攻击+3.75%, 攻击速度+1%
 func reward_G02():
-	PC.pc_atk = int(PC.pc_atk * 1.0375)
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.0375)
 	PC.pc_atk_speed += 0.01
 	_level_up_action()
 
@@ -591,13 +591,13 @@ func reward_G06():
 # G07: 健步 II - 移动速度+9.5%, 攻击-1.6%, 暴击伤害+1.5%
 func reward_G07(): 
 	PC.pc_speed += 0.095
-	PC.pc_atk = int(PC.pc_atk * 0.984) 
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.016) 
 	PC.crit_damage_multiplier += 0.015 
 	_level_up_action()
 
 # G08: 蛮力 II - 攻击+5.75%, 攻击速度-3%
 func reward_G08():
-	PC.pc_atk = int(PC.pc_atk * 1.0575)
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.0575)
 	PC.pc_atk_speed -= 0.03
 	_level_up_action()
 
@@ -668,424 +668,576 @@ func reward_G17():
 	Global.emit_signal("lucky_level_up", 3)
 	_level_up_action()
 
-# R01: HP上限增加8%
 func reward_R01():
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.08)
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.13)
+	if BuffManager.has_buff("xueqi"):
+		var current_stack = BuffManager.get_buff_stack("xueqi")
+		Global.emit_signal("buff_stack_changed", "xueqi", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "xueqi", -1, 1)
 	_level_up_action()
 
-# R02: 攻击增加5%，攻击速度增加1.5%
-func reward_R02():
-	PC.pc_atk = int(PC.pc_atk * 1.05)
-	PC.pc_atk_speed += 0.015
+func reward_SR01():
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.17)
+	if BuffManager.has_buff("xueqi"):
+		var current_stack = BuffManager.get_buff_stack("xueqi")
+		Global.emit_signal("buff_stack_changed", "xueqi", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "xueqi", -1, 1)
 	_level_up_action()
 
-# R03: 攻击速度增加8%
-func reward_R03():
-	PC.pc_atk_speed += 0.08
+func reward_SSR01():
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.22)
+	if BuffManager.has_buff("xueqi"):
+		var current_stack = BuffManager.get_buff_stack("xueqi")
+		Global.emit_signal("buff_stack_changed", "xueqi", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "xueqi", -1, 1)
 	_level_up_action()
 
-# R04: 踏风 III - 移动速度增加6.4%，暴击率增加1%
-func reward_R04(): 
-	PC.pc_speed += 0.064
-	PC.crit_chance += 0.01 # 暴击率+1%
+func reward_UR01():
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.32)
+	if BuffManager.has_buff("xueqi"):
+		var current_stack = BuffManager.get_buff_stack("xueqi")
+		Global.emit_signal("buff_stack_changed", "xueqi", current_stack + 2)
+	else:
+		Global.emit_signal("buff_added", "xueqi", -1, 2)
 	_level_up_action()
 
-# R05: 沉静 III - 攻击速度增加13%，移动速度减少4%
-func reward_R05(): 
-	PC.pc_atk_speed += 0.13
-	PC.pc_speed -= 0.04
-	_level_up_action()
-
-# R06: 炼体 III - HP上限增加13%，移动速度减少4%
-func reward_R06(): 
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.13)
-	PC.pc_speed -= 0.04
-	_level_up_action()
-
-# R07: 健步 III - 移动速度增加13%，攻击减少2.4%，暴击伤害增加2%
-func reward_R07(): 
-	PC.pc_speed += 0.13
-	PC.pc_atk = int(PC.pc_atk * 0.976) # 攻击-2.4%
-	PC.crit_damage_multiplier += 0.02 # 暴击伤害+2%
-	_level_up_action()
-
-# R08: 攻击增加5.6%，攻击速度减少2.4%
-func reward_R08():
-	PC.pc_atk = int(PC.pc_atk * 1.056)
-	PC.pc_atk_speed -= 0.024
-	_level_up_action()
-
-# R09: 回复全部HP，并添加 "hpRecover" 标记 (可能用于触发特殊效果或逻辑)
-func reward_R09():
-	PC.selected_rewards.append("hpRecover")
-	PC.pc_hp = PC.pc_max_hp
-	_level_up_action()
-
-# R10: HP上限增加5%，并回复全部HP
-func reward_R10():
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.05)
-	PC.pc_hp = PC.pc_max_hp
-	_level_up_action()
-
-# R11: 弹体大小增加0.25，攻击速度增加4%
 func reward_R11():
-	PC.bullet_size += 0.25
+	PC.selected_rewards.append("R11")
+	_level_up_action()
+
+func reward_SR11():
+	PC.selected_rewards.append("SR11")
+	_level_up_action()
+
+func reward_SSR11():
+	PC.selected_rewards.append("SSR11")
+	_level_up_action()
+
+func reward_UR11():
+	PC.selected_rewards.append("UR11")
+	_level_up_action()
+
+func reward_R12():
+	PC.selected_rewards.append("R12")
+	_level_up_action()
+
+func reward_SR12():
+	PC.selected_rewards.append("SR12")
+	_level_up_action()
+
+func reward_SSR12():
+	PC.selected_rewards.append("SSR12")
+	_level_up_action()
+
+func reward_UR12():
+	PC.selected_rewards.append("UR12")
+	_level_up_action()
+
+func reward_R13():
+	PC.selected_rewards.append("R13")
+	_level_up_action()
+
+func reward_SR13():
+	PC.selected_rewards.append("SR13")
+	_level_up_action()
+
+func reward_SSR13():
+	PC.selected_rewards.append("SSR13")
+	_level_up_action()
+
+func reward_UR13():
+	PC.selected_rewards.append("UR13")
+	_level_up_action()
+
+func reward_R14():
+	PC.crit_chance += 0.04
+	PC.pc_atk_speed += 0.04
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
+	_level_up_action()
+
+func reward_SR14():
+	PC.crit_chance += 0.05
+	PC.pc_atk_speed += 0.05
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
+	_level_up_action()
+
+func reward_SSR14():
+	PC.crit_chance += 0.06
+	PC.pc_atk_speed += 0.06
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
+	_level_up_action()
+
+func reward_UR14():
+	PC.crit_chance += 0.08
+	PC.pc_atk_speed += 0.08
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.07)
+	_level_up_action()
+
+func reward_R15():
+	PC.crit_damage += 0.08
+	PC.pc_atk_speed += 0.04
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
+	_level_up_action()
+
+func reward_SR15():
+	PC.crit_damage += 0.10
+	PC.pc_atk_speed += 0.05
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
+	_level_up_action()
+
+func reward_SSR15():
+	PC.crit_damage += 0.12
+	PC.pc_atk_speed += 0.06
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
+	_level_up_action()
+
+func reward_UR15():
+	PC.crit_damage += 0.16
+	PC.pc_atk_speed += 0.08
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.07)
+	_level_up_action()
+
+func reward_R16():
+	PC.crit_chance += 0.04
+	PC.crit_damage += 0.06
+	PC.final_damage_multiplier -= 0.03
+	_level_up_action()
+
+func reward_SR16():
+	PC.crit_chance += 0.05
+	PC.crit_damage += 0.08
+	PC.final_damage_multiplier -= 0.035
+	_level_up_action()
+
+func reward_SSR16():
+	PC.crit_chance += 0.06
+	PC.crit_damage += 0.10
+	PC.final_damage_multiplier -= 0.04
+	_level_up_action()
+
+func reward_UR16():
+	PC.crit_chance += 0.08
+	PC.crit_damage += 0.14
+	PC.final_damage_multiplier -= 0.05
+	_level_up_action()
+
+func reward_R17():
+	PC.bullet_size += 0.15
 	PC.pc_atk_speed += 0.04
 	_level_up_action()
 
-# R16: 添加 "spdToAH2" 标记 (可能与速度相关的攻击力/攻速转换有关)
-func reward_R16():
-	PC.selected_rewards.append("spdToAH2")
+func reward_SR17():
+	PC.bullet_size += 0.20
+	PC.pc_atk_speed += 0.05
 	_level_up_action()
 
-# R17: 添加 "luckyToAH2" 标记 (可能与幸运相关的攻击力/攻速转换有关)
-func reward_R17():
-	PC.selected_rewards.append("luckyToAH2")
+func reward_SSR17():
+	PC.bullet_size += 0.25
+	PC.pc_atk_speed += 0.06
 	_level_up_action()
 
-# R18: 添加 "aSpdToAH2" 标记 (可能与攻击速度相关的攻击力/攻速转换有关)
+func reward_UR17():
+	PC.bullet_size += 0.35
+	PC.pc_atk_speed += 0.08
+	_level_up_action()
+
 func reward_R18():
-	PC.selected_rewards.append("aSpdToAH2")
+	var hp_sacrifice = int(PC.pc_max_hp * 0.16)
+	PC.pc_max_hp -= hp_sacrifice
+	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.25)
+	if PC.pc_hp > PC.pc_max_hp:
+		PC.pc_hp = PC.pc_max_hp
 	_level_up_action()
 
-# R19: 暴击率增加8%，攻击速度增加1.5%
-func reward_R19_CritChance():
-	PC.crit_chance += 0.08 # 暴击率+8%
-	PC.pc_atk_speed += 0.015
+func reward_SR18():
+	var hp_sacrifice = int(PC.pc_max_hp * 0.18)
+	PC.pc_max_hp -= hp_sacrifice
+	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.27)
+	if PC.pc_hp > PC.pc_max_hp:
+		PC.pc_hp = PC.pc_max_hp
 	_level_up_action()
 
-# R20: 暴击伤害增加20%，攻击速度增加1.5%
-func reward_R20_CritDamage():
-	PC.crit_damage_multiplier += 0.20 # 暴击伤害+20%
-	PC.pc_atk_speed += 0.015
+func reward_SSR18():
+	var hp_sacrifice = int(PC.pc_max_hp * 0.20)
+	PC.pc_max_hp -= hp_sacrifice
+	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.29)
+	if PC.pc_hp > PC.pc_max_hp:
+		PC.pc_hp = PC.pc_max_hp
 	_level_up_action()
 
-# R21: 暴击率增加5%，暴击伤害增加12.5%，攻击减少2.4%
-func reward_R21_CritChanceDamage_AtkDown():
-	PC.crit_chance += 0.05 # 暴击率+5%
-	PC.crit_damage_multiplier += 0.125 # 暴击伤害+12.5%
-	PC.pc_atk = int(PC.pc_atk * 0.976) # 攻击-2.4%
+func reward_UR18():
+	var hp_sacrifice = int(PC.pc_max_hp * 0.24)
+	PC.pc_max_hp -= hp_sacrifice
+	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.33)
+	if PC.pc_hp > PC.pc_max_hp:
+		PC.pc_hp = PC.pc_max_hp
 	_level_up_action()
 
-# SR01: HP上限增加10%
-func reward_SR01():
+func reward_R19():
 	PC.pc_max_hp = int(PC.pc_max_hp * 1.10)
+	PC.damage_reduction += 0.005
+	var extra_hp_bonus = min(0.20, PC.damage_reduction * 0.004)
+	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
 	_level_up_action()
 
-# SR02: 攻击增加5.5%，攻击速度增加2%
+func reward_SR19():
+	PC.pc_max_hp = int(PC.pc_max_hp * 1.13)
+	PC.damage_reduction += 0.01
+	var extra_hp_bonus = min(0.20, PC.damage_reduction * 0.004)
+	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
+	_level_up_action()
+
+func reward_SSR19():
+	PC.pc_max_hp = int(PC.pc_max_hp * 1.17)
+	PC.damage_reduction += 0.015
+	var extra_hp_bonus = min(0.20, PC.damage_reduction * 0.004)
+	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
+	_level_up_action()
+
+func reward_UR19():
+	PC.pc_max_hp = int(PC.pc_max_hp * 1.25)
+	PC.damage_reduction += 0.025
+	var extra_hp_bonus = min(0.20, PC.damage_reduction * 0.004)
+	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
+	_level_up_action()
+
+func reward_R02():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.04)
+	PC.pc_atk_speed += 0.015
+	if BuffManager.has_buff("pozhen"):
+		var current_stack = BuffManager.get_buff_stack("pozhen")
+		Global.emit_signal("buff_stack_changed", "pozhen", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "pozhen", -1, 1)
+	_level_up_action()
+
 func reward_SR02():
-	PC.pc_atk = int(PC.pc_atk * 1.055)
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.055)
 	PC.pc_atk_speed += 0.02
+	if BuffManager.has_buff("pozhen"):
+		var current_stack = BuffManager.get_buff_stack("pozhen")
+		Global.emit_signal("buff_stack_changed", "pozhen", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "pozhen", -1, 1)
 	_level_up_action()
 
-# SR03: 攻击速度增加10%
+func reward_SSR02():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.075)
+	PC.pc_atk_speed += 0.025
+	if BuffManager.has_buff("pozhen"):
+		var current_stack = BuffManager.get_buff_stack("pozhen")
+		Global.emit_signal("buff_stack_changed", "pozhen", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "pozhen", -1, 1)
+	_level_up_action()
+
+func reward_UR02():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.12)
+	PC.pc_atk_speed += 0.05
+	if BuffManager.has_buff("pozhen"):
+		var current_stack = BuffManager.get_buff_stack("pozhen")
+		Global.emit_signal("buff_stack_changed", "pozhen", current_stack + 2)
+	else:
+		Global.emit_signal("buff_added", "pozhen", -1, 2)
+	_level_up_action()
+
+func reward_R03():
+	PC.pc_atk_speed += 0.02
+	if BuffManager.has_buff("jinghong"):
+		var current_stack = BuffManager.get_buff_stack("jinghong")
+		Global.emit_signal("buff_stack_changed", "jinghong", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "jinghong", -1, 1)
+	_level_up_action()
+
 func reward_SR03():
-	PC.pc_atk_speed += 0.10
+	PC.pc_atk_speed += 0.04
+	if BuffManager.has_buff("jinghong"):
+		var current_stack = BuffManager.get_buff_stack("jinghong")
+		Global.emit_signal("buff_stack_changed", "jinghong", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "jinghong", -1, 1)
 	_level_up_action()
 
-# SR04: 踏风 IX - 移动速度增加10%，暴击率增加1.5%
+func reward_SSR03():
+	PC.pc_atk_speed += 0.07
+	if BuffManager.has_buff("jinghong"):
+		var current_stack = BuffManager.get_buff_stack("jinghong")
+		Global.emit_signal("buff_stack_changed", "jinghong", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "jinghong", -1, 1)
+	_level_up_action()
+
+func reward_UR03():
+	PC.pc_atk_speed += 0.13
+	if BuffManager.has_buff("jinghong"):
+		var current_stack = BuffManager.get_buff_stack("jinghong")
+		Global.emit_signal("buff_stack_changed", "jinghong", current_stack + 2)
+	else:
+		Global.emit_signal("buff_added", "jinghong", -1, 2)
+	_level_up_action()
+
+func reward_R04(): 
+	PC.pc_speed += 0.07
+	PC.crit_chance += 0.01
+	if BuffManager.has_buff("tafeng"):
+		var current_stack = BuffManager.get_buff_stack("tafeng")
+		Global.emit_signal("buff_stack_changed", "tafeng", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "tafeng", -1, 1)
+	_level_up_action()
+
 func reward_SR04(): 
 	PC.pc_speed += 0.10
-	PC.crit_chance += 0.015 # 暴击率+1.5%
+	PC.crit_chance += 0.015
+	if BuffManager.has_buff("tafeng"):
+		var current_stack = BuffManager.get_buff_stack("tafeng")
+		Global.emit_signal("buff_stack_changed", "tafeng", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "tafeng", -1, 1)
 	_level_up_action()
 
-# SR05: 沉静 IX - 攻击速度增加10%，移动速度减少4%
+func reward_SSR04(): 
+	PC.pc_speed += 0.14
+	PC.crit_chance += 0.02
+	if BuffManager.has_buff("tafeng"):
+		var current_stack = BuffManager.get_buff_stack("tafeng")
+		Global.emit_signal("buff_stack_changed", "tafeng", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "tafeng", -1, 1)
+	_level_up_action()
+
+func reward_UR04(): 
+	PC.pc_speed += 0.22
+	PC.crit_chance += 0.03
+	if BuffManager.has_buff("tafeng"):
+		var current_stack = BuffManager.get_buff_stack("tafeng")
+		Global.emit_signal("buff_stack_changed", "tafeng", current_stack + 2)
+	else:
+		Global.emit_signal("buff_added", "tafeng", -1, 2)
+	_level_up_action()
+
+func reward_R05(): 
+	PC.pc_atk_speed += 0.06
+	PC.pc_speed -= 0.03
+	if BuffManager.has_buff("chenjing"):
+		var current_stack = BuffManager.get_buff_stack("chenjing")
+		Global.emit_signal("buff_stack_changed", "chenjing", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "chenjing", -1, 1)
+	_level_up_action()
+
 func reward_SR05(): 
-	PC.pc_atk_speed += 0.10
+	PC.pc_atk_speed += 0.08
+	PC.pc_speed -= 0.035
+	if BuffManager.has_buff("chenjing"):
+		var current_stack = BuffManager.get_buff_stack("chenjing")
+		Global.emit_signal("buff_stack_changed", "chenjing", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "chenjing", -1, 1)
+	_level_up_action()
+
+func reward_SSR05(): 
+	PC.pc_atk_speed += 0.11
 	PC.pc_speed -= 0.04
+	if BuffManager.has_buff("chenjing"):
+		var current_stack = BuffManager.get_buff_stack("chenjing")
+		Global.emit_signal("buff_stack_changed", "chenjing", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "chenjing", -1, 1)
 	_level_up_action()
 
-# SR06: 炼体 IX - HP上限增加16%，移动速度减少4%
-func reward_SR06(): 
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.16)
+func reward_UR05(): 
+	PC.pc_atk_speed += 0.17
+	PC.pc_speed -= 0.05
+	if BuffManager.has_buff("chenjing"):
+		var current_stack = BuffManager.get_buff_stack("chenjing")
+		Global.emit_signal("buff_stack_changed", "chenjing", current_stack + 2)
+	else:
+		Global.emit_signal("buff_added", "chenjing", -1, 2)
+	_level_up_action()
+	
+func reward_R06():
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.05)
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.01, 0.7)
+	PC.pc_speed -= 0.03
+	if BuffManager.has_buff("lianti"):
+		var current_stack = BuffManager.get_buff_stack("lianti")
+		Global.emit_signal("buff_stack_changed", "lianti", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "lianti", -1, 1)
+	_level_up_action()
+
+func reward_SR06():
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.07)
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.015, 0.7)
 	PC.pc_speed -= 0.04
+	if BuffManager.has_buff("lianti"):
+		var current_stack = BuffManager.get_buff_stack("lianti")
+		Global.emit_signal("buff_stack_changed", "lianti", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "lianti", -1, 1)
 	_level_up_action()
 
-# SR07: 健步 IX - 移动速度增加16%，攻击减少2%，暴击伤害增加3%
-func reward_SR07(): 
-	PC.pc_speed += 0.16
-	PC.pc_atk = int(PC.pc_atk * 0.98) # 攻击-2%
-	PC.crit_damage_multiplier += 0.03 # 暴击伤害+3%
+func reward_SSR06():
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.10)
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.02, 0.7)
+	PC.pc_speed -= 0.06
+	if BuffManager.has_buff("lianti"):
+		var current_stack = BuffManager.get_buff_stack("lianti")
+		Global.emit_signal("buff_stack_changed", "lianti", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "lianti", -1, 1)
 	_level_up_action()
 
-# SR08: 攻击增加8%，攻击速度减少3%
-func reward_SR08():
-	PC.pc_atk = int(PC.pc_atk * 1.08)
+func reward_UR06():
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.14)
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.04, 0.7)
+	PC.pc_speed -= 0.06
+	if BuffManager.has_buff("lianti"):
+		var current_stack = BuffManager.get_buff_stack("lianti")
+		Global.emit_signal("buff_stack_changed", "lianti", current_stack + 2)
+	else:
+		Global.emit_signal("buff_added", "lianti", -1, 2)
+	_level_up_action()
+
+func reward_R07():
+	PC.pc_speed += 0.12
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.02)
+	if BuffManager.has_buff("jianbu"):
+		var current_stack = BuffManager.get_buff_stack("jianbu")
+		Global.emit_signal("buff_stack_changed", "jianbu", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "jianbu", -1, 1)
+	_level_up_action()
+
+func reward_SR07():
+	PC.pc_speed += 0.15
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.025)
+	if BuffManager.has_buff("jianbu"):
+		var current_stack = BuffManager.get_buff_stack("jianbu")
+		Global.emit_signal("buff_stack_changed", "jianbu", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "jianbu", -1, 1)
+	_level_up_action()
+
+func reward_SSR07():
+	PC.pc_speed += 0.19
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
+	if BuffManager.has_buff("jianbu"):
+		var current_stack = BuffManager.get_buff_stack("jianbu")
+		Global.emit_signal("buff_stack_changed", "jianbu", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "jianbu", -1, 1)
+	_level_up_action()
+
+func reward_UR07():
+	PC.pc_speed += 0.27
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
+	if BuffManager.has_buff("jianbu"):
+		var current_stack = BuffManager.get_buff_stack("jianbu")
+		Global.emit_signal("buff_stack_changed", "jianbu", current_stack + 2)
+	else:
+		Global.emit_signal("buff_added", "jianbu", -1, 2)
+	_level_up_action()
+
+func reward_R08():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.06)
 	PC.pc_atk_speed -= 0.03
+	if BuffManager.has_buff("manli"):
+		var current_stack = BuffManager.get_buff_stack("manli")
+		Global.emit_signal("buff_stack_changed", "manli", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "manli", -1, 1)
 	_level_up_action()
 
-# SR09: 天命等级增加5
+func reward_SR08():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.08)
+	PC.pc_atk_speed -= 0.03
+	if BuffManager.has_buff("manli"):
+		var current_stack = BuffManager.get_buff_stack("manli")
+		Global.emit_signal("buff_stack_changed", "manli", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "manli", -1, 1)
+	_level_up_action()
+
+func reward_SSR08():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.11)
+	PC.pc_atk_speed -= 0.035
+	if BuffManager.has_buff("manli"):
+		var current_stack = BuffManager.get_buff_stack("manli")
+		Global.emit_signal("buff_stack_changed", "manli", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "manli", -1, 1)
+	_level_up_action()
+
+func reward_UR08():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.17)
+	PC.pc_atk_speed -= 0.045
+	if BuffManager.has_buff("manli"):
+		var current_stack = BuffManager.get_buff_stack("manli")
+		Global.emit_signal("buff_stack_changed", "manli", current_stack + 2)
+	else:
+		Global.emit_signal("buff_added", "manli", -1, 2)
+	_level_up_action()
+
+func reward_R09():
+	PC.now_lunky_level += 4
+	Global.emit_signal("lucky_level_up", 4)
+	_level_up_action()
+
 func reward_SR09():
 	PC.now_lunky_level += 5
 	Global.emit_signal("lucky_level_up", 5)
 	_level_up_action()
 
-# SR20: 添加 "spdToAH3" 标记 (可能与速度相关的攻击力/攻速转换有关，等级3)
-func reward_SR20():
-	PC.selected_rewards.append("spdToAH3")
-	_level_up_action()
-
-# SR21: 添加 "luckyToAH3" 标记 (可能与幸运相关的攻击力/攻速转换有关，等级3)
-func reward_SR21():
-	PC.selected_rewards.append("luckyToAH3")
-	_level_up_action()
-
-# SR23: 暴击率增加10%，攻击速度增加2%
-func reward_SR23_CritChance():
-	PC.crit_chance += 0.10
-	PC.pc_atk_speed += 0.02
-	_level_up_action()
-
-# SR24: 暴击伤害增加25%，攻击速度增加2%
-func reward_SR24_CritDamage():
-	PC.crit_damage_multiplier += 0.25
-	PC.pc_atk_speed += 0.02
-	_level_up_action()
-
-# SR25: 暴击率增加6%，暴击伤害增加15%，攻击减少2.4%
-func reward_SR25_CritChanceDamage_AtkDown():
-	PC.crit_chance += 0.06
-	PC.crit_damage_multiplier += 0.15
-	PC.pc_atk = int(PC.pc_atk * 0.976) # 攻击-2.4%
-	_level_up_action()
-
-# SR26: 减伤率增加5%，最大不超过70%
-func reward_SR26_DamageReduction():
-	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.05, 0.7) # 减伤率+5%
-	_level_up_action()
-
-# SR22: 添加 "aSpdToAH3" 标记 (可能与攻击速度相关的攻击力/攻速转换有关，等级3)
-func reward_SR22():
-	PC.selected_rewards.append("aSpdToAH3")
-	_level_up_action()
-
-# 获得反弹能力
-func reward_rebound():
-	#PC.selected_rewards.append("rebound")
-	#Global.emit_signal("buff_added", "rebound", -1, 1) # -1 表示永久，1表示层数或效果值
-	PC.pc_atk = PC.pc_atk * 1.11
-	PC.crit_damage_multiplier += 0.11
-	_level_up_action()
-
-# 反弹子弹变大 (通用)
-func reward_rebound_size_up():
-	PC.rebound_size_multiplier *= 1.1  # 反弹子弹大小提升10%
-	PC.rebound_damage_multiplier = PC.rebound_damage_multiplier * 1.06 # 反弹伤害提升6%
-	_level_up_action()
-
-# 反弹子弹变大 (金色品质)
-func reward_rebound_size_up_gold():
-	PC.rebound_size_multiplier *= 1.12  # 反弹子弹大小提升12%
-	PC.rebound_damage_multiplier = PC.rebound_damage_multiplier * 1.09 # 反弹伤害提升9%
-	_level_up_action()
-
-# 反弹攻击力提升 (蓝色品质)
-func reward_rebound_atk_up_blue():
-	#PC.rebound_damage_multiplier = PC.rebound_damage_multiplier * 1.15 # 反弹伤害提升15%
-	PC.pc_atk = PC.pc_atk * 1.08
-	PC.crit_damage_multiplier += 0.08
-	_level_up_action()
-
-# 反弹攻击力提升 (金色品质)
-func reward_rebound_atk_up_gold():
-	PC.rebound_damage_multiplier = PC.rebound_damage_multiplier * 1.18 # 反弹伤害提升18%
-	PC.pc_atk = int(PC.pc_atk * 1.05) # 自身攻击力提升5%
-	_level_up_action()
-
-# 反弹攻击力提升 (红色品质)
-func reward_rebound_atk_up_red():
-	PC.rebound_damage_multiplier = PC.rebound_damage_multiplier * 1.2 # 反弹伤害提升20%
-	PC.pc_atk = int(PC.pc_atk * 1.06) # 自身攻击力提升6%
-	_level_up_action()
-
-# 反弹攻击力提升 (通用，可能是基础版本)
-func reward_rebound_atk_up():
-	PC.rebound_damage_multiplier = PC.rebound_damage_multiplier * 1.15 # 反弹伤害提升15%
-	PC.pc_atk = int(PC.pc_atk * 1.04) # 自身攻击力提升4%
-	_level_up_action()
-
-# 增加反弹次数 (但降低单次反弹伤害作为平衡)
-func reward_rebound_num_up():
-	PC.selected_rewards.append("rebound_num_up") # 添加标记，具体反弹次数逻辑可能在别处处理
-	PC.rebound_damage_multiplier = PC.rebound_damage_multiplier * 0.8 # 反弹伤害降低20%
-	_level_up_action()
-
-# SR12: 弹体大小增加0.2，攻击速度增加5%
-func reward_SR12():
-	PC.bullet_size += 0.2
-	PC.pc_atk_speed += 0.05
-	_level_up_action()
-
-# SSR01: HP上限增加13%，并回复全部HP
-func reward_SSR01():
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.13)
-	PC.pc_hp = PC.pc_max_hp
-	_level_up_action()
-
-# SSR02: 攻击增加7.2%，攻击速度增加2.5%
-func reward_SSR02():
-	PC.pc_atk = int(PC.pc_atk * 1.072)
-	PC.pc_atk_speed += 0.025
-	_level_up_action()
-
-# SSR03: 攻击速度增加13%
-func reward_SSR03():
-	PC.pc_atk_speed += 0.13
-	_level_up_action()
-
-# SSR04: 踏风 X - 移动速度增加13%，暴击率增加2%
-func reward_SSR04(): 
-	PC.pc_speed += 0.13 # 移动速度+13%
-	PC.crit_chance += 0.02 # 暴击率+2%
-	_level_up_action()
-
-# SSR05: 沉静 X - 攻击速度增加20%，移动速度减少5%
-func reward_SSR05(): 
-	PC.pc_atk_speed += 0.20
-	PC.pc_speed -= 0.05
-	_level_up_action()
-
-# SSR06: 炼体 X - HP上限增加20%，回复全部HP，移动速度减少5%
-# SSR06: 炼体 X - HP上限增加20%，回复全部HP，移动速度减少5%
-func reward_SSR06(): 
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.20)
-	PC.pc_hp = PC.pc_max_hp
-	PC.pc_speed -= 0.05
-	_level_up_action()
-
-# SSR07: 健步 X - 移动速度增加20%，攻击减少2.5%，暴击伤害增加4%
-func reward_SSR07(): 
-	PC.pc_speed += 0.20
-	PC.pc_atk = int(PC.pc_atk * 0.975) # 攻击-2.5%
-	PC.crit_damage_multiplier += 0.04 # 暴击伤害+4%
-	_level_up_action()
-
-# SSR08: 攻击增加11%，攻击速度减少3.5%
-func reward_SSR08():
-	PC.pc_atk = int(PC.pc_atk * 1.11)
-	PC.pc_atk_speed -= 0.035
-	_level_up_action()
-
-# SSR09: 天命等级增加6
 func reward_SSR09():
 	PC.now_lunky_level += 6
 	Global.emit_signal("lucky_level_up", 6)
 	_level_up_action()
 
-# 三向攻击 (获得三向射击能力，但降低攻击、攻速和子弹大小作为平衡)
-func reward_threeway():
-	PC.selected_rewards.append("threeway")
-	Global.emit_signal("buff_added", "three_way", -1, 1)
-	PC.pc_atk = int(PC.pc_atk * 0.75) # 攻击降低25%
-	PC.pc_atk_speed -= 0.25 # 攻击速度降低25%
-	# global_level_up() # 注意：这里调用了 global_level_up()，可能需要检查其逻辑和影响
-	PC.bullet_size -= 0.15 # 子弹大小减少0.15
-	_level_up_action()
-
-# SSR12: 弹体大小增加0.35，攻击速度增加6%
-func reward_SSR12():
-	PC.bullet_size += 0.35
-	PC.pc_atk_speed += 0.06
-	_level_up_action()
-
-# SSR17: 牺牲20%最大HP上限，转化为攻击力 (每点HP提供0.12攻击力)
-func reward_SSR17():
-	var minusHP = int(PC.pc_max_hp * 0.2)
-	PC.pc_max_hp -= minusHP
-	PC.pc_atk += int(minusHP * 0.12)
-	_level_up_action()
-
-# SSR19: 暴击率增加13%，攻击速度增加2.5%
-func reward_SSR19_CritChance():
-	PC.crit_chance += 0.13
-	PC.pc_atk_speed += 0.025
-	_level_up_action()
-
-# SSR20: 暴击伤害增加32.5%，攻击速度增加2.5%
-func reward_SSR20_CritDamage():
-	PC.crit_damage_multiplier += 0.325
-	PC.pc_atk_speed += 0.025
-	_level_up_action()
-
-# SSR21: 暴击率增加8.5%，暴击伤害增加21%，攻击减少6%
-func reward_SSR21_CritChanceDamage_AtkDown():
-	PC.crit_chance += 0.085
-	PC.crit_damage_multiplier += 0.21
-	PC.pc_atk = int(PC.pc_atk * 0.94) # 攻击-6%
-	_level_up_action()
-
-# SSR22: 减伤率增加6%，最大不超过70%
-func reward_SSR22_DamageReduction():
-	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.06, 0.7) # 减伤率+6%
-	_level_up_action()
-
-# UR01: HP上限增加15%，并回复全部HP
-func reward_UR01():
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.15)
-	PC.pc_hp = PC.pc_max_hp
-	_level_up_action()
-
-# UR02: 攻击增加10%，攻击速度增加3%
-func reward_UR02():
-	PC.pc_atk = int(PC.pc_atk * 1.10)
-	PC.pc_atk_speed += 0.03
-	_level_up_action()
-
-# UR03: 攻击速度增加15%
-func reward_UR03():
-	PC.pc_atk_speed += 0.15
-	_level_up_action()
-
-# UR04: 踏风 XI - 移动速度增加15%，暴击率增加2.5%
-func reward_UR04(): 
-	PC.pc_speed += 0.15
-	PC.crit_chance += 0.025 # 暴击率+2.5%
-	_level_up_action()
-
-# UR05: 沉静 XI - 攻击速度增加15%，移动速度减少6%
-func reward_UR05(): 
-	PC.pc_atk_speed += 0.15
-	PC.pc_speed -= 0.06
-	PC.crit_damage_multiplier += 0.05 # 暴击伤害+5%
-	_level_up_action()
-
-# UR06: 炼体 XI - HP上限增加25%，回复全部HP，移动速度减少6%
-func reward_UR06(): 
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.25)
-	PC.pc_hp = PC.pc_max_hp
-	PC.pc_speed -= 0.06
-	_level_up_action()
-
-# UR07: 健步 XI - 移动速度增加25%，攻击减少4%，暴击伤害增加5%
-func reward_UR07(): 
-	PC.pc_speed += 0.25
-	PC.pc_atk = int(PC.pc_atk * 0.96) # 攻击-4%
-	PC.crit_damage_multiplier += 0.05 # 暴击伤害+5%
-	_level_up_action()
-
-# UR08: 攻击增加15%，攻击速度减少4.5%
-func reward_UR08():
-	PC.pc_atk = int(PC.pc_atk * 1.15)
-	PC.pc_atk_speed -= 0.045
-	_level_up_action()
-
-# UR09: 天命等级增加7
 func reward_UR09():
-	PC.now_lunky_level += 7
-	Global.emit_signal("lucky_level_up", 7)
+	PC.now_lunky_level += 8
+	Global.emit_signal("lucky_level_up", 8)
 	_level_up_action()
 
-# UR12: 弹体大小增加0.3，攻击速度增加7%
-func reward_UR12():
-	PC.bullet_size += 0.3
-	PC.pc_atk_speed += 0.07
+func reward_R10():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.035)
+	if BuffManager.has_buff("ronghui"):
+		var current_stack = BuffManager.get_buff_stack("ronghui")
+		Global.emit_signal("buff_stack_changed", "ronghui", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "ronghui", -1, 1)
 	_level_up_action()
 
-# UR17: 牺牲25%最大HP上限，转化为攻击力 (每点HP提供0.15攻击力)
-func reward_UR17():
-	var minusHP = int(PC.pc_max_hp * 0.25)
-	PC.pc_max_hp -= minusHP
-	PC.pc_atk += int(minusHP * 0.15)
+func reward_SR10():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.055)
+	if BuffManager.has_buff("ronghui"):
+		var current_stack = BuffManager.get_buff_stack("ronghui")
+		Global.emit_signal("buff_stack_changed", "ronghui", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "ronghui", -1, 1)
+	_level_up_action()
+
+func reward_SSR10():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.08)
+	if BuffManager.has_buff("ronghui"):
+		var current_stack = BuffManager.get_buff_stack("ronghui")
+		Global.emit_signal("buff_stack_changed", "ronghui", current_stack + 1)
+	else:
+		Global.emit_signal("buff_added", "ronghui", -1, 1)
+	_level_up_action()
+
+func reward_UR10():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.12)
+	if BuffManager.has_buff("ronghui"):
+		var current_stack = BuffManager.get_buff_stack("ronghui")
+		Global.emit_signal("buff_stack_changed", "ronghui", current_stack + 2)
+	else:
+		Global.emit_signal("buff_added", "ronghui", -1, 2)
 	_level_up_action()
 
 # 五向攻击 (升级三向攻击，但进一步调整属性作为平衡)
@@ -1096,11 +1248,6 @@ func reward_fiveway():
 	PC.pc_atk = int(PC.pc_atk * 0.9) # 攻击降低10% (相对于当前值，若之前有三向，则是在三向基础上再乘0.9)
 	PC.pc_atk_speed -= 0.15 # 攻击速度降低15%
 	PC.bullet_size -= 0.2 # 子弹大小减少0.2
-	_level_up_action()
-
-# UR22: 减伤率增加6%，最大不超过70%
-func reward_UR22_DamageReduction():
-	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.06, 0.7) # 减伤率+6%
 	_level_up_action()
 
 # --- 环形子弹相关奖励函数 ---
@@ -1274,24 +1421,6 @@ func reward_red_summon_max_add():
 	PC.summon_count_max += 2
 	_level_up_action()
 
-# UR19: 暴击率增加15%，攻击速度增加3%
-func reward_UR19_CritChance():
-	PC.crit_chance += 0.15
-	PC.pc_atk_speed += 0.03
-	_level_up_action()
-
-# UR20: 暴击伤害增加35%，攻击速度增加3%
-func reward_UR20_CritDamage():
-	PC.crit_damage_multiplier += 0.35 
-	PC.pc_atk_speed += 0.03
-	_level_up_action()
-
-# UR21: 暴击率增加8%，暴击伤害增加21%，攻击减少3%
-func reward_UR21_CritChanceDamage_AtkDown():
-	PC.crit_chance += 0.08 
-	PC.crit_damage_multiplier += 0.21 
-	PC.pc_atk = int(PC.pc_atk * 0.97) # 攻击力变为原来的97%
-	_level_up_action()
 
 func reward_branch():
 	PC.now_main_skill_num = PC.now_main_skill_num + 1
@@ -1614,63 +1743,60 @@ func Riyan3():
 # 全局升级效果处理函数 (当选择某些特定被动后，升级时会触发额外属性转换)
 func global_level_up():
 	# 基础属性成长：攻击+1再乘以1.025，HP上限+2再乘以1.01
-	PC.pc_atk = int((PC.pc_atk+1) * 1.025)
-	PC.pc_max_hp = int((PC.pc_max_hp+2) * 1.01)
+	PC.pc_start_atk += 1
+	PC.pc_atk = int((PC.pc_atk + 1) * 1.025)
+	PC.pc_start_hp += 2
+	PC.pc_max_hp = int((PC.pc_max_hp + 2) * 1.01)
 
-	# --- 根据已选被动技能，处理属性转换 --- 
-	# "aSpdToAH1": 攻击速度变化量的一部分转化为攻击和HP (等级1)
-	if PC.selected_rewards.has("aSpdToAH1") and PC.last_atk_speed != PC.pc_atk_speed:
-		var changeNum = PC.pc_atk_speed - PC.last_atk_speed # 计算攻速变化
-		PC.pc_atk = int(PC.pc_atk * (1 + (changeNum / 4))) # 攻速变化的1/4转化为攻击力百分比提升
-		PC.pc_max_hp = int(PC.pc_max_hp * (1 + (changeNum / 4))) # 攻速变化的1/4转化为HP上限百分比提升
+	# R11系列: 行云 - 每4%移速提升攻击与HP上限
+	var r11_count = PC.selected_rewards.count("R11")
+	var sr11_count = PC.selected_rewards.count("SR11")
+	var ssr11_count = PC.selected_rewards.count("SSR11")
+	var ur11_count = PC.selected_rewards.count("UR11")
+	if r11_count > 0 or sr11_count > 0 or ssr11_count > 0 or ur11_count > 0:
+		var speed_bonus = (PC.pc_speed - 1.0) * 100
+		var speed_groups = int(speed_bonus / 4)
+		if speed_groups > 0:
+			var total_bonus = 0.0
+			total_bonus += r11_count * speed_groups * 0.01
+			total_bonus += sr11_count * speed_groups * 0.012
+			total_bonus += ssr11_count * speed_groups * 0.014
+			total_bonus += ur11_count * speed_groups * 0.018
+			PC.pc_atk = int(PC.pc_atk * (1 + total_bonus))
+			PC.pc_max_hp = int(PC.pc_max_hp * (1 + total_bonus))
 
-	# "luckyToAH1": 幸运等级变化量的一部分转化为攻击和HP (等级1)
-	if PC.selected_rewards.has("luckyToAH1") and PC.last_lunky_level != PC.now_lunky_level:
-		var changeNum = PC.now_lunky_level - PC.last_lunky_level # 计算幸运等级变化
-		PC.pc_atk = int(PC.pc_atk * (1 + (changeNum / 100))) # 每点幸运等级变化转化为1%攻击力提升
-		PC.pc_max_hp = int(PC.pc_max_hp * (1 + (changeNum / 100))) # 每点幸运等级变化转化为1%HP上限提升
+	# R12系列: 加护 - 每点额外天命提升攻击与HP上限
+	var r12_count = PC.selected_rewards.count("R12")
+	var sr12_count = PC.selected_rewards.count("SR12")
+	var ssr12_count = PC.selected_rewards.count("SSR12")
+	var ur12_count = PC.selected_rewards.count("UR12")
+	if r12_count > 0 or sr12_count > 0 or ssr12_count > 0 or ur12_count > 0:
+		var extra_lucky = max(0, PC.now_lunky_level - PC.start_lunky_level)
+		if extra_lucky > 0:
+			var total_bonus = 0.0
+			total_bonus += r12_count * extra_lucky * 0.01
+			total_bonus += sr12_count * extra_lucky * 0.012
+			total_bonus += ssr12_count * extra_lucky * 0.014
+			total_bonus += ur12_count * extra_lucky * 0.018
+			PC.pc_atk = int(PC.pc_atk * (1 + total_bonus))
+			PC.pc_max_hp = int(PC.pc_max_hp * (1 + total_bonus))
 
-	# "spdToAH1": 移动速度变化量的一部分转化为攻击和HP (等级1)
-	if PC.selected_rewards.has("spdToAH1") and PC.last_speed != PC.pc_speed:
-		var changeNum = PC.pc_speed - PC.last_speed # 计算移速变化
-		PC.pc_atk = int(PC.pc_atk * (1 + (changeNum / 5))) # 移速变化的1/5转化为攻击力百分比提升
-		PC.pc_max_hp = int(PC.pc_max_hp * (1 + (changeNum / 5))) # 移速变化的1/5转化为HP上限百分比提升
-
-	# "aSpdToAH2": 攻击速度变化量的一部分转化为攻击和HP (等级2)
-	if PC.selected_rewards.has("aSpdToAH2") and PC.last_atk_speed != PC.pc_atk_speed:
-		var changeNum = PC.pc_atk_speed - PC.last_atk_speed
-		PC.pc_atk = int(PC.pc_atk * (1 + (changeNum / 3))) # 攻速变化的1/3转化为攻击力百分比提升
-		PC.pc_max_hp = int(PC.pc_max_hp * (1 + (changeNum / 3))) # 攻速变化的1/3转化为HP上限百分比提升
-
-	# "luckyToAH2": 幸运等级变化量的一部分转化为攻击和HP (等级2)
-	if PC.selected_rewards.has("luckyToAH2") and PC.last_lunky_level != PC.now_lunky_level:
-		var changeNum = PC.now_lunky_level - PC.last_lunky_level
-		PC.pc_atk = int(PC.pc_atk * (1 + 0.0125 * changeNum)) # 每点幸运等级变化转化为1.25%攻击力提升
-		PC.pc_max_hp = int(PC.pc_max_hp * (1 + 0.0125 * changeNum)) # 每点幸运等级变化转化为1.25%HP上限提升
-
-	# "spdToAH2": 移动速度变化量的一部分转化为攻击和HP (等级2)
-	if PC.selected_rewards.has("spdToAH2") and PC.last_speed != PC.pc_speed:
-		var changeNum = PC.pc_speed - PC.last_speed
-		PC.pc_atk = int(PC.pc_atk * (1 + (changeNum / 4))) # 移速变化的1/4转化为攻击力百分比提升
-		PC.pc_max_hp = int(PC.pc_max_hp * (1 + (changeNum / 4))) # 移速变化的1/4转化为HP上限百分比提升
-
-	# "aSpdToAH3": 攻击速度变化量的一部分转化为攻击和HP (等级3)
-	if PC.selected_rewards.has("aSpdToAH3") and PC.last_atk_speed != PC.pc_atk_speed:
-		var changeNum = PC.pc_atk_speed - PC.last_atk_speed
-		PC.pc_atk = int(PC.pc_atk * (1 + (changeNum / 2))) # 攻速变化的1/2转化为攻击力百分比提升
-		PC.pc_max_hp = int(PC.pc_max_hp * (1 + (changeNum / 2))) # 攻速变化的1/2转化为HP上限百分比提升
-
-	# "luckyToAH3": 幸运等级变化量的一部分转化为攻击和HP (等级3)
-	if PC.selected_rewards.has("luckyToAH3") and PC.last_lunky_level != PC.now_lunky_level:
-		var changeNum = PC.now_lunky_level - PC.last_lunky_level
-		PC.pc_atk = int(PC.pc_atk * (1 + 0.015 * changeNum)) # 每点幸运等级变化转化为1.5%攻击力提升
-		PC.pc_max_hp = int(PC.pc_max_hp * (1 + 0.015 * changeNum)) # 每点幸运等级变化转化为1.5%HP上限提升
-
-	# "spdToAH3": 移动速度变化量的一部分转化为攻击和HP (等级3)
-	if PC.selected_rewards.has("spdToAH3") and PC.last_speed != PC.pc_speed:
-		var changeNum = PC.pc_speed - PC.last_speed
-		PC.pc_atk = int(PC.pc_atk * (1 + (changeNum / 3))) # 移速变化的1/3转化为攻击力百分比提升
-		PC.pc_max_hp = int(PC.pc_max_hp * (1 + (changeNum / 3))) # 移速变化的1/3转化为HP上限百分比提升
+	# R13系列: 归元 - 每5%攻速提升攻击与HP上限
+	var r13_count = PC.selected_rewards.count("R13")
+	var sr13_count = PC.selected_rewards.count("SR13")
+	var ssr13_count = PC.selected_rewards.count("SSR13")
+	var ur13_count = PC.selected_rewards.count("UR13")
+	if r13_count > 0 or sr13_count > 0 or ssr13_count > 0 or ur13_count > 0:
+		var atk_speed_bonus = (PC.pc_atk_speed - 1.0) * 100
+		var atk_speed_groups = int(atk_speed_bonus / 5)
+		if atk_speed_groups > 0:
+			var total_bonus = 0.0
+			total_bonus += r13_count * atk_speed_groups * 0.01
+			total_bonus += sr13_count * atk_speed_groups * 0.012
+			total_bonus += ssr13_count * atk_speed_groups * 0.014
+			total_bonus += ur13_count * atk_speed_groups * 0.018
+			PC.pc_atk = int(PC.pc_atk * (1 + total_bonus))
+			PC.pc_max_hp = int(PC.pc_max_hp * (1 + total_bonus))
 
 	# 更新上次属性记录，用于下次比较变化
 	PC.last_lunky_level = PC.now_lunky_level

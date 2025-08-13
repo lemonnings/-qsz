@@ -36,7 +36,7 @@ func _init_buff_configs():
 		"xueqi",
 		"血气",
 		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
-		BuffType.TEMPORARY,
+		BuffType.PERMANENT,
 		5,
 		"基础武器攻击附带2*层数%当前HP的伤害。"
 	)

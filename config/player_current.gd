@@ -2,11 +2,13 @@ extends Node
 
 @export var player_instance: Node = null
 @export var pc_atk : int = 50 # 局内攻击
+@export var pc_start_atk : int = 50 # 局内攻击
 @export var pc_final_atk : float = 0.0 # 局内最终伤害（例如0.1代表最后结算时伤害为110%）
 @export var pc_hp : int = 100 # 局内HP
 @export var pc_lv : int = 1 # 局内等级
 @export var pc_exp : int = 0 # 局内经验
 @export var pc_max_hp : int = 100 # 局内最大hp
+@export var pc_start_max_hp : int = 100 # 进入关卡时的初始HP上限
 @export var pc_speed : float = 0 # 局内移速
 @export var pc_atk_speed : float = 0 # 局内攻速加成
 @export var crit_chance : float = 0.0  # 局内暴击率
@@ -223,9 +225,11 @@ func reset_player_attr() -> void :
 
 func exec_pc_atk() -> void:
 	PC.pc_atk = int (15 + int(get_total_increase(Global.cultivation_poxu_level)))
+	PC.pc_start_atk = PC.pc_atk  # 记录初始HP上限
 	
 func exec_pc_hp() -> void:
 	PC.pc_max_hp = int (15 + int(get_total_increase_hp(Global.cultivation_xuanyuan_level)))
+	PC.pc_start_max_hp = PC.pc_max_hp  # 记录初始HP上限
 	PC.pc_hp = PC.pc_max_hp
 	
 func exec_pc_bullet_size() -> void:
