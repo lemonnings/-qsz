@@ -250,7 +250,7 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 			skill_node.set_game_paused(false)
 	
 	var advance_change = int(PC.main_skill_swordQi / 5)
-	if PC.main_skill_swordQi != 0 and (PC.main_skill_swordQi % 5 == 0) and PC.main_skill_swordQi_advance < advance_change :
+	if PC.main_skill_swordQi != 0 and (PC.main_skill_swordQi % 3 == 0) and PC.main_skill_swordQi_advance < advance_change :
 		PC.main_skill_swordQi_advance += 1
 		handle_level_up("swordQi", 0, scene_tree, viewport)
 		# 主技能进阶完成后清空now_main_skill_name

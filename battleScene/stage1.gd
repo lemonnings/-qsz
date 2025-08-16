@@ -130,9 +130,9 @@ func _process(delta: float) -> void:
 	# 格式化分数显示
 	var formatted_point: String
 	if point >= 10000000:
-		formatted_point = "%.2fm" % (point / 1000000.0)
+		formatted_point = "%.3fm 真气" % (point / 1000000.0)
 	elif point >= 100000:
-		formatted_point = "%.2fk" % (point / 1000.0)
+		formatted_point = "%.2fk 真气" % (point / 1000.0)
 	else:
 		formatted_point = str(point)
 	
@@ -389,18 +389,42 @@ func _on_monster_spawn_timer_timeout() -> void:
 	if spawn_count % FROG_MAX_SPAWN_INCREASE_THRESHOLD == 0:
 		frog_max_spawn = min(frog_max_spawn + 1, frog_upper_limit)
 		
+	# 检查是否还有空间生成怪物，如果没有则跳过本次生成
 	if current_monster_count >= max_monster_limit:
 		return
 
-	# Spawn monsters
-	var num_slimes_to_spawn = randi_range(slime_min_spawn, slime_max_spawn)
-	_spawn_slime(num_slimes_to_spawn)
-
-	var num_bats_to_spawn = randi_range(bat_min_spawn, bat_max_spawn)
-	_spawn_bat(num_bats_to_spawn)
-
+	# Spawn monsters - 随机生成顺序
+	# 创建怪物生成任务数组
+	var spawn_tasks = []
+	
+	# 添加青蛙生成任务
 	var num_frogs_to_spawn = randi_range(frog_min_spawn, frog_max_spawn)
-	_spawn_frog(num_frogs_to_spawn)
+	spawn_tasks.append({"type": "frog", "count": num_frogs_to_spawn})
+	
+	# 添加蝙蝠生成任务
+	var num_bats_to_spawn = randi_range(bat_min_spawn, bat_max_spawn)
+	spawn_tasks.append({"type": "bat", "count": num_bats_to_spawn})
+	
+	# 添加史莱姆生成任务
+	var num_slimes_to_spawn = randi_range(slime_min_spawn, slime_max_spawn)
+	spawn_tasks.append({"type": "slime", "count": num_slimes_to_spawn})
+	
+	# 随机打乱生成顺序
+	spawn_tasks.shuffle()
+	
+	# 按随机顺序执行生成任务
+	for task in spawn_tasks:
+		if current_monster_count >= max_monster_limit:
+			break
+			
+		match task.type:
+			"frog":
+				_spawn_frog(task.count)
+			"bat":
+				_spawn_bat(task.count)
+			"slime":
+				_spawn_slime(task.count)
+
 
 
 func _spawn_slime(count: int) -> void:
