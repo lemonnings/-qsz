@@ -135,7 +135,7 @@ static func apply_global_buff_effects(damage: float) -> float:
 		var chenjing_stack = BuffManager.get_buff_stack("chenjing")
 		if PC.player_instance and PC.player_instance.has_method("get_last_move_time"):
 			var last_move = PC.player_instance.get_last_move_time()
-			var current = Time.get_time_dict_from_system()["unix"]
+			var current = Time.get_unix_time_from_system()
 			if current - last_move >= 1.0:  # 1秒
 				final_damage *= (1.0 + 0.06 * chenjing_stack)
 	

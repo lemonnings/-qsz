@@ -529,13 +529,13 @@ func update_chenjing_visual():
 	
 	if BuffManager.has_buff("chenjing"):
 		var last_move = get_last_move_time()
-		var current = Time.get_time_dict_from_system()["unix"]
+		var current = Time.get_unix_time_from_system()
 		
 		if current - last_move >= 1.0:  # 1秒未移动
 			chenjing_outline.visible = true
 			chenjing_outline.global_position = global_position
 			# 添加脉动效果
-			var alpha = 0.5 + 0.2 * sin(Time.get_time_dict_from_system()["unix"] * 3.0)
+			var alpha = 0.5 + 0.2 * sin(Time.get_unix_time_from_system() * 3.0)
 			chenjing_outline.modulate.a = alpha
 		else:
 			chenjing_outline.visible = false

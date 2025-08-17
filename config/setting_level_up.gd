@@ -477,196 +477,11 @@ func check_moyan13()-> bool:
 func check_moyan23()-> bool:
 	return PC.selected_rewards.has("moyan3") and PC.selected_rewards.has("moyan2")
 
+
+
+
+
 # --- 以下为具体的奖励效果实现函数 --- 
-# 这些函数由CSV中的 on_selected 字段引用，并通过 _execute_reward_on_selected 调用
-
-# N01: 血气 I - HP上限+4%
-func reward_N01():
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.04)
-	_level_up_action()
-
-# N02: 破阵 I - 攻击+2.5%, 攻击速度+1%
-func reward_N02():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.025)
-	PC.pc_atk_speed += 0.01
-	_level_up_action()
-
-# N03: 惊鸿 I - 攻击速度+4%
-func reward_N03():
-	PC.pc_atk_speed += 0.04
-	_level_up_action()
-
-# N04: 踏风 I - 移动速度+4%, 暴击率+0.5%
-func reward_N04(): 
-	PC.pc_speed += 0.04
-	PC.crit_chance += 0.005 
-	_level_up_action()
-
-# N05: 沉静 I - 攻击速度+6.5%, 移动速度-2%
-func reward_N05(): 
-	PC.pc_atk_speed += 0.065
-	PC.pc_speed -= 0.02
-	_level_up_action()
-
-# N06: 炼体 I - HP上限+6.5%, 移动速度-2%
-func reward_N06(): 
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.065)
-	PC.pc_speed -= 0.02
-	_level_up_action()
-
-# N07: 健步 I - 移动速度+6.5%, 攻击-1.2%, 暴击伤害+1%
-func reward_N07(): 
-	PC.pc_speed += 0.065
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.012) 
-	PC.crit_damage_multiplier += 0.01 
-	_level_up_action()
-	
-	
-func reward_N08():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.04)
-	PC.pc_atk_speed -= 0.015
-	_level_up_action()
-
-func reward_N09_CritChance():
-	PC.crit_chance += 0.04 # 暴击率+4%
-	PC.pc_atk_speed += 0.01
-	_level_up_action()
-
-func reward_N10_CritDamage():
-	PC.crit_damage_multiplier += 0.10 # 暴击伤害+10%
-	PC.pc_atk_speed += 0.01
-	_level_up_action()
-
-func reward_N11_CritChanceDamage_AtkDown():
-	PC.crit_chance += 0.025 # 暴击率+2.5%
-	PC.crit_damage_multiplier += 0.0625 # 暴击伤害+6.25%
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.012) # 攻击-1.2%
-	_level_up_action()
-
-# N12: 铁骨 I - 减伤率+2% (上限70%)
-func reward_N12_DamageReduction():
-	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.02, 0.7) 
-	_level_up_action()
-
-# N13: 强运 I - 天命+2
-func reward_N13():
-	PC.now_lunky_level += 2
-	Global.emit_signal("lucky_level_up", 2)
-	_level_up_action()
-
-# G01: 血气 II - HP上限+6%
-func reward_G01():
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.06)
-	_level_up_action()
-
-# G02: 破阵 II - 攻击+3.75%, 攻击速度+1%
-func reward_G02():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.0375)
-	PC.pc_atk_speed += 0.01
-	_level_up_action()
-
-# G03: 惊鸿 II - 攻击速度+6%
-func reward_G03():
-	PC.pc_atk_speed += 0.06
-	_level_up_action()
-
-# G04: 踏风 II - 移动速度+6%, 暴击率+0.75%
-func reward_G04(): 
-	PC.pc_speed += 0.06
-	PC.crit_chance += 0.0075 
-	_level_up_action()
-
-# G05: 沉静 II - 攻击速度+9.5%, 移动速度-3%
-func reward_G05(): 
-	PC.pc_atk_speed += 0.095
-	PC.pc_speed -= 0.03
-	_level_up_action()
-
-# G06: 炼体 II - HP上限+9.5%, 移动速度-3%
-func reward_G06(): 
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.095)
-	PC.pc_speed -= 0.03
-	_level_up_action()
-
-# G07: 健步 II - 移动速度+9.5%, 攻击-1.6%, 暴击伤害+1.5%
-func reward_G07(): 
-	PC.pc_speed += 0.095
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.016) 
-	PC.crit_damage_multiplier += 0.015 
-	_level_up_action()
-
-# G08: 蛮力 II - 攻击+5.75%, 攻击速度-3%
-func reward_G08():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.0575)
-	PC.pc_atk_speed -= 0.03
-	_level_up_action()
-
-# G09: 剑意凝势 I - 弹体大小+15%, 攻击速度+3%
-func reward_G09():
-	PC.bullet_size += 0.15
-	PC.pc_atk_speed += 0.03
-	_level_up_action()
-
-# G10: 行云剑意 I - 记录选择，效果由其他地方计算 (移速转攻血)
-func reward_G10():
-	PC.selected_rewards.append("spdToAH1")
-	_level_up_action()
-
-# G11: 天命加护 I - 记录选择，效果由其他地方计算 (天命转攻血)
-func reward_G11():
-	PC.selected_rewards.append("luckyToAH1")
-	_level_up_action()
-
-# G12: 刃舞归元 I - 记录选择，效果由其他地方计算 (攻速转攻血)
-func reward_G12():
-	PC.selected_rewards.append("aSpdToAH1")
-	_level_up_action()
-
-# G13: 精准 II - 暴击率+6%, 攻击速度+1%
-func reward_G13_CritChance():
-	PC.crit_chance += 0.06 
-	PC.pc_atk_speed += 0.01
-	_level_up_action()
-
-# G14: 致命 II - 暴击伤害+15%, 攻击速度+1%
-func reward_G14_CritDamage():
-	PC.crit_damage_multiplier += 0.15 
-	PC.pc_atk_speed += 0.01
-	_level_up_action()
-
-# G15: 优雅 II - 暴击率+4%, 暴击伤害+10%, 攻击-4%
-func reward_G15_CritChanceDamage_AtkDown():
-	PC.crit_chance += 0.04 
-	PC.crit_damage_multiplier += 0.10 
-	PC.pc_atk = PC.pc_atk * 0.96 
-	_level_up_action()
-
-# R22: 铁骨 III - 减伤率+4% (此函数名似乎与稀有度不符，应为G系列或R系列，根据CSV调整)
-# R22: 铁骨 III - 减伤率+4% (此函数名可能需要根据CSV调整以匹配稀有度)
-func reward_R22_DamageReduction():
-	# 减伤率增加4%，最大不超过70%
-	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.04, 0.7) 
-	_level_up_action()
-
-# R23: 强运 III - 天命+4 (此函数名似乎与稀有度不符，应为G系列或R系列，根据CSV调整)
-func reward_R23():
-	# 天命等级增加4
-	PC.now_lunky_level += 4
-	Global.emit_signal("lucky_level_up", 4)
-	_level_up_action()
-
-# G16: 铁骨 II - 减伤率+3%
-func reward_G16_DamageReduction():
-	# 减伤率增加3%，最大不超过70%
-	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.03, 0.7) 
-	_level_up_action()
-
-# G17: 强运 II - 天命+3
-func reward_G17():
-	# 天命等级增加3
-	PC.now_lunky_level += 3
-	Global.emit_signal("lucky_level_up", 3)
-	_level_up_action()
 
 func reward_R01():
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.13)
@@ -702,206 +517,6 @@ func reward_UR01():
 		Global.emit_signal("buff_stack_changed", "xueqi", current_stack + 2)
 	else:
 		Global.emit_signal("buff_added", "xueqi", -1, 2)
-	_level_up_action()
-
-func reward_R11():
-	PC.selected_rewards.append("R11")
-	_level_up_action()
-
-func reward_SR11():
-	PC.selected_rewards.append("SR11")
-	_level_up_action()
-
-func reward_SSR11():
-	PC.selected_rewards.append("SSR11")
-	_level_up_action()
-
-func reward_UR11():
-	PC.selected_rewards.append("UR11")
-	_level_up_action()
-
-func reward_R12():
-	PC.selected_rewards.append("R12")
-	_level_up_action()
-
-func reward_SR12():
-	PC.selected_rewards.append("SR12")
-	_level_up_action()
-
-func reward_SSR12():
-	PC.selected_rewards.append("SSR12")
-	_level_up_action()
-
-func reward_UR12():
-	PC.selected_rewards.append("UR12")
-	_level_up_action()
-
-func reward_R13():
-	PC.selected_rewards.append("R13")
-	_level_up_action()
-
-func reward_SR13():
-	PC.selected_rewards.append("SR13")
-	_level_up_action()
-
-func reward_SSR13():
-	PC.selected_rewards.append("SSR13")
-	_level_up_action()
-
-func reward_UR13():
-	PC.selected_rewards.append("UR13")
-	_level_up_action()
-
-func reward_R14():
-	PC.crit_chance += 0.04
-	PC.pc_atk_speed += 0.04
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
-	_level_up_action()
-
-func reward_SR14():
-	PC.crit_chance += 0.05
-	PC.pc_atk_speed += 0.05
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
-	_level_up_action()
-
-func reward_SSR14():
-	PC.crit_chance += 0.06
-	PC.pc_atk_speed += 0.06
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
-	_level_up_action()
-
-func reward_UR14():
-	PC.crit_chance += 0.08
-	PC.pc_atk_speed += 0.08
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.07)
-	_level_up_action()
-
-func reward_R15():
-	PC.crit_damage += 0.08
-	PC.pc_atk_speed += 0.04
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
-	_level_up_action()
-
-func reward_SR15():
-	PC.crit_damage += 0.10
-	PC.pc_atk_speed += 0.05
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
-	_level_up_action()
-
-func reward_SSR15():
-	PC.crit_damage += 0.12
-	PC.pc_atk_speed += 0.06
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
-	_level_up_action()
-
-func reward_UR15():
-	PC.crit_damage += 0.16
-	PC.pc_atk_speed += 0.08
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.07)
-	_level_up_action()
-
-func reward_R16():
-	PC.crit_chance += 0.04
-	PC.crit_damage += 0.06
-	PC.final_damage_multiplier -= 0.03
-	_level_up_action()
-
-func reward_SR16():
-	PC.crit_chance += 0.05
-	PC.crit_damage += 0.08
-	PC.final_damage_multiplier -= 0.035
-	_level_up_action()
-
-func reward_SSR16():
-	PC.crit_chance += 0.06
-	PC.crit_damage += 0.10
-	PC.final_damage_multiplier -= 0.04
-	_level_up_action()
-
-func reward_UR16():
-	PC.crit_chance += 0.08
-	PC.crit_damage += 0.14
-	PC.final_damage_multiplier -= 0.05
-	_level_up_action()
-
-func reward_R17():
-	PC.bullet_size += 0.15
-	PC.pc_atk_speed += 0.04
-	_level_up_action()
-
-func reward_SR17():
-	PC.bullet_size += 0.20
-	PC.pc_atk_speed += 0.05
-	_level_up_action()
-
-func reward_SSR17():
-	PC.bullet_size += 0.25
-	PC.pc_atk_speed += 0.06
-	_level_up_action()
-
-func reward_UR17():
-	PC.bullet_size += 0.35
-	PC.pc_atk_speed += 0.08
-	_level_up_action()
-
-func reward_R18():
-	var hp_sacrifice = int(PC.pc_max_hp * 0.16)
-	PC.pc_max_hp -= hp_sacrifice
-	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.25)
-	if PC.pc_hp > PC.pc_max_hp:
-		PC.pc_hp = PC.pc_max_hp
-	_level_up_action()
-
-func reward_SR18():
-	var hp_sacrifice = int(PC.pc_max_hp * 0.18)
-	PC.pc_max_hp -= hp_sacrifice
-	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.27)
-	if PC.pc_hp > PC.pc_max_hp:
-		PC.pc_hp = PC.pc_max_hp
-	_level_up_action()
-
-func reward_SSR18():
-	var hp_sacrifice = int(PC.pc_max_hp * 0.20)
-	PC.pc_max_hp -= hp_sacrifice
-	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.29)
-	if PC.pc_hp > PC.pc_max_hp:
-		PC.pc_hp = PC.pc_max_hp
-	_level_up_action()
-
-func reward_UR18():
-	var hp_sacrifice = int(PC.pc_max_hp * 0.24)
-	PC.pc_max_hp -= hp_sacrifice
-	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.33)
-	if PC.pc_hp > PC.pc_max_hp:
-		PC.pc_hp = PC.pc_max_hp
-	_level_up_action()
-
-func reward_R19():
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.10)
-	PC.damage_reduction += 0.005
-	var extra_hp_bonus = min(0.20, PC.damage_reduction * 0.004)
-	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
-	_level_up_action()
-
-func reward_SR19():
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.13)
-	PC.damage_reduction += 0.01
-	var extra_hp_bonus = min(0.20, PC.damage_reduction * 0.004)
-	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
-	_level_up_action()
-
-func reward_SSR19():
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.17)
-	PC.damage_reduction += 0.015
-	var extra_hp_bonus = min(0.20, PC.damage_reduction * 0.004)
-	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
-	_level_up_action()
-
-func reward_UR19():
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.25)
-	PC.damage_reduction += 0.025
-	var extra_hp_bonus = min(0.20, PC.damage_reduction * 0.004)
-	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
 	_level_up_action()
 
 func reward_R02():
@@ -1239,6 +854,208 @@ func reward_UR10():
 	else:
 		Global.emit_signal("buff_added", "ronghui", -1, 2)
 	_level_up_action()
+
+
+func reward_R11():
+	PC.selected_rewards.append("R11")
+	_level_up_action()
+
+func reward_SR11():
+	PC.selected_rewards.append("SR11")
+	_level_up_action()
+
+func reward_SSR11():
+	PC.selected_rewards.append("SSR11")
+	_level_up_action()
+
+func reward_UR11():
+	PC.selected_rewards.append("UR11")
+	_level_up_action()
+
+func reward_R12():
+	PC.selected_rewards.append("R12")
+	_level_up_action()
+
+func reward_SR12():
+	PC.selected_rewards.append("SR12")
+	_level_up_action()
+
+func reward_SSR12():
+	PC.selected_rewards.append("SSR12")
+	_level_up_action()
+
+func reward_UR12():
+	PC.selected_rewards.append("UR12")
+	_level_up_action()
+
+func reward_R13():
+	PC.selected_rewards.append("R13")
+	_level_up_action()
+
+func reward_SR13():
+	PC.selected_rewards.append("SR13")
+	_level_up_action()
+
+func reward_SSR13():
+	PC.selected_rewards.append("SSR13")
+	_level_up_action()
+
+func reward_UR13():
+	PC.selected_rewards.append("UR13")
+	_level_up_action()
+
+func reward_R14():
+	PC.crit_chance += 0.04
+	PC.pc_atk_speed += 0.04
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
+	_level_up_action()
+
+func reward_SR14():
+	PC.crit_chance += 0.05
+	PC.pc_atk_speed += 0.05
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
+	_level_up_action()
+
+func reward_SSR14():
+	PC.crit_chance += 0.06
+	PC.pc_atk_speed += 0.06
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
+	_level_up_action()
+
+func reward_UR14():
+	PC.crit_chance += 0.08
+	PC.pc_atk_speed += 0.08
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.07)
+	_level_up_action()
+
+func reward_R15():
+	PC.crit_damage += 0.08
+	PC.pc_atk_speed += 0.04
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
+	_level_up_action()
+
+func reward_SR15():
+	PC.crit_damage += 0.10
+	PC.pc_atk_speed += 0.05
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
+	_level_up_action()
+
+func reward_SSR15():
+	PC.crit_damage += 0.12
+	PC.pc_atk_speed += 0.06
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
+	_level_up_action()
+
+func reward_UR15():
+	PC.crit_damage += 0.16
+	PC.pc_atk_speed += 0.08
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.07)
+	_level_up_action()
+
+func reward_R16():
+	PC.crit_chance += 0.04
+	PC.crit_damage += 0.06
+	PC.final_damage_multiplier -= 0.03
+	_level_up_action()
+
+func reward_SR16():
+	PC.crit_chance += 0.05
+	PC.crit_damage += 0.08
+	PC.final_damage_multiplier -= 0.035
+	_level_up_action()
+
+func reward_SSR16():
+	PC.crit_chance += 0.06
+	PC.crit_damage += 0.10
+	PC.final_damage_multiplier -= 0.04
+	_level_up_action()
+
+func reward_UR16():
+	PC.crit_chance += 0.08
+	PC.crit_damage += 0.14
+	PC.final_damage_multiplier -= 0.05
+	_level_up_action()
+
+func reward_R17():
+	PC.bullet_size += 0.15
+	PC.pc_atk_speed += 0.04
+	_level_up_action()
+
+func reward_SR17():
+	PC.bullet_size += 0.20
+	PC.pc_atk_speed += 0.05
+	_level_up_action()
+
+func reward_SSR17():
+	PC.bullet_size += 0.25
+	PC.pc_atk_speed += 0.06
+	_level_up_action()
+
+func reward_UR17():
+	PC.bullet_size += 0.35
+	PC.pc_atk_speed += 0.08
+	_level_up_action()
+
+func reward_R18():
+	var hp_sacrifice = int(PC.pc_max_hp * 0.16)
+	PC.pc_max_hp -= hp_sacrifice
+	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.25)
+	if PC.pc_hp > PC.pc_max_hp:
+		PC.pc_hp = PC.pc_max_hp
+	_level_up_action()
+
+func reward_SR18():
+	var hp_sacrifice = int(PC.pc_max_hp * 0.18)
+	PC.pc_max_hp -= hp_sacrifice
+	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.27)
+	if PC.pc_hp > PC.pc_max_hp:
+		PC.pc_hp = PC.pc_max_hp
+	_level_up_action()
+
+func reward_SSR18():
+	var hp_sacrifice = int(PC.pc_max_hp * 0.20)
+	PC.pc_max_hp -= hp_sacrifice
+	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.29)
+	if PC.pc_hp > PC.pc_max_hp:
+		PC.pc_hp = PC.pc_max_hp
+	_level_up_action()
+
+func reward_UR18():
+	var hp_sacrifice = int(PC.pc_max_hp * 0.24)
+	PC.pc_max_hp -= hp_sacrifice
+	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.33)
+	if PC.pc_hp > PC.pc_max_hp:
+		PC.pc_hp = PC.pc_max_hp
+	_level_up_action()
+
+func reward_R19():
+	PC.pc_max_hp = int(PC.pc_max_hp * 1.10)
+	PC.damage_reduction += 0.005
+	var extra_hp_bonus = min(0.20, PC.damage_reduction * 0.004)
+	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
+	_level_up_action()
+
+func reward_SR19():
+	PC.pc_max_hp = int(PC.pc_max_hp * 1.13)
+	PC.damage_reduction += 0.01
+	var extra_hp_bonus = min(0.20, PC.damage_reduction * 0.004)
+	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
+	_level_up_action()
+
+func reward_SSR19():
+	PC.pc_max_hp = int(PC.pc_max_hp * 1.17)
+	PC.damage_reduction += 0.015
+	var extra_hp_bonus = min(0.20, PC.damage_reduction * 0.004)
+	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
+	_level_up_action()
+
+func reward_UR19():
+	PC.pc_max_hp = int(PC.pc_max_hp * 1.25)
+	PC.damage_reduction += 0.025
+	var extra_hp_bonus = min(0.20, PC.damage_reduction * 0.004)
+	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
+	_level_up_action()
+
 
 # 五向攻击 (升级三向攻击，但进一步调整属性作为平衡)
 func reward_fiveway():
@@ -1745,7 +1562,7 @@ func global_level_up():
 	# 基础属性成长：攻击+1再乘以1.025，HP上限+2再乘以1.01
 	PC.pc_start_atk += 1
 	PC.pc_atk = int((PC.pc_atk + 1) * 1.025)
-	PC.pc_start_hp += 2
+	PC.pc_start_max_hp += 2
 	PC.pc_max_hp = int((PC.pc_max_hp + 2) * 1.01)
 
 	# R11系列: 行云 - 每4%移速提升攻击与HP上限
