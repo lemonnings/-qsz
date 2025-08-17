@@ -36,6 +36,15 @@ var AudioManager = preload("res://Script/system/audio_manager.gd").new()
 @export var cultivation_zhuifeng_level : int = 0    # 追风 - 提升移速
 @export var cultivation_liejin_level : int = 0      # 烈劲 - 提升暴击伤害
 
+# 玩家修习技能数据 - 按玩家名存储
+@export var player_study_data : Dictionary = {
+	"yiqiu": {
+		"study_level": 0,  # 当前修习阶段
+		"learned_skills": [],  # 已学习的技能列表
+		"skill_levels": {}  # 技能等级
+	}
+}
+
 # 世界等级（难度级）
 @export var world_level_multiple : float = 1
 @export var world_level_reward_multiple : float = 1
@@ -196,6 +205,8 @@ func save_game() -> void:
 		"cultivation_huti_level": cultivation_huti_level,
 		"cultivation_zhuifeng_level": cultivation_zhuifeng_level,
 		"cultivation_liejin_level": cultivation_liejin_level,
+		# 玩家修习技能数据
+		"player_study_data": player_study_data,
 		# 音频设置
 		"master_volume": AudioManager.get_master_volume(),
 		"bgm_volume": AudioManager.get_bgm_volume(),
@@ -246,6 +257,7 @@ func load_game() -> void:
 	cultivation_huti_level = config.get_value("save", "cultivation_huti_level", cultivation_huti_level)
 	cultivation_zhuifeng_level = config.get_value("save", "cultivation_zhuifeng_level", cultivation_zhuifeng_level)
 	cultivation_liejin_level = config.get_value("save", "cultivation_liejin_level", cultivation_liejin_level)
+	player_study_data = config.get_value("save", "player_study_data", player_study_data)
 	
 	# 加载音频设置
 	var master_vol = config.get_value("save", "master_volume", 1.0)
