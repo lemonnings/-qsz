@@ -11,20 +11,35 @@ extends CanvasLayer
 @export var study_level : RichTextLabel
 
 @export var up1 : Button
+@export var up1_detail : String
 @export var up11 : Button
+@export var up11_detail : String
 @export var up12 : Button
+@export var up12_detail : String
 @export var up2 : Button
+@export var up2_detail : String
 @export var up21 : Button
+@export var up21_detail : String
 @export var up22 : Button
+@export var up22_detail : String
 @export var up3 : Button
+@export var up3_detail : String
 @export var up31 : Button
+@export var up31_detail : String
 @export var up32 : Button
+@export var up32_detail : String
 @export var up4 : Button
+@export var up4_detail : String
 @export var up41 : Button
+@export var up41_detail : String
 @export var up42 : Button
+@export var up42_detail : String
 @export var up5 : Button
+@export var up5_detail : String
 @export var up51 : Button
+@export var up51_detail : String
 @export var up52 : Button
+@export var up52_detail : String
 
 # 玩家修习数据结构
 var player_study_config = {
@@ -41,6 +56,28 @@ var player_study_config = {
 				"up4": "剑气初始强化+1/2",
 				"up41": "剑气伤害提升6%/12%/18%",
 				"up5": "刷新次数+1/2"
+			},
+			"max_levels": {
+				"up1": 1,
+				"up11": 3,
+				"up12": 3,
+				"up2": 1,
+				"up21": 1,
+				"up3": 3,
+				"up4": 2,
+				"up41": 3,
+				"up5": 2
+			},
+			"point_costs": {
+				"up1": 200,
+				"up11": 400,
+				"up12": 600,
+				"up2": 1000,
+				"up21": 1250,
+				"up3": 400,
+				"up4": 400,
+				"up41": 600,
+				"up5": 400
 			}
 		}
 	}
@@ -57,9 +94,14 @@ func update_study_display() -> void:
 	var player_data = Global.player_study_data.get(current_player, {})
 	current_study_level = player_data.get("study_level", 0)
 	var learned_skills = player_data.get("learned_skills", [])
+	var skill_levels = player_data.get("skill_levels", {})
+	var zhenqi_points = player_data.get("zhenqi_points", 100)
 	
 	# 更新修习等级显示
-	study_level.text = "当前修习阶段: " + str(current_study_level)
+	study_level.text = "当前修习阶段: " + str(current_study_level) + " | 真气: " + str(zhenqi_points)
+	
+	# 更新技能等级显示
+	update_skill_level_display(skill_levels)
 	
 	# 隐藏所有升级按钮
 	hide_all_upgrade_buttons()
@@ -100,6 +142,81 @@ func show_available_skills(stage: int) -> void:
 		if button:
 			button.visible = true
 
+func update_skill_level_display(skill_levels: Dictionary) -> void:
+	# 获取配置信息
+	var config = player_study_config.get(current_player, {})
+	var stage_config = config.get(1, {})  # 目前只有阶段1
+	var max_levels = stage_config.get("max_levels", {})
+	
+	# 更新每个技能的等级显示
+	var current_level: int
+	var max_level: int
+	
+	# 更新up1相关
+	current_level = skill_levels.get("up1", 0)
+	max_level = max_levels.get("up1", 1)
+	up1_detail = str(current_level) + "/" + str(max_level)
+	
+	current_level = skill_levels.get("up11", 0)
+	max_level = max_levels.get("up11", 1)
+	up11_detail = str(current_level) + "/" + str(max_level)
+	
+	current_level = skill_levels.get("up12", 0)
+	max_level = max_levels.get("up12", 1)
+	up12_detail = str(current_level) + "/" + str(max_level)
+	
+	# 更新up2相关
+	current_level = skill_levels.get("up2", 0)
+	max_level = max_levels.get("up2", 1)
+	up2_detail = str(current_level) + "/" + str(max_level)
+	
+	current_level = skill_levels.get("up21", 0)
+	max_level = max_levels.get("up21", 1)
+	up21_detail = str(current_level) + "/" + str(max_level)
+	
+	current_level = skill_levels.get("up22", 0)
+	max_level = max_levels.get("up22", 1)
+	up22_detail = str(current_level) + "/" + str(max_level)
+	
+	# 更新up3相关
+	current_level = skill_levels.get("up3", 0)
+	max_level = max_levels.get("up3", 1)
+	up3_detail = str(current_level) + "/" + str(max_level)
+	
+	current_level = skill_levels.get("up31", 0)
+	max_level = max_levels.get("up31", 1)
+	up31_detail = str(current_level) + "/" + str(max_level)
+	
+	current_level = skill_levels.get("up32", 0)
+	max_level = max_levels.get("up32", 1)
+	up32_detail = str(current_level) + "/" + str(max_level)
+	
+	# 更新up4相关
+	current_level = skill_levels.get("up4", 0)
+	max_level = max_levels.get("up4", 1)
+	up4_detail = str(current_level) + "/" + str(max_level)
+	
+	current_level = skill_levels.get("up41", 0)
+	max_level = max_levels.get("up41", 1)
+	up41_detail = str(current_level) + "/" + str(max_level)
+	
+	current_level = skill_levels.get("up42", 0)
+	max_level = max_levels.get("up42", 1)
+	up42_detail = str(current_level) + "/" + str(max_level)
+	
+	# 更新up5相关
+	current_level = skill_levels.get("up5", 0)
+	max_level = max_levels.get("up5", 1)
+	up5_detail = str(current_level) + "/" + str(max_level)
+	
+	current_level = skill_levels.get("up51", 0)
+	max_level = max_levels.get("up51", 1)
+	up51_detail = str(current_level) + "/" + str(max_level)
+	
+	current_level = skill_levels.get("up52", 0)
+	max_level = max_levels.get("up52", 1)
+	up52_detail = str(current_level) + "/" + str(max_level)
+
 func update_skill_descriptions() -> void:
 	var config = player_study_config.get(current_player, {})
 	var descriptions = {}
@@ -119,19 +236,65 @@ func update_skill_descriptions() -> void:
 	
 	detail.text = description_text
 
+func true_cost_culculate(default_cost: int, next_level: int) -> int:
+	for i in range(1, next_level + 1):
+		default_cost *= 1.5
+	return default_cost
+
+
 func learn_skill(skill_name: String) -> void:
 	var player_data = Global.player_study_data.get(current_player, {})
 	var learned_skills = player_data.get("learned_skills", [])
+	var skill_levels = player_data.get("skill_levels", {})
+	var zhenqi_points = PC.point
 	
-	if not skill_name in learned_skills:
+	# 获取配置信息
+	var config = player_study_config.get(current_player, {})
+	var stage_config = config.get(1, {})  # 目前只有阶段1
+	var max_levels = stage_config.get("max_levels", {})
+	var point_costs = stage_config.get("point_costs", {})
+	var true_cost = true_cost_culculate(point_costs)
+	
+	# 检查技能是否存在配置
+	if not max_levels.has(skill_name) or not point_costs.has(skill_name):
+		print("技能配置不存在: " + skill_name)
+		return
+	
+	# 获取当前技能等级和最大等级
+	var current_level = skill_levels.get(skill_name, 0)
+	var max_level = max_levels[skill_name]
+	var cost = point_costs[skill_name]
+	
+	# 检查是否已达到最大等级
+	if current_level >= max_level:
+		print("技能已达到最大等级: " + skill_name)
+		return
+	
+	# 检查真气是否足够
+	if zhenqi_points < cost:
+		print("真气不足，需要: " + str(cost) + "，当前: " + str(zhenqi_points))
+		return
+	
+	# 升级技能
+	skill_levels[skill_name] = current_level + 1
+	zhenqi_points -= cost
+	
+	# 如果是第一次学习，添加到已学习技能列表
+	if current_level == 0 and not skill_name in learned_skills:
 		learned_skills.append(skill_name)
-		Global.player_study_data[current_player]["learned_skills"] = learned_skills
-		
-		# 应用技能效果
-		apply_skill_effect(skill_name)
-		
-		# 更新显示
-		update_study_display()
+	
+	# 更新全局数据
+	Global.player_study_data[current_player]["learned_skills"] = learned_skills
+	Global.player_study_data[current_player]["skill_levels"] = skill_levels
+	Global.player_study_data[current_player]["zhenqi_points"] = zhenqi_points
+	
+	# 应用技能效果
+	apply_skill_effect(skill_name)
+	
+	# 更新显示
+	update_study_display()
+	
+	print("学习技能: " + skill_name + " 等级: " + str(skill_levels[skill_name]) + " 消耗真气: " + str(cost))
 
 func apply_skill_effect(skill_name: String) -> void:
 	match skill_name:

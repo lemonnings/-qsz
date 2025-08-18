@@ -41,7 +41,8 @@ var AudioManager = preload("res://Script/system/audio_manager.gd").new()
 	"yiqiu": {
 		"study_level": 0,  # 当前修习阶段
 		"learned_skills": [],  # 已学习的技能列表
-		"skill_levels": {}  # 技能等级
+		"skill_levels": {},  # 技能等级
+		"zhenqi_points": 100  # 真气点数
 	}
 }
 
@@ -232,7 +233,7 @@ func load_game() -> void:
 	
 	if err != OK :
 		#print("no save data, use defalut value")
-		return 
+		return
 	
 	total_points = config.get_value("save", "total_points", total_points)
 	world_level = config.get_value("save", "world_level", world_level)
@@ -257,7 +258,14 @@ func load_game() -> void:
 	cultivation_huti_level = config.get_value("save", "cultivation_huti_level", cultivation_huti_level)
 	cultivation_zhuifeng_level = config.get_value("save", "cultivation_zhuifeng_level", cultivation_zhuifeng_level)
 	cultivation_liejin_level = config.get_value("save", "cultivation_liejin_level", cultivation_liejin_level)
-	player_study_data = config.get_value("save", "player_study_data", player_study_data)
+	
+	# 加载玩家修习技能数据，确保兼容性
+	var loaded_study_data = config.get_value("save", "player_study_data", player_study_data)
+	# 为现有存档添加zhenqi_points字段的兼容性处理
+	for player_name in loaded_study_data.keys():
+		if not loaded_study_data[player_name].has("zhenqi_points"):
+			loaded_study_data[player_name]["zhenqi_points"] = 100  # 默认真气点数
+	player_study_data = loaded_study_data
 	
 	# 加载音频设置
 	var master_vol = config.get_value("save", "master_volume", 1.0)
