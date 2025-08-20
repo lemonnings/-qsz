@@ -253,17 +253,19 @@ func learn_skill(skill_name: String) -> void:
 	var stage_config = config.get(1, {})  # 目前只有阶段1
 	var max_levels = stage_config.get("max_levels", {})
 	var point_costs = stage_config.get("point_costs", {})
-	var true_cost = true_cost_culculate(point_costs)
+	# 获取当前技能等级来计算真实消耗
+	var current_level = skill_levels.get(skill_name, 0)
+	var next_level = current_level + 1
+	var base_cost = point_costs.get(skill_name, 0)
+	var true_cost = true_cost_culculate(base_cost, next_level)
 	
 	# 检查技能是否存在配置
 	if not max_levels.has(skill_name) or not point_costs.has(skill_name):
 		print("技能配置不存在: " + skill_name)
 		return
 	
-	# 获取当前技能等级和最大等级
-	var current_level = skill_levels.get(skill_name, 0)
+	# 获取最大等级
 	var max_level = max_levels[skill_name]
-	var cost = point_costs[skill_name]
 	
 	# 检查是否已达到最大等级
 	if current_level >= max_level:
@@ -271,13 +273,13 @@ func learn_skill(skill_name: String) -> void:
 		return
 	
 	# 检查真气是否足够
-	if zhenqi_points < cost:
-		print("真气不足，需要: " + str(cost) + "，当前: " + str(zhenqi_points))
+	if zhenqi_points < true_cost:
+		print("真气不足，需要: " + str(true_cost) + "，当前: " + str(zhenqi_points))
 		return
 	
 	# 升级技能
 	skill_levels[skill_name] = current_level + 1
-	zhenqi_points -= cost
+	zhenqi_points -= true_cost
 	
 	# 如果是第一次学习，添加到已学习技能列表
 	if current_level == 0 and not skill_name in learned_skills:
@@ -294,7 +296,7 @@ func learn_skill(skill_name: String) -> void:
 	# 更新显示
 	update_study_display()
 	
-	print("学习技能: " + skill_name + " 等级: " + str(skill_levels[skill_name]) + " 消耗真气: " + str(cost))
+	print("学习技能: " + skill_name + " 等级: " + str(skill_levels[skill_name]) + " 消耗真气: " + str(true_cost))
 
 func apply_skill_effect(skill_name: String) -> void:
 	match skill_name:

@@ -1,7 +1,7 @@
 extends Node
 
 @export var player_instance: Node = null
-@export var player_name: String = "yiqiu"
+@export var player_name: String = "yiqiu" 
 @export var pc_atk : int = 50 # 局内攻击
 @export var pc_start_atk : int = 50 # 局内攻击
 @export var pc_final_atk : float = 0.0 # 局内最终伤害（例如0.1代表最后结算时伤害为110%）
