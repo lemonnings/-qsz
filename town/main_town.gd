@@ -501,6 +501,9 @@ func _on_liejin_pressed() -> void:
 	_on_cmp("liejin")
 
 
+
+
+
 func _on_setting_pressed() -> void:
 	if !setting.visible:
 		PC.movement_disabled = true

@@ -95,16 +95,15 @@ func update_study_display() -> void:
 	current_study_level = player_data.get("study_level", 0)
 	var learned_skills = player_data.get("learned_skills", [])
 	var skill_levels = player_data.get("skill_levels", {})
-	var zhenqi_points = player_data.get("zhenqi_points", 100)
 	
 	# 更新修习等级显示
-	study_level.text = "当前修习阶段: " + str(current_study_level) + " | 真气: " + str(zhenqi_points)
-	
-	# 更新技能等级显示
-	update_skill_level_display(skill_levels)
+	study_level.text = "当前修习阶段: " + str(current_study_level) + " | 真气: " + str(PC.point)
 	
 	# 隐藏所有升级按钮
 	hide_all_upgrade_buttons()
+		
+	# 更新技能等级显示
+	update_skill_level_display(skill_levels)
 	
 	# 根据当前阶段显示可用技能
 	if current_study_level == 0:
@@ -145,7 +144,7 @@ func show_available_skills(stage: int) -> void:
 func update_skill_level_display(skill_levels: Dictionary) -> void:
 	# 获取配置信息
 	var config = player_study_config.get(current_player, {})
-	var stage_config = config.get(1, {})  # 目前只有阶段1
+	var stage_config = config.get(current_study_level, {})  # 使用当前修习阶段
 	var max_levels = stage_config.get("max_levels", {})
 	
 	# 更新每个技能的等级显示
@@ -153,69 +152,84 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 	var max_level: int
 	
 	# 更新up1相关
-	current_level = skill_levels.get("up1", 0)
-	max_level = max_levels.get("up1", 1)
-	up1_detail = str(current_level) + "/" + str(max_level)
+	if up1 and up1.visible:
+		current_level = skill_levels.get("up1", 0)
+		max_level = max_levels.get("up1", 1)
+		up1_detail = str(current_level) + "/" + str(max_level)
 	
-	current_level = skill_levels.get("up11", 0)
-	max_level = max_levels.get("up11", 1)
-	up11_detail = str(current_level) + "/" + str(max_level)
+	if up11 and up11.visible:
+		current_level = skill_levels.get("up11", 0)
+		max_level = max_levels.get("up11", 1)
+		up11_detail = str(current_level) + "/" + str(max_level)
 	
-	current_level = skill_levels.get("up12", 0)
-	max_level = max_levels.get("up12", 1)
-	up12_detail = str(current_level) + "/" + str(max_level)
+	if up12 and up12.visible:
+		current_level = skill_levels.get("up12", 0)
+		max_level = max_levels.get("up12", 1)
+		up12_detail = str(current_level) + "/" + str(max_level)
 	
 	# 更新up2相关
-	current_level = skill_levels.get("up2", 0)
-	max_level = max_levels.get("up2", 1)
-	up2_detail = str(current_level) + "/" + str(max_level)
+	if up2 and up2.visible:
+		current_level = skill_levels.get("up2", 0)
+		max_level = max_levels.get("up2", 1)
+		up2_detail = str(current_level) + "/" + str(max_level)
 	
-	current_level = skill_levels.get("up21", 0)
-	max_level = max_levels.get("up21", 1)
-	up21_detail = str(current_level) + "/" + str(max_level)
+	if up21 and up21.visible:
+		current_level = skill_levels.get("up21", 0)
+		max_level = max_levels.get("up21", 1)
+		up21_detail = str(current_level) + "/" + str(max_level)
 	
-	current_level = skill_levels.get("up22", 0)
-	max_level = max_levels.get("up22", 1)
-	up22_detail = str(current_level) + "/" + str(max_level)
+	if up22 and up22.visible:
+		current_level = skill_levels.get("up22", 0)
+		max_level = max_levels.get("up22", 1)
+		up22_detail = str(current_level) + "/" + str(max_level)
 	
 	# 更新up3相关
-	current_level = skill_levels.get("up3", 0)
-	max_level = max_levels.get("up3", 1)
-	up3_detail = str(current_level) + "/" + str(max_level)
+	if up3 and up3.visible:
+		current_level = skill_levels.get("up3", 0)
+		max_level = max_levels.get("up3", 1)
+		up3_detail = str(current_level) + "/" + str(max_level)
 	
-	current_level = skill_levels.get("up31", 0)
-	max_level = max_levels.get("up31", 1)
-	up31_detail = str(current_level) + "/" + str(max_level)
+	if up31 and up31.visible:
+		current_level = skill_levels.get("up31", 0)
+		max_level = max_levels.get("up31", 1)
+		up31_detail = str(current_level) + "/" + str(max_level)
 	
-	current_level = skill_levels.get("up32", 0)
-	max_level = max_levels.get("up32", 1)
-	up32_detail = str(current_level) + "/" + str(max_level)
+	if up32 and up32.visible:
+		current_level = skill_levels.get("up32", 0)
+		max_level = max_levels.get("up32", 1)
+		up32_detail = str(current_level) + "/" + str(max_level)
 	
 	# 更新up4相关
-	current_level = skill_levels.get("up4", 0)
-	max_level = max_levels.get("up4", 1)
-	up4_detail = str(current_level) + "/" + str(max_level)
+	if up4 and up4.visible:
+		current_level = skill_levels.get("up4", 0)
+		max_level = max_levels.get("up4", 1)
+		up4_detail = str(current_level) + "/" + str(max_level)
 	
-	current_level = skill_levels.get("up41", 0)
-	max_level = max_levels.get("up41", 1)
-	up41_detail = str(current_level) + "/" + str(max_level)
+	if up41 and up41.visible:
+		current_level = skill_levels.get("up41", 0)
+		max_level = max_levels.get("up41", 1)
+		up41_detail = str(current_level) + "/" + str(max_level)
 	
-	current_level = skill_levels.get("up42", 0)
-	max_level = max_levels.get("up42", 1)
-	up42_detail = str(current_level) + "/" + str(max_level)
+	if up42 and up42.visible:
+		current_level = skill_levels.get("up42", 0)
+		max_level = max_levels.get("up42", 1)
+		up42_detail = str(current_level) + "/" + str(max_level)
 	
 	# 更新up5相关
-	current_level = skill_levels.get("up5", 0)
-	max_level = max_levels.get("up5", 1)
-	up5_detail = str(current_level) + "/" + str(max_level)
+	if up5 and up5.visible:
+		current_level = skill_levels.get("up5", 0)
+		max_level = max_levels.get("up5", 1)
+		up5_detail = str(current_level) + "/" + str(max_level)
 	
-	current_level = skill_levels.get("up51", 0)
-	max_level = max_levels.get("up51", 1)
-	up51_detail = str(current_level) + "/" + str(max_level)
+	if up51 and up51.visible:
+		current_level = skill_levels.get("up51", 0)
+		max_level = max_levels.get("up51", 1)
+		up51_detail = str(current_level) + "/" + str(max_level)
 	
-	current_level = skill_levels.get("up52", 0)
-	max_level = max_levels.get("up52", 1)
-	up52_detail = str(current_level) + "/" + str(max_level)
+	if up52 and up52.visible:
+		current_level = skill_levels.get("up52", 0)
+		max_level = max_levels.get("up52", 1)
+		up52_detail = str(current_level) + "/" + str(max_level)
 
 func update_skill_descriptions() -> void:
 	var config = player_study_config.get(current_player, {})
@@ -246,14 +260,12 @@ func learn_skill(skill_name: String) -> void:
 	var player_data = Global.player_study_data.get(current_player, {})
 	var learned_skills = player_data.get("learned_skills", [])
 	var skill_levels = player_data.get("skill_levels", {})
-	var zhenqi_points = PC.point
 	
 	# 获取配置信息
 	var config = player_study_config.get(current_player, {})
-	var stage_config = config.get(1, {})  # 目前只有阶段1
+	var stage_config = config.get(current_study_level, {})  # 使用当前修习阶段
 	var max_levels = stage_config.get("max_levels", {})
 	var point_costs = stage_config.get("point_costs", {})
-	var true_cost = true_cost_culculate(point_costs)
 	
 	# 检查技能是否存在配置
 	if not max_levels.has(skill_name) or not point_costs.has(skill_name):
@@ -271,13 +283,13 @@ func learn_skill(skill_name: String) -> void:
 		return
 	
 	# 检查真气是否足够
-	if zhenqi_points < cost:
-		print("真气不足，需要: " + str(cost) + "，当前: " + str(zhenqi_points))
+	if PC.point < cost:
+		print("真气不足，需要: " + str(cost) + "，当前: " + str(PC.point))
 		return
 	
 	# 升级技能
 	skill_levels[skill_name] = current_level + 1
-	zhenqi_points -= cost
+	PC.point -= cost
 	
 	# 如果是第一次学习，添加到已学习技能列表
 	if current_level == 0 and not skill_name in learned_skills:
@@ -286,7 +298,6 @@ func learn_skill(skill_name: String) -> void:
 	# 更新全局数据
 	Global.player_study_data[current_player]["learned_skills"] = learned_skills
 	Global.player_study_data[current_player]["skill_levels"] = skill_levels
-	Global.player_study_data[current_player]["zhenqi_points"] = zhenqi_points
 	
 	# 应用技能效果
 	apply_skill_effect(skill_name)
@@ -297,34 +308,13 @@ func learn_skill(skill_name: String) -> void:
 	print("学习技能: " + skill_name + " 等级: " + str(skill_levels[skill_name]) + " 消耗真气: " + str(cost))
 
 func apply_skill_effect(skill_name: String) -> void:
-	match skill_name:
-		"up1":
-			# 习得闪避
-			pass
-		"up11":
-			# 闪避无敌时间
-			pass
-		"up12":
-			# 闪避冷却时间
-			pass
-		"up2":
-			# 开启召唤蓝色系
-			pass
-		"up21":
-			# 开启紫色系
-			pass
-		"up3":
-			# 天命初始+3/6/9
-			pass
-		"up4":
-			# 剑气初始强化+1/2
-			pass
-		"up41":
-			# 剑气伤害提升
-			pass
-		"up5":
-			# 刷新次数+1/2
-			Global.refresh_max_num += 1
+	# 获取当前技能等级
+	var player_data = Global.player_study_data.get(current_player, {})
+	var skill_levels = player_data.get("skill_levels", {})
+	var skill_level = skill_levels.get(skill_name, 0)
+	
+	# 调用技能效果配置文件中的函数
+	SkillEffects.apply_skill_effect(current_player, current_study_level, skill_name, skill_level)
 
 func _on_study_level_1_pressed() -> void:
 	if current_study_level == 0:
@@ -351,50 +341,72 @@ func _on_study_level_5_pressed() -> void:
 		Global.player_study_data[current_player]["study_level"] = 5
 		update_study_display()
 
+# 检查技能是否在当前阶段可用
+func is_skill_available(skill_name: String) -> bool:
+	var config = player_study_config.get(current_player, {})
+	var stage_config = config.get(current_study_level, {})
+	var skills = stage_config.get("skills", [])
+	return skill_name in skills
+
 func _on_up_1_pressed() -> void:
-	learn_skill("up1")
+	if is_skill_available("up1"):
+		learn_skill("up1")
 
 func _on_up_11_pressed() -> void:
-	learn_skill("up11")
+	if is_skill_available("up11"):
+		learn_skill("up11")
 
 func _on_up_12_pressed() -> void:
-	learn_skill("up12")
+	if is_skill_available("up12"):
+		learn_skill("up12")
 
 func _on_up_2_pressed() -> void:
-	learn_skill("up2")
+	if is_skill_available("up2"):
+		learn_skill("up2")
 
 func _on_up_21_pressed() -> void:
-	learn_skill("up21")
+	if is_skill_available("up21"):
+		learn_skill("up21")
 
 func _on_up_22_pressed() -> void:
-	pass # 未定义的技能
+	if is_skill_available("up22"):
+		learn_skill("up22")
 
 func _on_up_3_pressed() -> void:
-	learn_skill("up3")
+	if is_skill_available("up3"):
+		learn_skill("up3")
 
 func _on_up_31_pressed() -> void:
-	pass # 未定义的技能
+	if is_skill_available("up31"):
+		learn_skill("up31")
 
 func _on_up_32_pressed() -> void:
-	pass # 未定义的技能
+	if is_skill_available("up32"):
+		learn_skill("up32")
 
 func _on_up_4_pressed() -> void:
-	learn_skill("up4")
+	if is_skill_available("up4"):
+		learn_skill("up4")
 
 func _on_up_41_pressed() -> void:
-	learn_skill("up41")
+	if is_skill_available("up41"):
+		learn_skill("up41")
 
 func _on_up_42_pressed() -> void:
-	pass # 未定义的技能
+	if is_skill_available("up42"):
+		learn_skill("up42")
 
 func _on_up_5_pressed() -> void:
-	learn_skill("up5")
+	if is_skill_available("up5"):
+		learn_skill("up5")
 
 func _on_up_51_pressed() -> void:
-	pass # 未定义的技能
+	if is_skill_available("up51"):
+		learn_skill("up51")
 
 func _on_up_52_pressed() -> void:
-	pass # 未定义的技能
+	if is_skill_available("up52"):
+		learn_skill("up52")
 
 func _on_exit_pressed() -> void:
 	Global.save_game()

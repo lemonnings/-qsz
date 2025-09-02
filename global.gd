@@ -8,6 +8,9 @@ var SettingBuff = preload("res://Script/config/setting_buff.gd").new()
 # 音频管理器
 var AudioManager = preload("res://Script/system/audio_manager.gd").new()
 
+# 主动技能管理器
+var ActiveSkillManager = preload("res://Script/config/active_skill_manager.gd").new()
+
 @export var total_points : int = 1000
 
 @export var max_main_skill_num : int = 3

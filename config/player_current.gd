@@ -132,12 +132,15 @@ func reset_player_attr() -> void :
 	Global.in_menu = false
 	PC.is_game_over = false
 	
-	PC.selected_rewards = [""] # "swordWaveTrace"
+	PC.selected_rewards = [""]
 	
 	exec_pc_atk()
 	exec_pc_hp()
 	exec_pc_bullet_size()
 	exec_lucky_level()
+	
+	# 根据已学习的技能初始化剑气等级和伤害
+	exec_swordqi_skills()
 	
 	PC.real_time = 0
 	PC.current_time = 0
@@ -238,11 +241,29 @@ func exec_pc_bullet_size() -> void:
 
 func exec_lucky_level() -> void:
 	PC.now_lunky_level = Global.lunky_level
-	PC.now_red_p = Global.red_p
-	PC.now_gold_p = Global.gold_p
-	PC.now_purple_p = Global.purple_p
-	PC.now_blue_p = Global.blue_p
-	PC.now_green_p = Global.green_p
+	PC.now_red_p = Global.red_p + Global.lunky_level * 0.25
+	PC.now_gold_p = Global.gold_p + Global.lunky_level * 0.5
+	PC.now_purple_p = Global.purple_p + Global.lunky_level * 0.8
+	PC.now_blue_p = Global.blue_p + Global.lunky_level * 1
+
+func exec_swordqi_skills() -> void:
+	# 根据已学习的技能初始化剑气等级和伤害
+	if Global.player_study_data.has("yiqiu"):
+		var learned_skills = Global.player_study_data["yiqiu"].get("learned_skills", [])
+		
+		# 检查剑气初始强化技能
+		if learned_skills.has("up4_1"):
+			PC.main_skill_swordQi += 1
+		if learned_skills.has("up4_2"):
+			PC.main_skill_swordQi += 1
+		
+		# 检查剑气伤害提升技能
+		if learned_skills.has("up41_1"):
+			PC.main_skill_swordQi_damage += 0.06
+		if learned_skills.has("up41_2"):
+			PC.main_skill_swordQi_damage += 0.06
+		if learned_skills.has("up41_3"):
+			PC.main_skill_swordQi_damage += 0.06
 
 
 func get_total_increase(level) -> String:

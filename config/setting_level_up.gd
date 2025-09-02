@@ -401,7 +401,6 @@ func check_SR21_condition() -> bool:
 func check_SR22_condition() -> bool:
 	return not PC.selected_rewards.has("aSpdToAH3")
 
-
 # 检查是否已选择 “threeway” (三向剑气) 技能
 func check_threeway_condition() -> bool:
 	return not PC.selected_rewards.has("threeway")
@@ -462,6 +461,16 @@ func check_branch3()-> bool:
 func check_branch12()-> bool:
 	return PC.selected_rewards.has("branch1") and PC.selected_rewards.has("branch2")
 
+func check_summon_blue_learned()-> bool:
+	if Global.player_study_data.has("yiqiu") and Global.player_study_data["yiqiu"].has("learned_skills"):
+		return Global.player_study_data["yiqiu"]["learned_skills"].has("summonBlue")
+	return false
+
+func check_summon_purple_learned()-> bool:
+	if Global.player_study_data.has("yiqiu") and Global.player_study_data["yiqiu"].has("learned_skills"):
+		return Global.player_study_data["yiqiu"]["learned_skills"].has("summonPurple")
+	return false
+	
 func check_get_new_main_skill()-> bool:
 	if PC.now_main_skill_num + 1 < Global.max_main_skill_num:
 		return true
