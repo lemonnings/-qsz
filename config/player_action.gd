@@ -402,9 +402,9 @@ func reload_scene() -> void:
 
 
 func _on_player_hit(attacker: Node2D = null) -> void:
-	# 处理铁骨buff的反弹效果
-	if BuffManager.has_buff("tiegu"):
-		var tiegu_stack = BuffManager.get_buff_stack("tiegu")
+	# 处理铁骨纹章的反弹效果
+	if EmblemManager.has_emblem("tiegu"):
+		var tiegu_stack = EmblemManager.get_emblem_stack("tiegu")
 		var reflected_damage = PC.pc_max_hp * 0.25 * tiegu_stack
 		# 找到攻击者并反弹伤害
 		if attacker and is_instance_valid(attacker) and attacker.has_method("take_damage"):
@@ -527,7 +527,7 @@ func update_chenjing_visual():
 	if not chenjing_outline:
 		return
 	
-	if BuffManager.has_buff("chenjing"):
+	if EmblemManager.has_emblem("chenjing"):
 		var last_move = get_last_move_time()
 		var current = Time.get_unix_time_from_system()
 		
@@ -546,8 +546,8 @@ func update_chenjing_visual():
 func update_skill_attack_speeds() -> void:
 	# 计算踏风buff的冷却缩减
 	var cooldown_reduction = 0.0
-	if BuffManager.has_buff("tafeng"):
-		var tafeng_stack = BuffManager.get_buff_stack("tafeng")
+	if EmblemManager.has_emblem("tafeng"):
+		var tafeng_stack = EmblemManager.get_emblem_stack("tafeng")
 		var move_speed_percent = PC.pc_speed * 100
 		cooldown_reduction = (move_speed_percent / 10.0) * 0.005 * tafeng_stack
 	

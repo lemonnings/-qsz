@@ -174,7 +174,7 @@ func reset_player_attr() -> void :
 	PC.first_has_ringFire = true
 	
 	PC.refresh_num = Global.refresh_max_num
-	BuffManager.clear_all_buffs()
+	EmblemManager.clear_all_emblems()
 	
 func exec_pc_atk() -> void:
 	PC.pc_atk = int (15 + int(get_total_increase(Global.atk_level)))

@@ -131,8 +131,8 @@ static func apply_global_buff_effects(damage: float) -> float:
 	var final_damage = damage
 	
 	# 沉静：1秒内没有移动，提升6*层数%的最终伤害
-	if BuffManager.has_buff("chenjing"):
-		var chenjing_stack = BuffManager.get_buff_stack("chenjing")
+	if EmblemManager.has_emblem("chenjing"):
+		var chenjing_stack = EmblemManager.get_emblem_stack("chenjing")
 		if PC.player_instance and PC.player_instance.has_method("get_last_move_time"):
 			var last_move = PC.player_instance.get_last_move_time()
 			var current = Time.get_unix_time_from_system()
@@ -140,29 +140,29 @@ static func apply_global_buff_effects(damage: float) -> float:
 				final_damage *= (1.0 + 0.06 * chenjing_stack)
 	
 	# 炼体：每1%的减伤率额外提升0.2*层数%的最终伤害
-	if BuffManager.has_buff("lianti"):
-		var lianti_stack = BuffManager.get_buff_stack("lianti")
+	if EmblemManager.has_emblem("lianti"):
+		var lianti_stack = EmblemManager.get_emblem_stack("lianti")
 		var damage_reduction_percent = PC.damage_reduction_rate * 100
 		var damage_bonus = damage_reduction_percent * 0.002 * lianti_stack
 		final_damage *= (1.0 + damage_bonus)
 	
 	# 健步：当移动速度加成>20%时，提升4*层数%的最终伤害
-	if BuffManager.has_buff("jianbu"):
-		var jianbu_stack = BuffManager.get_buff_stack("jianbu")
+	if EmblemManager.has_emblem("jianbu"):
+		var jianbu_stack = EmblemManager.get_emblem_stack("jianbu")
 		if PC.pc_speed > 0.2:
 			final_damage *= (1.0 + 0.04 * jianbu_stack)
 	
 	# 蛮力：当移动速度加成<0%时，提升5*层数%的最终伤害
-	if BuffManager.has_buff("manli"):
-		var manli_stack = BuffManager.get_buff_stack("manli")
+	if EmblemManager.has_emblem("manli"):
+		var manli_stack = EmblemManager.get_emblem_stack("manli")
 		if PC.pc_speed < 0:
 			final_damage *= (1.0 + 0.05 * manli_stack)
 	
-	# 融会贯通：当前每拥有一个buff，提升0.8*层数%最终伤害
-	if BuffManager.has_buff("ronghui"):
-		var ronghui_stack = BuffManager.get_buff_stack("ronghui")
-		var active_buff_count = BuffManager.get_active_buff_ids().size()
-		var damage_bonus = active_buff_count * 0.008 * ronghui_stack
+	# 融会贯通：当前每拥有一个纹章，提升0.8*层数%最终伤害
+	if EmblemManager.has_emblem("ronghui"):
+		var ronghui_stack = EmblemManager.get_emblem_stack("ronghui")
+		var active_emblem_count = EmblemManager.get_emblem_count()
+		var damage_bonus = active_emblem_count * 0.008 * ronghui_stack
 		final_damage *= (1.0 + damage_bonus)
 	
 	return final_damage

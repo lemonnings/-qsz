@@ -494,318 +494,318 @@ func check_moyan23()-> bool:
 
 func reward_R01():
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.13)
-	if BuffManager.has_buff("xueqi"):
-		var current_stack = BuffManager.get_buff_stack("xueqi")
-		Global.emit_signal("buff_stack_changed", "xueqi", current_stack + 1)
+	if EmblemManager.has_emblem("xueqi"):
+		var current_stack = EmblemManager.get_emblem_stack("xueqi")
+		Global.emit_signal("emblem_stack_changed", "xueqi", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "xueqi", -1, 1)
+		Global.emit_signal("emblem_added", "xueqi", 1)
 	_level_up_action()
 
 func reward_SR01():
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.17)
-	if BuffManager.has_buff("xueqi"):
-		var current_stack = BuffManager.get_buff_stack("xueqi")
-		Global.emit_signal("buff_stack_changed", "xueqi", current_stack + 1)
+	if EmblemManager.has_emblem("xueqi"):
+		var current_stack = EmblemManager.get_emblem_stack("xueqi")
+		Global.emit_signal("emblem_stack_changed", "xueqi", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "xueqi", -1, 1)
+		Global.emit_signal("emblem_added", "xueqi", 1)
 	_level_up_action()
 
 func reward_SSR01():
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.22)
-	if BuffManager.has_buff("xueqi"):
-		var current_stack = BuffManager.get_buff_stack("xueqi")
-		Global.emit_signal("buff_stack_changed", "xueqi", current_stack + 1)
+	if EmblemManager.has_emblem("xueqi"):
+		var current_stack = EmblemManager.get_emblem_stack("xueqi")
+		Global.emit_signal("emblem_stack_changed", "xueqi", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "xueqi", -1, 1)
+		Global.emit_signal("emblem_added", "xueqi", 1)
 	_level_up_action()
 
 func reward_UR01():
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.32)
-	if BuffManager.has_buff("xueqi"):
-		var current_stack = BuffManager.get_buff_stack("xueqi")
-		Global.emit_signal("buff_stack_changed", "xueqi", current_stack + 2)
+	if EmblemManager.has_emblem("xueqi"):
+		var current_stack = EmblemManager.get_emblem_stack("xueqi")
+		Global.emit_signal("emblem_stack_changed", "xueqi", current_stack + 2)
 	else:
-		Global.emit_signal("buff_added", "xueqi", -1, 2)
+		Global.emit_signal("emblem_added", "xueqi", 2)
 	_level_up_action()
 
 func reward_R02():
 	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.04)
 	PC.pc_atk_speed += 0.015
-	if BuffManager.has_buff("pozhen"):
-		var current_stack = BuffManager.get_buff_stack("pozhen")
-		Global.emit_signal("buff_stack_changed", "pozhen", current_stack + 1)
+	if EmblemManager.has_emblem("pozhen"):
+		var current_stack = EmblemManager.get_emblem_stack("pozhen")
+		Global.emit_signal("emblem_stack_changed", "pozhen", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "pozhen", -1, 1)
+		Global.emit_signal("emblem_added", "pozhen", 1)
 	_level_up_action()
 
 func reward_SR02():
 	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.055)
 	PC.pc_atk_speed += 0.02
-	if BuffManager.has_buff("pozhen"):
-		var current_stack = BuffManager.get_buff_stack("pozhen")
-		Global.emit_signal("buff_stack_changed", "pozhen", current_stack + 1)
+	if EmblemManager.has_emblem("pozhen"):
+		var current_stack = EmblemManager.get_emblem_stack("pozhen")
+		Global.emit_signal("emblem_stack_changed", "pozhen", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "pozhen", -1, 1)
+		Global.emit_signal("emblem_added", "pozhen", 1)
 	_level_up_action()
 
 func reward_SSR02():
 	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.075)
 	PC.pc_atk_speed += 0.025
-	if BuffManager.has_buff("pozhen"):
-		var current_stack = BuffManager.get_buff_stack("pozhen")
-		Global.emit_signal("buff_stack_changed", "pozhen", current_stack + 1)
+	if EmblemManager.has_emblem("pozhen"):
+		var current_stack = EmblemManager.get_emblem_stack("pozhen")
+		Global.emit_signal("emblem_stack_changed", "pozhen", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "pozhen", -1, 1)
+		Global.emit_signal("emblem_added", "pozhen", 1)
 	_level_up_action()
 
 func reward_UR02():
 	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.12)
 	PC.pc_atk_speed += 0.05
-	if BuffManager.has_buff("pozhen"):
-		var current_stack = BuffManager.get_buff_stack("pozhen")
-		Global.emit_signal("buff_stack_changed", "pozhen", current_stack + 2)
+	if EmblemManager.has_emblem("pozhen"):
+		var current_stack = EmblemManager.get_emblem_stack("pozhen")
+		Global.emit_signal("emblem_stack_changed", "pozhen", current_stack + 2)
 	else:
-		Global.emit_signal("buff_added", "pozhen", -1, 2)
+		Global.emit_signal("emblem_added", "pozhen", 2)
 	_level_up_action()
 
 func reward_R03():
 	PC.pc_atk_speed += 0.02
-	if BuffManager.has_buff("jinghong"):
-		var current_stack = BuffManager.get_buff_stack("jinghong")
-		Global.emit_signal("buff_stack_changed", "jinghong", current_stack + 1)
+	if EmblemManager.has_emblem("jinghong"):
+		var current_stack = EmblemManager.get_emblem_stack("jinghong")
+		Global.emit_signal("emblem_stack_changed", "jinghong", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "jinghong", -1, 1)
+		Global.emit_signal("emblem_added", "jinghong", 1)
 	_level_up_action()
 
 func reward_SR03():
 	PC.pc_atk_speed += 0.04
-	if BuffManager.has_buff("jinghong"):
-		var current_stack = BuffManager.get_buff_stack("jinghong")
-		Global.emit_signal("buff_stack_changed", "jinghong", current_stack + 1)
+	if EmblemManager.has_emblem("jinghong"):
+		var current_stack = EmblemManager.get_emblem_stack("jinghong")
+		Global.emit_signal("emblem_stack_changed", "jinghong", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "jinghong", -1, 1)
+		Global.emit_signal("emblem_added", "jinghong", 1)
 	_level_up_action()
 
 func reward_SSR03():
 	PC.pc_atk_speed += 0.07
-	if BuffManager.has_buff("jinghong"):
-		var current_stack = BuffManager.get_buff_stack("jinghong")
-		Global.emit_signal("buff_stack_changed", "jinghong", current_stack + 1)
+	if EmblemManager.has_emblem("jinghong"):
+		var current_stack = EmblemManager.get_emblem_stack("jinghong")
+		Global.emit_signal("emblem_stack_changed", "jinghong", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "jinghong", -1, 1)
+		Global.emit_signal("emblem_added", "jinghong", 1)
 	_level_up_action()
 
 func reward_UR03():
 	PC.pc_atk_speed += 0.13
-	if BuffManager.has_buff("jinghong"):
-		var current_stack = BuffManager.get_buff_stack("jinghong")
-		Global.emit_signal("buff_stack_changed", "jinghong", current_stack + 2)
+	if EmblemManager.has_emblem("jinghong"):
+		var current_stack = EmblemManager.get_emblem_stack("jinghong")
+		Global.emit_signal("emblem_stack_changed", "jinghong", current_stack + 2)
 	else:
-		Global.emit_signal("buff_added", "jinghong", -1, 2)
+		Global.emit_signal("emblem_added", "jinghong", 2)
 	_level_up_action()
 
 func reward_R04(): 
 	PC.pc_speed += 0.07
 	PC.crit_chance += 0.01
-	if BuffManager.has_buff("tafeng"):
-		var current_stack = BuffManager.get_buff_stack("tafeng")
-		Global.emit_signal("buff_stack_changed", "tafeng", current_stack + 1)
+	if EmblemManager.has_emblem("tafeng"):
+		var current_stack = EmblemManager.get_emblem_stack("tafeng")
+		Global.emit_signal("emblem_stack_changed", "tafeng", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "tafeng", -1, 1)
+		Global.emit_signal("emblem_added", "tafeng", 1)
 	_level_up_action()
 
 func reward_SR04(): 
 	PC.pc_speed += 0.10
 	PC.crit_chance += 0.015
-	if BuffManager.has_buff("tafeng"):
-		var current_stack = BuffManager.get_buff_stack("tafeng")
-		Global.emit_signal("buff_stack_changed", "tafeng", current_stack + 1)
+	if EmblemManager.has_emblem("tafeng"):
+		var current_stack = EmblemManager.get_emblem_stack("tafeng")
+		Global.emit_signal("emblem_stack_changed", "tafeng", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "tafeng", -1, 1)
+		Global.emit_signal("emblem_added", "tafeng", 1)
 	_level_up_action()
 
 func reward_SSR04(): 
 	PC.pc_speed += 0.14
 	PC.crit_chance += 0.02
-	if BuffManager.has_buff("tafeng"):
-		var current_stack = BuffManager.get_buff_stack("tafeng")
-		Global.emit_signal("buff_stack_changed", "tafeng", current_stack + 1)
+	if EmblemManager.has_emblem("tafeng"):
+		var current_stack = EmblemManager.get_emblem_stack("tafeng")
+		Global.emit_signal("emblem_stack_changed", "tafeng", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "tafeng", -1, 1)
+		Global.emit_signal("emblem_added", "tafeng", 1)
 	_level_up_action()
 
 func reward_UR04(): 
 	PC.pc_speed += 0.22
 	PC.crit_chance += 0.03
-	if BuffManager.has_buff("tafeng"):
-		var current_stack = BuffManager.get_buff_stack("tafeng")
-		Global.emit_signal("buff_stack_changed", "tafeng", current_stack + 2)
+	if EmblemManager.has_emblem("tafeng"):
+		var current_stack = EmblemManager.get_emblem_stack("tafeng")
+		Global.emit_signal("emblem_stack_changed", "tafeng", current_stack + 2)
 	else:
-		Global.emit_signal("buff_added", "tafeng", -1, 2)
+		Global.emit_signal("emblem_added", "tafeng", 2)
 	_level_up_action()
 
 func reward_R05(): 
 	PC.pc_atk_speed += 0.06
 	PC.pc_speed -= 0.03
-	if BuffManager.has_buff("chenjing"):
-		var current_stack = BuffManager.get_buff_stack("chenjing")
-		Global.emit_signal("buff_stack_changed", "chenjing", current_stack + 1)
+	if EmblemManager.has_emblem("chenjing"):
+		var current_stack = EmblemManager.get_emblem_stack("chenjing")
+		Global.emit_signal("emblem_stack_changed", "chenjing", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "chenjing", -1, 1)
+		Global.emit_signal("emblem_added", "chenjing", 1)
 	_level_up_action()
 
 func reward_SR05(): 
 	PC.pc_atk_speed += 0.08
 	PC.pc_speed -= 0.035
-	if BuffManager.has_buff("chenjing"):
-		var current_stack = BuffManager.get_buff_stack("chenjing")
-		Global.emit_signal("buff_stack_changed", "chenjing", current_stack + 1)
+	if EmblemManager.has_emblem("chenjing"):
+		var current_stack = EmblemManager.get_emblem_stack("chenjing")
+		Global.emit_signal("emblem_stack_changed", "chenjing", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "chenjing", -1, 1)
+		Global.emit_signal("emblem_added", "chenjing", 1)
 	_level_up_action()
 
 func reward_SSR05(): 
 	PC.pc_atk_speed += 0.11
 	PC.pc_speed -= 0.04
-	if BuffManager.has_buff("chenjing"):
-		var current_stack = BuffManager.get_buff_stack("chenjing")
-		Global.emit_signal("buff_stack_changed", "chenjing", current_stack + 1)
+	if EmblemManager.has_emblem("chenjing"):
+		var current_stack = EmblemManager.get_emblem_stack("chenjing")
+		Global.emit_signal("emblem_stack_changed", "chenjing", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "chenjing", -1, 1)
+		Global.emit_signal("emblem_added", "chenjing", 1)
 	_level_up_action()
 
 func reward_UR05(): 
 	PC.pc_atk_speed += 0.17
 	PC.pc_speed -= 0.05
-	if BuffManager.has_buff("chenjing"):
-		var current_stack = BuffManager.get_buff_stack("chenjing")
-		Global.emit_signal("buff_stack_changed", "chenjing", current_stack + 2)
+	if EmblemManager.has_emblem("chenjing"):
+		var current_stack = EmblemManager.get_emblem_stack("chenjing")
+		Global.emit_signal("emblem_stack_changed", "chenjing", current_stack + 2)
 	else:
-		Global.emit_signal("buff_added", "chenjing", -1, 2)
+		Global.emit_signal("emblem_added", "chenjing", 2)
 	_level_up_action()
 	
 func reward_R06():
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.05)
 	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.01, 0.7)
 	PC.pc_speed -= 0.03
-	if BuffManager.has_buff("lianti"):
-		var current_stack = BuffManager.get_buff_stack("lianti")
-		Global.emit_signal("buff_stack_changed", "lianti", current_stack + 1)
+	if EmblemManager.has_emblem("lianti"):
+		var current_stack = EmblemManager.get_emblem_stack("lianti")
+		Global.emit_signal("emblem_stack_changed", "lianti", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "lianti", -1, 1)
+		Global.emit_signal("emblem_added", "lianti", 1)
 	_level_up_action()
 
 func reward_SR06():
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.07)
 	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.015, 0.7)
 	PC.pc_speed -= 0.04
-	if BuffManager.has_buff("lianti"):
-		var current_stack = BuffManager.get_buff_stack("lianti")
-		Global.emit_signal("buff_stack_changed", "lianti", current_stack + 1)
+	if EmblemManager.has_emblem("lianti"):
+		var current_stack = EmblemManager.get_emblem_stack("lianti")
+		Global.emit_signal("emblem_stack_changed", "lianti", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "lianti", -1, 1)
+		Global.emit_signal("emblem_added", "lianti", 1)
 	_level_up_action()
 
 func reward_SSR06():
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.10)
 	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.02, 0.7)
 	PC.pc_speed -= 0.06
-	if BuffManager.has_buff("lianti"):
-		var current_stack = BuffManager.get_buff_stack("lianti")
-		Global.emit_signal("buff_stack_changed", "lianti", current_stack + 1)
+	if EmblemManager.has_emblem("lianti"):
+		var current_stack = EmblemManager.get_emblem_stack("lianti")
+		Global.emit_signal("emblem_stack_changed", "lianti", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "lianti", -1, 1)
+		Global.emit_signal("emblem_added", "lianti", 1)
 	_level_up_action()
 
 func reward_UR06():
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.14)
 	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.04, 0.7)
 	PC.pc_speed -= 0.06
-	if BuffManager.has_buff("lianti"):
-		var current_stack = BuffManager.get_buff_stack("lianti")
-		Global.emit_signal("buff_stack_changed", "lianti", current_stack + 2)
+	if EmblemManager.has_emblem("lianti"):
+		var current_stack = EmblemManager.get_emblem_stack("lianti")
+		Global.emit_signal("emblem_stack_changed", "lianti", current_stack + 2)
 	else:
-		Global.emit_signal("buff_added", "lianti", -1, 2)
+		Global.emit_signal("emblem_added", "lianti", 2)
 	_level_up_action()
 
 func reward_R07():
 	PC.pc_speed += 0.12
 	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.02)
-	if BuffManager.has_buff("jianbu"):
-		var current_stack = BuffManager.get_buff_stack("jianbu")
-		Global.emit_signal("buff_stack_changed", "jianbu", current_stack + 1)
+	if EmblemManager.has_emblem("jianbu"):
+		var current_stack = EmblemManager.get_emblem_stack("jianbu")
+		Global.emit_signal("emblem_stack_changed", "jianbu", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "jianbu", -1, 1)
+		Global.emit_signal("emblem_added", "jianbu", 1)
 	_level_up_action()
 
 func reward_SR07():
 	PC.pc_speed += 0.15
 	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.025)
-	if BuffManager.has_buff("jianbu"):
-		var current_stack = BuffManager.get_buff_stack("jianbu")
-		Global.emit_signal("buff_stack_changed", "jianbu", current_stack + 1)
+	if EmblemManager.has_emblem("jianbu"):
+		var current_stack = EmblemManager.get_emblem_stack("jianbu")
+		Global.emit_signal("emblem_stack_changed", "jianbu", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "jianbu", -1, 1)
+		Global.emit_signal("emblem_added", "jianbu", 1)
 	_level_up_action()
 
 func reward_SSR07():
 	PC.pc_speed += 0.19
 	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
-	if BuffManager.has_buff("jianbu"):
-		var current_stack = BuffManager.get_buff_stack("jianbu")
-		Global.emit_signal("buff_stack_changed", "jianbu", current_stack + 1)
+	if EmblemManager.has_emblem("jianbu"):
+		var current_stack = EmblemManager.get_emblem_stack("jianbu")
+		Global.emit_signal("emblem_stack_changed", "jianbu", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "jianbu", -1, 1)
+		Global.emit_signal("emblem_added", "jianbu", 1)
 	_level_up_action()
 
 func reward_UR07():
 	PC.pc_speed += 0.27
 	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
-	if BuffManager.has_buff("jianbu"):
-		var current_stack = BuffManager.get_buff_stack("jianbu")
-		Global.emit_signal("buff_stack_changed", "jianbu", current_stack + 2)
+	if EmblemManager.has_emblem("jianbu"):
+		var current_stack = EmblemManager.get_emblem_stack("jianbu")
+		Global.emit_signal("emblem_stack_changed", "jianbu", current_stack + 2)
 	else:
-		Global.emit_signal("buff_added", "jianbu", -1, 2)
+		Global.emit_signal("emblem_added", "jianbu", 2)
 	_level_up_action()
 
 func reward_R08():
 	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.06)
 	PC.pc_atk_speed -= 0.03
-	if BuffManager.has_buff("manli"):
-		var current_stack = BuffManager.get_buff_stack("manli")
-		Global.emit_signal("buff_stack_changed", "manli", current_stack + 1)
+	if EmblemManager.has_emblem("manli"):
+		var current_stack = EmblemManager.get_emblem_stack("manli")
+		Global.emit_signal("emblem_stack_changed", "manli", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "manli", -1, 1)
+		Global.emit_signal("emblem_added", "manli", 1)
 	_level_up_action()
 
 func reward_SR08():
 	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.08)
 	PC.pc_atk_speed -= 0.03
-	if BuffManager.has_buff("manli"):
-		var current_stack = BuffManager.get_buff_stack("manli")
-		Global.emit_signal("buff_stack_changed", "manli", current_stack + 1)
+	if EmblemManager.has_emblem("manli"):
+		var current_stack = EmblemManager.get_emblem_stack("manli")
+		Global.emit_signal("emblem_stack_changed", "manli", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "manli", -1, 1)
+		Global.emit_signal("emblem_added", "manli", 1)
 	_level_up_action()
 
 func reward_SSR08():
 	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.11)
 	PC.pc_atk_speed -= 0.035
-	if BuffManager.has_buff("manli"):
-		var current_stack = BuffManager.get_buff_stack("manli")
-		Global.emit_signal("buff_stack_changed", "manli", current_stack + 1)
+	if EmblemManager.has_emblem("manli"):
+		var current_stack = EmblemManager.get_emblem_stack("manli")
+		Global.emit_signal("emblem_stack_changed", "manli", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "manli", -1, 1)
+		Global.emit_signal("emblem_added", "manli", 1)
 	_level_up_action()
 
 func reward_UR08():
 	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.17)
 	PC.pc_atk_speed -= 0.045
-	if BuffManager.has_buff("manli"):
-		var current_stack = BuffManager.get_buff_stack("manli")
-		Global.emit_signal("buff_stack_changed", "manli", current_stack + 2)
+	if EmblemManager.has_emblem("manli"):
+		var current_stack = EmblemManager.get_emblem_stack("manli")
+		Global.emit_signal("emblem_stack_changed", "manli", current_stack + 2)
 	else:
-		Global.emit_signal("buff_added", "manli", -1, 2)
+		Global.emit_signal("emblem_added", "manli", 2)
 	_level_up_action()
 
 func reward_R09():
@@ -830,38 +830,38 @@ func reward_UR09():
 
 func reward_R10():
 	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.035)
-	if BuffManager.has_buff("ronghui"):
-		var current_stack = BuffManager.get_buff_stack("ronghui")
-		Global.emit_signal("buff_stack_changed", "ronghui", current_stack + 1)
+	if EmblemManager.has_emblem("ronghui"):
+		var current_stack = EmblemManager.get_emblem_stack("ronghui")
+		Global.emit_signal("emblem_stack_changed", "ronghui", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "ronghui", -1, 1)
+		Global.emit_signal("emblem_added", "ronghui", -1, 1)
 	_level_up_action()
 
 func reward_SR10():
 	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.055)
-	if BuffManager.has_buff("ronghui"):
-		var current_stack = BuffManager.get_buff_stack("ronghui")
-		Global.emit_signal("buff_stack_changed", "ronghui", current_stack + 1)
+	if EmblemManager.has_emblem("ronghui"):
+		var current_stack = EmblemManager.get_emblem_stack("ronghui")
+		Global.emit_signal("emblem_stack_changed", "ronghui", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "ronghui", -1, 1)
+		Global.emit_signal("emblem_added", "ronghui", -1, 1)
 	_level_up_action()
 
 func reward_SSR10():
 	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.08)
-	if BuffManager.has_buff("ronghui"):
-		var current_stack = BuffManager.get_buff_stack("ronghui")
-		Global.emit_signal("buff_stack_changed", "ronghui", current_stack + 1)
+	if EmblemManager.has_emblem("ronghui"):
+		var current_stack = EmblemManager.get_emblem_stack("ronghui")
+		Global.emit_signal("emblem_stack_changed", "ronghui", current_stack + 1)
 	else:
-		Global.emit_signal("buff_added", "ronghui", -1, 1)
+		Global.emit_signal("emblem_added", "ronghui", -1, 1)
 	_level_up_action()
 
 func reward_UR10():
 	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.12)
-	if BuffManager.has_buff("ronghui"):
-		var current_stack = BuffManager.get_buff_stack("ronghui")
-		Global.emit_signal("buff_stack_changed", "ronghui", current_stack + 2)
+	if EmblemManager.has_emblem("ronghui"):
+		var current_stack = EmblemManager.get_emblem_stack("ronghui")
+		Global.emit_signal("emblem_stack_changed", "ronghui", current_stack + 2)
 	else:
-		Global.emit_signal("buff_added", "ronghui", -1, 2)
+		Global.emit_signal("emblem_added", "ronghui", -1, 2)
 	_level_up_action()
 
 

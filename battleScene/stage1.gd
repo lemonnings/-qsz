@@ -54,7 +54,7 @@ var monster_limit_increase_timer: float = 0.0
 @export var attr_label: RichTextLabel
 
 @export var buff_box: HBoxContainer
-var buff_manager: BuffManager
+var emblem_manager: EmblemManager
 
 @export var now_time: Label
 @export var current_multi: Label
@@ -103,10 +103,10 @@ func _ready() -> void:
 	Global.connect("monster_mechanism_gained", Callable(self, "_on_monster_mechanism_gained"))
 	Global.connect("boss_defeated", Callable(self, "_on_boss_defeated"))
 	
-	# 初始化buff管理器
-	buff_manager = BuffManager.new()
-	add_child(buff_manager)
-	buff_manager.setup_buff_container(buff_box)
+	# 初始化纹章管理器
+	emblem_manager = EmblemManager.new()
+	add_child(emblem_manager)
+	emblem_manager.setup_emblem_container(buff_box)
 	
 	skill1.visible = true
 	skill1.update_skill(1, $Player.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")

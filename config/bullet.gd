@@ -191,22 +191,22 @@ func apply_buff_effects_to_damage(base_damage: float, is_summon_bullet: bool) ->
 	# 如果是召唤物子弹，不应用武器攻击相关的buff
 	if not is_summon_bullet:
 		# 血气：基础武器攻击附带2*层数%当前HP的伤害
-		if BuffManager.has_buff("xueqi"):
-			var xueqi_stack = BuffManager.get_buff_stack("xueqi")
+		if EmblemManager.has_emblem("xueqi"):
+			var xueqi_stack = EmblemManager.get_emblem_stack("xueqi")
 			var hp_percent_damage = PC.pc_hp * 0.02 * xueqi_stack
 			final_damage += hp_percent_damage
 		
 		# 破阵：基础武器攻击有5*层数%概率直击，额外造成30%无视敌方减伤的伤害
-		if BuffManager.has_buff("pozhen"):
-			var pozhen_stack = BuffManager.get_buff_stack("pozhen")
+		if EmblemManager.has_emblem("pozhen"):
+			var pozhen_stack = EmblemManager.get_emblem_stack("pozhen")
 			var direct_hit_chance = 0.05 * pozhen_stack
 			if randf() < direct_hit_chance:
 				# 标记为直击伤害，在bullet_cal.gd中处理
 				set_meta("direct_hit", true)
 		
 		# 惊鸿：基础武器每攻击3次，额外攻击1次，该次攻击造成15*层数%的伤害
-		if BuffManager.has_buff("jinghong"):
-			var jinghong_stack = BuffManager.get_buff_stack("jinghong")
+		if EmblemManager.has_emblem("jinghong"):
+			var jinghong_stack = EmblemManager.get_emblem_stack("jinghong")
 			var attack_count = get_meta("attack_count", 0)
 			attack_count += 1
 			set_meta("attack_count", attack_count)

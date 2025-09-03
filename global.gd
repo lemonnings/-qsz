@@ -5,6 +5,9 @@ const CONFIG_PATH = "user://game_config.cfg"
 # Buff配置管理器（需要在项目设置中设置为自动加载）
 var SettingBuff = preload("res://Script/config/setting_buff.gd").new()
 
+# 纹章配置管理器
+var SettingEmblem = preload("res://Script/config/setting_emblem.gd").new()
+
 # 音频管理器
 var AudioManager = preload("res://Script/system/audio_manager.gd").new()
 
@@ -96,6 +99,11 @@ signal buff_removed(buff_id: String)
 signal buff_updated(buff_id: String, remaining_time: float, stack: int)
 signal buff_stack_changed(buff_id: String, new_stack: int)
 
+# 纹章系统信号
+signal emblem_added(emblem_id: String, stack: int)
+signal emblem_removed(emblem_id: String)
+signal emblem_stack_changed(emblem_id: String, new_stack: int)
+
 # 攻击相关
 signal skill_cooldown_complete
 signal skill_cooldown_complete_branch
@@ -150,6 +158,9 @@ func _ready() -> void:
 	
 	# 初始化buff配置管理器
 	add_child(SettingBuff)
+	
+	# 初始化纹章配置管理器
+	add_child(SettingEmblem)
 	
 	# 初始化音频管理器
 	add_child(AudioManager)
@@ -211,6 +222,8 @@ func save_game() -> void:
 		"cultivation_liejin_level": cultivation_liejin_level,
 		# 玩家修习技能数据
 		"player_study_data": player_study_data,
+		# 纹章系统
+		"emblem_slots_max": PC.emblem_slots_max,
 		# 音频设置
 		"master_volume": AudioManager.get_master_volume(),
 		"bgm_volume": AudioManager.get_bgm_volume(),
@@ -269,6 +282,9 @@ func load_game() -> void:
 		if not loaded_study_data[player_name].has("zhenqi_points"):
 			loaded_study_data[player_name]["zhenqi_points"] = 100  # 默认真气点数
 	player_study_data = loaded_study_data
+	
+	# 加载纹章系统数据
+	PC.emblem_slots_max = config.get_value("save", "emblem_slots_max", 4)
 	
 	# 加载音频设置
 	var master_vol = config.get_value("save", "master_volume", 1.0)

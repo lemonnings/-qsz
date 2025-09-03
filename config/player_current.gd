@@ -107,6 +107,10 @@ extends Node
 # 刷新次数
 @export var refresh_num : int = 3 
 
+# 纹章相关字段
+@export var emblem_slots_max : int = 4  # 纹章数量上限
+@export var current_emblems : Dictionary = {}  # 当前持有的纹章 {emblem_id: stack}
+
 @export var is_game_over : bool = false
 @export var movement_disabled : bool = false  # 控制玩家移动是否被禁用
 
@@ -224,7 +228,11 @@ func reset_player_attr() -> void :
 	PC.first_has_ringFire = true
 	
 	PC.refresh_num = Global.refresh_max_num
-	BuffManager.clear_all_buffs()
+	# BuffManager.clear_all_buffs() # 已由下面的EmblemManager.clear_all_emblems()替代
+	
+	# 重置纹章系统
+	PC.current_emblems.clear()
+	EmblemManager.clear_all_emblems()
 	
 
 func exec_pc_atk() -> void:
