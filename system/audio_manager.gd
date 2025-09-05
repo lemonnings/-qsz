@@ -33,15 +33,17 @@ func setup_audio_buses() -> void:
 	
 	# 确保BGM总线存在
 	if AudioServer.get_bus_index(BGM_BUS) == -1:
-		AudioServer.add_bus(1)
-		AudioServer.set_bus_name(1, BGM_BUS)
-		AudioServer.set_bus_send(1, MASTER_BUS)
+		AudioServer.add_bus()  # 不指定索引，让系统自动分配
+		var bgm_index = AudioServer.get_bus_count() - 1
+		AudioServer.set_bus_name(bgm_index, BGM_BUS)
+		AudioServer.set_bus_send(bgm_index, MASTER_BUS)
 	
 	# 确保SFX总线存在
 	if AudioServer.get_bus_index(SFX_BUS) == -1:
-		AudioServer.add_bus(2)
-		AudioServer.set_bus_name(2, SFX_BUS)
-		AudioServer.set_bus_send(2, MASTER_BUS)
+		AudioServer.add_bus()
+		var sfx_index = AudioServer.get_bus_count() - 1
+		AudioServer.set_bus_name(sfx_index, SFX_BUS)
+		AudioServer.set_bus_send(sfx_index, MASTER_BUS)
 
 func set_master_volume(volume: float) -> void:
 	master_volume = clamp(volume, 0.0, 1.0)
@@ -68,6 +70,10 @@ func apply_volume_settings() -> void:
 
 func apply_master_volume() -> void:
 	var master_bus_index = AudioServer.get_bus_index(MASTER_BUS)
+	if master_bus_index == -1:
+		push_error("Master音频总线不存在")
+		return
+	
 	if master_volume <= 0.0:
 		AudioServer.set_bus_mute(master_bus_index, true)
 	else:
@@ -77,23 +83,29 @@ func apply_master_volume() -> void:
 
 func apply_bgm_volume() -> void:
 	var bgm_bus_index = AudioServer.get_bus_index(BGM_BUS)
-	if bgm_bus_index != -1:
-		if bgm_volume <= 0.0:
-			AudioServer.set_bus_mute(bgm_bus_index, true)
-		else:
-			AudioServer.set_bus_mute(bgm_bus_index, false)
-			var db = linear_to_db(bgm_volume)
-			AudioServer.set_bus_volume_db(bgm_bus_index, db)
+	if bgm_bus_index == -1:
+		push_error("BGM音频总线不存在")
+		return
+
+	if bgm_volume <= 0.0:
+		AudioServer.set_bus_mute(bgm_bus_index, true)
+	else:
+		AudioServer.set_bus_mute(bgm_bus_index, false)
+		var db = linear_to_db(bgm_volume)
+		AudioServer.set_bus_volume_db(bgm_bus_index, db)
 
 func apply_sfx_volume() -> void:
 	var sfx_bus_index = AudioServer.get_bus_index(SFX_BUS)
-	if sfx_bus_index != -1:
-		if sfx_volume <= 0.0:
-			AudioServer.set_bus_mute(sfx_bus_index, true)
-		else:
-			AudioServer.set_bus_mute(sfx_bus_index, false)
-			var db = linear_to_db(sfx_volume)
-			AudioServer.set_bus_volume_db(sfx_bus_index, db)
+	if sfx_bus_index == -1:
+		push_error("SFX音频总线不存在")
+		return
+	
+	if sfx_volume <= 0.0:
+		AudioServer.set_bus_mute(sfx_bus_index, true)
+	else:
+		AudioServer.set_bus_mute(sfx_bus_index, false)
+		var db = linear_to_db(sfx_volume)
+		AudioServer.set_bus_volume_db(sfx_bus_index, db)
 
 func get_master_volume() -> float:
 	return master_volume
@@ -107,20 +119,36 @@ func get_sfx_volume() -> float:
 # 静音/取消静音功能
 func toggle_master_mute() -> void:
 	var master_bus_index = AudioServer.get_bus_index(MASTER_BUS)
+	if master_bus_index == -1:
+		push_error("Master音频总线不存在")
+		return
+	
 	var is_muted = AudioServer.is_bus_mute(master_bus_index)
 	AudioServer.set_bus_mute(master_bus_index, not is_muted)
+	# 发送信号通知UI更新静音状态
+	volume_changed.emit(MASTER_BUS, master_volume if not is_muted else 0.0)
 
 func toggle_bgm_mute() -> void:
 	var bgm_bus_index = AudioServer.get_bus_index(BGM_BUS)
-	if bgm_bus_index != -1:
-		var is_muted = AudioServer.is_bus_mute(bgm_bus_index)
-		AudioServer.set_bus_mute(bgm_bus_index, not is_muted)
+	if bgm_bus_index == -1:
+		push_error("BGM音频总线不存在")
+		return
+	
+	var is_muted = AudioServer.is_bus_mute(bgm_bus_index)
+	AudioServer.set_bus_mute(bgm_bus_index, not is_muted)
+	# 发送信号通知UI更新静音状态
+	volume_changed.emit(BGM_BUS, bgm_volume if not is_muted else 0.0)
 
 func toggle_sfx_mute() -> void:
 	var sfx_bus_index = AudioServer.get_bus_index(SFX_BUS)
-	if sfx_bus_index != -1:
-		var is_muted = AudioServer.is_bus_mute(sfx_bus_index)
-		AudioServer.set_bus_mute(sfx_bus_index, not is_muted)
+	if sfx_bus_index == -1:
+		push_error("SFX音频总线不存在")
+		return
+	
+	var is_muted = AudioServer.is_bus_mute(sfx_bus_index)
+	AudioServer.set_bus_mute(sfx_bus_index, not is_muted)
+	# 发送信号通知UI更新静音状态
+	volume_changed.emit(SFX_BUS, sfx_volume if not is_muted else 0.0)
 
 # 保存音频设置
 func save_audio_settings() -> void:
