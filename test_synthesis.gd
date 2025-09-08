@@ -12,7 +12,7 @@ func setup_test_data():
 	print("设置合成系统测试数据...")
 	
 	# 解锁所有配方用于测试
-	Global.unlock_recipe("recipe_001")  # 贤者之石
+	Global.unlock_recipe("recipe_001")  # 聚灵石
 	Global.unlock_recipe("recipe_002")  # 九幽秘钥
 	Global.unlock_recipe("recipe_003")  # 强化野果
 	Global.unlock_recipe("recipe_004")  # 复合装备
@@ -20,7 +20,7 @@ func setup_test_data():
 	# 添加测试物品到背包
 	Global.player_inventory["item_001"] = 10  # 野果
 	Global.player_inventory["item_002"] = 5   # 力量之戒
-	Global.player_inventory["item_003"] = 3   # 贤者之石碎片
+	Global.player_inventory["item_003"] = 3   # 聚灵石碎片
 	Global.player_inventory["item_004"] = 15  # 九幽秘钥碎片
 	
 	print("测试数据设置完成！")

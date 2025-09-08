@@ -45,7 +45,7 @@ func _ready():
 	create_warning_shape()
 
 func create_warning_shape():
-	var CircleDrawer = preload("res://util/circle_drawer.gd")
+	var CircleDrawer = preload("res://Script/util/circle_drawer.gd")
 	warning_shape = CircleDrawer.new()
 	add_child(warning_shape)
 	
@@ -108,30 +108,31 @@ func update_warning_visual(progress: float):
 	if not warning_shape:
 		return
 	
-	if progress <= 0.25:
+	if progress <= 0.1:
 		# 前四分之一时间：从中心向外扩散
-		var expand_progress = progress / 0.25
+		var expand_progress = progress / 0.1
 		var current_scale = expand_progress
 		warning_shape.scale = Vector2(current_scale, current_scale)
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35)  # 红色，透明度0.35
 	
-	elif progress <= 0.75:
+	elif progress <= 0.65:
 		# 中间时间：保持稳定
 		warning_shape.scale = Vector2(1.0, 1.0)
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35)
 	
-	elif progress <= 0.9:
-		# 最后四分之一时间的前部分：开始闪烁
-		var blink_progress = (progress - 0.75) / 0.15
-		var blink_speed = 5.0 + blink_progress * 10.0  # 逐渐加快闪烁
+	elif progress <= 0.8:
+		# 开始闪烁阶段：缩短闪烁时间
+		var blink_progress = (progress - 0.65) / 0.15
+		var blink_speed = 3.0 + blink_progress * 6.0  # 逐渐加快闪烁
 		var blink_alpha = (sin(current_time * blink_speed) + 1.0) * 0.5  # 0到1的范围
-		var final_alpha = 0.35 * (0.35 + blink_alpha * 0.65)  # 0.35*0.35到0.35的范围
+		# 修正透明度计算：在0.2到0.35之间闪烁，避免过暗
+		var final_alpha = 0.2 + blink_alpha * 0.15
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, final_alpha)
 	
 	else:
 		# 最后0.1秒：渐变消失
 		var fade_progress = (progress - 0.9) / 0.1
-		var alpha = 0.35 * (1.0 - fade_progress)
+		var alpha = 0.2 * (1.0 - fade_progress)
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, alpha)
 
 func finish_warning():
@@ -217,10 +218,26 @@ func create_persistent_area():
 	if area_sprite_scene != null:
 		var sprite_instance = area_sprite_scene.instantiate()
 		persistent_area.add_child(sprite_instance)
-		area_sprite = sprite_instance
-		# 如果是AnimatedSprite2D，开始播放动画
-		if area_sprite is AnimatedSprite2D:
+		# 从实例化的场景中查找AnimatedSprite2D节点
+		area_sprite = sprite_instance.get_node_or_null("AnimatedSprite2D")
+		if area_sprite == null:
+			# 如果没有找到AnimatedSprite2D，尝试查找第一个AnimatedSprite2D子节点
+			for child in sprite_instance.get_children():
+				if child is AnimatedSprite2D:
+					area_sprite = child
+					break
+		# 如果是AnimatedSprite2D，调整缩放以匹配红圈大小
+		if area_sprite != null and area_sprite is AnimatedSprite2D:
+			# AnimatedSprite2D纹理是64x64像素，但实际图像约58x58像素
+			# 红圈直径是radius*2，使用实际图像大小58作为基准
+			var sprite_scale = (radius * 2.0) / 54.0
+			area_sprite.scale = Vector2(sprite_scale * aspect_ratio, sprite_scale)
+			# 设置初始透明度为0，准备渐显动画
+			area_sprite.modulate.a = 0.0
 			area_sprite.play()
+			# 创建渐显动画
+			var fade_tween = create_tween()
+			fade_tween.tween_property(area_sprite, "modulate:a", 1.0, 0.1)
 	
 	# 设置持续时间（如果不是永久）
 	if area_duration > 0:
