@@ -11,6 +11,12 @@ var SettingEmblem = preload("res://Script/config/setting_emblem.gd").new()
 # 音频管理器
 var AudioManager = preload("res://Script/system/audio_manager.gd").new()
 
+# 设置管理器
+var SettingsManager = preload("res://Script/system/settings_manager.gd").new()
+
+# 柔光滤镜管理器
+var SoftGlowManager = preload("res://Script/system/soft_glow_manager.gd").new()
+
 # 主动技能管理器
 var ActiveSkillManager = preload("res://Script/config/active_skill_manager.gd").new()
 
@@ -132,7 +138,7 @@ var player_inventory = {}
 # 合成书获取进度 - 记录每个合成配方是否已解锁
 # 格式: {"recipe_id": bool}
 @export var recipe_unlock_progress = {
-	"recipe_001": true,  # 贤者之石
+	"recipe_001": true,  # 聚灵石
 	"recipe_002": true,  # 九幽秘钥
 	"recipe_003": true,  # 强化野果
 	"recipe_004": true   # 复合装备
@@ -142,7 +148,7 @@ var player_inventory = {}
 # 当使用特定物品时，解锁对应的配方
 # 注意：立即生效的物品（如野果）不通过使用解锁配方，而是通过其他方式（如拾取时）解锁
 var item_recipe_unlock_map = {
-	"item_003": ["recipe_001"],  # 贤者之石碎片解锁贤者之石配方
+	"item_003": ["recipe_001"],  # 聚灵石碎片解锁聚灵石配方
 	"item_004": ["recipe_002"],  # 九幽秘钥碎片解锁九幽秘钥配方
 	"item_002": ["recipe_004"]   # 力量之戒解锁复合装备配方
 }
@@ -164,6 +170,12 @@ func _ready() -> void:
 	
 	# 初始化音频管理器
 	add_child(AudioManager)
+	
+	# 初始化柔光滤镜管理器
+	add_child(SoftGlowManager)
+	
+	# 初始化设置管理器
+	add_child(SettingsManager)
 	
 	# 初始化DPS计时器
 	dps_timer = Timer.new()
@@ -390,6 +402,7 @@ func unlock_recipe(recipe_id: String) -> bool:
 # 检查配方是否已解锁
 func is_recipe_unlocked(recipe_id: String) -> bool:
 	if recipe_unlock_progress.has(recipe_id):
+		print(recipe_unlock_progress.get("recipe_001"))
 		return recipe_unlock_progress[recipe_id]
 	else:
 		printerr("未知的配方ID: ", recipe_id)

@@ -175,14 +175,14 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_off: Rect2, rect_on: Rect2, refresh_id: int):
 	# 配置button内部要显示的数据
 	var lvcb: Sprite2D = button.get_node("Pic")
-	var lvTitle: RichTextLabel = button.get_node("Panel/Title")
+	var lvTitle: RichTextLabel = button.get_node("Title")
 	var lvcbd: RichTextLabel = button.get_node("Panel/Detail")
-	var lvSkillLv: RichTextLabel = button.get_node("Panel/SkillLv")
-	var lvAdvanceProgress1: Sprite2D = button.get_node("Panel/AdvanceProgress1")
-	var lvAdvanceProgress2: Sprite2D = button.get_node("Panel/AdvanceProgress2")
-	var lvAdvanceProgress3: Sprite2D = button.get_node("Panel/AdvanceProgress3")
-	var lvAdvanceProgress4: Sprite2D = button.get_node("Panel/AdvanceProgress4")
-	var lvAdvanceProgress5: Sprite2D = button.get_node("Panel/AdvanceProgress5")
+	var lvSkillLv: RichTextLabel = button.get_node("SkillLv")
+	var lvAdvanceProgress1: Sprite2D = button.get_node("AdvanceProgress1")
+	var lvAdvanceProgress2: Sprite2D = button.get_node("AdvanceProgress2")
+	var lvAdvanceProgress3: Sprite2D = button.get_node("AdvanceProgress3")
+	var lvAdvanceProgress4: Sprite2D = button.get_node("AdvanceProgress4")
+	var lvAdvanceProgress5: Sprite2D = button.get_node("AdvanceProgress5")
 	
 	lvSkillLv.visible = false
 	lvAdvanceProgress1.visible = false
@@ -190,13 +190,13 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 	lvAdvanceProgress3.visible = false
 	lvAdvanceProgress4.visible = false
 	lvAdvanceProgress5.visible = false
-	lvcbd.size = Vector2(160, 219)
-	lvcbd.position = Vector2(0, 59)
+	#lvTitle.size = Vector2(160, 219)
+	#lvTitle.position = Vector2(0, 59)
 	
 	# 如果抽取到的是主要技能，则渲染进阶状态
 	if reward.if_main_skill and !reward.if_advance:
-		lvcbd.size = Vector2(160, 175)
-		lvcbd.position = Vector2(0, 103)
+		lvTitle.size = Vector2(141, 118)
+		lvTitle.position = Vector2(162, 24)
 		lvSkillLv.visible = true
 		lvAdvanceProgress1.visible = true
 		lvAdvanceProgress2.visible = true

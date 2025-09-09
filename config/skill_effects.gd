@@ -22,10 +22,6 @@ static func apply_skill_effect(player_name: String, study_level: int, skill_name
 		# 奕秋 - 第1层级技能效果
 		"apply_yiqiu_1_up1_1":
 			apply_yiqiu_1_up1_1()
-		"apply_yiqiu_1_up1_2":
-			apply_yiqiu_1_up1_2()
-		"apply_yiqiu_1_up1_3":
-			apply_yiqiu_1_up1_3()
 		"apply_yiqiu_1_up11_1":
 			apply_yiqiu_1_up11_1()
 		"apply_yiqiu_1_up11_2":
@@ -62,14 +58,6 @@ static func apply_skill_effect(player_name: String, study_level: int, skill_name
 			apply_yiqiu_1_up5_1()
 		"apply_yiqiu_1_up5_2":
 			apply_yiqiu_1_up5_2()
-		"apply_yiqiu_1_up51_1":
-			apply_yiqiu_1_up51_1()
-		"apply_yiqiu_1_up51_2":
-			apply_yiqiu_1_up51_2()
-		"apply_yiqiu_1_up52_1":
-			apply_yiqiu_1_up52_1()
-		"apply_yiqiu_1_up52_2":
-			apply_yiqiu_1_up52_2()
 		_:
 			print("未找到技能效果函数: ", function_name)
 

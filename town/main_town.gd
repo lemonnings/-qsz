@@ -7,6 +7,7 @@ extends Node2D
 @export var settingButton : Button
 @export var canvasLayer : CanvasLayer
 @export var synthesisLayer : CanvasLayer
+@export var studyLayer : CanvasLayer
 
 @export var tip : Node
 
@@ -15,12 +16,14 @@ extends Node2D
 @export var cystal : AnimatedSprite2D 
 @export var cystal2 : AnimatedSprite2D 
 @export var levelUpMan : AnimatedSprite2D 
+@export var levelUpMan2 : AnimatedSprite2D 
 @export var blackSmith : AnimatedSprite2D 
 @export var merchant : AnimatedSprite2D 
 @export var danlu : AnimatedSprite2D 
 @export var portal : AnimatedSprite2D
 @export var cystalTips : Control 
 @export var levelUpManTips : Control
+@export var levelUpMan2Tips : Control
 @export var blackSmithTips : Control
 @export var merchantTips : Control
 @export var danluTips : Control
@@ -30,6 +33,16 @@ extends Node2D
 
 @export var cultivation_msg : RichTextLabel
 @export var point_label : Label
+
+# 设置
+@export var main_volume : HSlider
+@export var bgm_volume : HSlider
+@export var se_volume : HSlider
+@export var screen_resolution : OptionButton
+@export var full_screen : CheckButton
+@export var vignetting : CheckButton
+@export var particle : CheckButton
+
 
 @export var interaction_distance : float = 35.0 
 var dialog_file_to_start: String = "res://AssetBundle/Dialog/test_dialog.txt"
@@ -51,6 +64,9 @@ func _ready() -> void:
 	
 	if $Player is CharacterBody2D:
 		player = $Player
+	
+	# 初始化设置界面
+	setup_settings_ui()
 
 func setup_audio_buses() -> void:
 	# 设置所有音效使用SFX总线
@@ -64,6 +80,7 @@ func setup_audio_buses() -> void:
 	# 初始化UI状态
 	ui_states["cystalTips"] = false
 	ui_states["levelUpManTips"] = false
+	ui_states["levelUpMan2Tips"] = false
 	ui_states["danluTips"] = false
 	ui_states["portalTips"] = false
 	ui_states["dark_overlay"] = false
@@ -73,6 +90,8 @@ func setup_audio_buses() -> void:
 	cystalTips.modulate.a = 0.0
 	levelUpManTips.visible = false
 	levelUpManTips.modulate.a = 0.0
+	levelUpMan2Tips.visible = false
+	levelUpMan2Tips.modulate.a = 0.0
 	danluTips.visible = false
 	danluTips.modulate.a = 0.0
 	portalTips.visible = false
@@ -92,6 +111,9 @@ func setup_audio_buses() -> void:
 	
 	if synthesisLayer:
 		synthesisLayer.visible = false
+	
+	if studyLayer:
+		studyLayer.visible = false
 
 	Global.emit_signal("reset_camera")
 	Global.connect("press_f", Callable(self, "press_interact"))
@@ -137,13 +159,24 @@ func _process(delta: float) -> void:
 				
 	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance:
 		animate_ui_element(levelUpManTips, "levelUpManTips", true)
-		levelUpManTips.change_name("乾
-		<引导者>")
+		levelUpManTips.change_name("艮
+		<修炼>")
 		levelUpManTips.change_label1_text("修习 [F]")
 		levelUpManTips.change_function2_visible(true)
 		levelUpManTips.change_label2_text("交谈 [G]")
 	else:
 		animate_ui_element(levelUpManTips, "levelUpManTips", false)
+	
+				
+	if player.global_position.distance_to(levelUpMan2.global_position) < interaction_distance:
+		animate_ui_element(levelUpMan2Tips, "levelUpMan2Tips", true)
+		levelUpMan2Tips.change_name("震
+		<进阶>")
+		levelUpMan2Tips.change_label1_text("进阶 [F]")
+		levelUpMan2Tips.change_function2_visible(true)
+		levelUpMan2Tips.change_label2_text("交谈 [G]")
+	else:
+		animate_ui_element(levelUpMan2Tips, "levelUpMan2Tips", false)
 	
 				
 	if player.global_position.distance_to(danlu.global_position) < interaction_distance+20:
@@ -257,6 +290,35 @@ func press_interact():
 				child.modulate.a = 0.0
 				ui_tweens["synthesisLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
 		
+		
+	if player.global_position.distance_to(levelUpMan2.global_position) < interaction_distance + 20:
+		PC.movement_disabled = true
+		
+		if dark_overlay:
+			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
+				ui_tweens["dark_overlay"].kill()
+			
+			ui_tweens["dark_overlay"] = create_tween()
+			dark_overlay.visible = true
+			dark_overlay.modulate.a = 0.0
+			ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
+		
+		# 渐进显示合成界面
+		if ui_tweens.has("studyLayer") and ui_tweens["studyLayer"]:
+			ui_tweens["studyLayer"].kill()
+		
+		ui_tweens["studyLayer"] = create_tween()
+		ui_tweens["studyLayer"].set_parallel(true)
+		studyLayer.visible = true
+		
+		# 对CanvasLayer的所有子节点进行动画
+		for child in studyLayer.get_children():
+			if child.has_method("set_modulate"):
+				child.modulate.a = 0.0
+				ui_tweens["studyLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
+
+
+
 # G交互
 func press_interact2():
 	settingButton.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -416,7 +478,6 @@ func _on_cmp(cultivation_key: String) -> void:
 		
 		$LevelUP.play()
 		
-		print(config["name"] + "修炼成功！当前等级：" + str(Global.get(config["level_var"])))
 		tip.start_animation(config["name"] + "修炼成功！当前等级：" + str(Global.get(config["level_var"])), 0.5)
 
 		Global.save_game()
@@ -500,9 +561,78 @@ func _on_liejin_mouse_exited() -> void:
 func _on_liejin_pressed() -> void:
 	_on_cmp("liejin")
 
+# 设置界面初始化
+func setup_settings_ui() -> void:
+	# 初始化音量滑块
+	if main_volume:
+		main_volume.min_value = 0.0
+		main_volume.max_value = 1.0
+		main_volume.step = 0.01
+		main_volume.value = Global.AudioManager.get_master_volume()
+		main_volume.value_changed.connect(_on_main_volume_changed)
+	
+	if bgm_volume:
+		bgm_volume.min_value = 0.0
+		bgm_volume.max_value = 1.0
+		bgm_volume.step = 0.01
+		bgm_volume.value = Global.AudioManager.get_bgm_volume()
+		bgm_volume.value_changed.connect(_on_bgm_volume_changed)
+	
+	if se_volume:
+		se_volume.min_value = 0.0
+		se_volume.max_value = 1.0
+		se_volume.step = 0.01
+		se_volume.value = Global.AudioManager.get_sfx_volume()
+		se_volume.value_changed.connect(_on_se_volume_changed)
+	
+	# 初始化分辨率选项
+	if screen_resolution:
+		screen_resolution.clear()
+	# 初始化分辨率选项
+	screen_resolution.add_item("1024 × 576")
+	screen_resolution.add_item("1366 × 768")
+	screen_resolution.add_item("1920 × 1080")
+	screen_resolution.add_item("2240 × 1260")
+	screen_resolution.selected = Global.SettingsManager.get_current_resolution_index()
+	screen_resolution.item_selected.connect(_on_resolution_selected)
+	
+	# 初始化全屏复选框
+	if full_screen:
+		full_screen.button_pressed = Global.SettingsManager.is_fullscreen_enabled()
+		full_screen.toggled.connect(_on_fullscreen_toggled)
+	
+	# 初始化暗角效果复选框
+	if vignetting:
+		vignetting.button_pressed = Global.SettingsManager.is_vignetting_enabled()
+		vignetting.toggled.connect(_on_vignetting_toggled)
+	
+	# 初始化粒子效果复选框（暂未实现功能）
+	if particle:
+		particle.button_pressed = Global.SettingsManager.is_particle_enabled()
+		particle.toggled.connect(_on_particle_toggled)
 
+# 音量设置信号处理函数
+func _on_main_volume_changed(value: float) -> void:
+	Global.AudioManager.set_master_volume(value)
 
+func _on_bgm_volume_changed(value: float) -> void:
+	Global.AudioManager.set_bgm_volume(value)
 
+func _on_se_volume_changed(value: float) -> void:
+	Global.AudioManager.set_sfx_volume(value)
+
+# 显示设置信号处理函数
+func _on_resolution_selected(index: int) -> void:
+	Global.SettingsManager.set_resolution(index)
+
+func _on_fullscreen_toggled(pressed: bool) -> void:
+	Global.SettingsManager.set_fullscreen(pressed)
+
+func _on_vignetting_toggled(pressed: bool) -> void:
+	Global.SettingsManager.set_vignetting(pressed)
+
+func _on_particle_toggled(pressed: bool) -> void:
+	Global.SettingsManager.set_particle(pressed)
 
 func _on_setting_pressed() -> void:
 	if !setting.visible:

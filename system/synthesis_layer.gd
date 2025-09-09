@@ -21,8 +21,8 @@ extends CanvasLayer
 # 合成配方数据
 var recipes_data = {
 	"recipe_001": {
-		"recipe_name": "贤者之石",
-		"recipe_description": "使用贤者之石碎片合成完整的贤者之石",
+		"recipe_name": "聚灵石",
+		"recipe_description": "使用聚灵石碎片合成完整的聚灵石",
 		"category": "qi", # 器类
 		"required_items": [
 			{"item_id": "item_003", "count": 10}
@@ -57,7 +57,7 @@ var recipes_data = {
 	},
 	"recipe_004": {
 		"recipe_name": "复合装备",
-		"recipe_description": "使用力量之戒和贤者之石碎片合成复合装备",
+		"recipe_description": "使用力量之戒和聚灵石碎片合成复合装备",
 		"category": "qi", # 器类
 		"required_items": [
 			{"item_id": "item_002", "count": 1},
@@ -75,10 +75,17 @@ var current_category = ""
 var current_recipe_id = ""
 var current_craft_count = 1
 
+# 界面状态变量
+var in_synthesis: bool = false
+var transition_tween: Tween
+
 func _ready():
+	# 设置界面状态
+	in_synthesis = true
+	
 	# 连接按钮信号
 	if qi_button:
-		qi_button.pressed.connect(_on_qi_button_pressed)
+		qi_button.pressed.connect(_on_qi_button_pressed)	
 	if juan_button:
 		juan_button.pressed.connect(_on_juan_button_pressed)
 	if yao_button:
@@ -92,6 +99,10 @@ func _ready():
 	if synthesis_num:
 		synthesis_num.text = "1"
 	
+	# 隐藏item_msg模板节点
+	if item_msg:
+		item_msg.visible = false
+	
 	# 测试用：解锁所有配方和添加测试物品
 	_setup_test_data()
 	
@@ -100,10 +111,11 @@ func _ready():
 
 # 设置测试数据（临时用于测试）
 func _setup_test_data():
-	print("设置合成系统测试数据...")
+	var main_town = get_parent()
+	main_town.tip.start_animation("设置合成系统测试数据...", 0.5)
 	
 	# 解锁所有配方用于测试
-	Global.unlock_recipe("recipe_001")  # 贤者之石
+	Global.unlock_recipe("recipe_001")  # 聚灵石
 	Global.unlock_recipe("recipe_002")  # 九幽秘钥
 	Global.unlock_recipe("recipe_003")  # 强化野果
 	Global.unlock_recipe("recipe_004")  # 复合装备
@@ -131,9 +143,11 @@ func _update_recipe_list():
 	if !v_box_container:
 		return
 	
-	# 清空现有的按钮
+	# 清空现有的按钮，但保留item_msg模板节点
 	for child in v_box_container.get_children():
-		child.queue_free()
+		# 跳过item_msg模板节点，只删除动态创建的按钮
+		if child.name != "item":
+			child.queue_free()
 	
 	# 获取当前分类的配方
 	var category_recipes = _get_recipes_by_category(current_category)
@@ -195,10 +209,10 @@ func _update_synthesis_detail():
 	if recipe.result_items.size() > 0:
 		var result_item_id = recipe.result_items[0].item_id
 		var owned_count = Global.player_inventory.get(result_item_id, 0)
-		detail_text += "已持有：" + str(owned_count) + "\n"
+		detail_text += "\n已持有 " + str(owned_count) + "\n\n"
 	
 	# 合成材料需求
-	detail_text += "合成材料需求：\n"
+	detail_text += "合成材料需求\n"
 	for required_item in recipe.required_items:
 		var item_id = required_item.item_id
 		var needed_count = required_item.count * craft_count
@@ -254,9 +268,10 @@ func _format_obtained_items(obtained_items: Array) -> String:
 			items_text += ", "
 	return items_text
 
-# 显示消息（这里可以连接到游戏的提示系统）
+# 显示消息（连接到游戏的提示系统）
 func _show_message(message: String):
-	print(message) # 临时用print，实际应该连接到游戏的提示UI
+	var main_town = get_parent()
+	main_town.tip.start_animation(message, 0.5)
 
 # ===== 以下是从item_hecheng_manager.gd迁移的合成逻辑 =====
 
@@ -385,3 +400,51 @@ func get_unlocked_recipes() -> Array:
 		if Global.is_recipe_unlocked(recipe_id):
 			unlocked.append(recipe_id)
 	return unlocked
+
+
+func _on_exit_2_pressed() -> void:
+	in_synthesis = false
+	_transition_to_layer()
+
+# 界面过渡动画
+func _transition_to_layer():
+	# 先淡出当前界面
+	if transition_tween:
+		transition_tween.kill()
+	
+	transition_tween = create_tween()
+	transition_tween.set_parallel(true)
+	
+	# 淡出当前层的所有子节点
+	for child in get_children():
+		if child.has_method("set_modulate"):
+			transition_tween.tween_property(child, "modulate:a", 0.0, 0.125)
+	
+	# 等待淡出完成后处理退出逻辑
+	transition_tween.tween_callback(_handle_exit).set_delay(0.125)
+
+# 处理退出逻辑
+func _handle_exit():
+	# 调用main_town的_on_exit_pressed方法来处理dark_overlay
+	var main_town = get_parent()
+	if main_town and main_town.has_method("_on_exit_pressed"):
+		main_town._on_exit_pressed()
+	
+	# 调用本地的_switch_layers来隐藏界面
+	_switch_layers()
+
+# 切换界面层
+func _switch_layers():
+	# 隐藏当前层
+	visible = false
+	# 重置所有子节点的透明度
+	for child in get_children():
+		if child.has_method("set_modulate"):
+			child.modulate.a = 1.0
+	
+	# 保存游戏
+	Global.save_game()
+	
+	# 恢复玩家控制和游戏状态
+	PC.movement_disabled = false
+	get_tree().paused = false

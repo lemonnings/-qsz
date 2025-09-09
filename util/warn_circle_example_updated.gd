@@ -53,7 +53,7 @@ func example_persistent_area_mode():
 	warning_circle.area_effect_triggered.connect(_on_area_effect_triggered)
 	
 	# 加载区域精灵场景（需要预先创建）
-	var area_sprite_scene = preload("res://effects/fire_area_sprite.tscn")  # 示例路径
+	var area_sprite_scene = preload("res://Scenes/moster/boss_skill/fire_area.tscn")  # 示例路径
 	
 	# 开始预警 - 使用持续区域模式
 	var fire_anim = get_node_or_null("FireAnimationPlayer")
@@ -79,7 +79,7 @@ func example_permanent_area():
 	warning_circle.area_exited.connect(_on_permanent_area_exited)
 	
 	# 永久区域（area_duration = -1）
-	var healing_sprite_scene = preload("res://effects/healing_area_sprite.tscn")
+	var healing_sprite_scene = preload("res://Scenes/moster/boss_skill/fire_area.tscn")
 	warning_circle.start_warning(
 		Vector2(400, 400),
 		1.0,
@@ -101,7 +101,7 @@ func example_ellipse_persistent_area():
 	warning_circle.area_entered.connect(_on_ellipse_area_entered)
 	
 	# 椭圆形持续区域
-	var poison_sprite_scene = preload("res://effects/poison_area_sprite.tscn")
+	var poison_sprite_scene = preload("res://Scenes/moster/boss_skill/fire_area.tscn")
 	warning_circle.start_warning(
 		Vector2(200, 300),
 		2.0,                # 长宽比2:1（椭圆）

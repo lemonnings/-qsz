@@ -4,78 +4,78 @@ extends Node
 # item_id: 唯一ID
 # item_name: 道具名
 # item_stack_max: 最大堆叠数量
-# item_type: 物品类型 ("immediate", "equip", "artifact")
+# item_type: 物品类型 ("immediate"（拾取后直接使用，例如血药）, "equip"（法宝）, "material"（材料），"consumable"（消耗品），"special"（特殊的不可使用的物品，如钥匙）
 # item_icon: 图标路径 (String)
 # item_price: 价格 (Int/Float)
 # item_source: 物品来源 (String)
-# item_use_condition: 使用条件 (String)
+# item_use_condition: 使用条件 (String)，为1个函数,一般都是空的，只有满足特殊条件才能使用的consumable才需要加上这个
 # item_detail: 详情 (String)
-# item_rare: 品质 (String/Int, e.g., "common", "rare", "epic" / 1, 2, 3)
+# item_rare: 品质 (String/Int, e.g., "common", "rare", "epic", "legend", "artifact" / 1, 2, 3) 对应白色 蓝色 紫色 橙色 红色
 # item_color: 掉落时显示的颜色 (Color / String, e.g., Color(1,1,1) / "white")
 # item_anime: 掉落时显示的动画 (String - 动画资源路径或名称)
 
 var items_data = {
 	"item_001": {
-		"item_name": "野果",
+		"item_name": "生命精华",
 		"item_stack_max": 10,
 		"item_type": "immediate", # 立即生效
 		"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
 		"item_price": 50,
-		"item_source": "怪物掉落, 商店购买",
-		"item_use_condition": "HP < MaxHP",
+		"item_source": "怪物掉落",
+		"item_use_condition": "",
 		"item_detail": "恢复少量生命值。",
 		"item_rare": "common", # 普通
 		"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 		"item_anime": "res://assets/animations/item_pickup_common.tres"
 	},
 	"item_002": {
-		"item_name": "力量之戒",
+		"item_name": "聚灵珠",
 		"item_stack_max": 1,
 		"item_type": "equip", # 装备
 		"item_icon": "res://assets/icons/ring_strength.png",
 		"item_price": 500,
-		"item_source": "宝箱开启, Boss掉落",
-		"item_use_condition": "可装备栏位",
-		"item_detail": "装备后增加攻击力。",
+		"item_source": "任务奖励",
+		"item_use_condition": "",
+		"item_detail": "能加速真气的获取",
 		"item_rare": "rare", # 稀有
 		"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 		"item_anime": "res://assets/animations/item_pickup_rare.tres"
 	},
 	"item_003": {
-		"item_name": "贤者之石碎片",
-		"item_stack_max": 99,
-		"item_type": "artifact", # 圣器 (或用于合成圣器的材料)
+		"item_name": "聚灵石碎片",
+		"item_stack_max": 999,
+		"item_type": "material", 
 		"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
-		"item_price": 1000, # 单个价格，或者表示其价值
-		"item_source": "特定事件, 隐藏任务",
-		"item_use_condition": "收集特定数量可合成",
-		"item_detail": "古老圣器的碎片，蕴含着神秘的力量。",
-		"item_rare": "epic", # 史诗
-		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
+		"item_price": 10, # 单个价格，或者表示其价值
+		"item_source": "击败敌人获取",
+		"item_use_condition": "",
+		"item_detail": "集齐10个聚灵石碎片，可以合成1个聚灵石",
+		"item_rare": "rare", # 史诗
+		"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 		"item_anime": "res://assets/animations/item_pickup_common.tres"
 	},
 	"item_004": {
 		"item_name": "九幽秘钥碎片",
 		"item_stack_max": 99,
-		"item_type": "artifact", # 圣器 (或用于合成圣器的材料)
+		"item_type": "material", # 圣器 (或用于合成圣器的材料)
 		"item_icon": "res://assets/icons/philosopher_stone_shard.png",
 		"item_price": 1000, # 单个价格，或者表示其价值
-		"item_source": "特定事件, 隐藏任务",
-		"item_use_condition": "收集特定数量可合成",
-		"item_detail": "九幽秘钥的碎片，蕴含着神秘的力量，收集满10个后或许可以和密宗长老对话来知晓此物的用法",
+		"item_source": "击败敌人获取",
+		"item_use_condition": "",
+		"item_detail": "九幽秘钥的碎片，蕴含着神秘的力量，收集满10个后可以合成一个完整的九幽秘钥",
 		"item_rare": "epic", # 史诗
 		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 		"item_anime": "res://assets/animations/item_pickup_epic.tres"
 	},
 	"item_005": {
-		"item_name": "贤者之石",
+		"item_name": "聚灵石",
 		"item_stack_max": 1,
-		"item_type": "artifact", # 圣器
+		"item_type": "material", 
 		"item_icon": "res://assets/icons/philosopher_stone.png",
-		"item_price": 10000,
+		"item_price": 100,
 		"item_source": "合成获得",
-		"item_use_condition": "特殊用途",
-		"item_detail": "完整的贤者之石，蕴含着强大的炼金术力量。",
+		"item_use_condition": "",
+		"item_detail": "完整的聚灵石，蕴含着强大的力量。",
 		"item_rare": "legendary", # 传说
 		"item_color": Color(1.0, 0.8, 0.0, 1), # 金色
 		"item_anime": "res://assets/animations/item_pickup_legendary.tres"
@@ -83,38 +83,38 @@ var items_data = {
 	"item_006": {
 		"item_name": "九幽秘钥",
 		"item_stack_max": 1,
-		"item_type": "artifact", # 圣器
+		"item_type": "special", 
 		"item_icon": "res://assets/icons/jiuyou_key.png",
 		"item_price": 10000,
 		"item_source": "合成获得",
-		"item_use_condition": "开启九幽之门",
+		"item_use_condition": "",
 		"item_detail": "完整的九幽秘钥，可以开启通往九幽的神秘之门。",
 		"item_rare": "legendary", # 传说
 		"item_color": Color(1.0, 0.8, 0.0, 1), # 金色
 		"item_anime": "res://assets/animations/item_pickup_legendary.tres"
 	},
 	"item_007": {
-		"item_name": "强化野果",
-		"item_stack_max": 10,
-		"item_type": "immediate", # 立即生效
-		"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/enhanced_fruit.png",
-		"item_price": 200,
-		"item_source": "合成获得",
-		"item_use_condition": "HP < MaxHP",
-		"item_detail": "经过特殊处理的野果，恢复效果更佳。",
-		"item_rare": "rare", # 稀有
-		"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
-		"item_anime": "res://assets/animations/item_pickup_rare.tres"
-	},
-	"item_008": {
-		"item_name": "复合装备",
+		"item_name": "破灵珠",
 		"item_stack_max": 1,
 		"item_type": "equip", # 装备
 		"item_icon": "res://assets/icons/composite_equipment.png",
 		"item_price": 2000,
 		"item_source": "合成获得",
-		"item_use_condition": "可装备栏位",
-		"item_detail": "融合了力量之戒和贤者之石力量的复合装备。",
+		"item_use_condition": "",
+		"item_detail": "融合了聚灵珠和异界力量的法宝。",
+		"item_rare": "epic", # 史诗
+		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
+		"item_anime": "res://assets/animations/item_pickup_epic.tres"
+	},
+	"item_008": {
+		"item_name": "异界矿石",
+		"item_stack_max": 1,
+		"item_type": "equip", # 装备
+		"item_icon": "res://assets/icons/composite_equipment.png",
+		"item_price": 500,
+		"item_source": "击败敌人获取",
+		"item_use_condition": "",
+		"item_detail": "不属于这个世界的矿石，敲开后可以随机获得一些材料。",
 		"item_rare": "epic", # 史诗
 		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 		"item_anime": "res://assets/animations/item_pickup_epic.tres"
@@ -130,12 +130,10 @@ var item_function = {
 	"item_004": "_on_item_004_picked_up"
 }
 
-# 可使用物品列表（这些物品可以通过使用来解锁配方）
+# 可使用物品列表
 # 注意：立即生效的物品（如野果）不应该在这里，它们在拾取时直接生效
 var usable_items = {
-	"item_002": true,  # 力量之戒可以使用（装备时解锁配方）
-	"item_003": true,  # 贤者之石碎片可以使用
-	"item_004": true   # 九幽秘钥碎片可以使用
+	"item_008": true  # 异界矿石可以使用
 }
 
 # 根据物品ID获取该物品的所有数据
@@ -187,9 +185,9 @@ func _on_item_002_picked_up(player):
 		Global.player_inventory["item_002"] += 1
 	return true # 表示成功拾取
 
-# 贤者之石碎片拾取函数
+# 聚灵石碎片拾取函数
 func _on_item_003_picked_up(player):
-	# 将贤者之石碎片添加到 Global 的玩家背包中
+	# 将聚灵石碎片添加到 Global 的玩家背包中
 	if !Global.player_inventory.has("item_003"):
 		Global.player_inventory["item_003"] = 1
 	else:
@@ -258,19 +256,7 @@ func use_item(item_id: String, count: int = 1) -> Dictionary:
 # 执行物品使用效果
 func _execute_item_use_effect(item_id: String, count: int) -> bool:
 	match item_id:
-		"item_002":  # 力量之戒
-			# 装备效果（这里只是示例，实际装备逻辑可能更复杂）
-			print("装备了力量之戒")
-			return true
-			
-		"item_003":  # 贤者之石碎片
-			# 研究碎片，获得知识（解锁配方）
-			print("研究了贤者之石碎片，获得了古老的知识")
-			return true
-			
-		"item_004":  # 九幽秘钥碎片
-			# 研究碎片，获得知识（解锁配方）
-			print("研究了九幽秘钥碎片，感受到了神秘的力量")
+		"item_008":
 			return true
 			
 		_:
@@ -286,12 +272,6 @@ func can_use_item(item_id: String) -> bool:
 # 获取物品使用描述
 func get_item_use_description(item_id: String) -> String:
 	match item_id:
-		"item_002":
-			return "装备后增加攻击力"
-		"item_003":
-			return "研究后可能解锁新的合成配方"
-		"item_004":
-			return "研究后可能解锁新的合成配方"
 		_:
 			return "未知效果"
 
@@ -304,7 +284,7 @@ func get_item_use_description(item_id: String) -> String:
 # 		print("物品价格: ", ring_details.item_price)
 #
 # 	# 使用物品并解锁配方
-# 	var use_result = use_item("item_003", 1)  # 使用贤者之石碎片
+# 	var use_result = use_item("item_003", 1)  # 使用聚灵石碎片
 # 	if use_result.success:
 # 		print("物品使用成功: ", use_result.message)
 # 		if use_result.unlocked_recipes.size() > 0:
