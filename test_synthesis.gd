@@ -17,12 +17,6 @@ func setup_test_data():
 	Global.unlock_recipe("recipe_003")  # 强化野果
 	Global.unlock_recipe("recipe_004")  # 复合装备
 	
-	# 添加测试物品到背包
-	Global.player_inventory["item_001"] = 10  # 野果
-	Global.player_inventory["item_002"] = 5   # 力量之戒
-	Global.player_inventory["item_003"] = 3   # 聚灵石碎片
-	Global.player_inventory["item_004"] = 15  # 九幽秘钥碎片
-	
 	print("测试数据设置完成！")
 	print("已解锁配方：", Global.recipe_unlock_progress)
 	print("背包物品：", Global.player_inventory)

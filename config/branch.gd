@@ -177,7 +177,7 @@ func initialize_bullet_damage() -> void:
 
 	if randf() < (PC.crit_chance + crit_chance_bonus):
 		is_crit_hit = true
-		bullet_damage *= PC.crit_damage_multiplier
+		bullet_damage *= PC.crit_damage_multi
 
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary: # Returns {"damage": float, "is_crit": bool}

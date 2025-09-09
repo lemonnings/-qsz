@@ -26,7 +26,7 @@ func _physics_process(delta: float) -> void:
 	if(PC.selected_rewards.has("ringFire23")):
 		damage = damage * 1.1
 		if randf() < PC.crit_chance:
-			damage *= PC.crit_damage_multiplier
+			damage *= PC.crit_damage_multi
 		
 	# 更新冷却时间
 	var to_remove = []

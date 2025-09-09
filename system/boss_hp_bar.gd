@@ -61,6 +61,7 @@ func _ready():
 	_boss_name_label.anchor_right = 0.3 # 占据左边30%宽度，可调整
 	_boss_name_label.offset_left = 20 # 左边距
 	_boss_name_label.offset_right = -5 # 右边距 (相对于anchor_right)
+	_boss_name_label.offset_bottom = -2
 
 	# 创建并配置血条条数标签
 	_bar_count_label.z_index = 100
@@ -70,6 +71,7 @@ func _ready():
 	_bar_count_label.anchor_left = 0.7 # 从右边70%开始，可调整
 	_bar_count_label.offset_right = -20 # 右边距
 	_bar_count_label.offset_left = 5 # 左边距 (相对于anchor_left)
+	_boss_name_label.offset_bottom = -2
 	
 	# 确保ProgressBar在标签下方，或者调整ProgressBar的边距
 	# 这里我们让ProgressBar填充中间区域

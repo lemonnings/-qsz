@@ -7,12 +7,19 @@ extends Node
 # item_type: 物品类型 ("immediate"（拾取后直接使用，例如血药）, "equip"（法宝）, "material"（材料），"consumable"（消耗品），"special"（特殊的不可使用的物品，如钥匙）
 # item_icon: 图标路径 (String)
 # item_price: 价格 (Int/Float)
-# item_source: 物品来源 (String)
 # item_use_condition: 使用条件 (String)，为1个函数,一般都是空的，只有满足特殊条件才能使用的consumable才需要加上这个
-# item_detail: 详情 (String)
+# item_detail: 详情 (String) - 包含物品来源和描述
 # item_rare: 品质 (String/Int, e.g., "common", "rare", "epic", "legend", "artifact" / 1, 2, 3) 对应白色 蓝色 紫色 橙色 红色
 # item_color: 掉落时显示的颜色 (Color / String, e.g., Color(1,1,1) / "white")
 # item_anime: 掉落时显示的动画 (String - 动画资源路径或名称)
+# equip_stats: 装备属性 (仅装备类型物品需要)
+#   - base_stats: 基础属性（固有的主词条）
+#   - random_stats: 随机属性（副词条）
+#   - enhance_level: 强化等级
+#   属性字段包括：pc_atk(攻击), pc_atk_speed(攻速), crit_chance(暴击率), crit_damage_multi(暴击伤害), 
+#   pc_final_atk(最终伤害), point_multi(真气获取), exp_multi(经验获取), drop_multi(掉落率),
+#   bullet_size(弹体大小), damage_reduction_rate(减伤率), pc_hp(HP), pc_speed(移速), tianming(天命)
+#   每个属性包含：value(当前值), base_value(原始值)
 
 var items_data = {
 	"item_001": {
@@ -34,12 +41,22 @@ var items_data = {
 		"item_type": "equip", # 装备
 		"item_icon": "res://assets/icons/ring_strength.png",
 		"item_price": 500,
-		"item_source": "任务奖励",
 		"item_use_condition": "",
-		"item_detail": "能加速真气的获取",
+		"item_detail": "任务奖励获得，能加速真气的获取",
 		"item_rare": "rare", # 稀有
 		"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
-		"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		"item_anime": "res://assets/animations/item_pickup_rare.tres",
+		"equip_stats": {
+			"base_stats": {
+				"point_multi": {"value": 0.15, "base_value": 0.15},
+				"exp_multi": {"value": 0.10, "base_value": 0.10}
+			},
+			"random_stats": {
+				"pc_atk": {"value": 5, "base_value": 5},
+				"crit_chance": {"value": 0.02, "base_value": 0.02}
+			},
+			"enhance_level": 0
+		}
 	},
 	"item_003": {
 		"item_name": "聚灵石碎片",
@@ -99,12 +116,22 @@ var items_data = {
 		"item_type": "equip", # 装备
 		"item_icon": "res://assets/icons/composite_equipment.png",
 		"item_price": 2000,
-		"item_source": "合成获得",
 		"item_use_condition": "",
-		"item_detail": "融合了聚灵珠和异界力量的法宝。",
+		"item_detail": "合成获得，融合了聚灵珠和异界力量的法宝。",
 		"item_rare": "epic", # 史诗
 		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
-		"item_anime": "res://assets/animations/item_pickup_epic.tres"
+		"item_anime": "res://assets/animations/item_pickup_epic.tres",
+		"equip_stats": {
+			"base_stats": {
+				"pc_atk": {"value": 25, "base_value": 25},
+				"pc_final_atk": {"value": 0.12, "base_value": 0.12}
+			},
+			"random_stats": {
+				"crit_chance": {"value": 0.08, "base_value": 0.08},
+				"point_multi": {"value": 0.20, "base_value": 0.20}
+			},
+			"enhance_level": 0
+		}
 	},
 	"item_008": {
 		"item_name": "异界矿石",
@@ -112,12 +139,22 @@ var items_data = {
 		"item_type": "equip", # 装备
 		"item_icon": "res://assets/icons/composite_equipment.png",
 		"item_price": 500,
-		"item_source": "击败敌人获取",
 		"item_use_condition": "",
-		"item_detail": "不属于这个世界的矿石，敲开后可以随机获得一些材料。",
+		"item_detail": "击败敌人获取，不属于这个世界的矿石，敲开后可以随机获得一些材料。",
 		"item_rare": "epic", # 史诗
 		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
-		"item_anime": "res://assets/animations/item_pickup_epic.tres"
+		"item_anime": "res://assets/animations/item_pickup_epic.tres",
+		"equip_stats": {
+			"base_stats": {
+				"pc_hp": {"value": 30, "base_value": 30},
+				"damage_reduction_rate": {"value": 0.05, "base_value": 0.05}
+			},
+			"random_stats": {
+				"pc_speed": {"value": 0.15, "base_value": 0.15},
+				"drop_multi": {"value": 0.10, "base_value": 0.10}
+			},
+			"enhance_level": 0
+		}
 	}
 	# 更多物品可以添加到这里
 }
@@ -264,6 +301,7 @@ func _execute_item_use_effect(item_id: String, count: int) -> bool:
 			return false
 
 # 检查物品是否可使用
+
 func can_use_item(item_id: String) -> bool:
 	if !items_data.has(item_id):
 		return false
@@ -274,29 +312,3 @@ func get_item_use_description(item_id: String) -> String:
 	match item_id:
 		_:
 			return "未知效果"
-
-# 示例用法:
-# func _ready():
-# 	# 获取物品信息
-# 	var ring_details = get_item_all_data("item_002")
-# 	if ring_details:
-# 		print("物品名称: ", ring_details.item_name)
-# 		print("物品价格: ", ring_details.item_price)
-#
-# 	# 使用物品并解锁配方
-# 	var use_result = use_item("item_003", 1)  # 使用聚灵石碎片
-# 	if use_result.success:
-# 		print("物品使用成功: ", use_result.message)
-# 		if use_result.unlocked_recipes.size() > 0:
-# 			print("解锁的配方: ", use_result.unlocked_recipes)
-# 	else:
-# 		print("物品使用失败: ", use_result.message)
-#
-# 	# 检查物品是否可使用
-# 	if can_use_item("item_002"):
-# 		print("力量之戒可以使用")
-# 		print("使用描述: ", get_item_use_description("item_002"))
-#
-# 	# 查看已解锁的配方
-# 	var unlocked_recipes = Global.get_unlocked_recipes()
-# 	print("已解锁的配方: ", unlocked_recipes)

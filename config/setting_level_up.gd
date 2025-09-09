@@ -938,50 +938,50 @@ func reward_UR14():
 	_level_up_action()
 
 func reward_R15():
-	PC.crit_damage_multiplier += 0.08
+	PC.crit_damage_multi += 0.08
 	PC.pc_atk_speed += 0.04
 	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
 	_level_up_action()
 
 func reward_SR15():
-	PC.crit_damage_multiplier += 0.10
+	PC.crit_damage_multi += 0.10
 	PC.pc_atk_speed += 0.05
 	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
 	_level_up_action()
 
 func reward_SSR15():
-	PC.crit_damage_multiplier += 0.12
+	PC.crit_damage_multi += 0.12
 	PC.pc_atk_speed += 0.06
 	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
 	_level_up_action()
 
 func reward_UR15():
-	PC.crit_damage_multiplier += 0.16
+	PC.crit_damage_multi += 0.16
 	PC.pc_atk_speed += 0.08
 	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.07)
 	_level_up_action()
 
 func reward_R16():
 	PC.crit_chance += 0.04
-	PC.crit_damage_multiplier += 0.06
+	PC.crit_damage_multi += 0.06
 	PC.final_damage_multiplier -= 0.03
 	_level_up_action()
 
 func reward_SR16():
 	PC.crit_chance += 0.05
-	PC.crit_damage_multiplier += 0.08
+	PC.crit_damage_multi += 0.08
 	PC.final_damage_multiplier -= 0.035
 	_level_up_action()
 
 func reward_SSR16():
 	PC.crit_chance += 0.06
-	PC.crit_damage_multiplier += 0.10
+	PC.crit_damage_multi += 0.10
 	PC.final_damage_multiplier -= 0.04
 	_level_up_action()
 
 func reward_UR16():
 	PC.crit_chance += 0.08
-	PC.crit_damage_multiplier += 0.14
+	PC.crit_damage_multi += 0.14
 	PC.final_damage_multiplier -= 0.05
 	_level_up_action()
 

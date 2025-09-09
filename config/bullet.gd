@@ -179,7 +179,7 @@ func initialize_bullet_damage() -> void:
 	if can_crit:
 		if randf() < PC.crit_chance:
 			is_crit_hit = true
-			bullet_damage *= PC.crit_damage_multiplier
+			bullet_damage *= PC.crit_damage_multi
 
 	# 应用buff效果到基础伤害
 	bullet_damage = apply_buff_effects_to_damage(bullet_damage, is_summon_bullet)

@@ -121,7 +121,7 @@ func reset_player_attr() -> void :
 	
 	# 重置暴击相关属性
 	PC.crit_chance = 0.1 + (Global.crit_chance_level * 0.005) # 基础暴击率 + 局外成长
-	PC.crit_damage_multiplier = 1.5 + (Global.crit_damage_level * 0.01) # 基础暴击伤害倍率 + 局外成长
+	PC.crit_damage_multi = 1.5 + (Global.crit_damage_level * 0.01) # 基础暴击伤害倍率 + 局外成长
 	
 	PC.damage_reduction_rate = min(0.0 + (Global.damage_reduction_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
 	PC.body_size = 0

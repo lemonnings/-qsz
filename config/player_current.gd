@@ -13,13 +13,16 @@ extends Node
 @export var pc_speed : float = 0 # 局内移速
 @export var pc_atk_speed : float = 0 # 局内攻速加成
 @export var crit_chance : float = 0.0  # 局内暴击率
-@export var crit_damage_multiplier : float = 0.5  # 局内暴击伤害倍率 (例如0.5代表150%伤害) 
+@export var crit_damage_multi : float = 0.5  # 局内暴击伤害倍率 (例如0.5代表150%伤害) 
 @export var damage_reduction_rate : float = 0.0 # 局内减伤率 (例如0.1代表10%减伤)
 @export var bullet_size : float = 0
-@export var bullet_type1 : int = 0
-@export var bullet_type2 : int = 0
+@export var point_multi : float = 0 # 额外真气获取率
+@export var exp_multi : float = 0 # 额外exp获取率
+@export var drop_multi : float = 0 # 额外掉落率
 @export var body_size : float = 1
+
 @export var invincible : bool = false
+
 @export var current_time : float = 0
 @export var real_time : float = 0
 
@@ -108,7 +111,6 @@ extends Node
 @export var refresh_num : int = 3 
 
 # 纹章相关字段
-@export var emblem_slots_max : int = 4  # 纹章数量上限
 @export var current_emblems : Dictionary = {}  # 当前持有的纹章 {emblem_id: stack}
 
 @export var is_game_over : bool = false
@@ -146,12 +148,15 @@ func reset_player_attr() -> void :
 	# 根据已学习的技能初始化剑气等级和伤害
 	exec_swordqi_skills()
 	
+	# 应用装备属性加成
+	apply_equipment_bonuses()
+	
 	PC.real_time = 0
 	PC.current_time = 0
 	
 	PC.pc_lv = 1
 	PC.pc_exp = 0
-	PC.pc_speed = 0
+	PC.pc_speed = 0 + (Global.cultivation_zhuifeng_level * 0.03)
 	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.03)
 	
 	PC.invincible = false
@@ -175,7 +180,7 @@ func reset_player_attr() -> void :
 	
 	# 重置暴击相关属性
 	PC.crit_chance = 0.1 + (Global.cultivation_fengrui_level * 0.005) # 基础暴击率 + 局外成长
-	PC.crit_damage_multiplier = 1.5 + (Global.cultivation_liejin_level * 0.01) # 基础暴击伤害倍率 + 局外成长
+	PC.crit_damage_multi = 1.5 + (Global.cultivation_liejin_level * 0.01) # 基础暴击伤害倍率 + 局外成长
 	
 	PC.damage_reduction_rate = min(0.0 + (Global.cultivation_huti_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
 	PC.body_size = 0
@@ -233,6 +238,36 @@ func reset_player_attr() -> void :
 	# 重置纹章系统
 	PC.current_emblems.clear()
 	EmblemManager.clear_all_emblems()
+
+# 应用装备属性加成
+func apply_equipment_bonuses() -> void:
+	# 获取所有装备提供的属性加成
+	var equipment_stats = Global.EquipmentManager.calculate_total_equipment_stats()
+	
+	# 应用装备属性到玩家属性
+	PC.pc_atk += equipment_stats["pc_atk"]
+	PC.pc_start_atk += equipment_stats["pc_atk"]
+	PC.pc_max_hp += equipment_stats["pc_hp"]
+	PC.pc_start_max_hp += equipment_stats["pc_hp"]
+	PC.pc_hp += equipment_stats["pc_hp"]
+	PC.pc_speed += equipment_stats["pc_speed"]
+	PC.pc_atk_speed += equipment_stats["pc_atk_speed"]
+	PC.crit_chance += equipment_stats["crit_chance"]
+	PC.crit_damage_multi += equipment_stats["crit_damage_multi"]
+	PC.pc_final_atk += equipment_stats["pc_final_atk"]
+	PC.point_multi += equipment_stats["point_multi"]
+	PC.exp_multi += equipment_stats["exp_multi"]
+	PC.drop_multi += equipment_stats["drop_multi"]
+	PC.bullet_size += equipment_stats["bullet_size"]
+	PC.damage_reduction_rate += equipment_stats["damage_reduction_rate"]
+	
+	# 确保减伤率不超过上限
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate, 0.9)
+	
+	print("装备属性加成已应用")
+	print("装备提供的攻击力: ", equipment_stats["pc_atk"])
+	print("装备提供的生命值: ", equipment_stats["pc_hp"])
+	print("装备提供的暴击率: ", equipment_stats["crit_chance"])
 	
 
 func exec_pc_atk() -> void:

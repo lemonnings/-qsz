@@ -192,7 +192,7 @@ func initialize_bullet_damage() -> void:
 
 	if randf() < PC.crit_chance:
 		is_crit_hit = true
-		var crit_multiplier = PC.crit_damage_multiplier
+		var crit_multiplier = PC.crit_damage_multi
 		# 魔焰13: 巨大魔焰暴击伤害翻倍
 		if is_giant_moyan and PC.selected_rewards.has("moyan13"):
 			crit_multiplier *= 2

@@ -20,11 +20,17 @@ var SoftGlowManager = preload("res://Script/system/soft_glow_manager.gd").new()
 # 主动技能管理器
 var ActiveSkillManager = preload("res://Script/config/active_skill_manager.gd").new()
 
+# 装备管理器
+var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
+
 @export var total_points : int = 1000
 
 @export var max_main_skill_num : int = 3
 
-# 跟升级抽卡有关的
+# 纹章相关字段
+@export var emblem_slots_max : int = 4  # 纹章数量上限
+
+# 抽卡有关
 @export var lunky_level : int = 1
 @export var red_p : float = 3.5
 @export var gold_p : float = 10
@@ -37,6 +43,9 @@ var ActiveSkillManager = preload("res://Script/config/active_skill_manager.gd").
 
 # 修炼解锁进度Cultivation
 @export var cultivation_unlock_progress : int = 0
+
+# 装备系统相关
+@export var max_carry_equipment_slots : int = 2  # 当前解锁的随身法宝槽位数量（初始2个，最大5个）
 
 # 修炼等级变量
 @export var cultivation_poxu_level : int = 0        # 破虚 - 提升攻击力
@@ -135,22 +144,14 @@ signal press_h
 
 # 玩家背包
 var player_inventory = {}
+
 # 合成书获取进度 - 记录每个合成配方是否已解锁
 # 格式: {"recipe_id": bool}
 @export var recipe_unlock_progress = {
-	"recipe_001": true,  # 聚灵石
-	"recipe_002": true,  # 九幽秘钥
-	"recipe_003": true,  # 强化野果
-	"recipe_004": true   # 复合装备
-}
-
-# 物品与配方解锁的映射关系
-# 当使用特定物品时，解锁对应的配方
-# 注意：立即生效的物品（如野果）不通过使用解锁配方，而是通过其他方式（如拾取时）解锁
-var item_recipe_unlock_map = {
-	"item_003": ["recipe_001"],  # 聚灵石碎片解锁聚灵石配方
-	"item_004": ["recipe_002"],  # 九幽秘钥碎片解锁九幽秘钥配方
-	"item_002": ["recipe_004"]   # 力量之戒解锁复合装备配方
+	"recipe_001": true,
+	"recipe_002": true,
+	"recipe_003": true,
+	"recipe_004": true
 }
 
 # DPS计数器相关
@@ -176,6 +177,9 @@ func _ready() -> void:
 	
 	# 初始化设置管理器
 	add_child(SettingsManager)
+	
+	# 初始化装备管理器
+	add_child(EquipmentManager)
 	
 	# 初始化DPS计时器
 	dps_timer = Timer.new()
@@ -235,7 +239,10 @@ func save_game() -> void:
 		# 玩家修习技能数据
 		"player_study_data": player_study_data,
 		# 纹章系统
-		"emblem_slots_max": PC.emblem_slots_max,
+		"emblem_slots_max": emblem_slots_max,
+		# 装备系统
+		"max_carry_equipment_slots": max_carry_equipment_slots,
+		"equipment_data": EquipmentManager.save_equipment_data(),
 		# 音频设置
 		"master_volume": AudioManager.get_master_volume(),
 		"bgm_volume": AudioManager.get_bgm_volume(),
@@ -286,6 +293,8 @@ func load_game() -> void:
 	cultivation_huti_level = config.get_value("save", "cultivation_huti_level", cultivation_huti_level)
 	cultivation_zhuifeng_level = config.get_value("save", "cultivation_zhuifeng_level", cultivation_zhuifeng_level)
 	cultivation_liejin_level = config.get_value("save", "cultivation_liejin_level", cultivation_liejin_level)
+	cultivation_liejin_level = config.get_value("save", "emblem_slots_max", emblem_slots_max)
+	
 	
 	# 加载玩家修习技能数据，确保兼容性
 	var loaded_study_data = config.get_value("save", "player_study_data", player_study_data)
@@ -295,8 +304,11 @@ func load_game() -> void:
 			loaded_study_data[player_name]["zhenqi_points"] = 100  # 默认真气点数
 	player_study_data = loaded_study_data
 	
-	# 加载纹章系统数据
-	PC.emblem_slots_max = config.get_value("save", "emblem_slots_max", 4)
+	# 加载装备系统数据
+	max_carry_equipment_slots = config.get_value("save", "max_carry_equipment_slots", 2)
+	var equipment_data = config.get_value("save", "equipment_data", {})
+	if EquipmentManager:
+		EquipmentManager.load_equipment_data(equipment_data)
 	
 	# 加载音频设置
 	var master_vol = config.get_value("save", "master_volume", 1.0)
@@ -384,48 +396,3 @@ func stop_dps_counter() -> void:
 # 获取当前DPS值
 func get_current_dps() -> float:
 	return current_dps
-
-# 解锁配方
-func unlock_recipe(recipe_id: String) -> bool:
-	if recipe_unlock_progress.has(recipe_id):
-		if !recipe_unlock_progress[recipe_id]:
-			recipe_unlock_progress[recipe_id] = true
-			print("配方已解锁: ", recipe_id)
-			return true
-		else:
-			print("配方已经解锁过了: ", recipe_id)
-			return false
-	else:
-		printerr("未知的配方ID: ", recipe_id)
-		return false
-
-# 检查配方是否已解锁
-func is_recipe_unlocked(recipe_id: String) -> bool:
-	if recipe_unlock_progress.has(recipe_id):
-		print(recipe_unlock_progress.get("recipe_001"))
-		return recipe_unlock_progress[recipe_id]
-	else:
-		printerr("未知的配方ID: ", recipe_id)
-		return false
-
-# 通过物品使用解锁配方
-func unlock_recipes_by_item(item_id: String) -> Array:
-	var unlocked_recipes = []
-	if item_recipe_unlock_map.has(item_id):
-		var recipe_ids = item_recipe_unlock_map[item_id]
-		for recipe_id in recipe_ids:
-			if unlock_recipe(recipe_id):
-				unlocked_recipes.append(recipe_id)
-	return unlocked_recipes
-
-# 获取所有已解锁的配方
-func get_unlocked_recipes() -> Array:
-	var unlocked = []
-	for recipe_id in recipe_unlock_progress.keys():
-		if recipe_unlock_progress[recipe_id]:
-			unlocked.append(recipe_id)
-	return unlocked
-
-# 获取配方解锁进度（用于UI显示）
-func get_recipe_unlock_progress() -> Dictionary:
-	return recipe_unlock_progress.duplicate()

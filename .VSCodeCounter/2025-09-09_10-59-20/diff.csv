@@ -1,0 +1,73 @@
+"filename", "language", "GDScript", "Markdown", "Asset Properties Definition", "comment", "blank", "total"
+"d:\IdeaProjects\-qsz\.trae\rules\project_rules.md", "Markdown", 0, 6, 0, 0, 0, 6
+"d:\IdeaProjects\-qsz\ACTIVE_SKILL_SYSTEM_README.md", "Markdown", 0, 207, 0, 0, 64, 271
+"d:\IdeaProjects\-qsz\AUDIO_SYSTEM_README.md", "Markdown", 0, 85, 0, 0, 31, 116
+"d:\IdeaProjects\-qsz\battleScene\stage1.gd", "GDScript", 12, 0, 0, 7, 5, 24
+"d:\IdeaProjects\-qsz\config\active_skill_manager.gd", "GDScript", 208, 0, 0, 42, 56, 306
+"d:\IdeaProjects\-qsz\config\active_skill_manager.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\active_skill_test.gd", "GDScript", 142, 0, 0, 21, 39, 202
+"d:\IdeaProjects\-qsz\config\active_skill_test.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\base_bullet.gd", "GDScript", 0, 0, 0, -6, 0, -6
+"d:\IdeaProjects\-qsz\config\bullet.gd", "GDScript", 23, 0, 0, 7, 6, 36
+"d:\IdeaProjects\-qsz\config\bullet_cal.gd", "GDScript", 34, 0, 0, 10, 10, 54
+"d:\IdeaProjects\-qsz\config\emblem_manager.gd", "GDScript", 92, 0, 0, 28, 31, 151
+"d:\IdeaProjects\-qsz\config\emblem_manager.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\emblem_ui.gd", "GDScript", 50, 0, 0, 13, 14, 77
+"d:\IdeaProjects\-qsz\config\emblem_ui.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\equipment_manager.gd", "GDScript", 124, 0, 0, 23, 29, 176
+"d:\IdeaProjects\-qsz\config\item_hecheng_manager.gd", "GDScript", -131, 0, 0, -47, -28, -206
+"d:\IdeaProjects\-qsz\config\item_hecheng_manager.gd.uid", "Asset Properties Definition", 0, 0, -1, 0, -1, -2
+"d:\IdeaProjects\-qsz\config\item_manager.gd", "GDScript", 74, 0, 0, -19, -2, 53
+"d:\IdeaProjects\-qsz\config\player_action.gd", "GDScript", 70, 0, 0, 13, 18, 101
+"d:\IdeaProjects\-qsz\config\player_current.gd", "GDScript", 45, 0, 0, 11, 12, 68
+"d:\IdeaProjects\-qsz\config\player_reward_weights.gd", "GDScript", -19, 0, 0, -7, -8, -34
+"d:\IdeaProjects\-qsz\config\player_skill_integration.gd", "GDScript", 90, 0, 0, 68, 41, 199
+"d:\IdeaProjects\-qsz\config\player_skill_integration.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\ringFire.gd", "GDScript", 0, 0, 0, 0, 1, 1
+"d:\IdeaProjects\-qsz\config\setting_buff.gd", "GDScript", 16, 0, 0, 0, 2, 18
+"d:\IdeaProjects\-qsz\config\setting_emblem.gd", "GDScript", 96, 0, 0, 15, 17, 128
+"d:\IdeaProjects\-qsz\config\setting_emblem.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\setting_level_up.gd", "GDScript", 99, 0, 0, -119, -28, -48
+"d:\IdeaProjects\-qsz\config\skill_effects.gd", "GDScript", 187, 0, 0, 31, 39, 257
+"d:\IdeaProjects\-qsz\config\skill_effects.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\config\skill_hotkey_config.gd", "GDScript", 226, 0, 0, 49, 72, 347
+"d:\IdeaProjects\-qsz\config\skill_hotkey_config.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\cultivation.gd", "GDScript", 28, 0, 0, 1, 5, 34
+"d:\IdeaProjects\-qsz\dialog\dialog_manager.gd", "GDScript", 1, 0, 0, 0, 0, 1
+"d:\IdeaProjects\-qsz\global.gd", "GDScript", 27, 0, 0, 21, 18, 66
+"d:\IdeaProjects\-qsz\menu.gd", "GDScript", 14, 0, 0, 4, 2, 20
+"d:\IdeaProjects\-qsz\monster\bat.gd", "GDScript", 0, 0, 0, -2, 0, -2
+"d:\IdeaProjects\-qsz\monster\slime.gd", "GDScript", 0, 0, 0, -1, 0, -1
+"d:\IdeaProjects\-qsz\system\audio_manager.gd", "GDScript", 147, 0, 0, 23, 40, 210
+"d:\IdeaProjects\-qsz\system\audio_manager.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\audio_settings_ui.gd", "GDScript", 199, 0, 0, 37, 51, 287
+"d:\IdeaProjects\-qsz\system\audio_settings_ui.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\bgm.gd", "GDScript", 16, 0, 0, 2, 1, 19
+"d:\IdeaProjects\-qsz\system\boss_hp_bar.gd", "GDScript", 2, 0, 0, -2, 0, 0
+"d:\IdeaProjects\-qsz\system\drop_normal.gd", "GDScript", 11, 0, 0, 3, 1, 15
+"d:\IdeaProjects\-qsz\system\item_drop_system.gd", "GDScript", 4, 0, 0, 1, 1, 6
+"d:\IdeaProjects\-qsz\system\level_up.gd", "GDScript", 1, 0, 0, 2, 1, 4
+"d:\IdeaProjects\-qsz\system\settings_manager.gd", "GDScript", 104, 0, 0, 21, 35, 160
+"d:\IdeaProjects\-qsz\system\settings_manager.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\soft_glow_manager.gd", "GDScript", 19, 0, 0, 4, 9, 32
+"d:\IdeaProjects\-qsz\system\soft_glow_manager.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\soft_glow_test.gd", "GDScript", 0, 0, 0, 25, 5, 30
+"d:\IdeaProjects\-qsz\system\soft_glow_test.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\study_layer.gd", "GDScript", 595, 0, 0, 65, 101, 761
+"d:\IdeaProjects\-qsz\system\study_layer.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\system\synthesis_layer.gd", "GDScript", 296, 0, 0, 73, 82, 451
+"d:\IdeaProjects\-qsz\system\synthesis_layer.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\test_synthesis.gd", "GDScript", 13, 0, 0, 4, 5, 22
+"d:\IdeaProjects\-qsz\test_synthesis.gd.uid", "Asset Properties Definition", 0, 0, 1, 0, 1, 2
+"d:\IdeaProjects\-qsz\town\main_town.gd", "GDScript", 21, 0, 0, -34, -19, -32
+"d:\IdeaProjects\-qsz\town\test_town.gd", "GDScript", 0, 0, 0, -4, 0, -4
+"d:\IdeaProjects\-qsz\util\README_warn_circle.md", "Markdown", 0, 89, 0, 0, 26, 115
+"d:\IdeaProjects\-qsz\util\circle_drawer.gd", "GDScript", 0, 0, 0, 0, 1, 1
+"d:\IdeaProjects\-qsz\util\rect_drawer.gd", "GDScript", 0, 0, 0, 0, 1, 1
+"d:\IdeaProjects\-qsz\util\sector_drawer.gd", "GDScript", 0, 0, 0, 0, 1, 1
+"d:\IdeaProjects\-qsz\util\warn_circle_example.gd", "GDScript", 0, 0, 0, 0, 1, 1
+"d:\IdeaProjects\-qsz\util\warn_circle_example_updated.gd", "GDScript", 0, 0, 0, 0, 1, 1
+"d:\IdeaProjects\-qsz\util\warn_circle_util.gd", "GDScript", 10, 0, 0, 7, 1, 18
+"d:\IdeaProjects\-qsz\util\warn_rect_example.gd", "GDScript", 0, 0, 0, 0, 1, 1
+"d:\IdeaProjects\-qsz\util\warn_sector_example.gd", "GDScript", 0, 0, 0, 0, 1, 1
+"Total", "-", 2946, 387, 15, 390, 808, 4546

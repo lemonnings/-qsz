@@ -37,7 +37,7 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 		var rebound_base_damage = PC.pc_atk * PC.rebound_damage_multiplier
 		# 反弹子弹如果原本是暴击，也应用暴击倍数
 		if is_crit:
-			rebound_base_damage *= PC.crit_damage_multiplier
+			rebound_base_damage *= PC.crit_damage_multi
 		final_damage_val = rebound_base_damage
 	
 	# 处理破阵的直击效果（无视敌方减伤）
