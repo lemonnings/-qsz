@@ -22,7 +22,7 @@ func _on_drop_out_item(item_id: String, quantity: int, drop_position: Vector2):
 		dropped_item_instance.item_id = item_id
 		dropped_item_instance.global_position = drop_position
 		
-		# 设置图标 (假设你的 DroppedItemScene 有一个名为 Sprite2D 的子节点)
+		# 设置图标
 		if dropped_item_instance.has_node("Sprite2D"):
 			var sprite = dropped_item_instance.get_node("Sprite2D")
 			var icon_texture = load(item_data.item_icon)
@@ -35,8 +35,6 @@ func _on_drop_out_item(item_id: String, quantity: int, drop_position: Vector2):
 			name_label.modulate = item_data.item_color
 			
 		# 添加到场景树 (通常添加到当前场景或一个专门的掉落物容器节点下)
-		# 这里假设你希望将掉落物添加到当前主场景的直接子节点
-		# 你可能需要根据你的场景结构调整 get_tree().current_scene
 		var current_scene = get_tree().current_scene
 		if current_scene:
 			current_scene.add_child(dropped_item_instance)
@@ -49,7 +47,6 @@ func _on_drop_out_item(item_id: String, quantity: int, drop_position: Vector2):
 
 func apply_drop_animation(item_node):
 	# 简单的抛物线效果
-	# 你可以使用 Tween 来实现更平滑的动画
 	var tween = get_tree().create_tween()
 	
 	# 随机一个小的水平偏移，使掉落看起来更自然

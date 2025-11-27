@@ -445,8 +445,7 @@ func apply_skill_effect(skill_name: String) -> void:
 	SkillEffects.apply_skill_effect(current_player, current_study_level, skill_name, skill_level)
 
 func _on_study_level_1_pressed() -> void:
-	# 1阶对应study_level = 0，因为config_stage = current_study_level + 1
-	# 所以1阶技能在配置中是stage 1，对应study_level = 0
+	# 1阶对应study_level = 0
 	Global.player_study_data[current_player]["study_level"] = 0
 	update_study_display()
 

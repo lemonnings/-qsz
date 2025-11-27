@@ -18,7 +18,9 @@ var cultivation_items = [
 	{"name": "锋锐", "type": "crit_chance", "level_var": "cultivation_fengrui_level", "unlock_progress": 3},
 	{"name": "护体", "type": "damage_reduction", "level_var": "cultivation_huti_level", "unlock_progress": 4},
 	{"name": "追风", "type": "move_speed", "level_var": "cultivation_zhuifeng_level", "unlock_progress": 5},
-	{"name": "烈劲", "type": "crit_damage", "level_var": "cultivation_liejin_level", "unlock_progress": 6}
+	{"name": "烈劲", "type": "crit_damage", "level_var": "cultivation_liejin_level", "unlock_progress": 6},
+	{"name": "合一", "type": "cool_down", "level_var": "cultivation_heyi_level", "unlock_progress": 7},
+	{"name": "通晓", "type": "final_atk", "level_var": "cultivation_tongxiao_level", "unlock_progress": 8}
 ]
 
 # 修炼等级变量名映射
@@ -30,7 +32,9 @@ var cultivation_level_vars = [
 	"cultivation_fengrui_level",
 	"cultivation_huti_level",
 	"cultivation_zhuifeng_level",
-	"cultivation_liejin_level"
+	"cultivation_liejin_level",
+	"cultivation_heyi_level",
+	"cultivation_tongxiao_level"
 ]
 
 var transition_tween: Tween
@@ -149,6 +153,10 @@ func get_cultivation_bonus_text(type: String, level: int) -> String:
 			return "+" + str(level * 2) + "% 移速"
 		"crit_damage":
 			return "+" + str(level * 1) + "% 暴击伤害"
+		"cool_down":
+			return "-" + str(level * 2) + "% 技能冷却"
+		"final_atk":
+			return "+" + str(level * 1) + "% 最终伤害"
 		_:
 			return "+0"
 
@@ -170,6 +178,10 @@ func get_cultivation_bonus_value(type: String, level: int) -> float:
 		"move_speed":
 			return level * 0.02  # 2%转换为0.02
 		"crit_damage":
+			return level * 0.01  # 1%转换为0.01
+		"cool_down":
+			return -level * 0.02  # 2%转换为-0.02
+		"final_atk":
 			return level * 0.01  # 1%转换为0.01
 		_:
 			return 0.0

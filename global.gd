@@ -62,8 +62,7 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 	"yiqiu": {
 		"study_level": 0,  # 当前修习阶段
 		"learned_skills": [],  # 已学习的技能列表
-		"skill_levels": {},  # 技能等级
-		"zhenqi_points": 100  # 真气点数
+		"skill_levels": {}  # 技能等级
 	}
 }
 
@@ -145,13 +144,14 @@ signal press_h
 # 玩家背包
 var player_inventory = {}
 
-# 合成书获取进度 - 记录每个合成配方是否已解锁
+# 合成书获取进度 - 记录每个合成篇章是否已解锁
 # 格式: {"recipe_id": bool}
 @export var recipe_unlock_progress = {
 	"recipe_001": true,
-	"recipe_002": true,
-	"recipe_003": true,
-	"recipe_004": true
+	"recipe_002": false,
+	"recipe_003": false,
+	"recipe_004": false,
+	"recipe_noam": false
 }
 
 # DPS计数器相关

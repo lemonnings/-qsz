@@ -77,12 +77,12 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	tween.set_ease(Tween.EASE_OUT) # 缓动类型
 
 	# 1. 初始显示 (渐入)
-	tween.tween_property(damage_label, "modulate:a", 1.0, 0.2)
+	tween.tween_property(damage_label, "modulate:a", 1.0, 0.25)
 
 	# 2. 保持显示1s，暴击额外0.5s
-	tween.tween_interval(1.5)
+	tween.tween_interval(2)
 	if damage_type == DamageType.PLAYER_BULLET_CRIT:
-		tween.tween_interval(0.4)
+		tween.tween_interval(0.6)
 
 	# 3. 向上飘动并渐隐
 	# 获取当前damage_label的相对位置，因为动画是作用于damage_label的
