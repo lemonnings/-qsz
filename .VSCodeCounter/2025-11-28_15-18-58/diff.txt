@@ -1,0 +1,41 @@
+Date : 2025-11-28 15:18:58
+Directory : d:\IdeaProjects\-qsz
+Total : 11 files,  520 codes, -117 comments, 16 blanks, all 419 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| GDScript |          9 |        328 |       -117 |        -14 |        197 |
+| Markdown |          2 |        192 |          0 |         30 |        222 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++-------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                            | files      | code       | comment    | blank      | total      |
++-------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                               |         11 |        520 |       -117 |         16 |        419 |
+| . (Files)                                       |          1 |         12 |          0 |          0 |         12 |
+| battleScene                                     |          1 |          0 |        -61 |         -9 |        -70 |
+| config                                          |          4 |        327 |        -43 |          1 |        285 |
+| system                                          |          3 |        -11 |        -13 |         -6 |        -30 |
+| util                                            |          2 |        192 |          0 |         30 |        222 |
++-------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                        | language | code       | comment    | blank      | total      |
++-------------------------------------------------+----------+------------+------------+------------+------------+
+| d:\IdeaProjects\-qsz\battleScene\stage1.gd      | GDScript |          0 |        -61 |         -9 |        -70 |
+| d:\IdeaProjects\-qsz\config\branch.gd           | GDScript |          0 |        -39 |          1 |        -38 |
+| d:\IdeaProjects\-qsz\config\fire_instance.gd    | GDScript |          0 |          0 |         -1 |         -1 |
+| d:\IdeaProjects\-qsz\config\item_manager.gd     | GDScript |        295 |         -4 |          1 |        292 |
+| d:\IdeaProjects\-qsz\config\setting_level_up.gd | GDScript |         32 |          0 |          0 |         32 |
+| d:\IdeaProjects\-qsz\cultivation.gd             | GDScript |         12 |          0 |          0 |         12 |
+| d:\IdeaProjects\-qsz\system\drop_normal.gd      | GDScript |         -4 |         -7 |         -2 |        -13 |
+| d:\IdeaProjects\-qsz\system\item_drop_system.gd | GDScript |          0 |         -3 |          0 |         -3 |
+| d:\IdeaProjects\-qsz\system\synthesis_layer.gd  | GDScript |         -7 |         -3 |         -4 |        -14 |
+| d:\IdeaProjects\-qsz\util\README_warn_circle.md | Markdown |        104 |          0 |         22 |        126 |
+| d:\IdeaProjects\-qsz\util\README_warn_rect.md   | Markdown |         88 |          0 |          8 |         96 |
+| Total                                           |          |        520 |       -117 |         16 |        419 |
++-------------------------------------------------+----------+------------+------------+------------+------------+
