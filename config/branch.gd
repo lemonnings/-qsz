@@ -42,7 +42,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	# 子弹始终保持移动（包括渐隐过程中）
 	position += direction * bullet_speed * delta
-	# 更新已飞行距,
+	# 更新已飞行距
 	traveled_distance = start_position.distance_to(global_position)
 	# 树枝22: 每飞行0.2米，伤害提升2%
 	if PC.selected_rewards.has("branch22"):
@@ -50,49 +50,13 @@ func _physics_process(delta: float) -> void:
 		var damage_increase_multiplier = 1.0 + floor(distance_meters / 0.2) * 0.02
 		bullet_damage *= damage_increase_multiplier
 
-	# 树枝1: 行进至射程一半时分裂0.1 
+	# 树枝1: 行进至射程一半时分裂
 	if PC.selected_rewards.has("branch1") and not is_fading and traveled_distance >= bullet_range / 2:
 		_create_sword_wave_instance(global_position)
 		# 防止重复分裂
 		#PC.selected_rewards.erase("branch1")
 
 	# 检查是否超出射程
-	# 羁绊设计：基于中国，北欧，希腊，埃及神话，每个神话有N个专属的主羁绊，然后有共通的若干个子羁绊
-		# 例如，中国神话的主羁绊可以设计为九重天（道教的三清，四御...），佛土（佛陀，菩萨...），山海经（麒麟，穷奇...），
-		# 麒麟：山海经3 祥瑞2 守护者1
-		# 青龙&朱雀：九重天3 星辰使2 祥瑞1
-		# 百解：祥瑞1 斗士1 凶兽1
-	# 大羁绊固定派系下的*3=9个，对应领袖*1有3个，可以凑到12
-	# 小羁绊英雄*2的有3个，加上1个*1的最多可以凑到7，携带6个领袖，*1的有5个，可以凑到12，专武有两个+1，铜银金各+1，彩+2，彩卡+1
-	# 基准，战力类提升3：10%，6,24%，9:50%，12：:90%，15，150%，18，280%
-	# 不死：HP降至1以下会无敌2秒，期间提升,80%的攻速，冷却60秒 3：持续时间+2s，冷却-20s
-	# 6：期间额外提升80%攻击，并且在不死状态结束后恢复30%最大hp
-	# 9：持续时间+2s，冷却-15s
-	# 12：如果在冷却中hp再次降到0以下，会进入复燃状态，期间无法攻击，阻挡敌人，在不死的冷却完成后会复生并立刻触发不死
-	# 15，期间提升攻击攻速提升至100%，持续时间+2s，冷却-10s
-	# 18，期间提升攻击攻速提升至150%，持续时间+2s
-	# 祥瑞：3：祥瑞秘宝的最大数量为6,
-	# 6：每波次结束后获得1个秘宝，祥瑞秘宝最大数量提升至8，
-	# 9：每波次结束后获得2个秘宝，祥瑞秘宝最大数量提升至10,
-	# 12，每波次结束后获得3个秘宝，祥瑞秘宝数量最大提升至13,
-	# 15，每波次结束后获得5个秘宝，祥瑞秘宝数量最大提升至16,
-	# 18，每波次结束后获得8个秘宝，祥瑞秘宝数量最大提升至24
-	# 秘宝价值：1个秘宝：2价值，2个秘宝，5价值，3:9,4：:14,5:20,6:28
-	# 7:40,8:52
-	# 9:68，10:84
-	# 11:104，12:124,13:144
-	# 14:168,15:192,16:216
-	# 17:240 18:270 19:310 20:360 21:420 22:490 23:570 24:660
-	# 奖励类型：25pp->1 蓝卡 5 紫卡 40 金卡 80 红卡 200 铜海克斯 25 银 75 金 140 虹 240 散件 20 成装 35 光明装 80 专武 140 秘宝特殊武器 100 秘宝特殊海克斯 200 
-	# 雷电：3,攻击有25%触发一道雷光，随机攻击场上一个敌人造成40%atk
-	# 6，触发概率提升至30%，攻击速度额外提升8%，雷光伤害对boss提升10%
-	# 9，触发概率提升至35%，伤害提升至75%atk
-	# 12，触发概率提升至40%，攻击速度提升量增至40%，雷光伤害对boss提升30%
-	# 15，触发概率提升至50%，伤害提升至90%atk，攻击速度提升量增至60%
-	# 18，伤害提升至125%atk，攻击速度提升量增至100%，雷光伤害对boss提升70%
-	# 烈焰：
-	# 凶兽：
-	# 
 	if not is_fading and traveled_distance >= bullet_range:
 		_create_sword_wave_instance(global_position)
 		start_fade_out()
@@ -191,9 +155,7 @@ var current_frame: int = -1
 # 如果返回false，表示这一帧已经处理过碰撞，应该忽略当前碰撞
 func handle_penetration() -> bool:
 	var frame = Engine.get_process_frames()
-	#if PC.swordQi_penetration_count > 1 and !PC.selected_rewards.has("SplitSwordQi32"):
-		#var now_penetration_count = PC.swordQi_penetration_count - penetration_count + 1
-		#bullet_damage = bullet_damage * (1 - (0.15 * now_penetration_count))
+	
 	# 如果是新的一帧，重置处理标志
 	if frame != current_frame:
 		current_frame = frame
@@ -219,7 +181,7 @@ func handle_penetration() -> bool:
 		for body in bodies:
 			if body.is_in_group("enemies"):
 				if body.has_method("apply_knockback"):
-					body.apply_knockback(direction, 30) # 假设击退力为200
+					body.apply_knockback(direction, 30)
 
 	# 减少穿透计数
 	penetration_count -= 1

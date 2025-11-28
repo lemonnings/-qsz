@@ -17,6 +17,7 @@ class Reward: # Reward 类定义了单个奖励所包含的所有属性。
 	var if_advance: bool # 布尔值，标记这是否是一个进阶技能（通常在特定等级，如每5级出现）。
 	var precondition: String # 获取此奖励所需的前置奖励ID，多个ID用逗号分隔。
 	var on_selected: String # 当奖励被选中时，需要调用的函数名称字符串。
+	var tags: String # 标签，用于分类或筛选奖励。多个标签用逗号分隔。
 
 
 signal player_lv_up_over
@@ -51,7 +52,7 @@ func _load_rewards_from_csv(file_path: String):
 			is_first_line = false
 
 			# 验证CSV文件的表头是否与预期的格式一致。
-			var expected_headers = ["id", "rarity", "reward_name", "if_main_skill", "icon", "detail", "max_acquisitions", "faction", "weight", "if_advance", "precondition"]
+			var expected_headers = ["id", "rarity", "reward_name", "if_main_skill", "icon", "detail", "max_acquisitions", "faction", "weight", "if_advance", "precondition", "tags"]
 
 			if headers.size() != expected_headers.size() or not headers == expected_headers:
 				printerr("CSV表头与预期格式不匹配。预期: ", expected_headers, ", 实际: ", headers)
@@ -71,7 +72,7 @@ func _load_rewards_from_csv(file_path: String):
 			new_reward.rarity = reward_data.get("rarity", "white")
 			new_reward.reward_name = reward_data.get("reward_name", "Unknown Reward")
 			new_reward.if_main_skill = reward_data.get("if_main_skill", "false").to_lower() == "true"
-			new_reward.icon = reward_data.get("icon", "") # 存储图标路径
+			new_reward.icon = reward_data.get("icon", "")
 			new_reward.detail = reward_data.get("detail", "")
 			var max_acq_str = reward_data.get("max_acquisitions", "-1")
 			new_reward.max_acquisitions = int(max_acq_str) if max_acq_str.is_valid_int() else -1
@@ -80,10 +81,11 @@ func _load_rewards_from_csv(file_path: String):
 			new_reward.weight = float(weight_str) if weight_str.is_valid_float() else 1.0
 			new_reward.if_advance = reward_data.get("if_advance", "false").to_lower() == "true"
 			new_reward.precondition = reward_data.get("precondition", "")
+			# 读取CSV中的标签字段，多个标签以逗号分隔
+			new_reward.tags = reward_data.get("tags", "")
 			new_reward.on_selected = "reward_" + new_reward.id
 
 			all_rewards_list.append(new_reward)
-			# print("已加载奖励: ", new_reward.name) # 用于调试，打印加载的奖励名称。
 	
 	file.close()
 	print("成功从 ", file_path, " 加载 ", all_rewards_list.size(), " 个奖励")
@@ -117,7 +119,6 @@ func get_reward_level(rand_num: float, main_skill_name: String = '') -> Reward:
 
 # 根据稀有度字符串从 all_rewards_list 中筛选奖励
 func _get_rewards_by_rarity_str(rarity_str: String, main_skill_name: String) -> Array[Reward]:
-	#print_debug("_get_rewards_by_rarity_str - rarity_str: ", rarity_str, ", main_skill_name: ", main_skill_name)
 	var filtered_rewards: Array[Reward] = []
 	
 	for reward_item in all_rewards_list:
@@ -127,11 +128,9 @@ func _get_rewards_by_rarity_str(rarity_str: String, main_skill_name: String) -> 
 				filtered_rewards.append(reward_item)
 		else:
 			# 主技能进阶升级（5的倍数）：只抽取if_advance=true且faction匹配的技能，忽略稀有度
-			#print_debug("_get_rewards_by_rarity_str - checking for main_skill_name advance: reward_id: ", reward_item.id, ", if_advance: ", reward_item.if_advance, ", faction: ", reward_item.faction, ", main_skill_name: ", main_skill_name)
 			if reward_item.if_advance == true and reward_item.faction == main_skill_name:
 				filtered_rewards.append(reward_item)
 
-	#print_debug("_get_rewards_by_rarity_str - returning filtered_rewards size: ", filtered_rewards.size())
 	return filtered_rewards
 	
 
@@ -226,6 +225,17 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 		var faction_specific_rewards: Array[Reward] = []
 
 		for r in all_rewards_for_rarity:
+			# 当奖励的tags包含"emblem"，且当前纹章数量已达上限时，直接跳过该奖励
+			var is_emblem_reward := false
+			if r.tags != "":
+				var tag_list := r.tags.split(",")
+				for t in tag_list:
+					if t == "emblem":
+						is_emblem_reward = true
+						break
+			if is_emblem_reward and EmblemManager.get_emblem_count() >= PC.emblem_slots_max:
+				print_debug("纹章已达上限，跳过奖励: " + r.id)
+				continue
 			if main_skill_name != '':
 				# 主技能进阶升级：_get_rewards_by_rarity_str已经筛选了if_advance=true和faction匹配的奖励
 				faction_specific_rewards.append(r)
@@ -283,6 +293,17 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 	if not all_rewards_for_rarity_fallback.is_empty():
 		# 尝试返回一个没有前置条件、或前置条件已满足、且未达到最大获取次数的奖励。
 		for fallback_reward in all_rewards_for_rarity_fallback:
+			# 同样在回退逻辑中排除纹章奖励（已达上限时）
+			var fb_is_emblem := false
+			if fallback_reward.tags != "":
+				var fb_tags := fallback_reward.tags.split(",")
+				for t in fb_tags:
+					if t.strip_edges() == "emblem":
+						fb_is_emblem = true
+						break
+			if fb_is_emblem and EmblemManager.get_emblem_count() >= PC.emblem_slots_max:
+				print_debug("纹章已达上限，回退时跳过奖励: " + fallback_reward.id)
+				continue
 			var fb_prereq_met = true
 			if not fallback_reward.precondition.is_empty():
 				var prereq_func_names = fallback_reward.precondition.split(",") # 假设前置条件函数名以逗号分隔。
@@ -315,6 +336,17 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 		
 		if not rewards_from_other_rarity.is_empty():
 			for potential_reward in rewards_from_other_rarity:
+				# 其他稀有度回退同样排除纹章奖励（已达上限时）
+				var other_is_emblem := false
+				if potential_reward.tags != "":
+					var other_tags := potential_reward.tags.split(",")
+					for t in other_tags:
+						if t.strip_edges() == "emblem":
+							other_is_emblem = true
+							break
+				if other_is_emblem and EmblemManager.get_emblem_count() >= PC.emblem_slots_max:
+					print_debug("纹章已达上限，跨稀有度跳过奖励: " + potential_reward.id)
+					continue
 				# 检查前置条件 (使用与主循环相同的逻辑)
 				var prereq_ok = true
 				if not potential_reward.precondition.is_empty():

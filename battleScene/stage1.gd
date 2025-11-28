@@ -240,16 +240,6 @@ func _physics_process(_delta: float) -> void:
 		
 	if Global.is_level_up == false:
 		lv_up_change.visible = false
-		# 基础，黄酒，米酒，花果酒，枸杞酒，羊羔酒，锦江春，琼浆100/200/300/450/600/800/1000gil，进货价初始为30%，米饭150gil，进货价初始为33%，
-		# 小料：太岁冻30gil，果味灯油50gil，
-		# 小吃，蛙肉串80gil
-
-
-
-		# 酒馆属性：知名度，每次狩猎后结算可以获得，每日经营也可以获得少量，可以解锁新的客人类型，并按比例提升菜单售价，每10点+1%
-		# 客人：分几个类型，居民，纯消费，提供100%正常菜单额度，点1~2份饮品+1~2分餐食，佣兵会倾向于点2~3份饮品类+1份餐食类，冒险者会倾向于点餐食类，他们偶尔会讨论战斗技巧，提升对对应种类怪的伤害
-		# 流动小贩会出售饰品，药剂师会提供强化药剂，铁匠可以帮忙以优惠的价格升级饰品或者厨具，大商人会额外给一份等值小费，贤者会给予一个只有在下次狩猎日有效的buff
-		# 进货商可以减免一种商品的10%进货价
 		
 	var target_value = (float(PC.pc_exp) / level_up_manager.get_required_lv_up_value(PC.pc_lv)) * 100
 	if exp_bar.value != target_value:
@@ -269,32 +259,6 @@ func _physics_process(_delta: float) -> void:
 
 func _trigger_boss_event() -> void:
 	print("Boss event triggered!")
-		# 每个人10岁都会觉醒一个天赋，坎塞尔拿到了一套厨具，开始他以为只是跟大部分人一样决定了他未来的职业
-		# 但是直到后面得一次魔物入侵中，他用菜刀杀掉了一个魔物，发现菜刀不仅在一段时间内变得更锋利，而且魔物的一部分力量也被自身永久吸收了
-		# 这个镇子是在边疆地带，经常有驻扎士兵和冒险者来这边，一边干掉魔物一边发展酒馆
-		# 选择区域探索，每个区域有3个boss和1个隐藏Boss，
-		# 每个boss击败后有概率收服，添加为酒馆服务员，3个boss都击败后，在狂暴模式下会出现隐藏boss
-
-		# 外溢能量pp，在结束一局后可以转换为加点
-		# t1 atk point+ hp max30(t2 40 t3 60 t4 100) total60->t2 
-		# t2 atks spd cri% otherEquip
-		# t3 exp% bulletSize criatk% max25 （t3 40 t4 60) total 60->t3
-		# t4  atk% hp% point+ lky otherEquip max20(t4 40) total 60->t4
-		# t5 finaldmg% def% otherEquip max20
-		
-		# 厨刀 可以飞射出去
-		# 斩骨斧 近战武器
-		# 釜 近战范围砸地
-		# 匕 勺子，环绕
-		# 笊篱 长柄漏勺 远程爆炸
-		# 碾轮 直线范围
-		# 漏勺 散射
-		# 壶 类似树枝，分裂
-		# 鼎 日炎
-		# 每天可以选择作为经营日 狩猎日
-		# 经营获得的gil可以强化厨具，提升厨具的基本atk%，解锁局内lv上限，从15->20->25
-		# gil可以向旅行商人或者佣兵冒险者购买各种饰品和圣器，找镇里铁匠强化圣器，给服务员薪资礼物
-		# 饰品只要获得就可以永久增加属性，圣器为战前启用初始2个，通过饰品解锁到最多同时5个
 	#slime_spawn_timer.wait_time += 2.0
 	#bat_spawn_timer.wait_time += 3.0
 	#frog_spawn_timer.wait_time += 4.0
@@ -344,10 +308,10 @@ func _trigger_boss_event() -> void:
 
 func _on_warning_finished() -> void:
 	# 重新启动计时器 (如果需要的话，或者根据游戏逻辑决定是否重启)
-	# slime_spawn_timer.start() # Removed
-	# bat_spawn_timer.start() # Removed
-	# frog_spawn_timer.start() # Removed
-	# monster_spawn_timer.start() # Restart the new timer if needed after boss, or handle differently
+	# slime_spawn_timer.start()
+	# bat_spawn_timer.start()
+	# frog_spawn_timer.start() 
+	# monster_spawn_timer.start() 
 	await get_tree().create_timer(3).timeout
 	
 	Global.emit_signal("boss_bgm", 1)
@@ -371,15 +335,13 @@ func _on_level_up_selection_complete() -> void:
 func _on_monster_spawn_timer_timeout() -> void:
 	spawn_count += 1
 
-	# Decrease next spawn interval
 	next_spawn_interval = max(MIN_SPAWN_INTERVAL, next_spawn_interval - SPAWN_INTERVAL_DECREMENT)
 	monster_spawn_timer.wait_time = next_spawn_interval
 
-	# Adjust monster spawn limits based on spawn_count
 	if spawn_count % SLIME_MAX_SPAWN_INCREASE_THRESHOLD == 0:
 		slime_max_spawn = min(slime_max_spawn + 1, slime_upper_limit)
 	if spawn_count % SLIME_MIN_SPAWN_INCREASE_THRESHOLD == 0:
-		slime_min_spawn = min(slime_min_spawn + 1, slime_max_spawn) # Ensure min doesn't exceed max
+		slime_min_spawn = min(slime_min_spawn + 1, slime_max_spawn)
 	if spawn_count % BAT_MAX_SPAWN_INCREASE_THRESHOLD == 0:
 		bat_max_spawn = min(bat_max_spawn + 1, bat_upper_limit)
 	if spawn_count % BAT_MIN_SPAWN_INCREASE_THRESHOLD == 0:
@@ -393,7 +355,6 @@ func _on_monster_spawn_timer_timeout() -> void:
 	if current_monster_count >= max_monster_limit:
 		return
 
-	# Spawn monsters - 随机生成顺序
 	# 创建怪物生成任务数组
 	var spawn_tasks = []
 	
@@ -426,7 +387,6 @@ func _on_monster_spawn_timer_timeout() -> void:
 				_spawn_slime(task.count)
 
 
-
 func _spawn_slime(count: int) -> void:
 	for _i in range(count):
 		if current_monster_count >= max_monster_limit:
@@ -434,14 +394,7 @@ func _spawn_slime(count: int) -> void:
 		var slime_node = slime_scene.instantiate()
 		
 		# Determine spawn edge (0: top, 1: bottom, 2: left, 3: right)
-		# hero最多4张，初始一张0，cd 30s 200以太，使用后需要等1分钟才能部署第3张，消耗400以太，cd 2分钟，第4张800以太
-		# atk24.375-》48.75
-		# 维德尼尔：攻击15 HP60 攻速0.8，skill1 攻击附带一枚羽毛，追踪一个单位造成30/38~70%%atk，skill2 消耗200以太，在12秒内，攻速+100%，并额外提升0/5~25%攻击
-		# 被动 使用skill2后抽1张牌，skill2同时提升6%~30%暴击率
-		# 5条进攻线路，初始有5排空间，商店解锁第6,7排，每个格子有6点容量
-		# 右侧专有的能源区可以放向日葵，相当于一个容量18的格子，初始pp效率每秒+10
-		# 向日葵，提升效率5+总体提升3%，消耗100pp，容量3
-		# 豌豆射手，每次攻击消耗3以太，造成10伤害 攻速1，容量2，建造消耗150pp
+
 		var spawn_edge = randi_range(0, 3)
 		var spawn_position = Vector2.ZERO
 		
@@ -464,21 +417,6 @@ func _spawn_slime(count: int) -> void:
 					slime_node.move_direction = 1 # Move left (away from player)
 				else:
 					slime_node.move_direction = randi_range(2,8) # Move towards player (leftwards bias)
-			# 各类型的牌基本实现
-			# 向日葵
-			# 豌豆射手
-			# 菜问
-			# 指挥官 200pp 一次性，提升周围2格范围内攻速20%，造成15伤害 攻速1，容量3
-			# 基地建设 固有，0pp，获得1张向日葵
-			# 振奋 50pp 给战斗单位添加4层振奋buff，每层提升10%攻击，每5秒损失1层
-			# 整备预备 300pp 蓄能50：减少pp消耗 抽2张牌，每抽到1张单位牌回复50pp
-			# 定点轰炸 150pp 随机选择地图上的1个目标，对其周围1格敌人造成15atk，重复10次
-			# 卫护所 大型建筑，200pp，会对前一格每15秒产生一个容量2的卫护兵，攻击12 攻速1.2 hp50
-			# 聚居地 大型建筑，100pp，对周围一格范围内的所有地块添加3点容量
-			# 法师塔 大型建筑，150pp，atk25 aspd2 投射，范围全图 每次攻击消耗5pp
-			# 高台 小型建筑，50pp，容量3，放置在该格的战斗单位变为投射并额外提升30%atk
-			# 防御基底 大型建筑，50pp
-			# 过载 50pp，提升100%pp获得，持续10秒，10秒后损失30%当前pp
 
 		slime_node.position = spawn_position
 		get_tree().current_scene.add_child(slime_node)
@@ -579,11 +517,9 @@ func _check_and_process_pending_level_ups():
 	# 委托给升级管理器处理
 	level_up_manager.check_and_process_pending_level_ups(get_tree(), get_viewport())
 
-
 func _on_attr_button_focus_entered() -> void:
 	attr_label.visible = true
-	attr_label.text = "攻击：" + str(PC.pc_atk) + "  额外攻速：" + str(PC.pc_atk_speed) + "\n额外移速：" + str(PC.pc_speed) + "  弹体大小：" + str(PC.bullet_size) + "\n天命：" + str(PC.now_lunky_level) + "  减伤：" + str(PC.damage_reduction_rate)+ "\n暴击率：" + str(PC.crit_chance) + "  暴击伤害：" + str(PC.crit_damage_multi) + "\n环形剑气攻击/数量/大小/射速：" + str(PC.ring_bullet_damage_multiplier) + "/"+ str(PC.ring_bullet_count) + "/"+ str(PC.ring_bullet_size_multiplier) + "/"+ str(PC.ring_bullet_interval) + "/" + "\n召唤物数量/最大数量/攻击/弹体大小/射速：" + str(PC.summon_count)+ "/" + str(PC.summon_count_max)+ "/" + str(PC.summon_damage_multiplier)+ "/" + str(PC.summon_bullet_size_multiplier)+ "/" + str(PC.summon_interval_multiplier)+ "/" + "\n开悟获取：" + str(PC.selected_rewards)
-
+	attr_label.text = "dps："+Global.get_current_dps()+ "\n攻击：" + str(PC.pc_atk) + "  额外攻速：" + str(PC.pc_atk_speed) + "\n额外移速：" + str(PC.pc_speed) + "  弹体大小：" + str(PC.bullet_size) + "\n天命：" + str(PC.now_lunky_level) + "  减伤：" + str(PC.damage_reduction_rate)+ "\n暴击率：" + str(PC.crit_chance) + "  暴击伤害：" + str(PC.crit_damage_multi) + "\n环形剑气攻击/数量/大小/射速：" + str(PC.ring_bullet_damage_multiplier) + "/"+ str(PC.ring_bullet_count) + "/"+ str(PC.ring_bullet_size_multiplier) + "/"+ str(PC.ring_bullet_interval) + "/" + "\n召唤物数量/最大数量/攻击/弹体大小/射速：" + str(PC.summon_count)+ "/" + str(PC.summon_count_max)+ "/" + str(PC.summon_damage_multiplier)+ "/" + str(PC.summon_bullet_size_multiplier)+ "/" + str(PC.summon_interval_multiplier)+ "/" + "\n开悟获取：" + str(PC.selected_rewards)
 
 func _on_attr_button_focus_exited() -> void:
 	attr_label.visible = false
@@ -592,23 +528,18 @@ func _on_attr_button_focus_exited() -> void:
 func _on_monster_mechanism_gained(mechanism_value: int) -> void:
 	map_mechanism_num += mechanism_value
 
-# 测试buff功能的函数（可以删除）
+# 测试buff功能的函数
 func _test_buffs():
 	pass
 	# # 等待一帧确保buff管理器完全初始化
 	# await get_tree().process_frame
 	
-	# # 添加一些测试buff
+	# 添加测试buff
 	# buff_manager.add_buff("attack_boost", 15.0, 3)  # 攻击力提升，15秒，3层
 	# buff_manager.add_buff("speed_boost", 8.0, 1)   # 移动速度提升，8秒，1层
 	# buff_manager.add_buff("health_regen", 0.0, 1)  # 生命回复，永久buff
-	
-	# # 5秒后添加更多buff
-	# await get_tree().create_timer(5.0).timeout
-	# buff_manager.add_buff("crit_chance", 12.0, 5)  # 暴击率提升，12秒，5层
-	# buff_manager.add_buff("damage_reduction", 6.0, 1)  # 伤害减免，6秒，1层
-	
-	# # 10秒后移除一个buff
+
+	# 移除buff
 	# await get_tree().create_timer(5.0).timeout
 	# buff_manager.remove_buff("speed_boost")
 

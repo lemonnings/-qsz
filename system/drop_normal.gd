@@ -10,33 +10,20 @@ func _ready():
 func _on_body_entered(body):
 	# 检查碰撞的是否为玩家
 	if body.is_in_group("player"):
-		var item_func_name = ItemManager.item_function.get(item_id)
-
-		# 检查是否有对应的处理函数
-		if item_func_name != null and ItemManager.has_method(item_func_name):
-			# 调用函数并传递玩家节点作为参数
-			var can_pick_up = ItemManager.call(item_func_name, body)
-			
-			# 如果函数返回true，表示可以拾取
-			if can_pick_up:
-				# 创建渐隐和向上飘动动画
-				var tween = create_tween().set_parallel(true)
-				tween.tween_property(self, "position:y", position.y - 50, 0.4) # 向上飘动50个像素
-				tween.tween_property(self, "modulate:a", 0, 0.4)
-				await tween.finished
-				queue_free() # 动画结束后销毁物品
-		else:
-			# 如果没有对应的处理函数，提供默认的拾取行为
-			printerr("Warning: No pickup function found for item_id '", item_id, "', using default pickup behavior")
-			# 默认行为：直接添加到背包
-			if !Global.player_inventory.has(item_id):
-				Global.player_inventory[item_id] = 1
+		var item_type = ItemManager.get_item_property(item_id, "item_type")
+		var can_pick_up := false
+		if item_type == "immediate":
+			var item_func_name = ItemManager.item_function.get(item_id)
+			if item_func_name != null and ItemManager.has_method(item_func_name):
+				can_pick_up = ItemManager.call(item_func_name, body, item_id)
 			else:
-				Global.player_inventory[item_id] += 1
-			
-			# 创建渐隐和向上飘动动画
+				can_pick_up = true
+		else:
+			can_pick_up = ItemManager.on_item_picked_up(body, item_id)
+
+		if can_pick_up:
 			var tween = create_tween().set_parallel(true)
-			tween.tween_property(self, "position:y", position.y - 50, 0.4) # 向上飘动50个像素
+			tween.tween_property(self, "position:y", position.y - 50, 0.4)
 			tween.tween_property(self, "modulate:a", 0, 0.4)
 			await tween.finished
-			queue_free() # 动画结束后销毁物品
+			queue_free()

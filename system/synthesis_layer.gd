@@ -3,11 +3,11 @@ extends CanvasLayer
 # 物品合成管理器 - 专门负责合成逻辑
 # 从item_hecheng_manager.gd迁移而来
 
-@export var qi_button : Button # 合成分类：器，铁匠处使用的高级材料/道具
-@export var juan_button : Button # 合成分类：卷，用于提升属性，掌握技能等
-@export var yao_button : Button # 合成分类：钥， 开启新难度，隐藏关卡等的"钥匙"
+@export var normal_button : Button # 合成分类：普通，卷1234
+@export var ether_button : Button # 合成分类：以太，诺姆入队后开启
+@export var final_button : Button # 合成分类：终时，通关后开启
 
-@export var synthesis_detail : RichTextLabel # 合成信息具体详情，格式参考：已持有：0
+@export var synthesis_detail : RichTextLabel # 合成信息具体详情
 # 已持有：0
 # 合成材料需求：
 # 材料A  （ [color=#777]0[/color] / 1） 用#777表示没有满足的，这个要随着合成数量变动
@@ -84,12 +84,12 @@ func _ready():
 	in_synthesis = true
 	
 	# 连接按钮信号
-	if qi_button:
-		qi_button.pressed.connect(_on_qi_button_pressed)	
-	if juan_button:
-		juan_button.pressed.connect(_on_juan_button_pressed)
-	if yao_button:
-		yao_button.pressed.connect(_on_yao_button_pressed)
+	if normal_button:
+		normal_button.pressed.connect(_on_normal_button_pressed)	
+	if ether_button:
+		ether_button.pressed.connect(_on_ether_button_pressed)
+	if final_button:
+		final_button.pressed.connect(_on_final_button_pressed)
 	if synthesis_confirm_button:
 		synthesis_confirm_button.pressed.connect(_on_synthesis_confirm_pressed)
 	if synthesis_num:
@@ -107,29 +107,17 @@ func _ready():
 	_setup_test_data()
 	
 	# 默认选择qi分类
-	_select_category("qi")
-
-# 设置测试数据（临时用于测试）
-func _setup_test_data():
-	var main_town = get_parent()
-	main_town.tip.start_animation("设置合成系统测试数据...", 0.5)
-	
-	# 解锁所有配方用于测试
-	Global.unlock_recipe("recipe_001")  # 聚灵石
-	Global.unlock_recipe("recipe_002")  # 九幽秘钥
-	Global.unlock_recipe("recipe_003")  # 强化野果
-	Global.unlock_recipe("recipe_004")  # 复合装备
-
+	_select_category("normal")
 
 # 分类按钮点击事件
-func _on_qi_button_pressed():
-	_select_category("qi")
+func _on_normal_button_pressed():
+	_select_category("normal")
 
-func _on_juan_button_pressed():
-	_select_category("juan")
+func _on_ether_button_pressed():
+	_select_category("ether")
 
-func _on_yao_button_pressed():
-	_select_category("yao")
+func _on_final_button_pressed():
+	_select_category("final")
 
 # 选择分类
 func _select_category(category: String):
@@ -263,17 +251,15 @@ func _format_obtained_items(obtained_items: Array) -> String:
 		var item_name = ItemManager.get_item_property(item_info.item_id, "item_name")
 		if item_name == null:
 			item_name = item_info.item_id
-		items_text += item_name + " x" + str(item_info.count)
+		items_text += item_name + " *" + str(item_info.count)
 		if i < obtained_items.size() - 1:
 			items_text += ", "
 	return items_text
 
-# 显示消息（连接到游戏的提示系统）
+# 显示消息
 func _show_message(message: String):
 	var main_town = get_parent()
 	main_town.tip.start_animation(message, 0.5)
-
-# ===== 以下是从item_hecheng_manager.gd迁移的合成逻辑 =====
 
 # 获取配方信息
 func get_recipe_data(recipe_id: String) -> Dictionary:

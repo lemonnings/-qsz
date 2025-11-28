@@ -36,45 +36,36 @@ var items_data = {
 		"item_anime": "res://assets/animations/item_pickup_common.tres"
 	},
 	"item_002": {
-		"item_name": "聚灵珠",
-		"item_stack_max": 1,
-		"item_type": "equip", # 装备
+		"item_name": "凝胶",
+		"item_stack_max": 9999,
+		"item_type": "material", # 装备
 		"item_icon": "res://assets/icons/ring_strength.png",
-		"item_price": 500,
+		"item_price": 40,
+		"item_source": "击败涎兽获取",
 		"item_use_condition": "",
-		"item_detail": "任务奖励获得，能加速真气的获取",
-		"item_rare": "rare", # 稀有
-		"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
-		"item_anime": "res://assets/animations/item_pickup_rare.tres",
-		"equip_stats": {
-			"base_stats": {
-				"point_multi": {"value": 0.15, "base_value": 0.15},
-				"exp_multi": {"value": 0.10, "base_value": 0.10}
-			},
-			"random_stats": {
-				"pc_atk": {"value": 5, "base_value": 5},
-				"crit_chance": {"value": 0.02, "base_value": 0.02}
-			},
-			"enhance_level": 0
-		}
+		"item_detail": "涎兽死后凝结的胶体，粘合性非常出色",
+		"item_rare": "common", # 稀有
+		"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
+		# "item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
+		"item_anime": "res://assets/animations/item_pickup_rare.tres"
 	},
 	"item_003": {
-		"item_name": "聚灵石碎片",
-		"item_stack_max": 999,
+		"item_name": "灵液",
+		"item_stack_max": 9999,
 		"item_type": "material", 
 		"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
-		"item_price": 10, # 单个价格，或者表示其价值
-		"item_source": "击败敌人获取",
+		"item_price": 200, # 单个价格，或者表示其价值
+		"item_source": "击败涎兽获取",
 		"item_use_condition": "",
-		"item_detail": "集齐10个聚灵石碎片，可以合成1个聚灵石",
-		"item_rare": "rare", # 史诗
+		"item_detail": "少数涎兽体内存在的具有奇效的液体",
+		"item_rare": "rare",
 		"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 		"item_anime": "res://assets/animations/item_pickup_common.tres"
 	},
 	"item_004": {
 		"item_name": "九幽秘钥碎片",
 		"item_stack_max": 99,
-		"item_type": "material", # 圣器 (或用于合成圣器的材料)
+		"item_type": "material",
 		"item_icon": "res://assets/icons/philosopher_stone_shard.png",
 		"item_price": 1000, # 单个价格，或者表示其价值
 		"item_source": "击败敌人获取",
@@ -85,11 +76,24 @@ var items_data = {
 		"item_anime": "res://assets/animations/item_pickup_epic.tres"
 	},
 	"item_005": {
+		"item_name": "空濛秘钥碎片",
+		"item_stack_max": 99,
+		"item_type": "material",
+		"item_icon": "res://assets/icons/philosopher_stone_shard.png",
+		"item_price": 1000, # 单个价格，或者表示其价值
+		"item_source": "击败凌云山山腰处的敌人低概率获取",
+		"item_use_condition": "",
+		"item_detail": "空濛秘钥的碎片，蕴含着神秘的力量，收集满10个后可以合成一个完整的空濛秘钥，用来开启空濛山的结界",
+		"item_rare": "epic", # 史诗
+		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
+		"item_anime": "res://assets/animations/item_pickup_epic.tres"
+	},
+	"item_005": {
 		"item_name": "聚灵石",
-		"item_stack_max": 1,
+		"item_stack_max": 9999,
 		"item_type": "material", 
 		"item_icon": "res://assets/icons/philosopher_stone.png",
-		"item_price": 100,
+		"item_price": 10000,
 		"item_source": "合成获得",
 		"item_use_condition": "",
 		"item_detail": "完整的聚灵石，蕴含着强大的力量。",
@@ -98,79 +102,381 @@ var items_data = {
 		"item_anime": "res://assets/animations/item_pickup_legendary.tres"
 	},
 	"item_006": {
-		"item_name": "九幽秘钥",
-		"item_stack_max": 1,
-		"item_type": "special", 
+		"item_name": "灵石碎片",
+		"item_stack_max": 9999,
+		"item_type": "material", 
 		"item_icon": "res://assets/icons/jiuyou_key.png",
-		"item_price": 10000,
-		"item_source": "合成获得",
-		"item_use_condition": "",
-		"item_detail": "完整的九幽秘钥，可以开启通往九幽的神秘之门。",
-		"item_rare": "legendary", # 传说
-		"item_color": Color(1.0, 0.8, 0.0, 1), # 金色
-		"item_anime": "res://assets/animations/item_pickup_legendary.tres"
-	},
-	"item_007": {
-		"item_name": "破灵珠",
-		"item_stack_max": 1,
-		"item_type": "equip", # 装备
-		"item_icon": "res://assets/icons/composite_equipment.png",
-		"item_price": 2000,
-		"item_use_condition": "",
-		"item_detail": "合成获得，融合了聚灵珠和异界力量的法宝。",
-		"item_rare": "epic", # 史诗
-		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
-		"item_anime": "res://assets/animations/item_pickup_epic.tres",
-		"equip_stats": {
-			"base_stats": {
-				"pc_atk": {"value": 25, "base_value": 25},
-				"pc_final_atk": {"value": 0.12, "base_value": 0.12}
-			},
-			"random_stats": {
-				"crit_chance": {"value": 0.08, "base_value": 0.08},
-				"point_multi": {"value": 0.20, "base_value": 0.20}
-			},
-			"enhance_level": 0
-		}
-	},
-	"item_008": {
-		"item_name": "异界矿石",
-		"item_stack_max": 1,
-		"item_type": "equip", # 装备
-		"item_icon": "res://assets/icons/composite_equipment.png",
 		"item_price": 500,
+		"item_source": "击败敌人低概率获取",
 		"item_use_condition": "",
-		"item_detail": "击败敌人获取，不属于这个世界的矿石，敲开后可以随机获得一些材料。",
-		"item_rare": "epic", # 史诗
+		"item_detail": "用来合成珍贵的聚灵石。",
+		"item_rare": "epic", # 传说
 		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
-		"item_anime": "res://assets/animations/item_pickup_epic.tres",
-		"equip_stats": {
-			"base_stats": {
-				"pc_hp": {"value": 30, "base_value": 30},
-				"damage_reduction_rate": {"value": 0.05, "base_value": 0.05}
-			},
-			"random_stats": {
-				"pc_speed": {"value": 0.15, "base_value": 0.15},
-				"drop_multi": {"value": 0.10, "base_value": 0.10}
-			},
-			"enhance_level": 0
+		"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_009": {
+			"item_name": "水灵叶",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "在水灵区域采集或击败水属性怪物获取",
+			"item_use_condition": "",
+			"item_detail": "蕴含微弱水灵力的叶片，可用于炼药与制符",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_010": {
+			"item_name": "风灵草",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "在风带草地采集或击败风属性怪物获取",
+			"item_use_condition": "",
+			"item_detail": "含有风息的灵草，轻盈柔韧，多用途基础材",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_011": {
+			"item_name": "宣纸",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "在城镇杂货铺购买或遗落书院拾取",
+			"item_use_condition": "",
+			"item_detail": "适合书写与绘制符箓的纸张，纤维韧性良好",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_012": {
+			"item_name": "毒囊",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "击败毒系怪物获取",
+			"item_use_condition": "",
+			"item_detail": "怪物体内储毒的囊袋，炼毒或制药常用材",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_013": {
+			"item_name": "符纸",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "在城镇购买或探索遗迹获取",
+			"item_use_condition": "",
+			"item_detail": "特制纸片，耐灵力冲刷，刻绘符阵的常备材",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_014": {
+			"item_name": "土灵矿",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "在矿区采掘或击败土属性怪物获取",
+			"item_use_condition": "",
+			"item_detail": "蕴含土灵气的矿石，冶炼与炼器的基础材料",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_015": {
+			"item_name": "火灵晶",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "在熔岩地带采集或击败火属性怪物获取",
+			"item_use_condition": "",
+			"item_detail": "凝聚火灵的晶体，可为法器提供稳定热源",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_016": {
+			"item_name": "硬壳",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "击败甲壳类怪物获取",
+			"item_use_condition": "",
+			"item_detail": "坚硬的外壳碎片，可用于强化护具与器胚",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_017": {
+			"item_name": "雷灵丝",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "击败雷蚕或雷属性怪物获取",
+			"item_use_condition": "",
+			"item_detail": "带有微弱电流的灵丝，导灵性出色",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_018": {
+			"item_name": "元水",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "在水脉附近采集或通过合成获得",
+			"item_use_condition": "",
+			"item_detail": "纯净水属性材料，常作基础媒介",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_019": {
+			"item_name": "元风",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "在风带区域采集或通过合成获得",
+			"item_use_condition": "",
+			"item_detail": "纯粹风属性材料，适合轻灵法阵",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_020": {
+			"item_name": "元雷",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "在雷场附近采集或通过合成获得",
+			"item_use_condition": "",
+			"item_detail": "纯粹雷属性材料，增幅冲击术式",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_021": {
+			"item_name": "元土",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "在矿层采集或通过合成获得",
+			"item_use_condition": "",
+			"item_detail": "纯粹土属性材料，稳固器阵结构",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_022": {
+			"item_name": "元火",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_price": 40,
+			"item_source": "在熔岩带采集或通过合成获得",
+			"item_use_condition": "",
+			"item_detail": "纯粹火属性材料，提升燃性与爆发",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_023": {
+			"item_name": "仙木",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "在古木秘境采伐或击败树灵精英低概率获取",
+			"item_use_condition": "",
+			"item_detail": "蕴含仙灵气的木材，法器坯料的上佳选择",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_024": {
+			"item_name": "参精",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "在幽谷采掘或击败山精低概率获取",
+			"item_use_condition": "",
+			"item_detail": "人参的灵性精华，药效强劲",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_025": {
+			"item_name": "灯油",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "在城镇油铺购买或古灯遗迹获取",
+			"item_use_condition": "",
+			"item_detail": "纯净灯油，炼制灵灯或引火法阵的核心材料",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_026": {
+			"item_name": "蟾珠",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "击败蟾蜍妖或秘潭探索低概率获取",
+			"item_use_condition": "",
+			"item_detail": "蟾妖腹中灵珠，可稳固毒性与水性术式",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_027": {
+			"item_name": "墨精",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "在书院遗藏或墨池采掘低概率获取",
+			"item_use_condition": "",
+			"item_detail": "上好墨汁精华，刻阵绘符必备",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_028": {
+			"item_name": "矿髓",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "在深层矿脉采掘或击败矿灵低概率获取",
+			"item_use_condition": "",
+			"item_detail": "矿石内核髓质，炼器时提升稳定与强度",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_029": {
+			"item_name": "骨粉",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "击败亡灵或兽类获取",
+			"item_use_condition": "",
+			"item_detail": "研磨而成的骨粉，炼符与炼药的辅材",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_030": {
+			"item_name": "雾绢",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "在雾林采集或击败雾魅低概率获取",
+			"item_use_condition": "",
+			"item_detail": "薄如雾的绢布，适合包裹灵材与导灵",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_031": {
+			"item_name": "水以太",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "在水灵秘境凝取或通过合成获得",
+			"item_use_condition": "",
+			"item_detail": "高纯度水属性以太，强化水系术式的核心材料",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_032": {
+			"item_name": "风以太",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "在风穴凝取或通过合成获得",
+			"item_use_condition": "",
+			"item_detail": "高纯度风属性以太，提升灵敏与速率",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_033": {
+			"item_name": "雷以太",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "在雷池凝取或通过合成获得",
+			"item_use_condition": "",
+			"item_detail": "高纯度雷属性以太，增强穿透与爆发",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_034": {
+			"item_name": "土以太",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "在地脉凝取或通过合成获得",
+			"item_use_condition": "",
+			"item_detail": "高纯度土属性以太，提升稳定与防护",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_035": {
+			"item_name": "火以太",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_price": 200,
+			"item_source": "在熔心凝取或通过合成获得",
+			"item_use_condition": "",
+			"item_detail": "高纯度火属性以太，增强灼烧与爆裂",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		}
+		# 更多物品可以添加到这里
 	}
-	# 更多物品可以添加到这里
-}
 
 # 物品效果处理函数
 var item_function = {
-	"item_001": "_on_item_001_picked_up",
-	"item_002": "_on_item_002_picked_up",
-	"item_003": "_on_item_003_picked_up",
-	"item_004": "_on_item_004_picked_up"
+	"item_001": "_on_item_001_picked_up"
 }
 
 # 可使用物品列表
 # 注意：立即生效的物品（如野果）不应该在这里，它们在拾取时直接生效
 var usable_items = {
-	"item_008": true  # 异界矿石可以使用
+	"item_001": true
 }
 
 # 根据物品ID获取该物品的所有数据
@@ -195,7 +501,7 @@ func get_item_property(item_id: String, property_name: String):
 		return null
 
 # 野果拾取函数
-func _on_item_001_picked_up(player):
+func _on_item_001_picked_up(player, item_id := ""):
 	# 只有满血时才能拾取
 	#if PC.pc_hp != PC.pc_max_hp:
 		#PC.pc_hp += PC.pc_max_hp * 0.2
@@ -213,31 +519,16 @@ func _on_item_001_picked_up(player):
 	
 	return true # 表示成功拾取
 
-# 力量之戒拾取函数
-func _on_item_002_picked_up(player):
-	# 将力量之戒添加到 Global 的玩家背包中
-	if !Global.player_inventory.has("item_002"):
-		Global.player_inventory["item_002"] = 1
-	else:
-		Global.player_inventory["item_002"] += 1
-	return true # 表示成功拾取
+func on_item_picked_up(player, item_id: String) -> bool:
+	return _add_to_inventory(item_id)
 
-# 聚灵石碎片拾取函数
-func _on_item_003_picked_up(player):
-	# 将聚灵石碎片添加到 Global 的玩家背包中
-	if !Global.player_inventory.has("item_003"):
-		Global.player_inventory["item_003"] = 1
+func _add_to_inventory(item_id: String) -> bool:
+	if !Global.player_inventory.has(item_id):
+		Global.player_inventory[item_id] = 1
 	else:
-		Global.player_inventory["item_003"] += 1
-	return true # 表示成功拾取
+		Global.player_inventory[item_id] += 1
+	return true
 
-func _on_item_004_picked_up(player):
-	# 将九幽秘钥碎片添加到 Global 的玩家背包中
-	if !Global.player_inventory.has("item_004"):
-		Global.player_inventory["item_004"] = 1
-	else:
-		Global.player_inventory["item_004"] += 1
-	return true # 表示成功拾取
 
 # 使用物品（主要用于解锁配方）
 func use_item(item_id: String, count: int = 1) -> Dictionary:
