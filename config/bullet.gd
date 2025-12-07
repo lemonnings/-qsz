@@ -30,6 +30,8 @@ var parent_bullet: bool = true  # 标记是否为父级子弹，默认为true
 var is_ring_bullet: bool = false  # 标记是否为环形子弹
 var ring_bullet_damage_multiplier: float = 1.0  # 环形子弹伤害倍数
 
+var is_wave_bullet: bool = false  # 标记是否为浪形子弹
+var wave_bullet_damage_multiplier: float = 1.0  # 浪形子弹伤害倍数
 var if_summon: bool = false
 var is_summon_bullet: bool = false  # 标记是否为召唤物子弹
 var summon_damage: float = 0.0  # 召唤物子弹伤害
@@ -158,6 +160,11 @@ func set_ring_bullet_damage(damage_multiplier: float) -> void:
 	is_ring_bullet = true
 	ring_bullet_damage_multiplier = damage_multiplier
 
+# 设置浪形子弹伤害倍数
+func set_wave_bullet_damage(damage_multiplier: float) -> void:
+	is_wave_bullet = true
+	wave_bullet_damage_multiplier = damage_multiplier
+
 
 # 初始化子弹的伤害和暴击状态
 func initialize_bullet_damage() -> void:
@@ -168,19 +175,22 @@ func initialize_bullet_damage() -> void:
 		base_damage = summon_damage * PC.main_skill_swordQi_damage 
 	elif is_ring_bullet:
 		base_damage = PC.pc_atk * ring_bullet_damage_multiplier* PC.main_skill_swordQi_damage 
+	elif is_wave_bullet:
+		# 新增：浪形子弹伤害为角色攻击的指定倍数（此处由调用处设置倍数，如0.5）
+		base_damage = PC.pc_atk * wave_bullet_damage_multiplier * PC.main_skill_swordQi_damage 
 	elif is_other_sword_wave:
 		base_damage = PC.pc_atk * PC.swordQi_other_sword_wave_damage* PC.main_skill_swordQi_damage 
 	else:
-		base_damage = PC.pc_atk * PC.main_skill_swordQi_damage 
-
+		base_damage = PC.pc_atk * PC.main_skill_swordQi_damage
+	
 	is_crit_hit = false
 	bullet_damage = base_damage
-
+	
 	if can_crit:
 		if randf() < PC.crit_chance:
 			is_crit_hit = true
 			bullet_damage *= PC.crit_damage_multi
-
+	
 	# 应用buff效果到基础伤害
 	bullet_damage = apply_buff_effects_to_damage(bullet_damage, is_summon_bullet)
 

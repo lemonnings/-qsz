@@ -103,9 +103,6 @@ func _ready():
 	if item_msg:
 		item_msg.visible = false
 	
-	# 测试用：解锁所有配方和添加测试物品
-	_setup_test_data()
-	
 	# 默认选择qi分类
 	_select_category("normal")
 

@@ -88,7 +88,7 @@ var items_data = {
 		"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 		"item_anime": "res://assets/animations/item_pickup_epic.tres"
 	},
-	"item_005": {
+	"item_006": {
 		"item_name": "聚灵石",
 		"item_stack_max": 9999,
 		"item_type": "material", 
@@ -101,7 +101,7 @@ var items_data = {
 		"item_color": Color(1.0, 0.8, 0.0, 1), # 金色
 		"item_anime": "res://assets/animations/item_pickup_legendary.tres"
 	},
-	"item_006": {
+	"item_007": {
 		"item_name": "灵石碎片",
 		"item_stack_max": 9999,
 		"item_type": "material", 

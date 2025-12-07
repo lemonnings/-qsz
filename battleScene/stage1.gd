@@ -77,6 +77,36 @@ var skill5_remain_time :float
 @export var lv_up_change_b2: Button
 @export var lv_up_change_b3: Button
 
+# 纹章相关
+@export var emblem1 : TextureRect
+@export var emblem1_panel : Panel
+@export var emblem1_detail : RichTextLabel
+@export var emblem2 : TextureRect
+@export var emblem2_panel : Panel
+@export var emblem2_detail : RichTextLabel
+@export var emblem3 : TextureRect
+@export var emblem3_panel : Panel
+@export var emblem3_detail : RichTextLabel
+@export var emblem4 : TextureRect
+@export var emblem4_panel : Panel
+@export var emblem4_detail : RichTextLabel
+@export var emblem5 : TextureRect
+@export var emblem5_panel : Panel
+@export var emblem5_detail : RichTextLabel
+@export var emblem6 : TextureRect
+@export var emblem6_panel : Panel
+@export var emblem6_detail : RichTextLabel
+@export var emblem7 : TextureRect
+@export var emblem7_panel : Panel
+@export var emblem7_detail : RichTextLabel
+@export var emblem8 : TextureRect
+@export var emblem8_panel : Panel
+@export var emblem8_detail : RichTextLabel
+
+
+
+
+
 # 升级管理器
 var level_up_manager: LevelUpManager
 
@@ -107,7 +137,12 @@ func _ready() -> void:
 	emblem_manager = EmblemManager.new()
 	add_child(emblem_manager)
 	emblem_manager.setup_emblem_container(buff_box)
-	
+	# 向纹章管理器注册 UI 槽位（TextureRect、Panel、RichTextLabel）
+	var icons := [emblem1, emblem2, emblem3, emblem4, emblem5, emblem6, emblem7, emblem8]
+	var panels := [emblem1_panel, emblem2_panel, emblem3_panel, emblem4_panel, emblem5_panel, emblem6_panel, emblem7_panel, emblem8_panel]
+	var details := [emblem1_detail, emblem2_detail, emblem3_detail, emblem4_detail, emblem5_detail, emblem6_detail, emblem7_detail, emblem8_detail]
+	emblem_manager.setup_emblem_ui(icons, panels, details)
+
 	skill1.visible = true
 	skill1.update_skill(1, $Player.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
 
@@ -519,7 +554,7 @@ func _check_and_process_pending_level_ups():
 
 func _on_attr_button_focus_entered() -> void:
 	attr_label.visible = true
-	attr_label.text = "dps："+Global.get_current_dps()+ "\n攻击：" + str(PC.pc_atk) + "  额外攻速：" + str(PC.pc_atk_speed) + "\n额外移速：" + str(PC.pc_speed) + "  弹体大小：" + str(PC.bullet_size) + "\n天命：" + str(PC.now_lunky_level) + "  减伤：" + str(PC.damage_reduction_rate)+ "\n暴击率：" + str(PC.crit_chance) + "  暴击伤害：" + str(PC.crit_damage_multi) + "\n环形剑气攻击/数量/大小/射速：" + str(PC.ring_bullet_damage_multiplier) + "/"+ str(PC.ring_bullet_count) + "/"+ str(PC.ring_bullet_size_multiplier) + "/"+ str(PC.ring_bullet_interval) + "/" + "\n召唤物数量/最大数量/攻击/弹体大小/射速：" + str(PC.summon_count)+ "/" + str(PC.summon_count_max)+ "/" + str(PC.summon_damage_multiplier)+ "/" + str(PC.summon_bullet_size_multiplier)+ "/" + str(PC.summon_interval_multiplier)+ "/" + "\n开悟获取：" + str(PC.selected_rewards)
+	attr_label.text = "dps：" + str(Global.get_current_dps()) + "\n攻击：" + str(PC.pc_atk) + "  额外攻速：" + str(PC.pc_atk_speed) + "\n额外移速：" + str(PC.pc_speed) + "  弹体大小：" + str(PC.bullet_size) + "\n天命：" + str(PC.now_lunky_level) + "  减伤：" + str(PC.damage_reduction_rate)+ "\n暴击率：" + str(PC.crit_chance) + "  暴击伤害：" + str(PC.crit_damage_multi) + "\n环形剑气攻击/数量/大小/射速：" + str(PC.ring_bullet_damage_multiplier) + "/"+ str(PC.ring_bullet_count) + "/"+ str(PC.ring_bullet_size_multiplier) + "/"+ str(PC.ring_bullet_interval) + "/" + "\n召唤物数量/最大数量/攻击/弹体大小/射速：" + str(PC.summon_count)+ "/" + str(PC.summon_count_max)+ "/" + str(PC.summon_damage_multiplier)+ "/" + str(PC.summon_bullet_size_multiplier)+ "/" + str(PC.summon_interval_multiplier)+ "/" + "\n开悟获取：" + str(PC.selected_rewards)
 
 func _on_attr_button_focus_exited() -> void:
 	attr_label.visible = false
@@ -531,17 +566,6 @@ func _on_monster_mechanism_gained(mechanism_value: int) -> void:
 # 测试buff功能的函数
 func _test_buffs():
 	pass
-	# # 等待一帧确保buff管理器完全初始化
-	# await get_tree().process_frame
-	
-	# 添加测试buff
-	# buff_manager.add_buff("attack_boost", 15.0, 3)  # 攻击力提升，15秒，3层
-	# buff_manager.add_buff("speed_boost", 8.0, 1)   # 移动速度提升，8秒，1层
-	# buff_manager.add_buff("health_regen", 0.0, 1)  # 生命回复，永久buff
-
-	# 移除buff
-	# await get_tree().create_timer(5.0).timeout
-	# buff_manager.remove_buff("speed_boost")
 
 
 func _on_skill_icon_1_mouse_entered() -> void:
@@ -597,3 +621,91 @@ func _on_refresh_button_2_pressed() -> void:
 func _on_refresh_button_3_pressed() -> void:
 	# 委托给升级管理器处理
 	level_up_manager.handle_refresh_button(3, get_tree(), get_viewport())
+
+
+func _on_emblem_1_mouse_entered() -> void:
+	if emblem1_detail.text != "":
+		emblem1_detail.visible = true
+		emblem1_panel.visible = true
+
+
+func _on_emblem_1_mouse_exited() -> void:
+	emblem1_detail.visible = false
+	emblem1_panel.visible = false
+
+
+func _on_emblem_2_mouse_entered() -> void:
+	if emblem2_detail.text != "":
+		emblem2_detail.visible = true
+		emblem2_panel.visible = true
+
+
+func _on_emblem_2_mouse_exited() -> void:
+	emblem2_detail.visible = false
+	emblem2_panel.visible = false
+
+
+func _on_emblem_3_mouse_entered() -> void:
+	if emblem3_detail.text != "":
+		emblem3_detail.visible = true
+		emblem3_panel.visible = true
+
+
+func _on_emblem_3_mouse_exited() -> void:
+	emblem3_detail.visible = false
+	emblem3_panel.visible = false
+
+
+func _on_emblem_4_mouse_entered() -> void:
+	if emblem4_detail.text != "":
+		emblem4_detail.visible = true
+		emblem4_panel.visible = true
+
+
+func _on_emblem_4_mouse_exited() -> void:
+	emblem4_detail.visible = false
+	emblem4_panel.visible = false
+
+
+func _on_emblem_5_mouse_entered() -> void:
+	if emblem5_detail.text != "":
+		emblem5_detail.visible = true
+		emblem5_panel.visible = true
+
+
+func _on_emblem_5_mouse_exited() -> void:
+	emblem5_detail.visible = false
+	emblem5_panel.visible = false
+
+
+func _on_emblem_6_mouse_entered() -> void:
+	if emblem6_detail.text != "":
+		emblem6_detail.visible = true
+		emblem6_panel.visible = true
+
+
+func _on_emblem_6_mouse_exited() -> void:
+	emblem6_detail.visible = false
+	emblem6_panel.visible = false
+
+
+func _on_emblem_7_mouse_entered() -> void:
+	if emblem7_detail.text != "":
+		emblem7_detail.visible = true
+		emblem7_panel.visible = true
+
+
+func _on_emblem_7_mouse_exited() -> void:
+	emblem7_detail.visible = false
+	emblem7_panel.visible = false
+
+
+func _on_emblem_8_mouse_entered() -> void:
+	if emblem8_detail.text != "":
+		emblem8_detail.visible = true
+		emblem8_panel.visible = true
+
+
+func _on_emblem_8_mouse_exited() -> void:
+	emblem8_detail.visible = false
+	emblem8_panel.visible = false

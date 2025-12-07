@@ -198,10 +198,6 @@ func _select_reward_by_weight(available_rewards: Array[Reward]) -> Reward:
 	var random_roll = randf() * total_reward_weight
 	for wr in weighted_rewards_list:
 		if random_roll < wr.cumulative_weight:
-			# 如果选择的奖励派系不是 "normal"，则更新玩家的派系权重。
-			if wr.reward.faction != "normal": # 假设 PlayerRewardWeights 是一个自动加载的单例。
-				# PlayerRewardWeights.update_faction_weights_on_selection 的第一个参数应该是CSV中定义的稀有度字符串。
-				PlayerRewardWeights.update_faction_weights_on_selection(wr.reward.rarity, wr.reward.faction, 1.0)
 			return wr.reward
 
 	
@@ -228,7 +224,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 			# 当奖励的tags包含"emblem"，且当前纹章数量已达上限时，直接跳过该奖励
 			var is_emblem_reward := false
 			if r.tags != "":
-				var tag_list := r.tags.split(",")
+				var tag_list : Array =  r.tags.split(",")
 				for t in tag_list:
 					if t == "emblem":
 						is_emblem_reward = true
@@ -296,7 +292,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 			# 同样在回退逻辑中排除纹章奖励（已达上限时）
 			var fb_is_emblem := false
 			if fallback_reward.tags != "":
-				var fb_tags := fallback_reward.tags.split(",")
+				var fb_tags : Array = fallback_reward.tags.split(",")
 				for t in fb_tags:
 					if t.strip_edges() == "emblem":
 						fb_is_emblem = true
@@ -339,7 +335,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 				# 其他稀有度回退同样排除纹章奖励（已达上限时）
 				var other_is_emblem := false
 				if potential_reward.tags != "":
-					var other_tags := potential_reward.tags.split(",")
+					var other_tags : Array = potential_reward.tags.split(",")
 					for t in other_tags:
 						if t.strip_edges() == "emblem":
 							other_is_emblem = true
@@ -370,8 +366,13 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 
 	print_debug("所有稀有度（包括 '" + csv_rarity_name + "' 的回退和其他稀有度）均尝试完毕，未找到任何可用奖励。")
 	return null # 如果所有稀有度都尝试过后仍未找到，则返回null
-
-
+	
+func check_SR27() -> bool:
+	return PC.selected_rewards.has("ring_bullet")
+	
+func check_SR30() -> bool:
+	return PC.selected_rewards.has("wave_bullet")
+	
 func check_G10_condition() -> bool:
 	return not PC.selected_rewards.has("spdToAH1")
 
@@ -804,93 +805,81 @@ func reward_UR13():
 func reward_R14():
 	PC.crit_chance += 0.04
 	PC.pc_atk_speed += 0.04
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
 	_level_up_action()
 
 func reward_SR14():
 	PC.crit_chance += 0.05
 	PC.pc_atk_speed += 0.05
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
 	_level_up_action()
 
 func reward_SSR14():
 	PC.crit_chance += 0.06
 	PC.pc_atk_speed += 0.06
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
 	_level_up_action()
 
 func reward_UR14():
 	PC.crit_chance += 0.08
 	PC.pc_atk_speed += 0.08
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.07)
 	_level_up_action()
 
 func reward_R15():
 	PC.crit_damage_multi += 0.08
 	PC.pc_atk_speed += 0.04
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
 	_level_up_action()
 
 func reward_SR15():
 	PC.crit_damage_multi += 0.10
 	PC.pc_atk_speed += 0.05
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
 	_level_up_action()
 
 func reward_SSR15():
 	PC.crit_damage_multi += 0.12
 	PC.pc_atk_speed += 0.06
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
 	_level_up_action()
 
 func reward_UR15():
 	PC.crit_damage_multi += 0.16
 	PC.pc_atk_speed += 0.08
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.07)
 	_level_up_action()
 
 func reward_R16():
-	PC.crit_chance += 0.04
-	PC.crit_damage_multi += 0.06
-	PC.final_damage_multiplier -= 0.03
+	PC.crit_chance += 0.05
+	PC.crit_damage_multi += 0.08
 	_level_up_action()
 
 func reward_SR16():
-	PC.crit_chance += 0.05
-	PC.crit_damage_multi += 0.08
-	PC.final_damage_multiplier -= 0.035
+	PC.crit_chance += 0.065
+	PC.crit_damage_multi += 0.11
 	_level_up_action()
 
 func reward_SSR16():
-	PC.crit_chance += 0.06
-	PC.crit_damage_multi += 0.10
-	PC.final_damage_multiplier -= 0.04
+	PC.crit_chance += 0.08
+	PC.crit_damage_multi += 0.14
 	_level_up_action()
 
 func reward_UR16():
-	PC.crit_chance += 0.08
-	PC.crit_damage_multi += 0.14
-	PC.final_damage_multiplier -= 0.05
+	PC.crit_chance += 0.011
+	PC.crit_damage_multi += 0.2
 	_level_up_action()
 
 func reward_R17():
-	PC.bullet_size += 0.15
-	PC.pc_atk_speed += 0.04
+	PC.bullet_size += 0.1
+	PC.pc_atk_speed += 0.08
 	_level_up_action()
 
 func reward_SR17():
-	PC.bullet_size += 0.20
-	PC.pc_atk_speed += 0.05
+	PC.bullet_size += 0.1
+	PC.pc_atk_speed += 0.11
 	_level_up_action()
 
 func reward_SSR17():
-	PC.bullet_size += 0.25
-	PC.pc_atk_speed += 0.06
+	PC.bullet_size += 0.15
+	PC.pc_atk_speed += 0.12
 	_level_up_action()
 
 func reward_UR17():
-	PC.bullet_size += 0.35
-	PC.pc_atk_speed += 0.08
+	PC.bullet_size += 0.15
+	PC.pc_atk_speed += 0.16
 	_level_up_action()
 
 func reward_R18():
@@ -966,44 +955,114 @@ func reward_fiveway():
 
 # --- 环形子弹相关奖励函数 ---
 # 获得环形子弹能力
-func reward_ring_bullet():
+func reward_SR27():
 	PC.selected_rewards.append("ring_bullet")
 	_level_up_action()
 
-# 环形子弹伤害提升30%
-func reward_ring_bullet_damage_up():
-	PC.selected_rewards.append("ring_bullet_damage_up")
-	PC.ring_bullet_damage_multiplier *= 1.3
+func reward_R28():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.03)
+	PC.ring_bullet_damage_multiplier *= 1.2
+	PC.ring_bullet_interval *= 0.95
 	_level_up_action()
-
-# 环形子弹数量增加2 (紫色品质)
-func reward_ring_bullet_count_up_purple():
-	PC.selected_rewards.append("ring_bullet_count_up_purple")
+	
+func reward_SR28():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.045)
+	PC.ring_bullet_damage_multiplier *= 1.26
+	PC.ring_bullet_interval *= 0.94
+	_level_up_action()
+	
+func reward_SSR28():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.06)
+	PC.ring_bullet_damage_multiplier *= 1.34
+	PC.ring_bullet_interval *= 0.93
+	_level_up_action()
+	
+func reward_UR28():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.09)
+	PC.ring_bullet_damage_multiplier *= 1.48
+	PC.ring_bullet_interval *= 0.91
+	_level_up_action()
+	
+func reward_R29():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.03)
 	PC.ring_bullet_count += 2
+	PC.ring_bullet_interval *= 0.95
+	_level_up_action()
+	
+func reward_SR29():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.05)
+	PC.ring_bullet_count += 3
+	PC.ring_bullet_interval *= 0.92
+	_level_up_action()
+	
+func reward_SSR29():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.08)
+	PC.ring_bullet_count += 3
+	PC.ring_bullet_interval *= 0.89
+	_level_up_action()
+	
+func reward_UR29():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.09)
+	PC.ring_bullet_count += 3
+	PC.ring_bullet_interval *= 0.88
+	_level_up_action()
+	
+func reward_SR30():
+	PC.selected_rewards.append("wave_bullet")
 	_level_up_action()
 
-# 环形子弹大小提升15%，伤害提升5% (紫色品质)
-func reward_ring_bullet_size_up_purple():
-	PC.selected_rewards.append("ring_bullet_size_up_purple")
-	PC.ring_bullet_size_multiplier *= 1.15
-	PC.ring_bullet_damage_multiplier += 0.05 # 注意这里是加法，之前是乘法
+func reward_R31():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.03)
+	PC.wave_bullet_damage_multiplier *= 1.2
+	PC.wave_bullet_interval *= 0.95
 	_level_up_action()
+	
 
-# 环形子弹数量增加4 (红色品质)
-func reward_ring_bullet_count_up_red():
-	PC.selected_rewards.append("ring_bullet_count_up_red")
-	PC.ring_bullet_count += 4
+func reward_SR31():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.045)
+	PC.wave_bullet_damage_multiplier *= 1.26
+	PC.wave_bullet_interval *= 0.94
 	_level_up_action()
-
-# 环形子弹发射间隔减少25% (即发射频率提高)
-func reward_ring_bullet_interval_down():
-	PC.selected_rewards.append("ring_bullet_interval_down")
-	PC.ring_bullet_interval *= 0.75
+	
+func reward_SSR31():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.06)
+	PC.wave_bullet_damage_multiplier *= 1.34
+	PC.wave_bullet_interval *= 0.93
 	_level_up_action()
-
+	
+func reward_UR31():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.09)
+	PC.wave_bullet_damage_multiplier *= 1.48
+	PC.wave_bullet_interval *= 0.91
+	_level_up_action()
+	
+func reward_R32():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.03)
+	PC.wave_bullet_count += 3
+	PC.wave_bullet_interval *= 0.95
+	_level_up_action()
+	
+func reward_SR32():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.05)
+	PC.wave_bullet_count += 3
+	PC.wave_bullet_interval *= 0.92
+	_level_up_action()
+	
+func reward_SSR32():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.08)
+	PC.wave_bullet_count += 3
+	PC.wave_bullet_interval *= 0.89
+	_level_up_action()
+	
+func reward_UR32():
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.09)
+	PC.wave_bullet_count += 4
+	PC.wave_bullet_interval *= 0.88
+	_level_up_action()
+	
 # --- 蓝色召唤物相关奖励函数 ---
 # 获得一个蓝色召唤物
-func reward_blue_summon():
+func reward_R20():
 	PC.summon_count += 1
 	PC.selected_rewards.append("blue_summon")
 	# 通知battle场景添加召唤物 (类型0代表蓝色召唤物)
@@ -1012,29 +1071,50 @@ func reward_blue_summon():
 		battle_scene.add_summon(0) # 假设0是蓝色召唤物的类型ID
 	_level_up_action()
 
-# 蓝色召唤物伤害提升7.5%，子弹大小提升5%
-func reward_blue_summon_damage_up():
-	PC.summon_damage_multiplier += 0.075
+# 召唤物伤害/治疗量+7% 召唤物弹体大小+6% 召唤物发射间隔缩短3%
+func reward_R23():
+	PC.summon_damage_multiplier += 0.07
 	PC.summon_bullet_size_multiplier += 0.05
+	PC.summon_interval_multiplier *= 0.97
 	# 更新当前所有召唤物的属性
-	var battle_scene = get_tree().get_first_node_in_group("player") # 获取玩家节点，可能需要更精确的引用
+	var battle_scene = get_tree().get_first_node_in_group("player")
 	if battle_scene and battle_scene.has_method("update_summons_properties"):
 		battle_scene.update_summons_properties()
 	_level_up_action()
-
-# 蓝色召唤物子弹大小提升10%，伤害提升2.5%
-func reward_blue_summon_size_up():
-	PC.summon_bullet_size_multiplier += 0.1
-	PC.summon_damage_multiplier += 0.025
+	
+func reward_SR23():
+	PC.summon_damage_multiplier += 0.1
+	PC.summon_bullet_size_multiplier += 0.08
+	PC.summon_interval_multiplier *= 0.96
 	# 更新当前所有召唤物的属性
 	var battle_scene = get_tree().get_first_node_in_group("player")
 	if battle_scene and battle_scene.has_method("update_summons_properties"):
 		battle_scene.update_summons_properties()
 	_level_up_action()
 
+func reward_SSR23():
+	PC.summon_damage_multiplier += 0.13
+	PC.summon_bullet_size_multiplier += 0.1
+	PC.summon_interval_multiplier *= 0.95
+	# 更新当前所有召唤物的属性
+	var battle_scene = get_tree().get_first_node_in_group("player")
+	if battle_scene and battle_scene.has_method("update_summons_properties"):
+		battle_scene.update_summons_properties()
+	_level_up_action()
+
+func reward_UR23():
+	PC.summon_damage_multiplier += 0.19
+	PC.summon_bullet_size_multiplier += 0.14
+	PC.summon_interval_multiplier *= 0.93
+	# 更新当前所有召唤物的属性
+	var battle_scene = get_tree().get_first_node_in_group("player")
+	if battle_scene and battle_scene.has_method("update_summons_properties"):
+		battle_scene.update_summons_properties()
+	_level_up_action()
+	
 # --- 紫色召唤物相关奖励函数 ---
 # 获得一个紫色召唤物
-func reward_purple_summon():
+func reward_SR20():
 	PC.summon_count += 1
 	PC.selected_rewards.append("purple_summon")
 	PC.new_summon = "purple" # 记录最新获得的召唤物类型
@@ -1045,25 +1125,81 @@ func reward_purple_summon():
 	_level_up_action()
 
 # 紫色召唤物伤害提升10%，子弹大小提升7.5%
-func reward_purple_summon_damage_up():
+func reward_R24():
 	PC.summon_damage_multiplier += 0.1
+	PC.summon_bullet_size_multiplier += 0.05
+	# 更新当前所有召唤物的属性
+	var battle_scene = get_tree().get_first_node_in_group("player")
+	if battle_scene and battle_scene.has_method("update_summons_properties"):
+		battle_scene.update_summons_properties()
+	_level_up_action()
+
+func reward_SR24():
+	PC.summon_damage_multiplier += 0.15
 	PC.summon_bullet_size_multiplier += 0.075
-	# 注意：这里可能也需要调用 update_summons_properties() 来使改动立即生效
+	# 更新当前所有召唤物的属性
+	var battle_scene = get_tree().get_first_node_in_group("player")
+	if battle_scene and battle_scene.has_method("update_summons_properties"):
+		battle_scene.update_summons_properties()
 	_level_up_action()
 
-# 紫色召唤物子弹大小提升15%，伤害提升5%
-func reward_purple_summon_size_up():
-	PC.summon_bullet_size_multiplier += 0.15
-	PC.summon_damage_multiplier += 0.05
-	# 更新当前所有召唤物的属性 (此部分被注释掉了，根据需要取消注释)
-	# var battle_scene = get_tree().get_first_node_in_group("player")
-	# if battle_scene and battle_scene.has_method("update_summons_properties"):
-	# 	battle_scene.update_summons_properties()
+func reward_SSR24():
+	PC.summon_damage_multiplier += 0.2
+	PC.summon_bullet_size_multiplier += 0.1
+	# 更新当前所有召唤物的属性
+	var battle_scene = get_tree().get_first_node_in_group("player")
+	if battle_scene and battle_scene.has_method("update_summons_properties"):
+		battle_scene.update_summons_properties()
+	_level_up_action()
+	
+func reward_UR24():
+	PC.summon_damage_multiplier += 0.2
+	PC.summon_bullet_size_multiplier += 0.1
+	# 更新当前所有召唤物的属性
+	var battle_scene = get_tree().get_first_node_in_group("player")
+	if battle_scene and battle_scene.has_method("update_summons_properties"):
+		battle_scene.update_summons_properties()
+	_level_up_action()
+	
+func reward_R25():
+	PC.summon_damage_multiplier += 0.07
+	PC.summon_interval_multiplier *= 0.95
+	# 更新当前所有召唤物的属性
+	var battle_scene = get_tree().get_first_node_in_group("player")
+	if battle_scene and battle_scene.has_method("update_summons_properties"):
+		battle_scene.update_summons_properties()
 	_level_up_action()
 
+func reward_SR25():
+	PC.summon_damage_multiplier += 0.11
+	PC.summon_interval_multiplier *= 0.93
+	# 更新当前所有召唤物的属性
+	var battle_scene = get_tree().get_first_node_in_group("player")
+	if battle_scene and battle_scene.has_method("update_summons_properties"):
+		battle_scene.update_summons_properties()
+	_level_up_action()
+	
+func reward_SSR25():
+	PC.summon_damage_multiplier += 0.15
+	PC.summon_interval_multiplier *= 0.91
+	# 更新当前所有召唤物的属性
+	var battle_scene = get_tree().get_first_node_in_group("player")
+	if battle_scene and battle_scene.has_method("update_summons_properties"):
+		battle_scene.update_summons_properties()
+	_level_up_action()
+	
+func reward_UR25():
+	PC.summon_damage_multiplier += 0.23
+	PC.summon_interval_multiplier *= 0.87
+	# 更新当前所有召唤物的属性
+	var battle_scene = get_tree().get_first_node_in_group("player")
+	if battle_scene and battle_scene.has_method("update_summons_properties"):
+		battle_scene.update_summons_properties()
+	_level_up_action()
+	
 # --- 橙色(金色)召唤物相关奖励函数 ---
 # 获得一个橙色(金色)召唤物
-func reward_gold_summon():
+func reward_SSR20():
 	PC.summon_count += 1
 	PC.selected_rewards.append("gold_summon")
 	PC.new_summon = "gold" # 记录最新获得的召唤物类型
@@ -1073,29 +1209,9 @@ func reward_gold_summon():
 		battle_scene.add_summon(2) # 假设2是橙色/金色召唤物的类型ID
 	_level_up_action()
 
-# 橙色(金色)召唤物伤害提升15%，攻击间隔减少5% (即攻击速度提升)
-func reward_gold_summon_damage_up():
-	PC.summon_damage_multiplier += 0.15
-	PC.summon_interval_multiplier *= 0.95 # 攻击间隔变为原来的95%
-	# 更新当前所有召唤物的属性
-	var battle_scene = get_tree().get_first_node_in_group("player")
-	if battle_scene and battle_scene.has_method("update_summons_properties"):
-		battle_scene.update_summons_properties()
-	_level_up_action()
-
-# 橙色(金色)召唤物伤害提升6%，攻击间隔减少12.5%
-func reward_gold_summon_interval_down():
-	PC.summon_damage_multiplier += 0.06
-	PC.summon_interval_multiplier *= 0.875 # 攻击间隔变为原来的87.5%
-	# 更新当前所有召唤物的属性
-	var battle_scene = get_tree().get_first_node_in_group("player")
-	if battle_scene and battle_scene.has_method("update_summons_properties"):
-		battle_scene.update_summons_properties()
-	_level_up_action()
-
 # --- 红色召唤物相关奖励函数 ---
 # 获得一个红色召唤物
-func reward_red_summon():
+func reward_UR20():
 	PC.summon_count += 1
 	PC.selected_rewards.append("red_summon")
 	PC.new_summon = "red" # 记录最新获得的召唤物类型
@@ -1105,355 +1221,316 @@ func reward_red_summon():
 		battle_scene.add_summon(3) # 假设3是红色召唤物的类型ID
 	_level_up_action()
 
-# 红色召唤物伤害提升15%，攻击间隔减少7.5%
-func reward_red_summon_damage_up():
-	PC.summon_damage_multiplier += 0.15
-	PC.summon_interval_multiplier *= 0.925 # 攻击间隔变为原来的92.5%
-	# 更新当前所有召唤物的属性
-	var battle_scene = get_tree().get_first_node_in_group("player")
-	if battle_scene and battle_scene.has_method("update_summons_properties"):
-		battle_scene.update_summons_properties()
-	_level_up_action()
-
-# 红色召唤物伤害提升7.5%，攻击间隔减少15%
-func reward_red_summon_interval_down():
-	PC.summon_damage_multiplier += 0.075
-	PC.summon_interval_multiplier *= 0.85 # 攻击间隔变为原来的85%
-	# 更新当前所有召唤物的属性
-	var battle_scene = get_tree().get_first_node_in_group("player")
-	if battle_scene and battle_scene.has_method("update_summons_properties"):
-		battle_scene.update_summons_properties()
-	_level_up_action()
-
 # 橙色(金色)召唤物最大数量上限增加1
-func reward_gold_summon_max_add():
+func reward_SR26():
 	PC.summon_count_max += 1
+	PC.summon_damage_multiplier -= 0.15
 	_level_up_action()
 
 # 红色召唤物最大数量上限增加2
-func reward_red_summon_max_add():
-	PC.summon_count_max += 2
+func reward_SSR26():
+	PC.summon_count_max += 1
+	PC.summon_damage_multiplier -= 0.05
 	_level_up_action()
 
+# 红色召唤物最大数量上限增加2
+func reward_UR26():
+	PC.summon_count_max += 2
+	PC.summon_damage_multiplier -= 0.15
+	_level_up_action()
 
-func reward_branch():
+func reward_Branch():
 	PC.now_main_skill_num = PC.now_main_skill_num + 1
 	PC.selected_rewards.append("branch")
 	PC.has_branch = true
 	_level_up_action()
 
-func reward_moyan():
+func reward_Moyan():
 	PC.now_main_skill_num = PC.now_main_skill_num + 1
 	PC.selected_rewards.append("moyan")
 	PC.has_moyan = true
 	_level_up_action()
 
-func reward_ringFire():
+func reward_RingFire():
 	PC.now_main_skill_num = PC.now_main_skill_num + 1
 	PC.selected_rewards.append("ringFire")
 	PC.has_ringFire = true
 	_level_up_action()
 	
-func reward_riyan():
+func reward_Riyan():
 	PC.now_main_skill_num = PC.now_main_skill_num + 1
 	PC.selected_rewards.append("riyan")
 	PC.has_riyan = true
 	_level_up_action()
 
-# 剑气础升级
 
-func WSwordQi():
+func reward_RSwordQi():
 	PC.main_skill_swordQi += 1
-	PC.main_skill_swordQi_damage += 0.01
+	PC.main_skill_swordQi_damage += 0.1
+	PC.pc_atk = int((PC.pc_atk + 1) * 1.03)
 	_level_up_action()
 
-func GSwordQi():
-	PC.main_skill_swordQi += 1
-	PC.main_skill_swordQi_damage += 0.02
-	_level_up_action()
-	
-func BSwordQi():
-	PC.main_skill_swordQi += 1
-	PC.main_skill_swordQi_damage += 0.05
-	_level_up_action()
-
-func PSwordQi():
-	PC.main_skill_swordQi += 1
-	PC.main_skill_swordQi_damage += 0.08
-	_level_up_action()
-
-func GlSwordQi():
+func reward_SRSwordQi():
 	PC.main_skill_swordQi += 1
 	PC.main_skill_swordQi_damage += 0.13
-	_level_up_action()
-
-func RSwordQi():
-	PC.main_skill_swordQi += 1
-	PC.main_skill_swordQi_damage += 0.2
+	PC.pc_atk = int((PC.pc_atk + 1) * 1.04)
 	_level_up_action()
 	
-func SplitSwordQi1():
+func reward_SSRSwordQi():
+	PC.main_skill_swordQi += 1
+	PC.main_skill_swordQi_damage += 0.16
+	PC.pc_atk = int((PC.pc_atk + 1) * 1.055)
+	_level_up_action()
+
+func reward_URSwordQi():
+	PC.main_skill_swordQi += 1
+	PC.main_skill_swordQi_damage += 0.22
+	PC.pc_atk = int((PC.pc_atk + 1) * 1.085)
+	_level_up_action()
+
+	
+func reward_SplitSwordQi1():
 	PC.selected_rewards.append("SplitSwordQi1")
 	_level_up_action()
 	
-func SplitSwordQi2():
+func reward_SplitSwordQi2():
 	PC.selected_rewards.append("SplitSwordQi2")
 	_level_up_action()
 	
-func SplitSwordQi3():
+func reward_SplitSwordQi3():
 	PC.selected_rewards.append("SplitSwordQi3")
 	PC.swordQi_penetration_count += 2
 	_level_up_action()
 	
-func SplitSwordQi4():
-	PC.selected_rewards.append("SplitSwordQi4")
-	_level_up_action()
-	
-func SplitSwordQi11():
+func reward_SplitSwordQi11():
 	PC.selected_rewards.append("SplitSwordQi11")
 	PC.swordQi_other_sword_wave_damage += 0.15
 	_level_up_action()
 	
-func SplitSwordQi12():
+func reward_SplitSwordQi12():
 	PC.selected_rewards.append("SplitSwordQi12")
 	_level_up_action()
 	
-func SplitSwordQi13():
+func reward_SplitSwordQi13():
 	PC.selected_rewards.append("SplitSwordQi13")
 	_level_up_action()
 	
-func SplitSwordQi21():
+func reward_SplitSwordQi21():
 	PC.selected_rewards.append("SplitSwordQi21")
 	_level_up_action()
 	
-func SplitSwordQi22():
+func reward_SplitSwordQi22():
 	PC.selected_rewards.append("SplitSwordQi22")
 	_level_up_action()
 	
-func SplitSwordQi23():
+func reward_SplitSwordQi23():
 	PC.selected_rewards.append("SplitSwordQi23")
 	_level_up_action()
 	
-func SplitSwordQi31():
+func reward_SplitSwordQi31():
 	PC.selected_rewards.append("SplitSwordQi31")
 	PC.swordQi_penetration_count += 2
 	_level_up_action()
 	
-func SplitSwordQi32():
+func reward_SplitSwordQi32():
 	PC.selected_rewards.append("SplitSwordQi32")
 	_level_up_action()
 	
-func SplitSwordQi33():
+func reward_SplitSwordQi33():
 	PC.selected_rewards.append("SplitSwordQi33")
 	_level_up_action()
 	
 
-func WBranch():
+func reward_RBranch():
 	PC.main_skill_branch += 1
-	PC.main_skill_branch_damage += 0.02
+	PC.main_skill_branch_damage += 0.2
 	_level_up_action()
 
-func GBranch():
-	PC.main_skill_branch += 1
-	PC.main_skill_branch_damage += 0.04
-	_level_up_action()
-	
-func BBranch():
-	PC.main_skill_branch += 1
-	PC.main_skill_branch_damage += 0.1
-	_level_up_action()
-
-func PBranch():
-	PC.main_skill_branch += 1
-	PC.main_skill_branch_damage += 0.16
-	_level_up_action()
-
-func GlBranch():
+func reward_SRBranch():
 	PC.main_skill_branch += 1
 	PC.main_skill_branch_damage += 0.26
 	_level_up_action()
-
-func RBranch():
-	PC.main_skill_branch += 1
-	PC.main_skill_branch_damage += 0.4
-	_level_up_action()
 	
-func Branch1():
+func reward_SSRBranch():
+	PC.main_skill_branch += 1
+	PC.main_skill_branch_damage += 0.32
+	_level_up_action()
+
+func reward_URBranch():
+	PC.main_skill_branch += 1
+	PC.main_skill_branch_damage += 0.44
+	_level_up_action()
+
+func reward_Branch1():
 	PC.select_reward.append("branch1")
 	_level_up_action()
 
-func Branch2():
+func reward_Branch2():
 	PC.select_reward.append("branch2")
 	_level_up_action()
 
-func Branch3():
+func reward_Branch3():
 	PC.select_reward.append("branch3")
 	_level_up_action()
 
-func Branch4():
+func reward_Branch4():
 	PC.select_reward.append("branch4")
 	_level_up_action()
 
-func Branch11():
+func reward_Branch11():
 	PC.select_reward.append("branch11")
 	_level_up_action()
 
-func Branch21():
+func reward_Branch21():
 	PC.select_reward.append("branch21")
 	_level_up_action()
 
-func Branch12():
+func reward_Branch12():
 	PC.select_reward.append("branch12")
 	_level_up_action()
 
-func Branch31():
+func reward_Branch31():
 	PC.select_reward.append("branch31")
 	_level_up_action()
 
-func Branch22():
+func reward_Branch22():
 	PC.select_reward.append("branch22")
 	_level_up_action()
 
-func Wmoyan():
+func reward_Rmoyan():
 	PC.main_skill_moyan += 1
-	PC.main_skill_moyan_damage += 0.02
+	PC.main_skill_moyan_damage += 0.2
 	_level_up_action()
 
-func Gmoyan():
-	PC.main_skill_moyan += 1
-	PC.main_skill_moyan_damage += 0.04
-	_level_up_action()
-	
-func Bmoyan():
-	PC.main_skill_moyan += 1
-	PC.main_skill_moyan_damage += 0.1
-	_level_up_action()
-
-func Pmoyan():
-	PC.main_skill_moyan += 1
-	PC.main_skill_moyan_damage += 0.16
-	_level_up_action()
-
-func Glmoyan():
+func reward_SRmoyan():
 	PC.main_skill_moyan += 1
 	PC.main_skill_moyan_damage += 0.26
 	_level_up_action()
-
-func Rmoyan():
+	
+func reward_SSRmoyan():
 	PC.main_skill_moyan += 1
-	PC.main_skill_moyan_damage += 0.4
+	PC.main_skill_moyan_damage += 0.32
 	_level_up_action()
 
-func Moyan1():
+func reward_URmoyan():
+	PC.main_skill_moyan += 1
+	PC.main_skill_moyan_damage += 0.44
+	_level_up_action()
+
+func reward_Moyan1():
 	PC.select_reward.append("moyan1")
 	_level_up_action()
 
-func Moyan2():
+func reward_Moyan2():
 	PC.select_reward.append("moyan2")
 	_level_up_action()
 
-func Moyan3():
+func reward_Moyan3():
 	PC.select_reward.append("moyan3")
 	_level_up_action()	
 
-func Moyan12():
+func reward_Moyan12():
 	PC.select_reward.append("moyan12")
 	_level_up_action()	
 
-func Moyan13():
+func reward_Moyan13():
 	PC.select_reward.append("moyan13")
 	_level_up_action()	
 
-func Moyan23():
+func reward_Moyan23():
 	PC.select_reward.append("moyan23")
 	_level_up_action()	
 
 
-func WringFire():
+func reward_RRingFire():
 	PC.main_skill_ringFire += 1
-	PC.main_skill_ringFire_damage += 0.02
+	PC.main_skill_ringFire_damage += 0.2
 	_level_up_action()
 
-func GringFire():
-	PC.main_skill_riyan += 1
-	PC.main_skill_ringFire_damage += 0.04
-	_level_up_action()
-	
-func BringFire():
-	PC.main_skill_riyan += 1
-	PC.main_skill_ringFire_damage += 0.1
-	_level_up_action()
-
-func PringFire():
-	PC.main_skill_riyan += 1
-	PC.main_skill_ringFire_damage += 0.16
-	_level_up_action()
-
-func GlringFire():
-	PC.main_skill_riyan += 1
+func reward_SRRingFire():
+	PC.main_skill_ringFire += 1
 	PC.main_skill_ringFire_damage += 0.26
 	_level_up_action()
-
-func RringFire():
-	PC.main_skill_riyan += 1
-	PC.main_skill_ringFire_damage += 0.4
+	
+func reward_SSRRingFire():
+	PC.main_skill_ringFire += 1
+	PC.main_skill_ringFire_damage += 0.32
 	_level_up_action()
 
-func RingFire1():
+func reward_URRingFire():
+	PC.main_skill_ringFire += 1
+	PC.main_skill_ringFire_damage += 0.44
+	_level_up_action()
+
+func reward_RingFire1():
 	PC.select_reward.append("ringFire1")
 	_level_up_action()
 
-func RingFire2():
+func reward_RingFire2():
 	PC.select_reward.append("ringFire2")
 	_level_up_action()
 
-func RingFire3():
+func reward_RingFire3():
 	PC.select_reward.append("ringFire3")
 	_level_up_action()	
 
-	
-func Wriyan():
+func reward_RingFire11():
+	PC.select_reward.append("ringFire11")
+	_level_up_action()	
+
+func reward_RingFire4():
+	PC.select_reward.append("ringFire4")
+	_level_up_action()	
+
+func reward_RingFire44():
+	PC.select_reward.append("ringFire44")
+	_level_up_action()	
+
+func reward_Rriyan():
 	PC.main_skill_riyan += 1
-	PC.main_skill_riyan_damage += 0.02
+	PC.main_skill_riyan_damage += 0.2
 	_level_up_action()
 
-func Griyan():
-	PC.main_skill_riyan += 1
-	PC.main_skill_riyan_damage += 0.04
-	_level_up_action()
-	
-func Briyan():
-	PC.main_skill_riyan += 1
-	PC.main_skill_riyan_damage += 0.1
-	_level_up_action()
-
-func Priyan():
-	PC.main_skill_riyan += 1
-	PC.main_skill_riyan_damage += 0.16
-	_level_up_action()
-
-func Glriyan():
+func reward_SRriyan():
 	PC.main_skill_riyan += 1
 	PC.main_skill_riyan_damage += 0.26
 	_level_up_action()
-
-func Rriyan():
+	
+func reward_SSRriyan():
 	PC.main_skill_riyan += 1
-	PC.main_skill_riyan_damage += 0.4
+	PC.main_skill_riyan_damage += 0.32
 	_level_up_action()
 
-func Riyan1():
+func reward_URriyan():
+	PC.main_skill_riyan += 1
+	PC.main_skill_riyan_damage += 0.44
+	_level_up_action()
+
+func reward_Riyan1():
 	PC.select_reward.append("riyan1")
 	_level_up_action()
 
-func Riyan2():
+func reward_Riyan2():
 	PC.select_reward.append("riyan2")
 	_level_up_action()
 
-func Riyan3():
+func reward_Riyan3():
 	PC.select_reward.append("riyan3")
 	_level_up_action()	
-	
+
+func reward_Riyan4():
+	PC.select_reward.append("riyan4")
+	_level_up_action()	
+
+func reward_Riyan11():
+	PC.select_reward.append("riyan11")
+	_level_up_action()
+
+func reward_Riyan22():
+	PC.select_reward.append("riyan22")
+	_level_up_action()
+
+
 # 全局升级效果处理函数 (当选择某些特定被动后，升级时会触发额外属性转换)
 func global_level_up():
 	# 基础属性成长：攻击+1再乘以1.025，HP上限+2再乘以1.01

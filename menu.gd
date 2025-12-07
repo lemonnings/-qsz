@@ -85,7 +85,8 @@ func reset_player_attr() -> void :
 	Global.in_menu = false
 	PC.is_game_over = false
 	
-	PC.selected_rewards = [""] # "swordWaveTrace"
+	PC.selected_rewards = ["wave_bullet"] 
+	print(PC.selected_rewards)
 	
 	exec_pc_atk()
 	exec_pc_hp()
@@ -105,9 +106,16 @@ func reset_player_attr() -> void :
 	PC.ring_bullet_enabled = false
 	PC.ring_bullet_count = 8
 	PC.ring_bullet_size_multiplier = 0.9
-	PC.ring_bullet_damage_multiplier = 1
+	PC.ring_bullet_damage_multiplier = 0.7
 	PC.ring_bullet_interval = 2.5
 	PC.ring_bullet_last_shot_time = 0.0
+
+	PC.wave_bullet_enabled = false
+	PC.wave_bullet_count = 8
+	PC.wave_bullet_size_multiplier = 0.9
+	PC.wave_bullet_damage_multiplier = 0.5
+	PC.wave_bullet_interval = 4
+	PC.wave_bullet_last_shot_time = 0.0
 	
 	# 重置反弹子弹相关属性
 	PC.rebound_size_multiplier = 0.9

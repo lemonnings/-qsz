@@ -150,6 +150,8 @@ func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: Strin
 
 
 func _on_area_entered(area: Area2D) -> void:
+	if is_dead:
+		return
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
 		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self, false)
 		

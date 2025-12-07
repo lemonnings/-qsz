@@ -36,7 +36,7 @@ func _initialize_emblem_configs():
 	emblem_configs["pozhen"] = EmblemData.new(
 		"pozhen",
 		"破阵",
-		"res://AssetBundle/Sprites/UI/buff_speed.png",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
 		5,
 		"基础武器攻击有5*层数%概率直击，额外造成30%无视敌方减伤的伤害。"
 	)
@@ -45,7 +45,7 @@ func _initialize_emblem_configs():
 	emblem_configs["tiegu"] = EmblemData.new(
 		"tiegu",
 		"铁骨",
-		"res://AssetBundle/Sprites/UI/buff_health.png",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
 		5,
 		"受到伤害后，反弹被角色减伤率而降低的25*层数%的伤害。"
 	)
@@ -54,7 +54,7 @@ func _initialize_emblem_configs():
 	emblem_configs["jinghong"] = EmblemData.new(
 		"jinghong",
 		"惊鸿",
-		"res://AssetBundle/Sprites/UI/buff_crit.png",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
 		5,
 		"基础武器每攻击3次，额外攻击1次，该次攻击造成15*层数%的伤害。"
 	)
@@ -63,7 +63,7 @@ func _initialize_emblem_configs():
 	emblem_configs["tafeng"] = EmblemData.new(
 		"tafeng",
 		"踏风",
-		"res://AssetBundle/Sprites/UI/buff_shield.png",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
 		5,
 		"每10%的移动速度加成转化为0.5*层数%的冷却缩减。"
 	)

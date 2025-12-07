@@ -69,13 +69,14 @@ func _ready() -> void:
 	# 设置音效使用SFX总线
 	setup_audio_buses()
 	
-	# 创建沉静buff的勾线效果
-	chenjing_outline = Sprite2D.new()
-	chenjing_outline.texture = create_outline_texture()
-	chenjing_outline.modulate = Color(0.7, 0.9, 1.0, 0.5)  # 浅蓝色，50%透明度
-	chenjing_outline.z_index = 10  # 确保在最上层
-	chenjing_outline.visible = false
-	add_child(chenjing_outline)
+	# 创建沉静徽章的勾线效果（仅在拥有沉静徽章时创建）
+	if EmblemManager.has_emblem("chenjing"):
+		chenjing_outline = Sprite2D.new()
+		chenjing_outline.texture = create_outline_texture()
+		chenjing_outline.modulate = Color(0.7, 0.9, 1.0, 0.5)  # 浅蓝色，50%透明度
+		chenjing_outline.z_index = 10  # 确保在最上层
+		chenjing_outline.visible = false
+		add_child(chenjing_outline)
 	
 	if PC.has_riyan and PC.first_has_riyan_pc:
 	# 实例化日炎攻击
@@ -119,12 +120,22 @@ func _process(_delta: float) -> void:
 		# 发射信号通知技能攻速更新
 		Global.emit_signal("skill_attack_speed_updated")
 		PC.last_atk_speed = PC.pc_atk_speed
-		## 环形子弹逻辑
-		#if PC.selected_rewards.has("ring_bullet") and not PC.is_game_over and not Global.in_menu:
-			#PC.real_time += _delta
-			#if PC.real_time - PC.ring_bullet_last_shot_time >= PC.ring_bullet_interval:
-				#_fire_ring_bullets()
-				#PC.ring_bullet_last_shot_time = PC.real_time
+		
+	# 环形子弹逻辑
+	if PC.selected_rewards.has("ring_bullet") and not PC.is_game_over and not Global.in_menu:
+		if PC.real_time - PC.ring_bullet_last_shot_time >= PC.ring_bullet_interval:
+			_fire_ring_bullets()
+			PC.ring_bullet_last_shot_time = PC.real_time
+
+	# 若已获得浪形子弹奖励，则开启浪形子弹
+	if PC.selected_rewards.has("wave_bullet"):
+		PC.wave_bullet_enabled = true
+
+	# 浪形子弹冷却：当启用且满足冷却时自动发射
+	if PC.wave_bullet_enabled and not PC.is_game_over and not Global.in_menu:
+		if (PC.real_time - PC.wave_bullet_last_shot_time) >= PC.wave_bullet_interval:
+			PC.wave_bullet_last_shot_time = PC.real_time
+			_fire_wave_bullets()
 
 
 # 处理鼠标滚轮缩放、键盘输入和触摸输入
@@ -600,3 +611,43 @@ func _fire_ring_bullets() -> void:
 		ring_bullet.penetration_count = PC.swordQi_penetration_count  # 设置穿透次数
 		
 		get_tree().current_scene.add_child(ring_bullet)
+
+# 参考环形子弹：实现“浪形子弹”
+# 特性：
+# - 面向方向的扇形发射；初始弧度35°，随机角度；每发后弧度+1°，最大75°
+# - 共8发，每发间隔0.05秒（使用 Godot 4 的计时器 await 模式）
+# - 每发伤害为角色攻击的50%（通过 bullet.gd 的 set_wave_bullet_damage 配置）
+# - 说明：create_timer 是 Godot 的场景树快捷方法，返回 SceneTreeTimer，用于延时执行（特殊系统函数，负责计时）
+func _fire_wave_bullets() -> void:
+	var bullet_count = PC.wave_bullet_count
+	var spawn_position = position
+	var base_direction = Vector2.RIGHT
+	if not sprite_direction_right:
+		base_direction = Vector2.LEFT
+	
+	# 播放音效
+	$FireSound.play()
+	
+	var current_arc_deg = 35.0 + PC.wave_bullet_count
+	for i in range(bullet_count):
+		# 在当前弧度范围内随机一个偏移角度
+		var offset_deg = randf_range(-current_arc_deg / 2.0, current_arc_deg / 2.0)
+		var shot_direction = base_direction.rotated(deg_to_rad(offset_deg)).normalized()
+		
+		# 实例化并配置子弹
+		var wave_bullet = bullet_scene.instantiate()
+		if PC.selected_rewards.has("rebound"):
+			wave_bullet.is_rebound = false
+		wave_bullet.set_bullet_scale(Vector2(PC.bullet_size, PC.bullet_size))
+		wave_bullet.set_direction(shot_direction)
+		wave_bullet.position = spawn_position
+		wave_bullet.penetration_count = PC.swordQi_penetration_count
+		# 设置浪形子弹伤害倍数：50%
+		wave_bullet.set_wave_bullet_damage(PC.wave_bullet_damage_multiplier)
+		get_tree().current_scene.add_child(wave_bullet)
+		
+		# 弧度逐步增大，最大75°
+		current_arc_deg = min(current_arc_deg + 1.0, 75.0)
+		
+		# 每发间隔0.05秒
+		await get_tree().create_timer(0.02).timeout

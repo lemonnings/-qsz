@@ -7,17 +7,16 @@ var rarity_faction_weights: Dictionary = {}
 # 默认的初始权重，根据新的分类体系
 var INITIAL_FACTION_WEIGHTS: Dictionary = {
 	"normal": 4.0,           # 通用，通用型、基础属性提升
-	# "branch": 2.0,           # 树枝
-	# "moyan": 2.0,           # 魔焰
-	# "riyan": 2.0,           # 日炎
-	# "ringFire": 2.0,           # 环火
+	"branch": 2.0,           # 树枝
+	"moyan": 2.0,           # 魔焰
+	"riyan": 2.0,           # 日炎
+	"ringFire": 2.0,           # 环火
 	"swordQi": 4.0,           # 剑气
-	#"summon": 2.0,           # 召唤，召唤物数量、召唤物属性提升等
+	"summon": 2.0,           # 召唤，召唤物数量、召唤物属性提升等
 	#"bullet": 1.0,           # 剑气，弹体大小、反弹、分裂（三向、五向）等
 	"lucky": 2.0,           # 天命，与幸运值、特殊几率触发等相关的
 	"craft": 2.0,           # 技艺，与主动技能，环形伤害等特殊攻击方式相关的
 	#"live": 1.0,           # 炼体，与生存能力，反击相关的
-	# 可以根据需要添加更多细分或新的主要分类
 }
 
 # 定义游戏中存在的稀有度等级

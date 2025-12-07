@@ -98,6 +98,13 @@ extends Node
 @export var ring_bullet_interval : float = 2.5
 @export var ring_bullet_last_shot_time : float = 0.0
 
+# 浪形子弹相关属性
+@export var wave_bullet_enabled : bool = false
+@export var wave_bullet_interval : float = 4.0
+@export var wave_bullet_last_shot_time : float = 0.0
+@export var wave_bullet_damage_multiplier : float = 0.5  # 浪形子弹伤害倍数（默认50%攻击）
+@export var wave_bullet_count : int = 8  # 浪形子弹每轮发射的弹体数量，默认8
+
 # 召唤物相关属性
 @export var summon_count : int = 0  # 当前召唤物数量
 @export var summon_count_max : int = 3  # 当前召唤物数量
@@ -111,6 +118,7 @@ extends Node
 @export var refresh_num : int = 3 
 
 # 纹章相关字段
+@export var emblem_slots_max : int = 4
 @export var current_emblems : Dictionary = {}  # 当前持有的纹章 {emblem_id: stack}
 
 @export var is_game_over : bool = false
@@ -120,9 +128,9 @@ func _ready():
 	Global.connect("lucky_level_up", Callable(self, "_on_lucky_level_up"))
 
 func _on_lucky_level_up(lunky_up: float) -> void:
-	now_red_p = now_red_p + lunky_up * 0.25
-	now_gold_p = now_gold_p + lunky_up * 0.5
-	now_purple_p = now_purple_p + lunky_up * 0.8
+	now_red_p = now_red_p + lunky_up * 0.2
+	now_gold_p = now_gold_p + lunky_up * 0.4
+	now_purple_p = now_purple_p + lunky_up * 0.6
 	now_blue_p = now_blue_p + lunky_up * 1
 
 func get_reward_acquisition_count(fallback_reward_id: String):
@@ -138,7 +146,7 @@ func reset_player_attr() -> void :
 	Global.in_menu = false
 	PC.is_game_over = false
 	
-	PC.selected_rewards = [""]
+	PC.selected_rewards = ["wave_bullet"]
 	
 	exec_pc_atk()
 	exec_pc_hp()
@@ -164,9 +172,16 @@ func reset_player_attr() -> void :
 	PC.ring_bullet_enabled = false
 	PC.ring_bullet_count = 8
 	PC.ring_bullet_size_multiplier = 0.9
-	PC.ring_bullet_damage_multiplier = 1
+	PC.ring_bullet_damage_multiplier = 0.7
 	PC.ring_bullet_interval = 2.5
 	PC.ring_bullet_last_shot_time = 0.0
+
+	# 初始化浪形子弹冷却与时间
+	PC.wave_bullet_enabled = false
+	PC.wave_bullet_count = 8
+	PC.wave_bullet_damage_multiplier = 0.5
+	PC.wave_bullet_interval = 4.0
+	PC.wave_bullet_last_shot_time = 0.0
 	
 	# 重置反弹子弹相关属性
 	PC.rebound_size_multiplier = 0.9
