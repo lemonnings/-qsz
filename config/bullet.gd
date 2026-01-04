@@ -35,6 +35,8 @@ var wave_bullet_damage_multiplier: float = 1.0  # 浪形子弹伤害倍数
 var if_summon: bool = false
 var is_summon_bullet: bool = false  # 标记是否为召唤物子弹
 var summon_damage: float = 0.0  # 召唤物子弹伤害
+var extra_damage_multiplier: float = 1.0 # 额外伤害倍率
+var is_extra_attack_flag: bool = false # 是否为额外攻击
 
 # 剑波痕迹相关变量
 var sword_wave_trace_enabled: bool = false
@@ -193,6 +195,9 @@ func initialize_bullet_damage() -> void:
 	
 	# 应用buff效果到基础伤害
 	bullet_damage = apply_buff_effects_to_damage(bullet_damage, is_summon_bullet)
+	
+	# 应用额外伤害倍率
+	bullet_damage *= extra_damage_multiplier
 
 # 应用buff效果到伤害
 func apply_buff_effects_to_damage(base_damage: float, is_summon_bullet: bool) -> float:
@@ -215,15 +220,19 @@ func apply_buff_effects_to_damage(base_damage: float, is_summon_bullet: bool) ->
 				set_meta("direct_hit", true)
 		
 		# 惊鸿：基础武器每攻击3次，额外攻击1次，该次攻击造成15*层数%的伤害
-		if EmblemManager.has_emblem("jinghong"):
-			var jinghong_stack = EmblemManager.get_emblem_stack("jinghong")
-			var attack_count = get_meta("attack_count", 0)
-			attack_count += 1
-			set_meta("attack_count", attack_count)
-			if attack_count >= 3:
-				set_meta("extra_attack", true)
-				set_meta("extra_attack_multiplier", 0.15 * jinghong_stack)
-				set_meta("attack_count", 0)
+		if EmblemManager.has_emblem("jinghong") and not is_extra_attack_flag:
+			PC.jinghong_attack_count += 1
+			if PC.jinghong_attack_count % 3 == 0:
+				var jinghong_stack = EmblemManager.get_emblem_stack("jinghong")
+				var multiplier = 0.15 * jinghong_stack
+				
+				# 延迟0.05秒执行额外攻击
+				if PC.player_instance and PC.player_instance.has_method("fire_extra_attack"):
+					var timer = get_tree().create_timer(0.1)
+					timer.timeout.connect(func():
+						if PC.player_instance:
+							PC.player_instance.fire_extra_attack(multiplier)
+					)
 	
 	return final_damage
 

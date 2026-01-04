@@ -1,48 +1,48 @@
 extends CharacterBody2D
 
-@export var move_speed : float = 120.0 * (1 + (Global.cultivation_zhuifeng_level * 0.02) + PC.pc_speed)
+@export var move_speed: float = 120.0 * (1 + (Global.cultivation_zhuifeng_level * 0.02) + PC.pc_speed)
 
-@export var hp : int = 0
-@export var maxHP : int = 0
+@export var hp: int = 0
+@export var maxHP: int = 0
 
-@export var animator : AnimatedSprite2D
+@export var animator: AnimatedSprite2D
 
-var last_move_time: float = 0.0
-var chenjing_outline: Sprite2D = null
+var last_move_time: float = -1.0 # -1表示未初始化
+var chenjing_effect: Node2D = null # 沉静纹章的脚底光圈效果
 
 #@export var joystick_left : VirtualJoystick
 #
 #@export var joystick_right : VirtualJoystick
 
-@export var pinch_zoom_module : Node      
-@export var virtual_joystick_manager : Node 
+@export var pinch_zoom_module: Node
+@export var virtual_joystick_manager: Node
 
-@export var bullet_scene : PackedScene
-@export var branch_scene : PackedScene
-@export var moyan_scene : PackedScene
-@export var summon_scene : PackedScene
-@export var riyan_scene : PackedScene
-@export var ringfire_scene : PackedScene
+@export var bullet_scene: PackedScene
+@export var branch_scene: PackedScene
+@export var moyan_scene: PackedScene
+@export var summon_scene: PackedScene
+@export var riyan_scene: PackedScene
+@export var ringfire_scene: PackedScene
 
-@export var fire_speed : Timer
-@export var branch_fire_speed : Timer
-@export var moyan_fire_speed : Timer
-@export var riyan_fire_speed : Timer
-@export var ringFire_fire_speed : Timer
-@export var invincible_time : Timer
+@export var fire_speed: Timer
+@export var branch_fire_speed: Timer
+@export var moyan_fire_speed: Timer
+@export var riyan_fire_speed: Timer
+@export var ringFire_fire_speed: Timer
+@export var invincible_time: Timer
 
-var active_summons: Array = []  # 当前活跃的召唤物列表
+var active_summons: Array = [] # 当前活跃的召唤物列表
 
 
 @onready var sprite = $AnimatedSprite2D
-@export var sprite_direction_right : bool
+@export var sprite_direction_right: bool
 
 
 # 摄像头缩放相关变量
-@export var min_zoom : float = 2.4  # 最小缩放（视野最大）
-@export var max_zoom : float = 5.2  # 最大缩放（视野最小）
-@export var zoom_speed : float = 0.05  # 缩放速度
-@onready var camera : Camera2D = $Camera2D
+@export var min_zoom: float = 1.6 # 最小缩放（视野最大）
+@export var max_zoom: float = 5.2 # 最大缩放（视野最小）
+@export var zoom_speed: float = 0.05 # 缩放速度
+@onready var camera: Camera2D = $Camera2D
 
 # 主要定义player主体的行为以及部分子弹逻辑
 func _ready() -> void:
@@ -69,14 +69,8 @@ func _ready() -> void:
 	# 设置音效使用SFX总线
 	setup_audio_buses()
 	
-	# 创建沉静徽章的勾线效果（仅在拥有沉静徽章时创建）
-	if EmblemManager.has_emblem("chenjing"):
-		chenjing_outline = Sprite2D.new()
-		chenjing_outline.texture = create_outline_texture()
-		chenjing_outline.modulate = Color(0.7, 0.9, 1.0, 0.5)  # 浅蓝色，50%透明度
-		chenjing_outline.z_index = 10  # 确保在最上层
-		chenjing_outline.visible = false
-		add_child(chenjing_outline)
+	# 初始化 last_move_time 为当前时间
+	last_move_time = Time.get_unix_time_from_system()
 	
 	if PC.has_riyan and PC.first_has_riyan_pc:
 	# 实例化日炎攻击
@@ -153,7 +147,7 @@ func _input(event: InputEvent) -> void:
 		return # Event was handled by a module, stop further processing in this function
 
 	# Keep mouse wheel zoom if not handled by pinch_zoom_module or for non-touch devices
-	if event is InputEventMouseButton:
+	if event is InputEventMouseButton and not Global.in_synthesis:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_zoom_camera(zoom_speed)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
@@ -162,7 +156,6 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_Q:
 			Global.emit_signal("buff_added", "attack_boost", 10.0, 3)
-
 
 
 func _reset_camera() -> void:
@@ -204,7 +197,7 @@ func _physics_process(_delta: float) -> void:
 			# Add fallback if necessary: 
 			# else: input_vector = Input.get_vector("ui_left","ui_right","ui_up","ui_down") 
 		else: # Keyboard
-			input_vector = Input.get_vector("left","right","up","down") 
+			input_vector = Input.get_vector("left", "right", "up", "down")
 			
 		velocity = input_vector * move_speed
 		
@@ -232,6 +225,13 @@ func game_over():
 		#防止出现gameover动画候杀了怪升级了
 		PC.pc_exp = -1000000
 		PC.is_game_over = true
+		
+		# 禁用自动发射技能，防止回主城后还会触发
+		PC.wave_bullet_enabled = false
+		PC.ring_bullet_last_shot_time = PC.real_time + 999999 # 防止环形子弹触发
+		
+		# 清除所有纹章效果，防止回主城后继续触发
+		EmblemManager.clear_all_emblems()
 		
 		# 停止DPS计数器
 		Global.stop_dps_counter()
@@ -289,7 +289,7 @@ func _on_fire_ringFire(skill_id: int) -> void:
 func _on_fire_detail() -> void:
 	var bullet_node_size = PC.bullet_size
 	var base_direction = Vector2.RIGHT # Default direction
-	var spawn_position = position 
+	var spawn_position = position
 
 	# 直接攻击最近的敌人，不再使用预测瞄准
 	var nearest_enemy = find_nearest_enemy()
@@ -342,11 +342,44 @@ func _on_fire_detail() -> void:
 		if PC.selected_rewards.has("rebound"): back_bullet.is_rebound = false
 		get_tree().current_scene.add_child(back_bullet)
 	
+func fire_extra_attack(damage_multiplier: float) -> void:
+	var bullet_node_size = PC.bullet_size
+	var base_direction = Vector2.RIGHT # Default direction
+	var spawn_position = position
+
+	# 直接攻击最近的敌人，不再使用预测瞄准
+	var nearest_enemy = find_nearest_enemy()
+	if nearest_enemy:
+		# 计算朝向最近敌人的方向
+		base_direction = (nearest_enemy.position - position).normalized()
+	else:
+		# 没有敌人时使用角色朝向
+		if not sprite_direction_right:
+			base_direction = Vector2.LEFT
+		else:
+			base_direction = Vector2.RIGHT
+
+	# Play sound
+	$FireSound.play()
+
+	# Instantiate bullets
+	# Default bullet
+	var main_bullet = bullet_scene.instantiate()
+	main_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
+	main_bullet.set_direction(base_direction)
+	main_bullet.position = spawn_position
+	main_bullet.penetration_count = PC.swordQi_penetration_count
+	# Set extra damage multiplier
+	main_bullet.extra_damage_multiplier = damage_multiplier
+	main_bullet.is_extra_attack_flag = true
+	
+	if PC.selected_rewards.has("rebound"): main_bullet.is_rebound = false
+	get_tree().current_scene.add_child(main_bullet)
 	
 func _on_fire_detail_branch() -> void:
 	var bullet_node_size = PC.bullet_size
 	var base_direction = Vector2.RIGHT # Default direction
-	var spawn_position = position 
+	var spawn_position = position
 
 	# 直接攻击最近的敌人，不再使用预测瞄准
 	var nearest_enemy = find_nearest_enemy()
@@ -373,7 +406,7 @@ func _on_fire_detail_branch() -> void:
 func _on_fire_detail_moyan() -> void:
 	var bullet_node_size = PC.bullet_size
 	var base_direction = Vector2.RIGHT # Default direction
-	var spawn_position = position 
+	var spawn_position = position
 
 	# 直接攻击最近的敌人，不再使用预测瞄准
 	var nearest_enemy = find_nearest_enemy()
@@ -406,7 +439,7 @@ func _on_fire_detail_ringFire() -> void:
 
 func reload_scene() -> void:
 	if Global.main_menu_instance != null:
-		Global.emit_signal("normal_bgm")		
+		Global.emit_signal("normal_bgm")
 		# 设置菜单状态
 		Global.in_menu = true
 		SceneChange.change_scene("res://Scenes/main_menu.tscn", true)
@@ -437,17 +470,16 @@ func _on_player_hit(attacker: Node2D = null) -> void:
 func determine_summon_type() -> int:
 	if PC.new_summon == "gold":
 		PC.new_summon = ""
-		return 3  # 金色强化追踪召唤物
+		return 3 # 金色强化追踪召唤物
 	elif PC.new_summon == "orange":
 		PC.new_summon = ""
-		return 2  # 橙色追踪召唤物
+		return 2 # 橙色追踪召唤物
 	elif PC.new_summon == "purple":
 		PC.new_summon = ""
-		return 1  # 紫色定向召唤物
+		return 1 # 紫色定向召唤物
 	else:
 		PC.new_summon = ""
-		return 0  # 蓝色随机召唤物
-
+		return 0 # 蓝色随机召唤物
 
 
 # 添加新召唤物（当获得召唤物奖励时调用）
@@ -509,49 +541,86 @@ func stop_invincible() -> void:
 func get_last_move_time() -> float:
 	return last_move_time
 
-# 创建4px的勾线纹理
-func create_outline_texture() -> ImageTexture:
-	var size = Vector2(64, 64)
-	var image = Image.create(size.x, size.y, false, Image.FORMAT_RGBA8)
+# 创建沉静纹章的椭圆形脚底光圈
+func create_chenjing_effect() -> Node2D:
+	var effect = Node2D.new()
+	effect.z_index = -1 # 在角色下方
+	
+	# 创建椭圆形光圈 Sprite
+	var ellipse_sprite = Sprite2D.new()
+	ellipse_sprite.name = "EllipseSprite"
+	ellipse_sprite.texture = create_ellipse_texture()
+	ellipse_sprite.modulate = Color(0.3, 0.6, 1.0, 0.6) # 蓝色，60%透明度
+	# 将光圈放在脚底位置（向下偏移）
+	ellipse_sprite.position = Vector2(0, 7) # 脚底位置
+	effect.add_child(ellipse_sprite)
+	
+	return effect
+
+# 创建椭圆形纹理
+func create_ellipse_texture() -> ImageTexture:
+	var width = 36
+	var height = 15 # 椭圆形，宽大于高
+	var image = Image.create(width, height, false, Image.FORMAT_RGBA8)
 	image.fill(Color.TRANSPARENT)
 	
-	# 绘制4px的边框
-	var border_color = Color(0.7, 0.9, 1.0, 1.0)
-	var thickness = 4
+	var center_x = width / 2.0
+	var center_y = height / 2.0
+	var radius_x = width / 2.0 - 2
+	var radius_y = height / 2.0 - 2
+	var border_thickness = 2.0
 	
-	# 绘制边框
-	for x in range(size.x):
-		for y in range(thickness):
-			image.set_pixel(x, y, border_color)
-			image.set_pixel(x, size.y - 1 - y, border_color)
-	
-	for y in range(size.y):
-		for x in range(thickness):
-			image.set_pixel(x, y, border_color)
-			image.set_pixel(size.x - 1 - x, y, border_color)
+	# 绘制椭圆形边框
+	for x in range(width):
+		for y in range(height):
+			var dx = (x - center_x) / radius_x
+			var dy = (y - center_y) / radius_y
+			var dist = sqrt(dx * dx + dy * dy)
+			
+			# 判断是否在椭圆边框上
+			var inner_dist = sqrt(pow((x - center_x) / (radius_x - border_thickness), 2) + pow((y - center_y) / (radius_y - border_thickness), 2))
+			
+			if dist <= 1.0 and inner_dist >= 1.0:
+				# 边框区域 - 从内到外渐变
+				var alpha = 1.0 - (1.0 - dist) * 2
+				alpha = clamp(alpha, 0.3, 1.0)
+				image.set_pixel(x, y, Color(0.5, 0.8, 1.0, alpha))
+			elif dist <= 1.0:
+				# 内部填充 - 淡薄的蓝色
+				image.set_pixel(x, y, Color(0.3, 0.6, 1.0, 0.15))
 	
 	var texture = ImageTexture.create_from_image(image)
 	return texture
 
 # 更新沉静buff视觉效果
 func update_chenjing_visual():
-	if not chenjing_outline:
+	# 检查是否拥有沉静纹章
+	if not EmblemManager.has_emblem("chenjing"):
+		# 没有纹章，隐藏效果
+		if chenjing_effect and is_instance_valid(chenjing_effect):
+			chenjing_effect.visible = false
 		return
 	
-	if EmblemManager.has_emblem("chenjing"):
-		var last_move = get_last_move_time()
-		var current = Time.get_unix_time_from_system()
-		
-		if current - last_move >= 1.0:  # 1秒未移动
-			chenjing_outline.visible = true
-			chenjing_outline.global_position = global_position
-			# 添加脉动效果
-			var alpha = 0.5 + 0.2 * sin(Time.get_unix_time_from_system() * 3.0)
-			chenjing_outline.modulate.a = alpha
-		else:
-			chenjing_outline.visible = false
+	# 动态创建光圈效果（如果还没创建）
+	if not chenjing_effect or not is_instance_valid(chenjing_effect):
+		chenjing_effect = create_chenjing_effect()
+		add_child(chenjing_effect)
+	
+	var last_move = get_last_move_time()
+	var current = Time.get_unix_time_from_system()
+	
+	if current - last_move >= 1.0: # 1秒未移动
+		chenjing_effect.visible = true
+		# 添加脉动效果
+		var pulse = 0.6 + 0.2 * sin(current * 3.0)
+		var ellipse_sprite = chenjing_effect.get_node("EllipseSprite")
+		if ellipse_sprite:
+			ellipse_sprite.modulate.a = pulse
+			# 轻微缩放效果
+			var scale_factor = 1.0 + 0.05 * sin(current * 2.0)
+			ellipse_sprite.scale = Vector2(scale_factor, scale_factor)
 	else:
-		chenjing_outline.visible = false
+		chenjing_effect.visible = false
 	
 # 更新所有技能的攻击速度
 func update_skill_attack_speeds() -> void:
@@ -608,16 +677,12 @@ func _fire_ring_bullets() -> void:
 		
 		# 设置环形子弹的特殊属性
 		ring_bullet.set_ring_bullet_damage(PC.ring_bullet_damage_multiplier)
-		ring_bullet.penetration_count = PC.swordQi_penetration_count  # 设置穿透次数
+		ring_bullet.penetration_count = PC.swordQi_penetration_count # 设置穿透次数
 		
 		get_tree().current_scene.add_child(ring_bullet)
 
-# 参考环形子弹：实现“浪形子弹”
-# 特性：
-# - 面向方向的扇形发射；初始弧度35°，随机角度；每发后弧度+1°，最大75°
-# - 共8发，每发间隔0.05秒（使用 Godot 4 的计时器 await 模式）
-# - 每发伤害为角色攻击的50%（通过 bullet.gd 的 set_wave_bullet_damage 配置）
-# - 说明：create_timer 是 Godot 的场景树快捷方法，返回 SceneTreeTimer，用于延时执行（特殊系统函数，负责计时）
+# 浪形子弹
+# 每发伤害为角色攻击的50%（通过 bullet.gd 的 set_wave_bullet_damage 配置）
 func _fire_wave_bullets() -> void:
 	var bullet_count = PC.wave_bullet_count
 	var spawn_position = position

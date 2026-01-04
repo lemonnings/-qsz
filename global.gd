@@ -2,6 +2,9 @@ extends Node
 
 const CONFIG_PATH = "user://game_config.cfg"
 
+# 合成界面状态 - 用于禁用缩放等操作
+var in_synthesis: bool = false
+
 # Buff配置管理器（需要在项目设置中设置为自动加载）
 var SettingBuff = preload("res://Script/config/setting_buff.gd").new()
 
@@ -23,58 +26,96 @@ var ActiveSkillManager = preload("res://Script/config/active_skill_manager.gd").
 # 装备管理器
 var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 
-@export var total_points : int = 1000
+@export var total_points: int = 1000
 
-@export var max_main_skill_num : int = 3
+@export var max_main_skill_num: int = 3
 
 # 纹章相关字段
-@export var emblem_slots_max : int = 4  # 纹章数量上限
+@export var emblem_slots_max: int = 4 # 纹章数量上限
+
+# 果实回复效果
+@export var fruit_heal_multi: float = 1
+@export var fruit_heal_multi_used_count: int = 0 # 回春露已使用次数（最多10次）
 
 # 抽卡有关
-@export var lunky_level : int = 1
-@export var red_p : float = 3.5
-@export var gold_p : float = 10
-@export var purple_p : float = 18
-@export var blue_p : float = 25
-@export var green_p : float = 30
+@export var lunky_level: int = 1
+@export var red_p: float = 3.5
+@export var gold_p: float = 10
+@export var purple_p: float = 18
+@export var blue_p: float = 25
+@export var green_p: float = 30
 
 # 刷新次数
-@export var refresh_max_num : int = 3 
+@export var refresh_max_num: int = 3
 
 # 修炼解锁进度Cultivation
-@export var cultivation_unlock_progress : int = 0
+@export var cultivation_unlock_progress: int = 0
 
 # 装备系统相关
-@export var max_carry_equipment_slots : int = 2  # 当前解锁的随身法宝槽位数量（初始2个，最大5个）
+@export var max_carry_equipment_slots: int = 2 # 当前解锁的随身法宝槽位数量（初始2个，最大5个）
 
 # 修炼等级变量
-@export var cultivation_poxu_level : int = 0        # 破虚 - 提升攻击力
-@export var cultivation_xuanyuan_level : int = 0    # 玄元 - 提升生命值
-@export var cultivation_liuguang_level : int = 0    # 流光 - 提升攻速
-@export var cultivation_hualing_level : int = 0     # 化灵 - 提升灵气获取
-@export var cultivation_fengrui_level : int = 0     # 锋锐 - 提升暴击率
-@export var cultivation_huti_level : int = 0        # 护体 - 提升减伤率
-@export var cultivation_zhuifeng_level : int = 0    # 追风 - 提升移速
-@export var cultivation_liejin_level : int = 0      # 烈劲 - 提升暴击伤害
+@export var cultivation_poxu_level: int = 0 # 破虚 - 提升攻击力
+@export var cultivation_xuanyuan_level: int = 0 # 玄元 - 提升生命值
+@export var cultivation_liuguang_level: int = 0 # 流光 - 提升攻速
+@export var cultivation_hualing_level: int = 0 # 化灵 - 提升灵气获取
+@export var cultivation_fengrui_level: int = 0 # 锋锐 - 提升暴击率
+@export var cultivation_huti_level: int = 0 # 护体 - 提升减伤率
+@export var cultivation_zhuifeng_level: int = 0 # 追风 - 提升移速
+@export var cultivation_liejin_level: int = 0 # 烈劲 - 提升暴击伤害
+
+# 修炼等级上限
+@export var cultivation_poxu_level_max: int = 50 # 破虚 - 提升攻击力
+@export var cultivation_xuanyuan_level_max: int = 50 # 玄元 - 提升生命值
+@export var cultivation_liuguang_level_max: int = 25 # 流光 - 提升攻速
+@export var cultivation_hualing_level_max: int = 50 # 化灵 - 提升灵气获取
+@export var cultivation_fengrui_level_max: int = 25 # 锋锐 - 提升暴击率
+@export var cultivation_huti_level_max: int = 25 # 护体 - 提升减伤率
+@export var cultivation_zhuifeng_level_max: int = 25 # 追风 - 提升移速
+@export var cultivation_liejin_level_max: int = 50 # 烈劲 - 提升暴击伤害
 
 # 玩家修习技能数据 - 按玩家名存储
-@export var player_study_data : Dictionary = {
+@export var player_study_data: Dictionary = {
 	"yiqiu": {
-		"study_level": 0,  # 当前修习阶段
-		"learned_skills": [],  # 已学习的技能列表
-		"skill_levels": {}  # 技能等级
+		"study_level": 0, # 当前修习阶段
+		"learned_skills": [], # 已学习的技能列表
+		"skill_levels": {} # 技能等级
+	}
+}
+
+@export var player_active_skill_data: Dictionary = {
+	"dodge": {
+		"level": 1, # 习得等级；闪避：等级1，向移动方向位移一小段距离并无敌0.3秒，冷却6秒；等级2,4,6,8,10,12,14，无敌时间+0.1秒；等级3，5，7，9，11，13，15，冷却时间-0.5秒秒
+		"learned": [] # 特殊效果
+	},
+	"random_strike": {
+		"level": 1, # 习得等级；乱击：等级1，向随机方向每0.1秒射出1发剑气，造成50%攻击的伤害，共10发，冷却20秒；等级2,5,8,11,14，伤害比率+5%；等级3，6，9，12，15，射出子弹+1，等级4，7，10，13，冷却时间-1秒秒
+		"learned": [] # 特殊效果
+	}
+}
+
+
+@export var player_now_active_skill: Dictionary = {
+	"space": {
+		"name": "dodge"
+	},
+	"q": {
+		"name": "random_strike"
+	},
+	"e": {
+		"name": ""
 	}
 }
 
 # 世界等级（难度级）
-@export var world_level_multiple : float = 1
-@export var world_level_reward_multiple : float = 1
-@export var world_level : int = 1
+@export var world_level_multiple: float = 1
+@export var world_level_reward_multiple: float = 1
+@export var world_level: int = 1
 
-@export var in_menu : bool = true
-@export var in_town : bool = false
+@export var in_menu: bool = true
+@export var in_town: bool = false
 
-@export var is_level_up : bool = false
+@export var is_level_up: bool = false
 
 @export var main_menu_instance: PackedScene = null
 
@@ -155,9 +196,9 @@ var player_inventory = {}
 }
 
 # DPS计数器相关
-var dps_damage_records = []  # 存储过去30秒的伤害记录
-@export var current_dps: float = 0.0  # 当前DPS值
-var dps_timer: Timer  # DPS计算定时器
+var dps_damage_records = [] # 存储过去30秒的伤害记录
+@export var current_dps: float = 0.0 # 当前DPS值
+var dps_timer: Timer # DPS计算定时器
 
 
 func _ready() -> void:
@@ -181,9 +222,12 @@ func _ready() -> void:
 	# 初始化装备管理器
 	add_child(EquipmentManager)
 	
+	# 初始化主动技能管理器
+	add_child(ActiveSkillManager)
+	
 	# 初始化DPS计时器
 	dps_timer = Timer.new()
-	dps_timer.wait_time = 1.0  # 每秒计算一次DPS
+	dps_timer.wait_time = 1.0 # 每秒计算一次DPS
 	dps_timer.timeout.connect(_calculate_dps)
 	dps_timer.autostart = false
 	add_child(dps_timer)
@@ -236,6 +280,17 @@ func save_game() -> void:
 		"cultivation_huti_level": cultivation_huti_level,
 		"cultivation_zhuifeng_level": cultivation_zhuifeng_level,
 		"cultivation_liejin_level": cultivation_liejin_level,
+		"fruit_heal_multi": fruit_heal_multi,
+		"fruit_heal_multi_used_count": fruit_heal_multi_used_count,
+		# 修炼等级上限
+		"cultivation_poxu_level_max": cultivation_poxu_level_max,
+		"cultivation_xuanyuan_level_max": cultivation_xuanyuan_level_max,
+		"cultivation_liuguang_level_max": cultivation_liuguang_level_max,
+		"cultivation_hualing_level_max": cultivation_hualing_level_max,
+		"cultivation_fengrui_level_max": cultivation_fengrui_level_max,
+		"cultivation_huti_level_max": cultivation_huti_level_max,
+		"cultivation_zhuifeng_level_max": cultivation_zhuifeng_level_max,
+		"cultivation_liejin_level_max": cultivation_liejin_level_max,
 		# 玩家修习技能数据
 		"player_study_data": player_study_data,
 		# 纹章系统
@@ -266,7 +321,7 @@ func load_game() -> void:
 	var config = ConfigFile.new()
 	var err = config.load(CONFIG_PATH)
 	
-	if err != OK :
+	if err != OK:
 		#print("no save data, use defalut value")
 		return
 	
@@ -293,7 +348,18 @@ func load_game() -> void:
 	cultivation_huti_level = config.get_value("save", "cultivation_huti_level", cultivation_huti_level)
 	cultivation_zhuifeng_level = config.get_value("save", "cultivation_zhuifeng_level", cultivation_zhuifeng_level)
 	cultivation_liejin_level = config.get_value("save", "cultivation_liejin_level", cultivation_liejin_level)
-	cultivation_liejin_level = config.get_value("save", "emblem_slots_max", emblem_slots_max)
+	emblem_slots_max = config.get_value("save", "emblem_slots_max", emblem_slots_max)
+	fruit_heal_multi = config.get_value("save", "fruit_heal_multi", fruit_heal_multi)
+	fruit_heal_multi_used_count = config.get_value("save", "fruit_heal_multi_used_count", fruit_heal_multi_used_count)
+	# 加载修炼等级上限
+	cultivation_poxu_level_max = config.get_value("save", "cultivation_poxu_level_max", cultivation_poxu_level_max)
+	cultivation_xuanyuan_level_max = config.get_value("save", "cultivation_xuanyuan_level_max", cultivation_xuanyuan_level_max)
+	cultivation_liuguang_level_max = config.get_value("save", "cultivation_liuguang_level_max", cultivation_liuguang_level_max)
+	cultivation_hualing_level_max = config.get_value("save", "cultivation_hualing_level_max", cultivation_hualing_level_max)
+	cultivation_fengrui_level_max = config.get_value("save", "cultivation_fengrui_level_max", cultivation_fengrui_level_max)
+	cultivation_huti_level_max = config.get_value("save", "cultivation_huti_level_max", cultivation_huti_level_max)
+	cultivation_zhuifeng_level_max = config.get_value("save", "cultivation_zhuifeng_level_max", cultivation_zhuifeng_level_max)
+	cultivation_liejin_level_max = config.get_value("save", "cultivation_liejin_level_max", cultivation_liejin_level_max)
 	
 	
 	# 加载玩家修习技能数据，确保兼容性
@@ -301,7 +367,7 @@ func load_game() -> void:
 	# 为现有存档添加zhenqi_points字段的兼容性处理
 	for player_name in loaded_study_data.keys():
 		if not loaded_study_data[player_name].has("zhenqi_points"):
-			loaded_study_data[player_name]["zhenqi_points"] = 100  # 默认真气点数
+			loaded_study_data[player_name]["zhenqi_points"] = 100 # 默认真气点数
 	player_study_data = loaded_study_data
 	
 	# 加载装备系统数据
@@ -323,13 +389,13 @@ func load_game() -> void:
 	
 var hit_scene = null
 
-func play_hit_anime(position : Vector2, is_crit: bool = false, anime: int = 1):
+func play_hit_anime(position: Vector2, is_crit: bool = false, anime: int = 1):
 	if anime == 0:
 		return
 	if hit_scene == null:
 		hit_scene = ResourceLoader.load("res://Scenes/global/hit.tscn")
 	var hit_instantiate = hit_scene.instantiate()
-	hit_instantiate.position = position + Vector2(-1,5)
+	hit_instantiate.position = position + Vector2(-1, 5)
 	get_tree().current_scene.add_child(hit_instantiate)
 	
 	# 设置音效使用SFX总线

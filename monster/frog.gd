@@ -2,31 +2,31 @@ extends Area2D
 
 @onready var sprite = $AnimatedSprite2D
 var debuff_manager: EnemyDebuffManager
-var is_dead : bool = false
+var is_dead: bool = false
 
 # 状态机
-enum State { SEEKING_PLAYER, ATTACKING, FIRING, FLEEING }
-var current_state : State = State.SEEKING_PLAYER
+enum State {SEEKING_PLAYER, ATTACKING, FIRING, FLEEING}
+var current_state: State = State.SEEKING_PLAYER
 
-var base_speed : float = SettingMoster.frog("speed")
-var speed : float # Actual speed after debuffs
-var hpMax : float = SettingMoster.frog("hp")
-var hp : float = SettingMoster.frog("hp")
-var atk : float = SettingMoster.frog("atk")
-var get_point : int = SettingMoster.frog("point")
-var get_exp : int = SettingMoster.frog("exp")
-var get_mechanism : int = SettingMoster.frog("mechanism")
+var base_speed: float = SettingMoster.frog("speed")
+var speed: float # Actual speed after debuffs
+var hpMax: float = SettingMoster.frog("hp")
+var hp: float = SettingMoster.frog("hp")
+var atk: float = SettingMoster.frog("atk")
+var get_point: int = SettingMoster.frog("point")
+var get_exp: int = SettingMoster.frog("exp")
+var get_mechanism: int = SettingMoster.frog("mechanism")
 var health_bar_shown: bool = false
 var health_bar: Node2D
 var progress_bar: ProgressBar
 
-var target_position : Vector2 # 用于存储移动目标位置
-var attack_cooldown_timer : Timer # 攻击间隔计时器 (替换旧的 attack_timer)
-var action_timer : Timer # 用于攻击前摇和逃跑计时
+var target_position: Vector2 # 用于存储移动目标位置
+var attack_cooldown_timer: Timer # 攻击间隔计时器 (替换旧的 attack_timer)
+var action_timer: Timer # 用于攻击前摇和逃跑计时
 
-const ATTACK_RANGE : float = 100.0
-const ATTACK_PREPARE_TIME : float = 0.9
-const FLEE_DURATION : float = 2.4
+const ATTACK_RANGE: float = 100.0
+const ATTACK_PREPARE_TIME: float = 0.65
+const FLEE_DURATION: float = 2.4
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 
@@ -90,14 +90,14 @@ func _spawn_fireball():
 		fireball.set_direction(direction_to_player) # set_direction会自动处理旋转
 	else:
 		# 如果没有玩家实例，默认向右或向左发射
-		var default_direction = Vector2.RIGHT if not sprite.flip_h else Vector2.LEFT
+		var default_direction = Vector2.LEFT if not sprite.flip_h else Vector2.RIGHT
 		fireball.set_direction(default_direction) # set_direction会自动处理旋转
 	
 	fireball.play_animation("fire") # 假设 frog_attack.gd 有 play_animation 方法
 
 func _determine_flee_target():
 	if not PC.player_instance:
-		target_position = global_position + Vector2(100 if sprite.flip_h else -100, 0) # 默认逃跑方向
+		target_position = global_position + Vector2(-100 if sprite.flip_h else 100, 0) # 默认逃跑方向
 		return
 	var player_pos = PC.player_instance.global_position
 	# 只允许向正左或正右方向逃跑
@@ -154,9 +154,9 @@ func _move_pattern(delta: float):
 				speed = base_speed * debuff_manager.get_speed_multiplier()
 				position += direction_to_target * speed * delta
 				if target_position.x > global_position.x + 0.1: # 目标在右边 (0.1为小容差)
-					sprite.flip_h = true  # 面向右
+					sprite.flip_h = false # 面向右
 				elif target_position.x < global_position.x - 0.1: # 目标在左边 (0.1为小容差)
-					sprite.flip_h = false # 面向左
+					sprite.flip_h = true # 面向左
 			else: # 到达逃跑点
 				action_timer.stop() # 提前停止计时器
 				_on_flee_timeout()
@@ -174,7 +174,7 @@ func _physics_process(delta: float) -> void:
 	for body in overlapping_bodies:
 		if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
 			var distance = global_position.distance_to(body.global_position)
-			var min_distance = 20.0  # 青蛙稍大，需要更大间距
+			var min_distance = 20.0 # 青蛙稍大，需要更大间距
 			
 			# 只有在非攻击和发射状态下才进行位置调整，避免打断攻击动作
 			if current_state != State.ATTACKING and current_state != State.FIRING:
@@ -220,9 +220,9 @@ func _physics_process(delta: float) -> void:
 	if current_state != State.FLEEING and PC.player_instance: # 非逃跑状态下 (SEEKING_PLAYER, ATTACKING, FIRING)，朝向玩家
 		var player_pos = PC.player_instance.global_position
 		if global_position.x > player_pos.x: # 青蛙在玩家右侧
-			sprite.flip_h = false # 面向左 (朝向玩家)
+			sprite.flip_h = true # 面向左 (朝向玩家)
 		else: # 青蛙在玩家左侧或同一X轴
-			sprite.flip_h = true # 面向右 (朝向玩家)
+			sprite.flip_h = false # 面向右 (朝向玩家)
 	
 
 	match current_state:
@@ -244,7 +244,7 @@ func _physics_process(delta: float) -> void:
 		show_health_bar()
 	
 func _on_body_entered(body: Node2D) -> void:
-	if(body is CharacterBody2D and not is_dead and not PC.invincible) :
+	if (body is CharacterBody2D and not is_dead and not PC.invincible):
 		Global.emit_signal("player_hit", self)
 		var damage_before_debuff = atk * (1.0 - PC.damage_reduction_rate)
 		var actual_damage = int(damage_before_debuff * debuff_manager.get_take_damage_multiplier())

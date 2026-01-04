@@ -13,7 +13,7 @@ const RESOLUTION_OPTIONS = {
 }
 
 # 默认设置
-var current_resolution_index: int = 1  # 默认1366x768
+var current_resolution_index: int = 1 # 默认1366x768
 var is_fullscreen: bool = false
 var vignetting_enabled: bool = true
 var particle_enabled: bool = true
@@ -49,7 +49,6 @@ func set_resolution(resolution_index: int) -> void:
 	
 	resolution_changed.emit(new_resolution)
 	save_settings()
-	print("分辨率已设置为: ", new_resolution)
 
 # 设置全屏模式
 func set_fullscreen(enabled: bool) -> void:
@@ -143,7 +142,7 @@ func load_settings() -> void:
 	
 	# 验证分辨率索引的有效性
 	if current_resolution_index < 0 or current_resolution_index >= RESOLUTION_OPTIONS.size():
-		current_resolution_index = 1  # 重置为默认值
+		current_resolution_index = 1 # 重置为默认值
 	
 	print("设置加载成功")
 

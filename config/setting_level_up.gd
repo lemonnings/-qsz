@@ -13,6 +13,7 @@ class Reward: # Reward 类定义了单个奖励所包含的所有属性。
 	var detail: String # 技能/奖励的详细描述文本。
 	var max_acquisitions: int # 该奖励能被玩家获取的最大次数。
 	var faction: String # 奖励所属的派系或类别。
+	var chinese_faction: String # 中文派系
 	var weight: float # 用于随机抽取的权重值。
 	var if_advance: bool # 布尔值，标记这是否是一个进阶技能（通常在特定等级，如每5级出现）。
 	var precondition: String # 获取此奖励所需的前置奖励ID，多个ID用逗号分隔。
@@ -52,7 +53,7 @@ func _load_rewards_from_csv(file_path: String):
 			is_first_line = false
 
 			# 验证CSV文件的表头是否与预期的格式一致。
-			var expected_headers = ["id", "rarity", "reward_name", "if_main_skill", "icon", "detail", "max_acquisitions", "faction", "weight", "if_advance", "precondition", "tags"]
+			var expected_headers = ["id", "rarity", "reward_name", "if_main_skill", "icon", "detail", "max_acquisitions", "faction", "weight", "if_advance", "precondition", "tags", "chinese_faction"]
 
 			if headers.size() != expected_headers.size() or not headers == expected_headers:
 				printerr("CSV表头与预期格式不匹配。预期: ", expected_headers, ", 实际: ", headers)
@@ -77,6 +78,7 @@ func _load_rewards_from_csv(file_path: String):
 			var max_acq_str = reward_data.get("max_acquisitions", "-1")
 			new_reward.max_acquisitions = int(max_acq_str) if max_acq_str.is_valid_int() else -1
 			new_reward.faction = reward_data.get("faction", "normal")
+			new_reward.chinese_faction = reward_data.get("chinese_faction", "")
 			var weight_str = reward_data.get("weight", "1.0")
 			new_reward.weight = float(weight_str) if weight_str.is_valid_float() else 1.0
 			new_reward.if_advance = reward_data.get("if_advance", "false").to_lower() == "true"
@@ -91,7 +93,6 @@ func _load_rewards_from_csv(file_path: String):
 	print("成功从 ", file_path, " 加载 ", all_rewards_list.size(), " 个奖励")
 
 
-
 func get_reward_level(rand_num: float, main_skill_name: String = '') -> Reward:
 	print_debug("get_reward_level - main_skill_name: ", main_skill_name)
 	var selected_reward: Reward
@@ -101,19 +102,15 @@ func get_reward_level(rand_num: float, main_skill_name: String = '') -> Reward:
 		selected_reward = select_reward('gold', main_skill_name)
 	elif rand_num <= PC.now_purple_p + PC.now_gold_p + PC.now_red_p:
 		selected_reward = select_reward('purple', main_skill_name)
-	elif rand_num <= PC.now_blue_p + PC.now_purple_p + PC.now_gold_p + PC.now_red_p:
-		selected_reward = select_reward('skyblue', main_skill_name)
-	elif rand_num <= PC.now_green_p + PC.now_blue_p + PC.now_purple_p + PC.now_gold_p + PC.now_red_p:
-		selected_reward = select_reward('green', main_skill_name)
 	else:
-		selected_reward = select_reward('white', main_skill_name)
+		selected_reward = select_reward('skyblue', main_skill_name)
 
 	if selected_reward != null:
 		for i in range(all_rewards_list.size()):
 			var reward: Reward = all_rewards_list[i]
 			if reward.id == selected_reward.id:
 				all_rewards_list.remove_at(i)
-				break 
+				break
 	return selected_reward
 
 
@@ -134,7 +131,7 @@ func _get_rewards_by_rarity_str(rarity_str: String, main_skill_name: String) -> 
 	return filtered_rewards
 	
 
-func _level_up_action() :
+func _level_up_action():
 	all_rewards_list = []
 	_load_rewards_from_csv("res://Config/reward.csv")
 	global_level_up()
@@ -224,7 +221,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 			# 当奖励的tags包含"emblem"，且当前纹章数量已达上限时，直接跳过该奖励
 			var is_emblem_reward := false
 			if r.tags != "":
-				var tag_list : Array =  r.tags.split(",")
+				var tag_list: Array = r.tags.split(",")
 				for t in tag_list:
 					if t == "emblem":
 						is_emblem_reward = true
@@ -278,7 +275,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 			else: # 如果在该派系下没有可选奖励，则重试。
 				print_debug("在稀有度 '" + csv_rarity_name + "' 的派系 '" + selected_faction + "' 下未找到奖励。重抽派系。")
 				continue
-		elif main_skill_name!= '':
+		elif main_skill_name != '':
 			var noReward = Reward.new()
 			noReward.reward_name = "noReward"
 			return noReward
@@ -292,7 +289,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 			# 同样在回退逻辑中排除纹章奖励（已达上限时）
 			var fb_is_emblem := false
 			if fallback_reward.tags != "":
-				var fb_tags : Array = fallback_reward.tags.split(",")
+				var fb_tags: Array = fallback_reward.tags.split(",")
 				for t in fb_tags:
 					if t.strip_edges() == "emblem":
 						fb_is_emblem = true
@@ -335,7 +332,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 				# 其他稀有度回退同样排除纹章奖励（已达上限时）
 				var other_is_emblem := false
 				if potential_reward.tags != "":
-					var other_tags : Array = potential_reward.tags.split(",")
+					var other_tags: Array = potential_reward.tags.split(",")
 					for t in other_tags:
 						if t.strip_edges() == "emblem":
 							other_is_emblem = true
@@ -372,155 +369,55 @@ func check_SR27() -> bool:
 	
 func check_SR30() -> bool:
 	return PC.selected_rewards.has("wave_bullet")
-	
-func check_G10_condition() -> bool:
-	return not PC.selected_rewards.has("spdToAH1")
-
-func check_G11_condition() -> bool:
-	return not PC.selected_rewards.has("luckyToAH1")
-
-func check_G12_condition() -> bool:
-	return not PC.selected_rewards.has("aSpdToAH1")
-
-# 检查“续剑大小提高”技能获取次数是否小于2
-func check_R09_condition() -> bool:
-	return PC.selected_rewards.count("rebound_size_up") < 2
-
-# 检查当前召唤物数量是否小于最大召唤物数量
-func check_blue_summon_condition() -> bool:
-	return PC.summon_count < PC.summon_count_max
-
-# 检查是否已选择 “spdToAH2” (移速转攻血 II)
-func check_R16_condition() -> bool:
-	return not PC.selected_rewards.has("spdToAH2")
-
-# 检查是否已选择 “luckyToAH2” (天命转攻血 II)
-func check_R17_condition() -> bool:
-	return not PC.selected_rewards.has("luckyToAH2")
-
-# 检查是否已选择 “aSpdToAH2” (攻速转攻血 II)
-func check_R18_condition() -> bool:
-	return not PC.selected_rewards.has("aSpdToAH2")
-
-# 检查是否已选择 “rebound” (续剑) 技能
-func check_rebound_condition() -> bool:
-	return not PC.selected_rewards.has("rebound")
-
-# 检查是否已选择 “rebound” (续剑) 技能 (用于升级续剑相关技能的前置条件)
-func check_rebound_up_condition() -> bool:
-	return PC.selected_rewards.has("rebound")
-
-# 检查是否已选择 “ring_bullet” (环刃) 且 “ring_bullet_count_up_purple” (环刃数量提升·紫) 获取次数小于4
-func check_ring_bullet_count_up_purple_condition() -> bool:
-	return PC.selected_rewards.has("ring_bullet") and PC.selected_rewards.count("ring_bullet_count_up_purple") < 4
-
-# 检查是否已选择 “ring_bullet” (环刃) 且 “ring_bullet_size_up_purple” (环刃大小提升·紫) 获取次数小于2
-func check_ring_bullet_size_up_purple_condition() -> bool:
-	return PC.selected_rewards.has("ring_bullet") and PC.selected_rewards.count("ring_bullet_size_up_purple") < 2
-
-# 检查当前召唤物数量是否小于最大召唤物数量 (用于紫色召唤物技能)
-func check_purple_summon_condition() -> bool:
-	return PC.summon_count < PC.summon_count_max
-
-# 检查是否已选择 “spdToAH3” (移速转攻血 III)
-func check_SR20_condition() -> bool:
-	return not PC.selected_rewards.has("spdToAH3")
-
-# 检查是否已选择 “luckyToAH3” (天命转攻血 III)
-func check_SR21_condition() -> bool:
-	return not PC.selected_rewards.has("luckyToAH3")
-
-# 检查是否已选择 “aSpdToAH3” (攻速转攻血 III)
-func check_SR22_condition() -> bool:
-	return not PC.selected_rewards.has("aSpdToAH3")
-
-# 检查是否已选择 “threeway” (三向剑气) 技能
-func check_threeway_condition() -> bool:
-	return not PC.selected_rewards.has("threeway")
-
-# 检查是否已选择 “ring_bullet” (环刃) 技能
-func check_ring_bullet_condition() -> bool:
-	return not PC.selected_rewards.has("ring_bullet")
-
-# 检查是否已选择 “ring_bullet” (环刃) 且 “ring_bullet_damage_up” (环刃伤害提升) 获取次数小于5
-func check_ring_bullet_damage_up_condition() -> bool:
-	return PC.selected_rewards.has("ring_bullet") and PC.selected_rewards.count("ring_bullet_damage_up") < 5
-
-# 检查当前召唤物数量是否小于最大召唤物数量 (用于金色召唤物技能)
-func check_gold_summon_condition() -> bool:
-	return PC.summon_count < PC.summon_count_max
-
-
-# 检查是否已选择 “threeway” (三向剑气) 且未选择 “fiveway” (五向剑气)
-func check_fiveway_condition() -> bool:
-	return PC.selected_rewards.has("threeway") and not PC.selected_rewards.has("fiveway")
-
-# 检查是否已选择 “ring_bullet” (环刃) 且 “ring_bullet_count_up_red” (环刃数量提升·红) 获取次数小于2
-func check_ring_bullet_count_up_red_condition() -> bool:
-	return PC.selected_rewards.has("ring_bullet") and PC.selected_rewards.count("ring_bullet_count_up_red") < 2
-
-# 检查当前召唤物数量是否小于最大召唤物数量 (用于红色召唤物技能)
-func check_red_summon_condition() -> bool:
-	return PC.summon_count < PC.summon_count_max
 
 # 检查子弹大小是否小于等于2.0 (通用子弹大小相关技能的前置条件)
 func check_bullet_size_condition() -> bool:
 	return PC.bullet_size <= 2.0
 
-func check_branch_condition()-> bool:
-	return PC.selected_rewards.has("branch") 
+func check_branch_condition() -> bool:
+	return PC.selected_rewards.has("branch")
 	
-func check_moyan_condition()-> bool:
-	return PC.selected_rewards.has("moyan") 
+func check_moyan_condition() -> bool:
+	return PC.selected_rewards.has("moyan")
 	
-func check_SplitSwordQi1()-> bool:
-	return PC.selected_rewards.has("SplitSwordQi1") 
+func check_SplitSwordQi1() -> bool:
+	return PC.selected_rewards.has("SplitSwordQi1")
 	
-func check_SplitSwordQi2()-> bool:
-	return PC.selected_rewards.has("SplitSwordQi2") 
+func check_SplitSwordQi2() -> bool:
+	return PC.selected_rewards.has("SplitSwordQi2")
 	
-func check_SplitSwordQi3()-> bool:
-	return PC.selected_rewards.has("SplitSwordQi3") 
+func check_SplitSwordQi3() -> bool:
+	return PC.selected_rewards.has("SplitSwordQi3")
 
-func check_branch1()-> bool:
-	return PC.selected_rewards.has("branch1") 
+func check_branch1() -> bool:
+	return PC.selected_rewards.has("branch1")
 
-func check_branch2()-> bool:
-	return PC.selected_rewards.has("branch2") 
+func check_branch2() -> bool:
+	return PC.selected_rewards.has("branch2")
 
-func check_branch3()-> bool:
-	return PC.selected_rewards.has("branch3") 
+func check_branch3() -> bool:
+	return PC.selected_rewards.has("branch3")
 
-func check_branch12()-> bool:
+func check_branch12() -> bool:
 	return PC.selected_rewards.has("branch1") and PC.selected_rewards.has("branch2")
 
-func check_summon_blue_learned()-> bool:
-	if Global.player_study_data.has("yiqiu") and Global.player_study_data["yiqiu"].has("learned_skills"):
-		return Global.player_study_data["yiqiu"]["learned_skills"].has("summonBlue")
-	return false
-
-func check_summon_purple_learned()-> bool:
-	if Global.player_study_data.has("yiqiu") and Global.player_study_data["yiqiu"].has("learned_skills"):
-		return Global.player_study_data["yiqiu"]["learned_skills"].has("summonPurple")
-	return false
+func check_summon_condition() -> bool:
+	return PC.summon_count < PC.summon_count_max
 	
-func check_get_new_main_skill()-> bool:
+func check_get_new_main_skill() -> bool:
 	if PC.now_main_skill_num + 1 < Global.max_main_skill_num:
 		return true
 	else:
 		return false
 
-func check_moyan12()-> bool:
+func check_moyan12() -> bool:
 	return PC.selected_rewards.has("moyan1") and PC.selected_rewards.has("moyan2")
 
-func check_moyan13()-> bool:
+func check_moyan13() -> bool:
 	return PC.selected_rewards.has("moyan1") and PC.selected_rewards.has("moyan3")
 
-func check_moyan23()-> bool:
+func check_moyan23() -> bool:
 	return PC.selected_rewards.has("moyan3") and PC.selected_rewards.has("moyan2")
-
-
-
 
 
 # --- 以下为具体的奖励效果实现函数 --- 
@@ -589,49 +486,49 @@ func reward_UR03():
 	EmblemManager.add_emblem("jinghong", 2)
 	_level_up_action()
 
-func reward_R04(): 
+func reward_R04():
 	PC.pc_speed += 0.07
 	PC.crit_chance += 0.01
 	EmblemManager.add_emblem("tafeng", 1)
 	_level_up_action()
 
-func reward_SR04(): 
+func reward_SR04():
 	PC.pc_speed += 0.10
 	PC.crit_chance += 0.015
 	EmblemManager.add_emblem("tafeng", 1)
 	_level_up_action()
 
-func reward_SSR04(): 
+func reward_SSR04():
 	PC.pc_speed += 0.14
 	PC.crit_chance += 0.02
 	EmblemManager.add_emblem("tafeng", 1)
 	_level_up_action()
 
-func reward_UR04(): 
+func reward_UR04():
 	PC.pc_speed += 0.22
 	PC.crit_chance += 0.03
 	EmblemManager.add_emblem("tafeng", 2)
 	_level_up_action()
 
-func reward_R05(): 
+func reward_R05():
 	PC.pc_atk_speed += 0.06
 	PC.pc_speed -= 0.03
 	EmblemManager.add_emblem("chenjing", 1)
 	_level_up_action()
 
-func reward_SR05(): 
+func reward_SR05():
 	PC.pc_atk_speed += 0.08
 	PC.pc_speed -= 0.035
 	EmblemManager.add_emblem("chenjing", 1)
 	_level_up_action()
 
-func reward_SSR05(): 
+func reward_SSR05():
 	PC.pc_atk_speed += 0.11
 	PC.pc_speed -= 0.04
 	EmblemManager.add_emblem("chenjing", 1)
 	_level_up_action()
 
-func reward_UR05(): 
+func reward_UR05():
 	PC.pc_atk_speed += 0.17
 	PC.pc_speed -= 0.05
 	EmblemManager.add_emblem("chenjing", 2)
@@ -1066,7 +963,7 @@ func reward_R20():
 	PC.summon_count += 1
 	PC.selected_rewards.append("blue_summon")
 	# 通知battle场景添加召唤物 (类型0代表蓝色召唤物)
-	var battle_scene = PC.player_instance # 获取玩家实例，应确保这是正确的战斗场景引用
+	var battle_scene = PC.player_instance
 	if battle_scene and battle_scene.has_method("add_summon"):
 		battle_scene.add_summon(0) # 假设0是蓝色召唤物的类型ID
 	_level_up_action()
@@ -1237,6 +1134,62 @@ func reward_SSR26():
 func reward_UR26():
 	PC.summon_count_max += 2
 	PC.summon_damage_multiplier -= 0.15
+	_level_up_action()
+
+
+func reward_SR21():
+	PC.summon_count += 1
+	PC.selected_rewards.append("purple_heal_summon")
+	# 通知battle场景添加召唤物
+	var battle_scene = PC.player_instance
+	if battle_scene and battle_scene.has_method("add_summon"):
+		battle_scene.add_summon(4)
+	_level_up_action()
+
+func reward_SSR21():
+	PC.summon_count += 1
+	PC.selected_rewards.append("gold_heal_summon")
+	# 通知battle场景添加召唤物
+	var battle_scene = PC.player_instance
+	if battle_scene and battle_scene.has_method("add_summon"):
+		battle_scene.add_summon(5)
+	_level_up_action()
+
+func reward_UR21():
+	PC.summon_count += 1
+	PC.selected_rewards.append("red_heal_summon")
+	# 通知battle场景添加召唤物
+	var battle_scene = PC.player_instance
+	if battle_scene and battle_scene.has_method("add_summon"):
+		battle_scene.add_summon(6)
+	_level_up_action()
+
+
+func reward_SR22():
+	PC.summon_count += 1
+	PC.selected_rewards.append("purple_aux_summon")
+	# 通知battle场景添加召唤物
+	var battle_scene = PC.player_instance
+	if battle_scene and battle_scene.has_method("add_summon"):
+		battle_scene.add_summon(7)
+	_level_up_action()
+
+func reward_SSR22():
+	PC.summon_count += 1
+	PC.selected_rewards.append("gold_aux_summon")
+	# 通知battle场景添加召唤物
+	var battle_scene = PC.player_instance
+	if battle_scene and battle_scene.has_method("add_summon"):
+		battle_scene.add_summon(8)
+	_level_up_action()
+
+func reward_UR22():
+	PC.summon_count += 1
+	PC.selected_rewards.append("red_aux_summon")
+	# 通知battle场景添加召唤物
+	var battle_scene = PC.player_instance
+	if battle_scene and battle_scene.has_method("add_summon"):
+		battle_scene.add_summon(9)
 	_level_up_action()
 
 func reward_Branch():
@@ -1427,19 +1380,19 @@ func reward_Moyan2():
 
 func reward_Moyan3():
 	PC.select_reward.append("moyan3")
-	_level_up_action()	
+	_level_up_action()
 
 func reward_Moyan12():
 	PC.select_reward.append("moyan12")
-	_level_up_action()	
+	_level_up_action()
 
 func reward_Moyan13():
 	PC.select_reward.append("moyan13")
-	_level_up_action()	
+	_level_up_action()
 
 func reward_Moyan23():
 	PC.select_reward.append("moyan23")
-	_level_up_action()	
+	_level_up_action()
 
 
 func reward_RRingFire():
@@ -1472,19 +1425,19 @@ func reward_RingFire2():
 
 func reward_RingFire3():
 	PC.select_reward.append("ringFire3")
-	_level_up_action()	
+	_level_up_action()
 
 func reward_RingFire11():
 	PC.select_reward.append("ringFire11")
-	_level_up_action()	
+	_level_up_action()
 
 func reward_RingFire4():
 	PC.select_reward.append("ringFire4")
-	_level_up_action()	
+	_level_up_action()
 
 func reward_RingFire44():
 	PC.select_reward.append("ringFire44")
-	_level_up_action()	
+	_level_up_action()
 
 func reward_Rriyan():
 	PC.main_skill_riyan += 1
@@ -1516,11 +1469,11 @@ func reward_Riyan2():
 
 func reward_Riyan3():
 	PC.select_reward.append("riyan3")
-	_level_up_action()	
+	_level_up_action()
 
 func reward_Riyan4():
 	PC.select_reward.append("riyan4")
-	_level_up_action()	
+	_level_up_action()
 
 func reward_Riyan11():
 	PC.select_reward.append("riyan11")
@@ -1562,7 +1515,7 @@ func global_level_up():
 	var ssr12_count = PC.selected_rewards.count("SSR12")
 	var ur12_count = PC.selected_rewards.count("UR12")
 	if r12_count > 0 or sr12_count > 0 or ssr12_count > 0 or ur12_count > 0:
-		var extra_lucky = max(0, PC.now_lunky_level - PC.start_lunky_level)
+		var extra_lucky = max(0, PC.now_lunky_level - PC.last_lunky_level)
 		if extra_lucky > 0:
 			var total_bonus = 0.0
 			total_bonus += r12_count * extra_lucky * 0.01

@@ -158,9 +158,7 @@ func save_audio_settings() -> void:
 	config.set_value("audio", "sfx_volume", sfx_volume)
 	
 	var err = config.save(AUDIO_CONFIG_PATH)
-	if err == OK:
-		print("音频设置保存成功")
-	else:
+	if err != OK:
 		print("音频设置保存失败: ", err)
 
 # 加载音频设置

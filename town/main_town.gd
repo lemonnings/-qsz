@@ -1,50 +1,52 @@
 extends Node2D
 
-@export var dialog_control : Control
-@export var levelChangeLayer : CanvasLayer
-@export var cultivationLayer : CanvasLayer
-@export var setting : Panel
-@export var settingButton : Button
-@export var canvasLayer : CanvasLayer
-@export var synthesisLayer : CanvasLayer
-@export var studyLayer : CanvasLayer
+@export var dialog_control: Control
+@export var defaultLayer: CanvasLayer
+@export var levelChangeLayer: CanvasLayer
+@export var cultivationLayer: CanvasLayer
+@export var setting: Panel
+@export var settingButton: Button
+@export var canvasLayer: CanvasLayer
+@export var synthesisLayer: CanvasLayer
+@export var studyLayer: CanvasLayer
+@export var bagLayer: CanvasLayer
 
-@export var tip : Node
+@export var tip: Node
 
 @export var battle_scene: String
 
-@export var cystal : AnimatedSprite2D 
-@export var cystal2 : AnimatedSprite2D 
-@export var levelUpMan : AnimatedSprite2D 
-@export var levelUpMan2 : AnimatedSprite2D 
-@export var blackSmith : AnimatedSprite2D 
-@export var merchant : AnimatedSprite2D 
-@export var danlu : AnimatedSprite2D 
-@export var portal : AnimatedSprite2D
-@export var cystalTips : Control 
-@export var levelUpManTips : Control
-@export var levelUpMan2Tips : Control
-@export var blackSmithTips : Control
-@export var merchantTips : Control
-@export var danluTips : Control
-@export var portalTips : Control
+@export var cystal: AnimatedSprite2D
+@export var cystal2: AnimatedSprite2D
+@export var levelUpMan: AnimatedSprite2D
+@export var levelUpMan2: AnimatedSprite2D
+@export var blackSmith: AnimatedSprite2D
+@export var merchant: AnimatedSprite2D
+@export var danlu: AnimatedSprite2D
+@export var portal: AnimatedSprite2D
+@export var cystalTips: Control
+@export var levelUpManTips: Control
+@export var levelUpMan2Tips: Control
+@export var blackSmithTips: Control
+@export var merchantTips: Control
+@export var danluTips: Control
+@export var portalTips: Control
 
-@export var dark_overlay : Control  # 黑色滤镜
+@export var dark_overlay: Control # 黑色滤镜
 
-@export var cultivation_msg : RichTextLabel
-@export var point_label : Label
+@export var cultivation_msg: RichTextLabel
+@export var point_label: Label
 
 # 设置
-@export var main_volume : HSlider
-@export var bgm_volume : HSlider
-@export var se_volume : HSlider
-@export var screen_resolution : OptionButton
-@export var full_screen : CheckButton
-@export var vignetting : CheckButton
-@export var particle : CheckButton
+@export var main_volume: HSlider
+@export var bgm_volume: HSlider
+@export var se_volume: HSlider
+@export var screen_resolution: OptionButton
+@export var full_screen: CheckButton
+@export var vignetting: CheckButton
+@export var particle: CheckButton
 
 
-@export var interaction_distance : float = 35.0 
+@export var interaction_distance: float = 35.0
 var dialog_file_to_start: String = "res://AssetBundle/Dialog/test_dialog.txt"
 var qian_dialog: String = "res://AssetBundle/Dialog/qian_dialog.txt"
 
@@ -179,7 +181,7 @@ func _process(delta: float) -> void:
 		animate_ui_element(levelUpMan2Tips, "levelUpMan2Tips", false)
 	
 				
-	if player.global_position.distance_to(danlu.global_position) < interaction_distance+20:
+	if player.global_position.distance_to(danlu.global_position) < interaction_distance + 20:
 		animate_ui_element(danluTips, "danluTips", true)
 		danluTips.change_name("兑
 		<合成>")
@@ -212,7 +214,7 @@ func press_interact():
 	
 	if player.global_position.distance_to(portal.global_position) < interaction_distance:
 		PC.movement_disabled = true
-		
+		defaultLayer.visible = false
 		if dark_overlay:
 			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
 				ui_tweens["dark_overlay"].kill()
@@ -289,6 +291,9 @@ func press_interact():
 			if child.has_method("set_modulate"):
 				child.modulate.a = 0.0
 				ui_tweens["synthesisLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
+				
+		# 进入合成页面，不允许标滚轮缩放
+		Global.in_synthesis = true
 		
 		
 	if player.global_position.distance_to(levelUpMan2.global_position) < interaction_distance + 20:
@@ -303,7 +308,6 @@ func press_interact():
 			dark_overlay.modulate.a = 0.0
 			ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
 		
-		# 渐进显示合成界面
 		if ui_tweens.has("studyLayer") and ui_tweens["studyLayer"]:
 			ui_tweens["studyLayer"].kill()
 		
@@ -316,7 +320,6 @@ func press_interact():
 			if child.has_method("set_modulate"):
 				child.modulate.a = 0.0
 				ui_tweens["studyLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
-
 
 
 # G交互
@@ -345,6 +348,7 @@ func start_dialog_interaction(npc_id: String) -> void:
 
 func _on_exit_pressed() -> void:
 	PC.movement_disabled = false
+	defaultLayer.visible = true
 	settingButton.mouse_filter = Control.MOUSE_FILTER_STOP
 	
 	var exit_tween = create_tween()
@@ -352,7 +356,7 @@ func _on_exit_pressed() -> void:
 	
 	if dark_overlay and dark_overlay.visible:
 		exit_tween.tween_property(dark_overlay, "modulate:a", 0.0, 0.2)
-		exit_tween.tween_callback(func(): 
+		exit_tween.tween_callback(func():
 			dark_overlay.visible = false
 			dark_overlay.modulate.a = 0.0
 		).set_delay(0.2)
@@ -362,7 +366,7 @@ func _on_exit_pressed() -> void:
 		for child in levelChangeLayer.get_children():
 			if child.has_method("set_modulate"):
 				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)
-		exit_tween.tween_callback(func(): 
+		exit_tween.tween_callback(func():
 			levelChangeLayer.visible = false
 			# 重置子节点透明度
 			for child in levelChangeLayer.get_children():
@@ -375,7 +379,7 @@ func _on_exit_pressed() -> void:
 		for child in cultivationLayer.get_children():
 			if child.has_method("set_modulate"):
 				exit_tween.tween_property(child, "modulate:a", 0.0, 0.1)
-		exit_tween.tween_callback(func(): 
+		exit_tween.tween_callback(func():
 			cultivationLayer.visible = false
 			# 重置子节点透明度
 			for child in cultivationLayer.get_children():
@@ -385,10 +389,12 @@ func _on_exit_pressed() -> void:
 
 	# 渐出合成界面
 	if synthesisLayer.visible:
+		# 退出合成界面时，重置合成状态标志
+		Global.in_synthesis = false
 		for child in synthesisLayer.get_children():
 			if child.has_method("set_modulate"):
 				exit_tween.tween_property(child, "modulate:a", 0.0, 0.1)
-		exit_tween.tween_callback(func(): 
+		exit_tween.tween_callback(func():
 			synthesisLayer.visible = false
 			# 重置子节点透明度
 			for child in synthesisLayer.get_children():
@@ -405,7 +411,7 @@ func _on_exit_pressed() -> void:
 		
 		# 然后淡出设置面板本身
 		exit_tween.tween_property(setting, "modulate:a", 0.0, 0.2)
-		exit_tween.tween_callback(func(): 
+		exit_tween.tween_callback(func():
 			setting.visible = false
 			setting.modulate.a = 1.0
 			# 重置子节点透明度
@@ -429,19 +435,20 @@ func refresh_point() -> void:
 
 # 修炼配置数据
 var cultivation_configs = {
-	"poxu": {"name": "破虚", "type": "atk", "level_var": "cultivation_poxu_level"},
-	"xuanyuan": {"name": "玄元", "type": "hp", "level_var": "cultivation_xuanyuan_level"},
-	"liuguang": {"name": "流光", "type": "atk_speed", "level_var": "cultivation_liuguang_level"},
-	"hualing": {"name": "化灵", "type": "spirit_gain", "level_var": "cultivation_hualing_level"},
-	"fengrui": {"name": "锋锐", "type": "crit_chance", "level_var": "cultivation_fengrui_level"},
-	"huti": {"name": "护体", "type": "damage_reduction", "level_var": "cultivation_huti_level"},
-	"zhuifeng": {"name": "追风", "type": "move_speed", "level_var": "cultivation_zhuifeng_level"},
-	"liejin": {"name": "烈劲", "type": "crit_damage", "level_var": "cultivation_liejin_level"}
+	"poxu": {"name": "破虚", "type": "atk", "level_var": "cultivation_poxu_level", "max_level_var": "cultivation_poxu_level_max"},
+	"xuanyuan": {"name": "玄元", "type": "hp", "level_var": "cultivation_xuanyuan_level", "max_level_var": "cultivation_xuanyuan_level_max"},
+	"liuguang": {"name": "流光", "type": "atk_speed", "level_var": "cultivation_liuguang_level", "max_level_var": "cultivation_liuguang_level_max"},
+	"hualing": {"name": "化灵", "type": "spirit_gain", "level_var": "cultivation_hualing_level", "max_level_var": "cultivation_hualing_level_max"},
+	"fengrui": {"name": "锋锐", "type": "crit_chance", "level_var": "cultivation_fengrui_level", "max_level_var": "cultivation_fengrui_level_max"},
+	"huti": {"name": "护体", "type": "damage_reduction", "level_var": "cultivation_huti_level", "max_level_var": "cultivation_huti_level_max"},
+	"zhuifeng": {"name": "追风", "type": "move_speed", "level_var": "cultivation_zhuifeng_level", "max_level_var": "cultivation_zhuifeng_level_max"},
+	"liejin": {"name": "烈劲", "type": "crit_damage", "level_var": "cultivation_liejin_level", "max_level_var": "cultivation_liejin_level_max"}
 }
 
 func _on_cme(cultivation_key: String) -> void:
 	var config = cultivation_configs[cultivation_key]
 	var current_level = Global.get(config["level_var"])
+	var max_level = Global.get(config["max_level_var"])
 	var next_level = current_level + 1
 	var next_level_exp = 0
 	if cultivation_key == "poxu" or cultivation_key == "xuanyuan" or cultivation_key == "hualing" or cultivation_key == "liejin":
@@ -451,13 +458,11 @@ func _on_cme(cultivation_key: String) -> void:
 	var current_bonus = CL.get_cultivation_bonus_text(config["type"], current_level)
 	var next_bonus = CL.get_cultivation_bonus_text(config["type"], next_level)
 	
-	cultivation_msg.text = "[font_size=64]" + config["name"] + "  LV " + str(current_level) + "[/font_size]
-
-当前：" + current_bonus + "
-下一级：" + next_bonus + "
-修炼消耗： " + str(next_level_exp) + " 真气
-
-再次点击即可修炼"
+	# 判断是否已达到最高等级
+	if current_level >= max_level:
+		cultivation_msg.text = "[font_size=50]" + config["name"] + "  LV " + str(current_level) + " / " + str(max_level) + "[/font_size]\n\n当前  " + current_bonus + "\n\n[color=gold]已达到最高等级[/color]"
+	else:
+		cultivation_msg.text = "[font_size=50]" + config["name"] + "  LV " + str(current_level) + " / " + str(max_level) + "[/font_size]\n\n当前  " + current_bonus + "\n下一级  " + next_bonus + "\n修炼消耗  " + str(next_level_exp) + " 真气\n\n再次点击即可修炼"
 	cultivation_msg.visible = true
 
 func _on_cmex(_cultivation_key: String) -> void:
@@ -466,6 +471,14 @@ func _on_cmex(_cultivation_key: String) -> void:
 func _on_cmp(cultivation_key: String) -> void:
 	var config = cultivation_configs[cultivation_key]
 	var current_level = Global.get(config["level_var"])
+	var max_level = Global.get(config["max_level_var"])
+	
+	# 检查是否已达到最高等级
+	if current_level >= max_level:
+		tip.start_animation(config["name"] + "已达到最高等级！", 0.5)
+		$Buzzer.play()
+		return
+	
 	var next_level_exp = 0
 	if cultivation_key == "poxu" or cultivation_key == "xuanyuan" or cultivation_key == "hualing" or cultivation_key == "liejin":
 		next_level_exp = CL.get_cultivation_exp_for_level_normal(current_level)
@@ -478,7 +491,7 @@ func _on_cmp(cultivation_key: String) -> void:
 		
 		$LevelUP.play()
 		
-		tip.start_animation(config["name"] + "修炼成功！当前等级：" + str(Global.get(config["level_var"])), 0.5)
+		tip.start_animation(config["name"] + "修炼成功！当前等级：" + str(Global.get(config["level_var"])) + " / " + str(max_level), 0.5)
 
 		Global.save_game()
 		refresh_point()
@@ -486,7 +499,7 @@ func _on_cmp(cultivation_key: String) -> void:
 		if cultivation_msg.visible:
 			_on_cme(cultivation_key)
 	else:
-		print("Point不足！需要 " + str(next_level_exp) + " Point，当前只有 " + str(Global.total_points) + " Point")
+		tip.start_animation("真气不足！需要 " + str(next_level_exp) + " 真气，当前只有 " + str(Global.total_points) + " 真气", 0.5)
 		$Buzzer.play()
 
 func _on_poxu_mouse_entered() -> void:
@@ -664,3 +677,34 @@ func _on_setting_pressed() -> void:
 		
 		# 先显示设置面板本身
 		ui_tweens["setting"].tween_property(setting, "modulate:a", 1.0, 0.15)
+
+func _on_bag_pressed() -> void:
+	if !bagLayer.visible:
+		PC.movement_disabled = true
+		
+		if dark_overlay:
+			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
+				ui_tweens["dark_overlay"].kill()
+			
+			ui_tweens["dark_overlay"] = create_tween()
+			dark_overlay.visible = true
+			dark_overlay.modulate.a = 0.0
+			ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
+		
+		# 渐进显示设置界面
+		if ui_tweens.has("bagLayer") and ui_tweens["bagLayer"]:
+			ui_tweens["bagLayer"].kill()
+		
+		ui_tweens["bagLayer"] = create_tween()
+		ui_tweens["bagLayer"].set_parallel(true)
+		bagLayer.visible = true
+		#bagLayer.modulate.a = 0.0
+		
+		# 然后对设置面板的所有子节点进行动画
+		for child in bagLayer.get_children():
+			if child.has_method("set_modulate"):
+				child.modulate.a = 0.0
+				ui_tweens["bagLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
+		
+		# 先显示设置面板本身
+		ui_tweens["bagLayer"].tween_property(bagLayer, "modulate:a", 1.0, 0.15)

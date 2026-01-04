@@ -1,44 +1,49 @@
 extends CanvasLayer
 
-@export var study_level1 : Button
-@export var study_level2 : Button
-@export var study_level3 : Button
-@export var study_level4 : Button
-@export var study_level5 : Button
+@export var study_level1: Button
+@export var study_level2: Button
+@export var study_level3: Button
+@export var study_level4: Button
+@export var study_level5: Button
 
-@export var detail : RichTextLabel
-@export var point_label : RichTextLabel
+@export var detail: RichTextLabel
+@export var point_label: RichTextLabel
 
-@export var up1 : Button
-@export var up1_detail : RichTextLabel
-@export var up11 : Button
-@export var up11_detail : RichTextLabel
-@export var up12 : Button
-@export var up12_detail : RichTextLabel
-@export var up2 : Button
-@export var up2_detail : RichTextLabel
-@export var up21 : Button
-@export var up21_detail : RichTextLabel
-@export var up22 : Button
-@export var up22_detail : RichTextLabel
-@export var up3 : Button
-@export var up3_detail : RichTextLabel
-@export var up31 : Button
-@export var up31_detail : RichTextLabel
-@export var up32 : Button
-@export var up32_detail : RichTextLabel
-@export var up4 : Button
-@export var up4_detail : RichTextLabel
-@export var up41 : Button
-@export var up41_detail : RichTextLabel
-@export var up42 : Button
-@export var up42_detail : RichTextLabel
-@export var up5 : Button
-@export var up5_detail : RichTextLabel
-@export var up51 : Button
-@export var up51_detail : RichTextLabel
-@export var up52 : Button
-@export var up52_detail : RichTextLabel
+@export var up1: Button
+@export var up1_detail: RichTextLabel
+@export var up11: Button
+@export var up11_detail: RichTextLabel
+@export var up12: Button
+@export var up12_detail: RichTextLabel
+@export var up2: Button
+@export var up2_detail: RichTextLabel
+@export var up21: Button
+@export var up21_detail: RichTextLabel
+@export var up22: Button
+@export var up22_detail: RichTextLabel
+@export var up3: Button
+@export var up3_detail: RichTextLabel
+@export var up31: Button
+@export var up31_detail: RichTextLabel
+@export var up32: Button
+@export var up32_detail: RichTextLabel
+@export var up4: Button
+@export var up4_detail: RichTextLabel
+@export var up41: Button
+@export var up41_detail: RichTextLabel
+@export var up42: Button
+@export var up42_detail: RichTextLabel
+@export var up5: Button
+@export var up5_detail: RichTextLabel
+@export var up51: Button
+@export var up51_detail: RichTextLabel
+@export var up52: Button
+@export var up52_detail: RichTextLabel
+
+var current_player = "yiqiu"
+var current_study_level = 0
+var in_study: bool = false
+var transition_tween: Tween
 
 # 玩家修习数据结构
 var player_study_config = {
@@ -92,11 +97,6 @@ var player_study_config = {
 		}
 	}
 }
-
-var current_player = "yiqiu"
-var current_study_level = 0
-var in_study: bool = false
-var transition_tween: Tween
 
 func _ready() -> void:
 	# 连接可见性变化信号
@@ -156,7 +156,10 @@ func connect_skill_hover_events() -> void:
 # 当界面变为可见时刷新显示
 func _on_visibility_changed() -> void:
 	if visible:
+		in_study = true
 		update_study_display()
+	else:
+		in_study = false
 
 func update_study_display() -> void:
 	# 获取当前玩家数据
@@ -630,7 +633,7 @@ func get_skill_effect_text(skill_name: String, current_level: int, max_level: in
 			effect_text = "[font_size=28]无敌时间[/font_size]\n"
 			effect_text += "无敌时间 "
 			for i in range(max_level):
-				var value = 0.3 + i * 0.1  # 0.3/0.4/0.5秒
+				var value = 0.3 + i * 0.1 # 0.3/0.4/0.5秒
 				if i == current_level:
 					effect_text += "[color=green]" + str(value) + "[/color]/"
 				else:
@@ -640,7 +643,7 @@ func get_skill_effect_text(skill_name: String, current_level: int, max_level: in
 			effect_text = "[font_size=28]闪避冷却降低[/font_size]\n"
 			effect_text += "CD "
 			for i in range(max_level):
-				var value = 10 - i  # 10/9/8秒
+				var value = 10 - i # 10/9/8秒
 				if i == current_level:
 					effect_text += "[color=green]" + str(value) + "[/color]/"
 				else:
@@ -656,7 +659,7 @@ func get_skill_effect_text(skill_name: String, current_level: int, max_level: in
 			effect_text = "[font_size=28]天命提升[/font_size]\n"
 			effect_text += "天命初始 +"
 			for i in range(max_level):
-				var value = 3 + i * 3  # +3/6/9
+				var value = 3 + i * 3 # +3/6/9
 				if i == current_level:
 					effect_text += "[color=green]" + str(value) + "[/color]/"
 				else:
@@ -666,7 +669,7 @@ func get_skill_effect_text(skill_name: String, current_level: int, max_level: in
 			effect_text = "[font_size=28]剑气强化[/font_size]\n"
 			effect_text += "剑气初始强化 +"
 			for i in range(max_level):
-				var value = i + 1  # +1/2
+				var value = i + 1 # +1/2
 				if i == current_level:
 					effect_text += "[color=green]" + str(value) + "[/color]/"
 				else:
@@ -676,7 +679,7 @@ func get_skill_effect_text(skill_name: String, current_level: int, max_level: in
 			effect_text = "[font_size=28]剑气伤害提升[/font_size]\n"
 			effect_text += "剑气伤害 +"
 			for i in range(max_level):
-				var value = 6 + i * 6  # +6%/12%/18%
+				var value = 6 + i * 6 # +6%/12%/18%
 				if i == current_level:
 					effect_text += "[color=green]" + str(value) + "%[/color]/"
 				else:
@@ -686,7 +689,7 @@ func get_skill_effect_text(skill_name: String, current_level: int, max_level: in
 			effect_text = "[font_size=28]召唤强化[/font_size]\n"
 			effect_text += "召唤初始强化 +"
 			for i in range(max_level):
-				var value = i + 1  # +1/2
+				var value = i + 1 # +1/2
 				if i == current_level:
 					effect_text += "[color=green]" + str(value) + "[/color]/"
 				else:
@@ -696,7 +699,7 @@ func get_skill_effect_text(skill_name: String, current_level: int, max_level: in
 			effect_text = "[font_size=28]天命上限提升[/font_size]\n"
 			effect_text += "天命上限 +"
 			for i in range(max_level):
-				var value = 10 + i * 10  # +10/20/30
+				var value = 10 + i * 10 # +10/20/30
 				if i == current_level:
 					effect_text += "[color=green]" + str(value) + "[/color]/"
 				else:
@@ -706,7 +709,7 @@ func get_skill_effect_text(skill_name: String, current_level: int, max_level: in
 			effect_text = "[font_size=28]天命获取提升[/font_size]\n"
 			effect_text += "天命获取 +"
 			for i in range(max_level):
-				var value = 10 + i * 10  # +10%/20%/30%
+				var value = 10 + i * 10 # +10%/20%/30%
 				if i == current_level:
 					effect_text += "[color=green]" + str(value) + "%[/color]/"
 				else:
@@ -716,7 +719,7 @@ func get_skill_effect_text(skill_name: String, current_level: int, max_level: in
 			effect_text = "[font_size=28]剑气冷却降低[/font_size]\n"
 			effect_text += "剑气CD -"
 			for i in range(max_level):
-				var value = 0.5 + i * 0.5  # -0.5/-1.0/-1.5秒
+				var value = 0.5 + i * 0.5 # -0.5/-1.0/-1.5秒
 				if i == current_level:
 					effect_text += "[color=green]" + str(value) + "[/color]/"
 				else:
@@ -726,7 +729,7 @@ func get_skill_effect_text(skill_name: String, current_level: int, max_level: in
 			effect_text = "[font_size=28]刷新次数[/font_size]\n"
 			effect_text += "刷新次数 +"
 			for i in range(max_level):
-				var value = i + 1  # +1/2
+				var value = i + 1 # +1/2
 				if i == current_level:
 					effect_text += "[color=green]" + str(value) + "[/color]/"
 				else:
@@ -736,7 +739,7 @@ func get_skill_effect_text(skill_name: String, current_level: int, max_level: in
 			effect_text = "[font_size=28]刷新冷却降低[/font_size]\n"
 			effect_text += "刷新CD -"
 			for i in range(max_level):
-				var value = 5 + i * 5  # -5/-10/-15秒
+				var value = 5 + i * 5 # -5/-10/-15秒
 				if i == current_level:
 					effect_text += "[color=green]" + str(value) + "[/color]/"
 				else:
@@ -746,7 +749,7 @@ func get_skill_effect_text(skill_name: String, current_level: int, max_level: in
 			effect_text = "[font_size=28]刷新品质提升[/font_size]\n"
 			effect_text += "刷新品质 +"
 			for i in range(max_level):
-				var value = 10 + i * 10  # +10%/20%/30%
+				var value = 10 + i * 10 # +10%/20%/30%
 				if i == current_level:
 					effect_text += "[color=green]" + str(value) + "%[/color]/"
 				else:

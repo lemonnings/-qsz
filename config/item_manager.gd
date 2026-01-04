@@ -26,7 +26,7 @@ var items_data = {
 		"item_name": "生命精华",
 		"item_stack_max": 10,
 		"item_type": "immediate", # 立即生效
-		"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/healths.png",
 		"item_price": 50,
 		"item_source": "怪物掉落",
 		"item_use_condition": "",
@@ -38,8 +38,8 @@ var items_data = {
 	"item_002": {
 		"item_name": "凝胶",
 		"item_stack_max": 9999,
-		"item_type": "material", # 装备
-		"item_icon": "res://assets/icons/ring_strength.png",
+		"item_type": "material",
+		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/slime.png",
 		"item_price": 40,
 		"item_source": "击败涎兽获取",
 		"item_use_condition": "",
@@ -52,8 +52,8 @@ var items_data = {
 	"item_003": {
 		"item_name": "灵液",
 		"item_stack_max": 9999,
-		"item_type": "material", 
-		"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+		"item_type": "material",
+		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/slime2.png",
 		"item_price": 200, # 单个价格，或者表示其价值
 		"item_source": "击败涎兽获取",
 		"item_use_condition": "",
@@ -63,12 +63,12 @@ var items_data = {
 		"item_anime": "res://assets/animations/item_pickup_common.tres"
 	},
 	"item_004": {
-		"item_name": "九幽秘钥碎片",
+		"item_name": "阴钥碎片",
 		"item_stack_max": 99,
 		"item_type": "material",
-		"item_icon": "res://assets/icons/philosopher_stone_shard.png",
+		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jiuyou.png",
 		"item_price": 1000, # 单个价格，或者表示其价值
-		"item_source": "击败敌人获取",
+		"item_source": "击败森林，山脚下的敌人小概率获取",
 		"item_use_condition": "",
 		"item_detail": "九幽秘钥的碎片，蕴含着神秘的力量，收集满10个后可以合成一个完整的九幽秘钥",
 		"item_rare": "epic", # 史诗
@@ -76,12 +76,12 @@ var items_data = {
 		"item_anime": "res://assets/animations/item_pickup_epic.tres"
 	},
 	"item_005": {
-		"item_name": "空濛秘钥碎片",
+		"item_name": "阳钥碎片",
 		"item_stack_max": 99,
 		"item_type": "material",
-		"item_icon": "res://assets/icons/philosopher_stone_shard.png",
+		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/kongmeng.png",
 		"item_price": 1000, # 单个价格，或者表示其价值
-		"item_source": "击败凌云山山腰处的敌人低概率获取",
+		"item_source": "击败山腰，山顶的敌人低概率获取",
 		"item_use_condition": "",
 		"item_detail": "空濛秘钥的碎片，蕴含着神秘的力量，收集满10个后可以合成一个完整的空濛秘钥，用来开启空濛山的结界",
 		"item_rare": "epic", # 史诗
@@ -91,10 +91,10 @@ var items_data = {
 	"item_006": {
 		"item_name": "聚灵石",
 		"item_stack_max": 9999,
-		"item_type": "material", 
-		"item_icon": "res://assets/icons/philosopher_stone.png",
+		"item_type": "material",
+		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/juling.png",
 		"item_price": 10000,
-		"item_source": "合成获得",
+		"item_source": "由灵石碎片合成获得",
 		"item_use_condition": "",
 		"item_detail": "完整的聚灵石，蕴含着强大的力量。",
 		"item_rare": "legendary", # 传说
@@ -104,10 +104,10 @@ var items_data = {
 	"item_007": {
 		"item_name": "灵石碎片",
 		"item_stack_max": 9999,
-		"item_type": "material", 
-		"item_icon": "res://assets/icons/jiuyou_key.png",
+		"item_type": "material",
+		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/julingsuipian.png",
 		"item_price": 500,
-		"item_source": "击败敌人低概率获取",
+		"item_source": "击败全地区敌人低概率获取",
 		"item_use_condition": "",
 		"item_detail": "用来合成珍贵的聚灵石。",
 		"item_rare": "epic", # 传说
@@ -118,9 +118,9 @@ var items_data = {
 			"item_name": "水灵叶",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/shuilingye.png",
 			"item_price": 40,
-			"item_source": "在水灵区域采集或击败水属性怪物获取",
+			"item_source": "击败水属性怪物获取",
 			"item_use_condition": "",
 			"item_detail": "蕴含微弱水灵力的叶片，可用于炼药与制符",
 			"item_rare": "common",
@@ -131,9 +131,9 @@ var items_data = {
 			"item_name": "风灵草",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fenglingcao.png",
 			"item_price": 40,
-			"item_source": "在风带草地采集或击败风属性怪物获取",
+			"item_source": "击败风属性怪物获取",
 			"item_use_condition": "",
 			"item_detail": "含有风息的灵草，轻盈柔韧，多用途基础材",
 			"item_rare": "common",
@@ -144,9 +144,9 @@ var items_data = {
 			"item_name": "宣纸",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xuanzhi.png",
 			"item_price": 40,
-			"item_source": "在城镇杂货铺购买或遗落书院拾取",
+			"item_source": "击败宣纸精获取",
 			"item_use_condition": "",
 			"item_detail": "适合书写与绘制符箓的纸张，纤维韧性良好",
 			"item_rare": "common",
@@ -157,9 +157,9 @@ var items_data = {
 			"item_name": "毒囊",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/dunang.png",
 			"item_price": 40,
-			"item_source": "击败毒系怪物获取",
+			"item_source": "击败蟾蜍获取",
 			"item_use_condition": "",
 			"item_detail": "怪物体内储毒的囊袋，炼毒或制药常用材",
 			"item_rare": "common",
@@ -170,9 +170,9 @@ var items_data = {
 			"item_name": "符纸",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fuzhi.png",
 			"item_price": 40,
-			"item_source": "在城镇购买或探索遗迹获取",
+			"item_source": "击败宣纸精获取",
 			"item_use_condition": "",
 			"item_detail": "特制纸片，耐灵力冲刷，刻绘符阵的常备材",
 			"item_rare": "common",
@@ -183,9 +183,9 @@ var items_data = {
 			"item_name": "土灵矿",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/tulingkuang.png",
 			"item_price": 40,
-			"item_source": "在矿区采掘或击败土属性怪物获取",
+			"item_source": "击败土属性怪物获取",
 			"item_use_condition": "",
 			"item_detail": "蕴含土灵气的矿石，冶炼与炼器的基础材料",
 			"item_rare": "common",
@@ -196,9 +196,9 @@ var items_data = {
 			"item_name": "火灵晶",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huolingjing.png",
 			"item_price": 40,
-			"item_source": "在熔岩地带采集或击败火属性怪物获取",
+			"item_source": "击败火属性怪物获取",
 			"item_use_condition": "",
 			"item_detail": "凝聚火灵的晶体，可为法器提供稳定热源",
 			"item_rare": "common",
@@ -209,7 +209,7 @@ var items_data = {
 			"item_name": "硬壳",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yingke.png",
 			"item_price": 40,
 			"item_source": "击败甲壳类怪物获取",
 			"item_use_condition": "",
@@ -222,9 +222,9 @@ var items_data = {
 			"item_name": "雷灵丝",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/leilingsi.png",
 			"item_price": 40,
-			"item_source": "击败雷蚕或雷属性怪物获取",
+			"item_source": "击败雷属性怪物获取",
 			"item_use_condition": "",
 			"item_detail": "带有微弱电流的灵丝，导灵性出色",
 			"item_rare": "common",
@@ -235,9 +235,9 @@ var items_data = {
 			"item_name": "元水",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanshui2.png",
 			"item_price": 40,
-			"item_source": "在水脉附近采集或通过合成获得",
+			"item_source": "通过合成获得",
 			"item_use_condition": "",
 			"item_detail": "纯净水属性材料，常作基础媒介",
 			"item_rare": "common",
@@ -248,9 +248,9 @@ var items_data = {
 			"item_name": "元风",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanfeng2.png",
 			"item_price": 40,
-			"item_source": "在风带区域采集或通过合成获得",
+			"item_source": "通过合成获得",
 			"item_use_condition": "",
 			"item_detail": "纯粹风属性材料，适合轻灵法阵",
 			"item_rare": "common",
@@ -261,9 +261,9 @@ var items_data = {
 			"item_name": "元雷",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanlei2.png",
 			"item_price": 40,
-			"item_source": "在雷场附近采集或通过合成获得",
+			"item_source": "通过合成获得",
 			"item_use_condition": "",
 			"item_detail": "纯粹雷属性材料，增幅冲击术式",
 			"item_rare": "common",
@@ -274,9 +274,9 @@ var items_data = {
 			"item_name": "元土",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuantu2.png",
 			"item_price": 40,
-			"item_source": "在矿层采集或通过合成获得",
+			"item_source": "通过合成获得",
 			"item_use_condition": "",
 			"item_detail": "纯粹土属性材料，稳固器阵结构",
 			"item_rare": "common",
@@ -287,9 +287,9 @@ var items_data = {
 			"item_name": "元火",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://assets/icons/ring_strength.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanhuo2.png",
 			"item_price": 40,
-			"item_source": "在熔岩带采集或通过合成获得",
+			"item_source": "通过合成获得",
 			"item_use_condition": "",
 			"item_detail": "纯粹火属性材料，提升燃性与爆发",
 			"item_rare": "common",
@@ -300,9 +300,9 @@ var items_data = {
 			"item_name": "仙木",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xianmu.png",
 			"item_price": 200,
-			"item_source": "在古木秘境采伐或击败树灵精英低概率获取",
+			"item_source": "击败幼体树精有概率获取",
 			"item_use_condition": "",
 			"item_detail": "蕴含仙灵气的木材，法器坯料的上佳选择",
 			"item_rare": "rare",
@@ -313,9 +313,9 @@ var items_data = {
 			"item_name": "参精",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/shenjing.png",
 			"item_price": 200,
-			"item_source": "在幽谷采掘或击败山精低概率获取",
+			"item_source": "击败草药精有概率获取",
 			"item_use_condition": "",
 			"item_detail": "人参的灵性精华，药效强劲",
 			"item_rare": "rare",
@@ -326,9 +326,9 @@ var items_data = {
 			"item_name": "灯油",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/dengyou.png",
 			"item_price": 200,
-			"item_source": "在城镇油铺购买或古灯遗迹获取",
+			"item_source": "击败灯笼怪有概率获取",
 			"item_use_condition": "",
 			"item_detail": "纯净灯油，炼制灵灯或引火法阵的核心材料",
 			"item_rare": "rare",
@@ -339,9 +339,9 @@ var items_data = {
 			"item_name": "蟾珠",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/chanzhu.png",
 			"item_price": 200,
-			"item_source": "击败蟾蜍妖或秘潭探索低概率获取",
+			"item_source": "击败蟾蜍低概率获取",
 			"item_use_condition": "",
 			"item_detail": "蟾妖腹中灵珠，可稳固毒性与水性术式",
 			"item_rare": "rare",
@@ -352,9 +352,9 @@ var items_data = {
 			"item_name": "墨精",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/mojing.png",
 			"item_price": 200,
-			"item_source": "在书院遗藏或墨池采掘低概率获取",
+			"item_source": "击败宣纸妖有概率获取",
 			"item_use_condition": "",
 			"item_detail": "上好墨汁精华，刻阵绘符必备",
 			"item_rare": "rare",
@@ -365,9 +365,9 @@ var items_data = {
 			"item_name": "矿髓",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/kuangsui.png",
 			"item_price": 200,
-			"item_source": "在深层矿脉采掘或击败矿灵低概率获取",
+			"item_source": "击败矿灵低概率获取",
 			"item_use_condition": "",
 			"item_detail": "矿石内核髓质，炼器时提升稳定与强度",
 			"item_rare": "rare",
@@ -378,7 +378,7 @@ var items_data = {
 			"item_name": "骨粉",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/gufen.png",
 			"item_price": 200,
 			"item_source": "击败亡灵或兽类获取",
 			"item_use_condition": "",
@@ -391,7 +391,7 @@ var items_data = {
 			"item_name": "雾绢",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/wujuan.png",
 			"item_price": 200,
 			"item_source": "在雾林采集或击败雾魅低概率获取",
 			"item_use_condition": "",
@@ -404,9 +404,9 @@ var items_data = {
 			"item_name": "水以太",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/shuiyitai.png",
 			"item_price": 200,
-			"item_source": "在水灵秘境凝取或通过合成获得",
+			"item_source": "击败水属性敌人有低概率获得",
 			"item_use_condition": "",
 			"item_detail": "高纯度水属性以太，强化水系术式的核心材料",
 			"item_rare": "rare",
@@ -417,9 +417,9 @@ var items_data = {
 			"item_name": "风以太",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fengyitai.png",
 			"item_price": 200,
-			"item_source": "在风穴凝取或通过合成获得",
+			"item_source": "击败风属性敌人有低概率获得",
 			"item_use_condition": "",
 			"item_detail": "高纯度风属性以太，提升灵敏与速率",
 			"item_rare": "rare",
@@ -430,9 +430,9 @@ var items_data = {
 			"item_name": "雷以太",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/leiyitai.png",
 			"item_price": 200,
-			"item_source": "在雷池凝取或通过合成获得",
+			"item_source": "击败雷属性敌人有低概率获得",
 			"item_use_condition": "",
 			"item_detail": "高纯度雷属性以太，增强穿透与爆发",
 			"item_rare": "rare",
@@ -443,9 +443,9 @@ var items_data = {
 			"item_name": "土以太",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/tuyitai.png",
 			"item_price": 200,
-			"item_source": "在地脉凝取或通过合成获得",
+			"item_source": "击败土属性敌人有低概率获得",
 			"item_use_condition": "",
 			"item_detail": "高纯度土属性以太，提升稳定与防护",
 			"item_rare": "rare",
@@ -456,11 +456,115 @@ var items_data = {
 			"item_name": "火以太",
 			"item_stack_max": 9999,
 			"item_type": "material",
-			"item_icon": "res://AssetBundle/Sprites/Ghostpixxells_pixelfood/69_meatball.png",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huoyitai.png",
 			"item_price": 200,
-			"item_source": "在熔心凝取或通过合成获得",
+			"item_source": "击败火属性敌人有低概率获得",
 			"item_use_condition": "",
 			"item_detail": "高纯度火属性以太，增强灼烧与爆裂",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_036": {
+			"item_name": "玄露丹",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xuanludan.png",
+			"item_price": 500,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使玄元（提升HP）修炼上限提升4阶",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_037": {
+			"item_name": "化脉丹",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huamaidan.png",
+			"item_price": 500,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使破虚（提升攻击）修炼上限提升4阶",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_038": {
+			"item_name": "汲灵丹",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jilingdan.png",
+			"item_price": 500,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使化灵（提升灵气获取）修炼上限提升4阶",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_039": {
+			"item_name": "迅风丹",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xunfengdan.png",
+			"item_price": 500,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "攻速方向上限+2",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_040": {
+			"item_name": "回春露",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huichunlu.png",
+			"item_price": 300,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "果实回复效果提升10%（最多10次）",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_041": {
+			"item_name": "仙枝",
+			"item_stack_max": 1,
+			"item_type": "special",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xianzhi.png",
+			"item_price": 1000,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "获得后，可在战斗之中解锁武器-仙枝的领悟选项",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_042": {
+			"item_name": "柔水",
+			"item_stack_max": 1,
+			"item_type": "special",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/roushui.png",
+			"item_price": 1000,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "获得后，可在战斗之中解锁武器-柔水的领悟选项",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_043": {
+			"item_name": "下篇契纸",
+			"item_stack_max": 1,
+			"item_type": "special",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/qizhi.png",
+			"item_price": 1000,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "解锁合成篇·下篇",
 			"item_rare": "rare",
 			"item_color": Color(0.2, 0.5, 1.0, 1),
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
@@ -476,7 +580,12 @@ var item_function = {
 # 可使用物品列表
 # 注意：立即生效的物品（如野果）不应该在这里，它们在拾取时直接生效
 var usable_items = {
-	"item_001": true
+	"item_001": true,
+	"item_036": true, # 玄露丹
+	"item_037": true, # 化脉丹
+	"item_038": true, # 汲灵丹
+	"item_039": true, # 迅风丹
+	"item_040": true # 回春露
 }
 
 # 根据物品ID获取该物品的所有数据
@@ -511,7 +620,7 @@ func _on_item_001_picked_up(player, item_id := ""):
 		#return true # 表示成功拾取
 	#else:
 		#return false # 表示无法拾取
-	PC.pc_hp += PC.pc_max_hp * 0.2
+	PC.pc_hp += int(PC.pc_max_hp * 0.2 * Global.fruit_heal_multi)
 	# 防止生命值超过上限
 	if PC.pc_hp > PC.pc_max_hp:
 		PC.pc_hp = PC.pc_max_hp
@@ -521,6 +630,7 @@ func _on_item_001_picked_up(player, item_id := ""):
 
 func on_item_picked_up(player, item_id: String) -> bool:
 	return _add_to_inventory(item_id)
+
 
 func _add_to_inventory(item_id: String) -> bool:
 	if !Global.player_inventory.has(item_id):
@@ -560,24 +670,24 @@ func use_item(item_id: String, count: int = 1) -> Dictionary:
 	# 执行物品使用效果
 	var use_success = _execute_item_use_effect(item_id, count)
 	if !use_success:
-		result.message = "物品使用失败"
+		result.message = "使用失败，已达到最大使用次数"
 		return result
 	
 	# 消耗物品（某些物品使用后不消耗，如装备）
 	var item_type = get_item_property(item_id, "item_type")
-	if item_type != "equip":  # 装备类物品不消耗
+	if item_type != "equip": # 装备类物品不消耗
 		Global.player_inventory[item_id] -= count
 		if Global.player_inventory[item_id] <= 0:
 			Global.player_inventory.erase(item_id)
 	
 	# 尝试解锁配方
-	var unlocked_recipes = Global.unlock_recipes_by_item(item_id)
-	result.unlocked_recipes = unlocked_recipes
+	# var unlocked_recipes = Global.unlock_recipes_by_item(item_id)
+	# result.unlocked_recipes = unlocked_recipes
 	
 	result.success = true
 	result.message = "物品使用成功"
-	if unlocked_recipes.size() > 0:
-		result.message += "，解锁了新配方！"
+	# if unlocked_recipes.size() > 0:
+	# 	result.message += "，解锁了新配方！"
 	
 	return result
 
@@ -586,13 +696,31 @@ func _execute_item_use_effect(item_id: String, count: int) -> bool:
 	match item_id:
 		"item_008":
 			return true
-			
+		"item_036": # 玄露丹 - 使玄元（提升HP）修炼上限提升4阶
+			Global.cultivation_xuanyuan_level_max += 4 * count
+			return true
+		"item_037": # 化脉丹 - 使破虚（提升攻击）修炼上限提升4阶
+			Global.cultivation_poxu_level_max += 4 * count
+			return true
+		"item_038": # 汲灵丹 - 使化灵（提升灵气获取）修炼上限提升4阶
+			Global.cultivation_hualing_level_max += 4 * count
+			return true
+		"item_039": # 迅风丹 - 攻速方向上限+2（流光）
+			Global.cultivation_liuguang_level_max += 2 * count
+			return true
+		"item_040": # 回春露 - 果实回复效果提升10%（最多10次）
+			var remaining_uses = 10 - Global.fruit_heal_multi_used_count
+			if remaining_uses <= 0:
+				return false
+			var actual_uses = min(count, remaining_uses)
+			Global.fruit_heal_multi += 0.1 * actual_uses
+			Global.fruit_heal_multi_used_count += actual_uses
+			return true
 		_:
 			printerr("未知的物品使用效果: ", item_id)
 			return false
 
 # 检查物品是否可使用
-
 func can_use_item(item_id: String) -> bool:
 	if !items_data.has(item_id):
 		return false

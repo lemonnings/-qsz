@@ -152,10 +152,10 @@ static func apply_global_buff_effects(damage: float) -> float:
 		if PC.pc_speed > 0.2:
 			final_damage *= (1.0 + 0.04 * jianbu_stack)
 	
-	# 蛮力：当移动速度加成<0%时，提升5*层数%的最终伤害
+	# 蛮力：当移动速度加成<20%时，提升5*层数%的最终伤害
 	if EmblemManager.has_emblem("manli"):
 		var manli_stack = EmblemManager.get_emblem_stack("manli")
-		if PC.pc_speed < 0:
+		if PC.pc_speed < 0.2:
 			final_damage *= (1.0 + 0.05 * manli_stack)
 	
 	# 融会贯通：当前每拥有一个纹章，提升0.8*层数%最终伤害
