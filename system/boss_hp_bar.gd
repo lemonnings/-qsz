@@ -308,11 +308,8 @@ func _on_boss_hp_bar_take_damage(damage_amount: float):
 	if hp <= 0.0:
 		print("Boss defeated! HP Bar notified.")
 
-# 原有的take_damage可以保留或移除，如果外部直接调用此脚本实例的方法
+# 原有的take_damage，外部直接调用此脚本实例的方法
 func take_damage(damage_amount: float):
-	# 为了保持一致性，让这个方法也调用 _on_boss_hp_bar_take_damage
-	# 或者将主要逻辑放在这里，然后 _on_boss_hp_bar_take_damage 调用它
-	# 当前选择让信号处理函数作为主要逻辑点
 	_on_boss_hp_bar_take_damage(damage_amount)
 
 # Helper function to get current visible HP bar count based on HP
