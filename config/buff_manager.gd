@@ -44,6 +44,12 @@ func _create_new_buff(buff_id: String, duration: float, stack: int, buff_config)
 	var buff_ui = preload("res://Script/config/buff_ui.gd").new()
 	buff_ui.name = "Buff_" + buff_id
 	
+	# 设置图标
+	print("=== Buff图标加载调试 ===")
+	print("Buff ID: ", buff_data.id)
+	print("图标路径: ", buff_data.icon_path)
+	print("路径是否为空: ", buff_data.icon_path == "")
+	print("文件是否存在: ", ResourceLoader.exists(buff_data.icon_path))
 	# 添加到容器
 	if buff_container:
 		buff_container.add_child(buff_ui)

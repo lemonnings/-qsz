@@ -18,9 +18,16 @@ func _on_drop_out_item(item_id: String, quantity: int, drop_position: Vector2):
 	for i in range(quantity):
 		var dropped_item_instance = DroppedItemScene.instantiate()
 		
+		# 整体缩小到四分之一
+		dropped_item_instance.scale = Vector2(0.2, 0.2)
+		
 		# 设置掉落物属性
 		dropped_item_instance.item_id = item_id
-		dropped_item_instance.global_position = drop_position
+		# 多个物品时添加初始偏移，避免掉到同一位置
+		var initial_offset = Vector2.ZERO
+		if quantity > 1:
+			initial_offset = Vector2(randf_range(-15.0, 15.0), randf_range(-10.0, 10.0))
+		dropped_item_instance.global_position = drop_position + initial_offset
 		
 		# 设置图标
 		if dropped_item_instance.has_node("Sprite2D"):
@@ -49,14 +56,21 @@ func apply_drop_animation(item_node):
 	# 简单的抛物线效果
 	var tween = get_tree().create_tween()
 	
-	# 随机一个小的水平偏移，使掉落看起来更自然
-	var random_x_offset = randf_range(-25.0, 25.0)
-	#var target_y_offset = randf_range(40.0, 60.0) # 掉落到地面的大致距离
-	var target_y_offset = 0
+	# 随机方向和幅度，增加掉落随机性
+	var random_angle = randf_range(0, TAU) # 全方向随机 (0 ~ 2π)
+	var random_distance = randf_range(20.0, 50.0) # 随机掉落距离
+	var random_x_offset = cos(random_angle) * random_distance
+	var random_y_offset = sin(random_angle) * random_distance * 0.5 # Y方向幅度稍小
+	
+	# 随机弧线高度
+	var arc_height = randf_range(35.0, 80.0)
 	
 	var initial_pos = item_node.global_position
-	var control_offset = Vector2(random_x_offset / 2.0, -randf_range(30.0, 70.0)) # 控制点，用于形成弧线
-	var final_pos = initial_pos + Vector2(random_x_offset, target_y_offset)
+	var control_offset = Vector2(random_x_offset / 2.0, -arc_height) # 控制点，用于形成弧线
+	var final_pos = initial_pos + Vector2(random_x_offset, random_y_offset)
+	
+	# 限制掉落范围在场景边界内
+	final_pos = _clamp_position_to_scene_bounds(final_pos)
 	
 	# 使用 quadratic_bezier 插值模拟弧线
 	# Godot 4.x Tween 属性插值
@@ -74,3 +88,21 @@ func _update_item_position_bezier(t: float, node, start_pos: Vector2, control_po
 	var y = one_minus_t * one_minus_t * start_pos.y + 2.0 * one_minus_t * t * control_pos.y + t * t * end_pos.y
 
 	node.global_position = Vector2(x, y)
+
+func _clamp_position_to_scene_bounds(pos: Vector2) -> Vector2:
+	var current_scene = get_tree().current_scene
+	if not current_scene:
+		return pos
+		
+	# 检查是否为 battle_forest 场景
+	# 可以通过场景文件名或名称来判断，这里假设包含 battle_forest 字符串
+	if "battle_forest" in current_scene.scene_file_path or current_scene.name == "BattleForest":
+		var min_x = -275.0
+		var max_x = 275.0
+		var min_y = 110.0
+		var max_y = 310.0
+		
+		pos.x = clamp(pos.x, min_x, max_x)
+		pos.y = clamp(pos.y, min_y, max_y)
+		
+	return pos

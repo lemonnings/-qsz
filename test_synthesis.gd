@@ -9,14 +9,5 @@ func _ready():
 	setup_test_data()
 
 func setup_test_data():
-	print("设置合成系统测试数据...")
-	
-	# 解锁所有配方用于测试
-	Global.unlock_recipe("recipe_001")  # 聚灵石
-	Global.unlock_recipe("recipe_002")  # 九幽秘钥
-	Global.unlock_recipe("recipe_003")  # 强化野果
-	Global.unlock_recipe("recipe_004")  # 复合装备
-	
-	print("测试数据设置完成！")
-	print("已解锁配方：", Global.recipe_unlock_progress)
-	print("背包物品：", Global.player_inventory)
+	#print("设置合成系统测试数据...")
+	pass

@@ -1,8 +1,7 @@
 extends Panel
 
-@export var tips_text : RichTextLabel
-var animation_queue := []
-var is_animating := false
+@export var tips_text: RichTextLabel
+var current_tween: Tween = null
 
 func _ready():
 	# 创建一个新的 StyleBoxFlat
@@ -32,35 +31,34 @@ func _ready():
 	self.modulate.a = 0
 	
 func start_animation(text: String, tips_time: float) -> void:
-	if not is_animating:
-		_perform_animation(text, tips_time)
-	else:
-		animation_queue.append(text)
+	# 如果有正在进行的动画，立即停止它
+	if current_tween and current_tween.is_valid():
+		current_tween.kill()
+	_perform_animation(text, tips_time)
 		
 func _perform_animation(text: String, tips_time: float):
-	is_animating = true
 	self.visible = true
 	tips_text.text = text
-	var tween = create_tween()
 	
-	self.modulate.a = 1
-	tween.set_parallel(true)
-	tween.tween_property(self, "modulate:a", 1, tips_time * 0.3)
-	tween.tween_property(self, "position:y", 100, tips_time * 0.3)
+	# 重置初始状态
+	self.position.y = 130
+	self.modulate.a = 0
 	
-	tween.tween_interval(tips_time)
-	tween.set_parallel(false)
+	current_tween = create_tween()
 	
-	tween.tween_property(self, "modulate:a", 0, tips_time * 0.6)
-	tween.connect("finished", Callable(self, "_on_tween_completed").bind(text,tips_time))
+	current_tween.set_parallel(true)
+	current_tween.tween_property(self, "modulate:a", 1, tips_time * 0.3)
+	current_tween.tween_property(self, "position:y", 100, tips_time * 0.3)
+	
+	current_tween.tween_interval(tips_time)
+	current_tween.set_parallel(false)
+	
+	current_tween.tween_property(self, "modulate:a", 0, tips_time * 0.6)
+	current_tween.connect("finished", Callable(self, "_on_tween_completed"))
 
 
-# 当暂停结束时调用的函数
-func _on_tween_completed(_object, _key):
-	is_animating = false
+# 当动画结束时调用的函数
+func _on_tween_completed():
 	self.visible = false
 	self.position.y = 130
 	self.modulate.a = 0
-	if animation_queue.size() > 0:
-		var text = animation_queue.pop_front()
-		_perform_animation(text, _key)

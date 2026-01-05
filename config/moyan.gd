@@ -115,7 +115,6 @@ func play_explosion_and_die():
 	if explosion.has_node("CollisionShape2D"):
 		explosion.get_node("CollisionShape2D").scale = explosion.scale
 	
-	# 根据是否暴击选择播放的动画
 	var anim_player = explosion.gun_hit_anime
 	var sound_player = explosion.gun_hit_sound
 

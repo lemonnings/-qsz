@@ -5,7 +5,13 @@ enum SummonType {
 	BLUE_RANDOM,     # 蓝色：随机方向射击
 	PURPLE_DIRECTED, # 紫色：定向射击（角色上下30px）
 	ORANGE_TRACKING, # 橙色：追踪射击
-	GOLD_ENHANCED    # 金色：强化追踪射击
+	GOLD_ENHANCED,    # 金色：强化追踪射击
+	HEAL_PURPLE, # 治疗-紫色
+	HEAL_GOLD, # 治疗-金色
+	HEAL_RED, # 治疗-红色
+	AUX_PURPLE, # 辅助-紫色
+	AUX_GOLD, # 辅助-金色
+	AUX_RED # 辅助-红色
 }
 
 @export var summon_type: SummonType
@@ -14,6 +20,13 @@ enum SummonType {
 @export var fire_interval: float = 1     # 发射间隔
 @export var bullet_speed_multiplier: float = 1.0  # 子弹速度倍数
 @export var bullets_per_shot: int = 1      # 每次发射子弹数量
+
+# 辅助/治疗相关的临时加成记录，便于召唤物移除时回退
+var applied_atk_bonus: int = 0
+var applied_speed_bonus: float = 0.0
+var applied_summon_enhance_bonus: float = 0.0
+var applied_damage_reduction_bonus: float = 0.0
+var heal_ratio: float = 0.0
 
 var last_shot_time: float = 0.0
 var player_node: Node2D
@@ -49,6 +62,12 @@ func setup_appearance() -> void:
 		SummonType.GOLD_ENHANCED:
 			sprite.modulate = Color.GOLD
 			#sprite.scale = Vector2(1.3, 1.3)
+		SummonType.HEAL_PURPLE, SummonType.AUX_PURPLE:
+			sprite.modulate = Color.PURPLE
+		SummonType.HEAL_GOLD, SummonType.AUX_GOLD:
+			sprite.modulate = Color.GOLD
+		SummonType.HEAL_RED, SummonType.AUX_RED:
+			sprite.modulate = Color.RED
 
 func _process(delta: float) -> void:
 	move_timer += delta
@@ -86,6 +105,18 @@ func _on_fire_timer_timeout() -> void:
 			fire_tracking_bullet()
 		SummonType.GOLD_ENHANCED:
 			fire_enhanced_tracking_bullets()
+		SummonType.HEAL_PURPLE:
+			fire_heal_bullet(Color.PURPLE)
+		SummonType.HEAL_GOLD:
+			fire_heal_bullet(Color.GOLD)
+		SummonType.HEAL_RED:
+			fire_heal_bullet(Color.RED)
+		SummonType.AUX_PURPLE:
+			fire_aux_bullet(Color.PURPLE)
+		SummonType.AUX_GOLD:
+			fire_aux_bullet(Color.GOLD)
+		SummonType.AUX_RED:
+			fire_aux_bullet(Color.RED)
 
 func fire_random_bullet() -> void:
 	# 蓝色召唤物：向左侧或右侧30度发射
@@ -151,6 +182,24 @@ func find_nearest_enemy() -> Node2D:
 				nearest_enemy = enemy
 	
 	return nearest_enemy
+
+# 治疗型召唤：按间隔为角色回复生命，回复量为攻击力的一定比例
+func fire_heal_bullet(color: Color) -> void:
+	if PC.is_game_over:
+		return
+	# 计算治疗量：攻击力 * heal_ratio，并受召唤物增伤（用于“增强其他召唤物的治疗/伤害提升”）影响
+	var heal_amount: int = int(PC.pc_atk * heal_ratio * (1.0 + PC.summon_damage_multiplier))
+	PC.pc_hp += heal_amount
+	# 上限处理，确保生命值不超过最大生命值
+	if PC.pc_hp > PC.pc_max_hp:
+		PC.pc_hp = PC.pc_max_hp
+	# 可选：更新面板显示由其他系统负责，这里只负责数值
+
+# 辅助型召唤：主要提供持续增益，定时器触发时无需额外行为
+# 保持函数存在以符合调用结构（_on_fire_timer_timeout），避免复杂逻辑集中在一处
+func fire_aux_bullet(color: Color) -> void:
+	# 辅助效果在 set_summon_type 中一次性应用，这里不做额外处理
+	pass
 
 func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1.0, spawn_position_override: Variant = null) -> void:
 	if PC.is_game_over:
@@ -219,7 +268,68 @@ func set_summon_type(type: SummonType) -> void:
 			fire_interval = 0.75
 			bullets_per_shot = 2
 			bullet_speed_multiplier = 2.0
+		# --- 治疗类 ---
+		SummonType.HEAL_PURPLE:
+			# SR21 愈灵：10%攻击，间隔2s
+			heal_ratio = 0.10
+			fire_interval = 2.0
+		SummonType.HEAL_GOLD:
+			# SSR21 护灵：20%攻击，间隔1.5s
+			heal_ratio = 0.20
+			fire_interval = 1.5
+		SummonType.HEAL_RED:
+			# UR21 生灵：18%攻击，间隔1.2s，并提供5%减伤
+			heal_ratio = 0.18
+			fire_interval = 1.2
+			applied_damage_reduction_bonus = 0.05
+			PC.damage_reduction_rate = min(PC.damage_reduction_rate + applied_damage_reduction_bonus, 0.9)
+		# --- 辅助类（提供攻击与移速，并增强其他召唤物伤害/治疗） ---
+		SummonType.AUX_PURPLE:
+			# SR22 谐灵：+5%攻击力与移速；其他召唤物提升10%
+			applied_speed_bonus = 0.05
+			PC.pc_speed += applied_speed_bonus
+			applied_atk_bonus = int(PC.pc_start_atk * 0.05)
+			PC.pc_atk += applied_atk_bonus
+			applied_summon_enhance_bonus = 0.10
+			PC.summon_damage_multiplier += applied_summon_enhance_bonus
+			# 辅助为持续效果，无需发射行为，设置一个较长的间隔以降低无意义调用频率
+			fire_interval = 2.0
+		SummonType.AUX_GOLD:
+			# SSR22 灵律：+6%攻击力与移速；其他召唤物提升13%
+			applied_speed_bonus = 0.06
+			PC.pc_speed += applied_speed_bonus
+			applied_atk_bonus = int(PC.pc_start_atk * 0.06)
+			PC.pc_atk += applied_atk_bonus
+			applied_summon_enhance_bonus = 0.13
+			PC.summon_damage_multiplier += applied_summon_enhance_bonus
+			fire_interval = 1.8
+		SummonType.AUX_RED:
+			# UR22 灵枢：+8%攻击力与移速；其他召唤物提升20%
+			applied_speed_bonus = 0.08
+			PC.pc_speed += applied_speed_bonus
+			applied_atk_bonus = int(PC.pc_start_atk * 0.08)
+			PC.pc_atk += applied_atk_bonus
+			applied_summon_enhance_bonus = 0.20
+			PC.summon_damage_multiplier += applied_summon_enhance_bonus
+			fire_interval = 1.5
 	
 	# 更新定时器
 	if fire_timer:
 		fire_timer.wait_time = fire_interval * PC.summon_interval_multiplier
+
+# 节点移除时回退辅助与治疗带来的持续加成
+func _exit_tree() -> void:
+	# 回退 AUX 持续增益
+	if applied_speed_bonus != 0.0:
+		PC.pc_speed -= applied_speed_bonus
+		applied_speed_bonus = 0.0
+	if applied_atk_bonus != 0:
+		PC.pc_atk -= applied_atk_bonus
+		applied_atk_bonus = 0
+	if applied_summon_enhance_bonus != 0.0:
+		PC.summon_damage_multiplier -= applied_summon_enhance_bonus
+		applied_summon_enhance_bonus = 0.0
+	# 回退治疗红色召唤的减伤
+	if applied_damage_reduction_bonus != 0.0:
+		PC.damage_reduction_rate = max(PC.damage_reduction_rate - applied_damage_reduction_bonus, 0.0)
+		applied_damage_reduction_bonus = 0.0

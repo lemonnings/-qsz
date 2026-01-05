@@ -18,7 +18,7 @@ func _init():
 	background = NinePatchRect.new()
 	background.size = Vector2(64, 64)
 	background.position = Vector2.ZERO
-	# TODO: 设置背景纹理
+	# 设置背景纹理
 	# background.texture = preload("res://path/to/emblem_background.png")
 	add_child(background)
 	
@@ -36,7 +36,7 @@ func _init():
 	stack_label.position = Vector2(44, 44)
 	stack_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stack_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	# TODO: 设置字体样式
+	# 设置字体样式
 	# stack_label.add_theme_font_size_override("font_size", 12)
 	add_child(stack_label)
 

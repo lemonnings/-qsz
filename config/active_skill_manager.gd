@@ -2,6 +2,8 @@ extends Node
 
 # 主动技能管理器
 # 负责管理所有主动技能的使用、冷却和效果
+# 使用 Global.player_now_active_skill 配置技能槽位
+# 使用 Global.player_active_skill_data 存储技能数据
 
 class_name ActiveSkillManager
 
@@ -17,34 +19,80 @@ class ActiveSkill:
 	var id: String
 	var name: String
 	var description: String
+	var base_cooldown_time: float
 	var cooldown_time: float
 	var current_cooldown: float = 0.0
 	var state: SkillState = SkillState.READY
-	var is_unlocked: bool = false
+	var is_unlocked: bool = true
 	
 	func _init(skill_id: String, skill_name: String, skill_desc: String, cd_time: float):
 		id = skill_id
 		name = skill_name
 		description = skill_desc
+		base_cooldown_time = cd_time
 		cooldown_time = cd_time
 
 # 闪避技能数据
-class DashSkill extends ActiveSkill:
-	var dash_distance: float = 50.0
-	var dash_speed_multiplier: float = 10.0
+class DodgeSkill extends ActiveSkill:
+	var dash_distance: float = 80.0
+	var dash_speed_multiplier: float = 12.0
+	var base_invincible_duration: float = 0.3
 	var invincible_duration: float = 0.3
 	
 	func _init():
-		super("dash", "闪避", "向前进方向快速冲刺，期间无敌", 10.0)
-		is_unlocked = false  # 需要通过技能效果解锁
+		super ("dodge", "闪避", "向移动方向位移一小段距离并无敌", 6.0)
+		is_unlocked = true
+	
+	func update_from_level(level: int):
+		"""根据等级更新技能属性"""
+		# 等级2,4,6,8,10,12,14，无敌时间+0.1秒
+		var invincible_bonus = 0.0
+		for lv in [2, 4, 6, 8, 10, 12, 14]:
+			if level >= lv:
+				invincible_bonus += 0.1
+		invincible_duration = base_invincible_duration + invincible_bonus
+		
+		# 等级3，5，7，9，11，13，15，冷却时间-0.5秒
+		var cd_reduction = 0.0
+		for lv in [3, 5, 7, 9, 11, 13, 15]:
+			if level >= lv:
+				cd_reduction += 0.5
+		cooldown_time = max(1.0, base_cooldown_time - cd_reduction)
 
-# 技能槽位配置
-var skill_slots: Dictionary = {
-	"shift": null,
-	"space": null,
-	"q": null,
-	"e": null
-}
+# 乱击技能数据
+class RandomStrikeSkill extends ActiveSkill:
+	var base_damage_ratio: float = 0.5 # 50%攻击力
+	var damage_ratio: float = 0.5
+	var base_bullet_count: int = 25
+	var bullet_count: int = 10
+	var fire_interval: float = 0.06 # 每0.1秒射出1发
+	
+	func _init():
+		super ("random_strike", "乱击", "向随机方向射出剑气", 3.0)
+		is_unlocked = true
+	
+	func update_from_level(level: int):
+		"""根据等级更新技能属性"""
+		# 等级2,5,8,11,14，伤害比率+5%
+		var damage_bonus = 0.0
+		for lv in [2, 5, 8, 11, 14]:
+			if level >= lv:
+				damage_bonus += 0.05
+		damage_ratio = base_damage_ratio + damage_bonus
+		
+		# 等级3，6，9，12，15，射出子弹+2
+		var bullet_bonus = 0
+		for lv in [3, 6, 9, 12, 15]:
+			if level >= lv:
+				bullet_bonus += 2
+		bullet_count = base_bullet_count + bullet_bonus
+		
+		# 等级4，7，10，13，冷却时间-1秒
+		var cd_reduction = 0.0
+		for lv in [4, 7, 10, 13]:
+			if level >= lv:
+				cd_reduction += 1.0
+		cooldown_time = max(5.0, base_cooldown_time - cd_reduction)
 
 # 已掌握的技能列表
 var mastered_skills: Dictionary = {}
@@ -54,11 +102,13 @@ var player: CharacterBody2D = null
 
 # 按键状态跟踪（用于实现just_pressed功能）
 var key_states: Dictionary = {
-	"shift": false,
 	"space": false,
 	"q": false,
 	"e": false
 }
+
+# 乱击技能的协程控制
+var random_strike_active: bool = false
 
 # 信号
 signal skill_used(skill_id: String)
@@ -66,34 +116,50 @@ signal skill_cooldown_started(skill_id: String, cooldown_time: float)
 signal skill_cooldown_finished(skill_id: String)
 
 func _ready():
-	# 初始化默认技能
-	init_default_skills()
-	
-	# 连接到全局信号（如果存在）
-	if Global.has_signal("scene_changed"):
-		Global.connect("scene_changed", Callable(self, "_on_scene_changed"))
+	# 初始化技能
+	init_skills()
 	
 	print("主动技能管理器已初始化")
+	print("已掌握技能: ", mastered_skills.keys())
+	print("技能槽位配置: ", Global.player_now_active_skill)
 
 func _process(delta):
+	# 游戏暂停时不处理
+	if get_tree().paused:
+		return
+	
 	# 更新按键状态
 	update_key_states()
 	
 	# 更新技能冷却
 	update_skill_cooldowns(delta)
 	
-	# 检查输入（只在非城镇环境下）
-	if not Global.in_town:
+	# 检查输入（只在非城镇、非菜单、非升级选择环境下）
+	if not Global.in_town and not Global.in_menu and not Global.is_level_up:
 		check_skill_inputs()
 
-func init_default_skills():
-	"""初始化默认技能"""
-	var dash_skill = DashSkill.new()
-	# 只有解锁的技能才添加到已掌握列表
-	if dash_skill.is_unlocked:
-		mastered_skills[dash_skill.id] = dash_skill
-		# 默认将闪避技能绑定到shift键
-		skill_slots["shift"] = dash_skill.id
+func init_skills():
+	"""根据Global.player_active_skill_data初始化所有技能"""
+	# 初始化闪避技能
+	var dodge_skill = DodgeSkill.new()
+	var dodge_level = Global.player_active_skill_data.get("dodge", {}).get("level", 1)
+	dodge_skill.update_from_level(dodge_level)
+	mastered_skills["dodge"] = dodge_skill
+	
+	# 初始化乱击技能
+	var random_strike_skill = RandomStrikeSkill.new()
+	var rs_level = Global.player_active_skill_data.get("random_strike", {}).get("level", 1)
+	random_strike_skill.update_from_level(rs_level)
+	mastered_skills["random_strike"] = random_strike_skill
+
+func refresh_skill_levels():
+	"""刷新技能等级（当技能升级时调用）"""
+	for skill_id in mastered_skills.keys():
+		var skill_data = Global.player_active_skill_data.get(skill_id, {})
+		var level = skill_data.get("level", 1)
+		var skill = mastered_skills[skill_id]
+		if skill.has_method("update_from_level"):
+			skill.update_from_level(level)
 
 func update_skill_cooldowns(delta: float):
 	"""更新所有技能的冷却时间"""
@@ -106,28 +172,33 @@ func update_skill_cooldowns(delta: float):
 				skill_cooldown_finished.emit(skill.id)
 
 func check_skill_inputs():
-	"""检查技能输入"""
-	# 使用直接按键检测，避免依赖输入映射
-	if Input.is_key_pressed(KEY_SHIFT) and skill_slots.has("shift"):
-		if not is_key_just_pressed("shift"):
-			return
-		use_skill(skill_slots["shift"])
-		set_key_pressed("shift")
-	elif Input.is_key_pressed(KEY_SPACE) and skill_slots.has("space"):
-		if not is_key_just_pressed("space"):
-			return
-		use_skill(skill_slots["space"])
-		set_key_pressed("space")
-	elif Input.is_key_pressed(KEY_Q) and skill_slots.has("q"):
-		if not is_key_just_pressed("q"):
-			return
-		use_skill(skill_slots["q"])
-		set_key_pressed("q")
-	elif Input.is_key_pressed(KEY_E) and skill_slots.has("e"):
-		if not is_key_just_pressed("e"):
-			return
-		use_skill(skill_slots["e"])
-		set_key_pressed("e")
+	"""检查技能输入 - 使用Global.player_now_active_skill配置"""
+	# 空格键
+	if Input.is_key_pressed(KEY_SPACE):
+		if is_key_just_pressed("space"):
+			var skill_name = Global.player_now_active_skill.get("space", {}).get("name", "")
+			print("[主动技能] Space按下, 技能: ", skill_name)
+			if skill_name != "":
+				use_skill(skill_name)
+			set_key_pressed("space")
+	
+	# Q键
+	if Input.is_key_pressed(KEY_Q):
+		if is_key_just_pressed("q"):
+			var skill_name = Global.player_now_active_skill.get("q", {}).get("name", "")
+			print("[主动技能] Q按下, 技能: ", skill_name)
+			if skill_name != "":
+				use_skill(skill_name)
+			set_key_pressed("q")
+	
+	# E键
+	if Input.is_key_pressed(KEY_E):
+		if is_key_just_pressed("e"):
+			var skill_name = Global.player_now_active_skill.get("e", {}).get("name", "")
+			print("[主动技能] E按下, 技能: ", skill_name)
+			if skill_name != "":
+				use_skill(skill_name)
+			set_key_pressed("e")
 
 func use_skill(skill_id: String):
 	"""使用技能"""
@@ -163,12 +234,14 @@ func execute_skill(skill: ActiveSkill):
 			return
 	
 	match skill.id:
-		"dash":
-			execute_dash_skill(skill as DashSkill)
+		"dodge":
+			execute_dodge_skill(skill as DodgeSkill)
+		"random_strike":
+			execute_random_strike_skill(skill as RandomStrikeSkill)
 		_:
 			push_error("未知技能: " + skill.id)
 
-func execute_dash_skill(dash_skill: DashSkill):
+func execute_dodge_skill(dodge_skill: DodgeSkill):
 	"""执行闪避技能"""
 	if not player:
 		push_error("玩家节点未初始化")
@@ -178,10 +251,74 @@ func execute_dash_skill(dash_skill: DashSkill):
 	var dash_direction = get_dash_direction()
 	
 	# 计算目标位置
-	var target_position = player.global_position + dash_direction * dash_skill.dash_distance
+	var target_position = player.global_position + dash_direction * dodge_skill.dash_distance
 	
 	# 开始冲刺
-	start_dash(target_position, dash_skill)
+	start_dash(target_position, dodge_skill)
+
+func execute_random_strike_skill(rs_skill: RandomStrikeSkill):
+	"""执行乱击技能 - 向随机方向射出剑气"""
+	if not player:
+		push_error("玩家节点未初始化")
+		return
+	
+	if random_strike_active:
+		return # 已经在执行中
+	
+	# 开始乱击协程
+	random_strike_active = true
+	_execute_random_strike_bullets(rs_skill)
+
+func _execute_random_strike_bullets(rs_skill: RandomStrikeSkill):
+	"""射出乱击子弹"""
+	var bullets_fired = 0
+	var total_bullets = rs_skill.bullet_count
+	var interval = rs_skill.fire_interval
+	
+	while bullets_fired < total_bullets:
+		if not is_instance_valid(player):
+			break
+		
+		# 游戏暂停时等待
+		while get_tree().paused:
+			await get_tree().process_frame
+		
+		# 生成随机方向
+		var random_angle = randf() * TAU # 0 到 2*PI
+		var direction = Vector2.from_angle(random_angle)
+		
+		# 创建剑气
+		_spawn_random_strike_bullet(direction, rs_skill.damage_ratio)
+		
+		bullets_fired += 1
+		
+		# 等待间隔
+		await get_tree().create_timer(interval).timeout
+	
+	random_strike_active = false
+
+func _spawn_random_strike_bullet(direction: Vector2, damage_ratio: float):
+	"""生成乱击剑气"""
+	# 加载子弹场景
+	var bullet_scene = preload("res://Scenes/bullet.tscn")
+	var bullet = bullet_scene.instantiate()
+	
+	# 设置位置
+	bullet.global_position = player.global_position
+	
+	# 计算伤害（基于伤害比率）
+	var base_damage = PC.pc_atk * damage_ratio
+	bullet.bullet_damage = base_damage
+	
+	# 标记为乱击子弹，不触发额外效果
+	bullet.is_other_sword_wave = true
+	bullet.parent_bullet = false
+	
+	# 添加到场景
+	get_tree().current_scene.add_child(bullet)
+	
+	# 在add_child之后使用set_direction设置方向（会同时更新精灵旋转）
+	bullet.set_direction(direction)
 
 func get_dash_direction() -> Vector2:
 	"""获取冲刺方向"""
@@ -212,9 +349,9 @@ func get_dash_direction() -> Vector2:
 			var sprite = player.get_node("AnimatedSprite2D")
 			return Vector2.RIGHT if not sprite.flip_h else Vector2.LEFT
 		else:
-			return Vector2.RIGHT  # 默认向右
+			return Vector2.RIGHT # 默认向右
 
-func start_dash(target_position: Vector2, dash_skill: DashSkill):
+func start_dash(target_position: Vector2, dodge_skill: DodgeSkill):
 	"""开始冲刺"""
 	# 设置无敌状态
 	PC.invincible = true
@@ -225,18 +362,18 @@ func start_dash(target_position: Vector2, dash_skill: DashSkill):
 	tween.set_trans(Tween.TRANS_QUART)
 	
 	# 计算冲刺时间
-	var dash_time = dash_skill.dash_distance / (player.move_speed * dash_skill.dash_speed_multiplier)
+	var dash_time = dodge_skill.dash_distance / (player.move_speed * dodge_skill.dash_speed_multiplier)
 	
 	# 执行位移
 	tween.tween_property(player, "global_position", target_position, dash_time)
 	
 	# 冲刺完成后的处理
-	tween.tween_callback(func(): on_dash_complete(dash_skill))
+	tween.tween_callback(func(): on_dash_complete(dodge_skill))
 
-func on_dash_complete(dash_skill: DashSkill):
+func on_dash_complete(dodge_skill: DodgeSkill):
 	"""冲刺完成处理"""
 	# 延迟结束无敌状态
-	get_tree().create_timer(dash_skill.invincible_duration).timeout.connect(
+	get_tree().create_timer(dodge_skill.invincible_duration).timeout.connect(
 		func(): PC.invincible = false
 	)
 
@@ -260,22 +397,6 @@ func get_mastered_skills() -> Array[ActiveSkill]:
 			skills.append(skill)
 	return skills
 
-func set_skill_slot(slot_key: String, skill_id: String):
-	"""设置技能槽位"""
-	if not skill_slots.has(slot_key):
-		push_error("无效的技能槽位: " + slot_key)
-		return
-	
-	if skill_id and not mastered_skills.has(skill_id):
-		push_error("技能不存在: " + skill_id)
-		return
-	
-	skill_slots[slot_key] = skill_id
-
-func get_skill_slot(slot_key: String) -> String:
-	"""获取技能槽位绑定的技能ID"""
-	return skill_slots.get(slot_key, "")
-
 func is_key_just_pressed(key_name: String) -> bool:
 	"""检查按键是否刚刚按下"""
 	return not key_states.get(key_name, false)
@@ -286,8 +407,6 @@ func set_key_pressed(key_name: String):
 
 func update_key_states():
 	"""更新按键状态（在每帧检查按键释放）"""
-	if not Input.is_key_pressed(KEY_SHIFT):
-		key_states["shift"] = false
 	if not Input.is_key_pressed(KEY_SPACE):
 		key_states["space"] = false
 	if not Input.is_key_pressed(KEY_Q):
@@ -295,11 +414,20 @@ func update_key_states():
 	if not Input.is_key_pressed(KEY_E):
 		key_states["e"] = false
 
-func _on_scene_changed():
-	"""场景切换时的处理"""
-	# 重置玩家引用
+func reset_player_reference():
+	"""重置玩家引用（场景切换时调用）"""
 	player = null
-	# 重置按键状态
 	for key in key_states.keys():
 		key_states[key] = false
-	# 可以在这里添加其他场景切换相关的逻辑
+	random_strike_active = false
+
+func get_skill_cooldown_info(skill_id: String) -> Dictionary:
+	"""获取技能冷却信息"""
+	var skill = mastered_skills.get(skill_id, null)
+	if skill:
+		return {
+			"cooldown_time": skill.cooldown_time,
+			"current_cooldown": skill.current_cooldown,
+			"is_ready": skill.state == SkillState.READY
+		}
+	return {}

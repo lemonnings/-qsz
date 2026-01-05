@@ -136,9 +136,18 @@ func setup_buff(buff_data, duration: float = 0.0, stack: int = 1):
 	is_permanent = (buff_data.type == Global.SettingBuff.BuffType.PERMANENT)
 	
 	# 设置图标
+	print("=== Buff图标加载调试 ===")
+	print("Buff ID: ", buff_data.id)
+	print("图标路径: ", buff_data.icon_path)
+	print("路径是否为空: ", buff_data.icon_path == "")
+	print("文件是否存在: ", ResourceLoader.exists(buff_data.icon_path))
+	
 	if buff_data.icon_path != "" and ResourceLoader.exists(buff_data.icon_path):
+		print("正在加载图标...")
 		icon.texture = load(buff_data.icon_path)
+		print("图标加载成功")
 	else:
+		print("图标加载失败，使用透明占位符")
 		# 创建透明占位图标
 		var placeholder_texture = ImageTexture.new()
 		var placeholder_image = Image.create(64, 64, false, Image.FORMAT_RGBA8)

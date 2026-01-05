@@ -8,33 +8,33 @@ func slime(query : String):
 		"exp": 300 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 10 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8)* (1 + (Global.cultivation_hualing_level * 0.05)),
 		"mechanism": 5 * min((1 + (PC.current_time) / 20), 4),
-		"itemdrop" : {"item_001": 0.02 * (1 + (Global.lunky_level * 0.025)), "item_003": 0.5 * (1 + (Global.lunky_level * 0.025))}
+		"itemdrop" : {"item_001": 0.02 * (1 + (PC.drop_multi)), "item_002": 0.075 * (1 + (PC.drop_multi)), "item_003": 0.008 * (1 + (PC.drop_multi)), "item_034": 0.005 * (1 + (PC.drop_multi))}
 	}
 	return data.get(query, null)
 
 
-func bat(query : String):
+func bat(query : String): # 草药怪
 	var data = {
 		"atk": 7 * Global.world_level_multiple * min(((1 + (PC.current_time/10))), 3.5),
-		"hp": (36 * Global.world_level_multiple * (1 + PC.current_time)) + Global.current_dps * 0.05,
-		"speed": 60,
-		"exp": 400 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
+		"hp": (44 * Global.world_level_multiple * (1 + PC.current_time)) + Global.current_dps * 0.05,
+		"speed": 36,
+		"exp": 450 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 15 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.05)),
 		"mechanism": 10 * min((1 + (PC.current_time) / 20), 4),
-		"itemdrop" : {"item_001": 0.025 * (1 + (Global.lunky_level * 0.025)), "item_004": 0.001 * (1 + (Global.lunky_level * 0.025))}
+		"itemdrop" : {"item_001": 0.02 * (1 + (PC.drop_multi)), "item_010": 0.075 * (1 + (PC.drop_multi)), "item_024": 0.008 * (1 + (PC.drop_multi)), "item_032": 0.005 * (1 + (PC.drop_multi))}
 	}
 	return data.get(query, null)
 
 
-func frog(query : String):
+func frog(query : String): # 幼体树精
 	var data = {
 		"atk": 5 * Global.world_level_multiple * min(((1 + (PC.current_time/10))), 3.5),
-		"hp": (30 * Global.world_level_multiple * (1 + PC.current_time)) + Global.current_dps * 0.045,
-		"speed": 50,
-		"exp": 600 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
+		"hp": (28 * Global.world_level_multiple * (1 + PC.current_time)) + Global.current_dps * 0.045,
+		"speed": 35,
+		"exp": 450 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 20 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.05)),
 		"mechanism": 12 * min((1 + (PC.current_time) / 20), 4),
-		"itemdrop" : {"item_001": 0.03 * (1 + (Global.lunky_level * 0.025)), "item_004": 0.001 * (1 + (Global.lunky_level * 0.025))}
+		"itemdrop" : {"item_001": 0.02 * (1 + (PC.drop_multi)), "item_023": 0.075 * (1 + (PC.drop_multi)), "item_009": 0.008 * (1 + (PC.drop_multi)), "item_031": 0.005 * (1 + (PC.drop_multi))}
 	}
 	return data.get(query, null)
 
@@ -46,6 +46,6 @@ func bigSlime(query : String):
 		"exp": 750 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 25 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8)* (1 + (Global.cultivation_hualing_level * 0.05)),
 		"mechanism": 25 * min((1 + (PC.current_time) / 20), 4),
-		"itemdrop" : {"item_001": 0.04 * (1 + (Global.lunky_level * 0.025)), "item_004": 0.002 * (1 + (Global.lunky_level * 0.025))}
+		"itemdrop" : {"item_001": 0.02 * (1 + (PC.drop_multi)), "item_002": 0.075 * (1 + (PC.drop_multi)), "item_003": 0.008 * (1 + (PC.drop_multi)), "item_034": 0.005 * (1 + (PC.drop_multi))}
 	}
 	return data.get(query, null)

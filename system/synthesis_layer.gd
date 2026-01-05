@@ -1,95 +1,202 @@
 extends CanvasLayer
 
 # 物品合成管理器 - 专门负责合成逻辑
-# 从item_hecheng_manager.gd迁移而来
 
-@export var normal_button : Button # 合成分类：普通，卷1234
-@export var ether_button : Button # 合成分类：以太，诺姆入队后开启
-@export var final_button : Button # 合成分类：终时，通关后开启
+@export var shang_button: Button # 合成分类：上
+@export var xia_button: Button # 合成分类：下
+@export var yitai_button: Button # 合成分类：以太，诺姆入队后开启
 
-@export var synthesis_detail : RichTextLabel # 合成信息具体详情
+@export var synthesis_detail: RichTextLabel # 合成信息具体详情
 # 已持有：0
 # 合成材料需求：
 # 材料A  （ [color=#777]0[/color] / 1） 用#777表示没有满足的，这个要随着合成数量变动
 # 材料B  （ [color=green]2[/color] / 1） 用green表示已经满足的，这个要随着合成数量变动
-@export var synthesis_confirm_button : Button # 合成确认按钮
-@export var synthesis_num : LineEdit # 合成数量输入框
+@export var synthesis_confirm_button: Button # 合成确认按钮
+@export var synthesis_num: LineEdit # 合成数量输入框
 
-@export var v_box_container : VBoxContainer # 选择了合成分类后，用来装载item_msg这些button的容器，按竖排排列
-@export var item_msg : Button # 选择了合成分类后，该分类的具体合成物品的点击button
+@export var v_box_container: VBoxContainer # 选择了合成分类后，用来装载item_msg这些button的容器，按竖排排列
+@export var item_msg: Button # 选择了合成分类后，该分类的具体合成物品的点击button
 
 # 合成配方数据
 var recipes_data = {
 	"recipe_001": {
-		"recipe_name": "聚灵石",
-		"recipe_description": "使用聚灵石碎片合成完整的聚灵石",
-		"category": "qi", # 器类
+		"recipe_name": "玄露丹",
+		"recipe_description": "使玄元（HP）修炼上限提升4阶",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xuanludan.png",
+		"category": "shang", # 上部
 		"required_items": [
-			{"item_id": "item_003", "count": 10}
+			{"item_id": "item_018", "count": 6},
+			{"item_id": "item_002", "count": 3}
 		],
 		"result_items": [
-			{"item_id": "item_005", "min_count": 1, "max_count": 1, "probability": 1.0}
+			{"item_id": "item_036", "min_count": 1, "max_count": 1, "probability": 1.0}
 		]
 	},
 	"recipe_002": {
-		"recipe_name": "九幽秘钥",
-		"recipe_description": "使用九幽秘钥碎片合成完整的九幽秘钥",
-		"category": "yao", # 钥类
+		"recipe_name": "化脉丹",
+		"recipe_description": "使破虚（攻击）修炼上限提升4阶",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huamaidan.png",
+		"category": "shang",
 		"required_items": [
-			{"item_id": "item_004", "count": 10}
+			{"item_id": "item_018", "count": 6},
+			{"item_id": "item_003", "count": 1}
 		],
 		"result_items": [
-			{"item_id": "item_006", "min_count": 1, "max_count": 1, "probability": 0.8},
-			{"item_id": "item_004", "min_count": 1, "max_count": 3, "probability": 0.2}
+			{"item_id": "item_037", "min_count": 1, "max_count": 1, "probability": 1.0}
 		]
 	},
 	"recipe_003": {
-		"recipe_name": "强化野果",
-		"recipe_description": "使用多个野果合成强化野果",
-		"category": "juan", # 卷类
+		"recipe_name": "汲灵丹",
+		"recipe_description": "使化灵（灵气获取）修炼上限提升4阶",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jilingdan.png",
+		"category": "shang",
 		"required_items": [
-			{"item_id": "item_001", "count": 5}
+			{"item_id": "item_018", "count": 6},
+			{"item_id": "item_023", "count": 1}
 		],
 		"result_items": [
-			{"item_id": "item_007", "min_count": 1, "max_count": 2, "probability": 0.7},
-			{"item_id": "item_001", "min_count": 1, "max_count": 1, "probability": 0.3}
+			{"item_id": "item_038", "min_count": 1, "max_count": 1, "probability": 1.0}
 		]
 	},
 	"recipe_004": {
-		"recipe_name": "复合装备",
-		"recipe_description": "使用力量之戒和聚灵石碎片合成复合装备",
-		"category": "qi", # 器类
+		"recipe_name": "迅风丹",
+		"recipe_description": "攻速方向上限+2",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xunfengdan.png",
+		"category": "shang",
 		"required_items": [
-			{"item_id": "item_002", "count": 1},
-			{"item_id": "item_003", "count": 3}
+			{"item_id": "item_019", "count": 6},
+			{"item_id": "item_024", "count": 1}
 		],
 		"result_items": [
-			{"item_id": "item_008", "min_count": 1, "max_count": 1, "probability": 0.6},
-			{"item_id": "item_002", "min_count": 1, "max_count": 1, "probability": 0.4}
+			{"item_id": "item_039", "min_count": 1, "max_count": 1, "probability": 1.0}
+		]
+	},
+	"recipe_005": {
+		"recipe_name": "回春露",
+		"recipe_description": "果实回复效果提升10%（最多10次）",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huichunlu.png",
+		"category": "shang",
+		"required_items": [
+			{"item_id": "item_002", "count": 5}
+		],
+		"result_items": [
+			{"item_id": "item_040", "min_count": 1, "max_count": 1, "probability": 1.0}
+		]
+	},
+	"recipe_006": {
+		"recipe_name": "仙枝",
+		"recipe_description": "解锁武器-仙枝",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xianzhi.png",
+		"category": "shang",
+		"required_items": [
+			{"item_id": "item_023", "count": 4}
+		],
+		"result_items": [
+			{"item_id": "item_041", "min_count": 1, "max_count": 1, "probability": 1.0}
+		]
+	},
+	"recipe_007": {
+		"recipe_name": "柔水",
+		"recipe_description": "解锁武器-柔水",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/roushui.png",
+		"category": "shang",
+		"required_items": [
+			{"item_id": "item_003", "count": 4}
+		],
+		"result_items": [
+			{"item_id": "item_042", "min_count": 1, "max_count": 1, "probability": 1.0}
+		]
+	},
+	"recipe_009": {
+		"recipe_name": "元水",
+		"recipe_description": "水灵叶转化为3个元水",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanshui2.png",
+		"category": "shang",
+		"required_items": [
+			{"item_id": "item_009", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_018", "min_count": 3, "max_count": 3, "probability": 1.0}
+		]
+	},
+	"recipe_010": {
+		"recipe_name": "元风",
+		"recipe_description": "风灵草转化为3个元风",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanfeng2.png",
+		"category": "shang",
+		"required_items": [
+			{"item_id": "item_010", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_019", "min_count": 3, "max_count": 3, "probability": 1.0}
+		]
+	},
+	"recipe_011": {
+		"recipe_name": "元火",
+		"recipe_description": "火灵晶转化为3个元火",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanhuo2.png",
+		"category": "shang",
+		"required_items": [
+			{"item_id": "item_015", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_022", "min_count": 3, "max_count": 3, "probability": 1.0}
+		]
+	},
+	"recipe_012": {
+		"recipe_name": "元雷",
+		"recipe_description": "雷灵丝转化为3个元雷",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanlei2.png",
+		"category": "shang",
+		"required_items": [
+			{"item_id": "item_017", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_020", "min_count": 3, "max_count": 3, "probability": 1.0}
+		]
+	},
+	"recipe_013": {
+		"recipe_name": "元土",
+		"recipe_description": "土灵矿转化为3个元土",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuantu2.png",
+		"category": "shang",
+		"required_items": [
+			{"item_id": "item_014", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_021", "min_count": 3, "max_count": 3, "probability": 1.0}
+		]
+	},
+	"recipe_014": {
+		"recipe_name": "下篇契纸",
+		"recipe_description": "开启新的合成篇 下篇",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/qizhi.png",
+		"category": "shang",
+		"required_items": [
+			{"item_id": "item_011", "count": 10}
+		],
+		"result_items": [
+			{"item_id": "item_043", "min_count": 1, "max_count": 1, "probability": 1.0}
 		]
 	}
 }
 
 # 当前选中的分类和配方
-var current_category = ""
+var current_category = "shang"
 var current_recipe_id = ""
 var current_craft_count = 1
 
 # 界面状态变量
-var in_synthesis: bool = false
 var transition_tween: Tween
 
 func _ready():
-	# 设置界面状态
-	in_synthesis = true
-	
 	# 连接按钮信号
-	if normal_button:
-		normal_button.pressed.connect(_on_normal_button_pressed)	
-	if ether_button:
-		ether_button.pressed.connect(_on_ether_button_pressed)
-	if final_button:
-		final_button.pressed.connect(_on_final_button_pressed)
+	if shang_button:
+		shang_button.pressed.connect(_on_shang_button_pressed)
+	if xia_button:
+		xia_button.pressed.connect(_on_xia_button_pressed)
+	if yitai_button:
+		yitai_button.pressed.connect(_on_yitai_button_pressed)
 	if synthesis_confirm_button:
 		synthesis_confirm_button.pressed.connect(_on_synthesis_confirm_pressed)
 	if synthesis_num:
@@ -103,21 +210,18 @@ func _ready():
 	if item_msg:
 		item_msg.visible = false
 	
-	# 测试用：解锁所有配方和添加测试物品
-	_setup_test_data()
-	
 	# 默认选择qi分类
 	_select_category("normal")
 
 # 分类按钮点击事件
-func _on_normal_button_pressed():
-	_select_category("normal")
+func _on_shang_button_pressed():
+	_select_category("shang")
 
-func _on_ether_button_pressed():
-	_select_category("ether")
+func _on_xia_button_pressed():
+	_select_category("xia")
 
-func _on_final_button_pressed():
-	_select_category("final")
+func _on_yitai_button_pressed():
+	_select_category("yitai")
 
 # 选择分类
 func _select_category(category: String):
@@ -147,13 +251,19 @@ func _update_recipe_list():
 			continue
 		
 		# 检查配方是否已解锁
-		if !Global.is_recipe_unlocked(recipe_id):
-			continue
+		#if !Global.is_recipe_unlocked(recipe_id):
+			#continue
 		
 		# 复制item_msg按钮样式
 		var recipe_button = item_msg.duplicate()
 		recipe_button.visible = true
 		recipe_button.text = recipe.recipe_name
+		
+		# 设置配方图标
+		if recipe.has("recipe_icon") and recipe.recipe_icon != "":
+			var icon_texture = load(recipe.recipe_icon)
+			if icon_texture:
+				recipe_button.icon = icon_texture
 		
 		# 连接按钮信号
 		recipe_button.pressed.connect(_on_recipe_button_pressed.bind(recipe_id))
@@ -276,8 +386,8 @@ func can_craft(recipe_id: String, craft_count: int = 1) -> bool:
 		return false
 	
 	# 检查配方是否已解锁
-	if !Global.is_recipe_unlocked(recipe_id):
-		return false
+	#if !Global.is_recipe_unlocked(recipe_id):
+		#return false
 	
 	# 检查每个需求物品是否足够
 	for required_item in recipe.required_items:
@@ -307,9 +417,9 @@ func craft_items(recipe_id: String, craft_count: int = 1) -> Dictionary:
 		return result
 	
 	# 检查配方是否已解锁
-	if !Global.is_recipe_unlocked(recipe_id):
-		result.message = "配方尚未解锁"
-		return result
+	#if !Global.is_recipe_unlocked(recipe_id):
+		#result.message = "配方尚未解锁"
+		#return result
 	
 	# 检查材料是否足够
 	if !can_craft(recipe_id, craft_count):
@@ -389,7 +499,9 @@ func get_unlocked_recipes() -> Array:
 
 
 func _on_exit_2_pressed() -> void:
-	in_synthesis = false
+	# 保存游戏
+	Global.save_game()
+	Global.in_synthesis = false
 	_transition_to_layer()
 
 # 界面过渡动画

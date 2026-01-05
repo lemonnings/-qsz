@@ -176,6 +176,7 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 	# 配置button内部要显示的数据
 	var lvcb: Sprite2D = button.get_node("Pic")
 	var lvTitle: RichTextLabel = button.get_node("Title")
+	var lvLabel: RichTextLabel = button.get_node("Label")
 	var lvcbd: RichTextLabel = button.get_node("Panel/Detail")
 	var lvSkillLv: RichTextLabel = button.get_node("SkillLv")
 	var lvAdvanceProgress1: Sprite2D = button.get_node("AdvanceProgress1")
@@ -190,11 +191,13 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 	lvAdvanceProgress3.visible = false
 	lvAdvanceProgress4.visible = false
 	lvAdvanceProgress5.visible = false
-	#lvTitle.size = Vector2(160, 219)
-	#lvTitle.position = Vector2(0, 59)
+	lvLabel.visible = true
+	lvTitle.size = Vector2(143, 110)
+	lvTitle.position = Vector2(162, 29)
 	
 	# 如果抽取到的是主要技能，则渲染进阶状态
 	if reward.if_main_skill and !reward.if_advance:
+		lvLabel.visible = false
 		lvTitle.size = Vector2(141, 118)
 		lvTitle.position = Vector2(162, 24)
 		lvSkillLv.visible = true
@@ -231,6 +234,8 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 	
 	lvcb.region_rect = GU.parse_rect_from_func_string(reward.icon)
 	lvTitle.text = "[color=" + reward.rarity + "]" + reward.reward_name + "[/color]"
+	print(reward.chinese_faction)
+	lvLabel.text = reward.chinese_faction
 	lvcbd.text = reward.detail
 	var callback: Callable = Callable(LvUp, reward.on_selected)
 	var connect_array = button.pressed.get_connections()
@@ -250,7 +255,7 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 			skill_node.set_game_paused(false)
 	
 	var advance_change = int(PC.main_skill_swordQi / 5)
-	if PC.main_skill_swordQi != 0 and (PC.main_skill_swordQi % 3 == 0) and PC.main_skill_swordQi_advance < advance_change :
+	if PC.main_skill_swordQi != 0 and PC.main_skill_swordQi_advance < advance_change :
 		PC.main_skill_swordQi_advance += 1
 		handle_level_up("swordQi", 0, scene_tree, viewport)
 		# 主技能进阶完成后清空now_main_skill_name
@@ -303,7 +308,8 @@ func set_now_main_skill_name(value: String) -> void:
 
 # 获取升级所需经验值
 func get_required_lv_up_value(level: int) -> float:
-	var value: float = 1000
+	# todo 测试期间/10
+	var value: float = 100
 	for i in range(level):
 		value = (value + 300) * 1.05
 	return value

@@ -1,17 +1,20 @@
 extends Node
 
 # 双指缩放相关变量
-var pinch_start_distance : float = 0.0  # 双指初始距离
-var pinch_start_zoom : float = 0.0  # 缩放开始时的zoom值
-var is_pinching : bool = false  # 是否正在双指缩放
+var pinch_start_distance: float = 0.0 # 双指初始距离
+var pinch_start_zoom: float = 0.0 # 缩放开始时的zoom值
+var is_pinching: bool = false # 是否正在双指缩放
 
-var touch_points : Dictionary = {} # 存储触摸点信息
+var touch_points: Dictionary = {} # 存储触摸点信息
 
-@export var min_zoom : float = 2  # 最小缩放（视野最大）
-@export var max_zoom : float = 5.2  # 最大缩放（视野最小）
-@onready var camera : Camera2D # 需要从外部传入Camera2D节点
+@export var min_zoom: float = 2 # 最小缩放（视野最大）
+@export var max_zoom: float = 5.2 # 最大缩放（视野最小）
+@onready var camera: Camera2D # 需要从外部传入Camera2D节点
 
 func _input(event: InputEvent) -> void:
+	# 在合成界面时禁用缩放
+	if Global.in_synthesis:
+		return
 	# 处理触摸输入
 	if event is InputEventScreenTouch:
 		_handle_touch_input(event)

@@ -1,51 +1,51 @@
 extends Node
 
 @export var player_instance: Node = null
-@export var player_name: String = "yiqiu" 
-@export var pc_atk : int = 50 # 局内攻击
-@export var pc_start_atk : int = 50 # 局内攻击
-@export var pc_final_atk : float = 0.0 # 局内最终伤害（例如0.1代表最后结算时伤害为110%）
-@export var pc_hp : int = 100 # 局内HP
-@export var pc_lv : int = 1 # 局内等级
-@export var pc_exp : int = 0 # 局内经验
-@export var pc_max_hp : int = 100 # 局内最大hp
-@export var pc_start_max_hp : int = 100 # 进入关卡时的初始HP上限
-@export var pc_speed : float = 0 # 局内移速
-@export var pc_atk_speed : float = 0 # 局内攻速加成
-@export var crit_chance : float = 0.0  # 局内暴击率
-@export var crit_damage_multi : float = 0.5  # 局内暴击伤害倍率 (例如0.5代表150%伤害) 
-@export var damage_reduction_rate : float = 0.0 # 局内减伤率 (例如0.1代表10%减伤)
-@export var bullet_size : float = 0
-@export var point_multi : float = 0 # 额外真气获取率
-@export var exp_multi : float = 0 # 额外exp获取率
-@export var drop_multi : float = 0 # 额外掉落率
-@export var body_size : float = 1
+@export var player_name: String = "yiqiu"
+@export var pc_atk: int = 50 # 局内攻击
+@export var pc_start_atk: int = 50 # 局内攻击
+@export var pc_final_atk: float = 0.0 # 局内最终伤害（例如0.1代表最后结算时伤害为110%）
+@export var pc_hp: int = 100 # 局内HP
+@export var pc_lv: int = 1 # 局内等级
+@export var pc_exp: int = 0 # 局内经验
+@export var pc_max_hp: int = 100 # 局内最大hp
+@export var pc_start_max_hp: int = 100 # 进入关卡时的初始HP上限
+@export var pc_speed: float = 0 # 局内移速
+@export var pc_atk_speed: float = 0 # 局内攻速加成
+@export var crit_chance: float = 0.0 # 局内暴击率
+@export var crit_damage_multi: float = 0.5 # 局内暴击伤害倍率 (例如0.5代表150%伤害)
+@export var damage_reduction_rate: float = 0.0 # 局内减伤率 (例如0.1代表10%减伤)
+@export var bullet_size: float = 0
+@export var point_multi: float = 0 # 额外真气获取率
+@export var exp_multi: float = 0 # 额外exp获取率
+@export var drop_multi: float = 0 # 额外掉落率
+@export var body_size: float = 1
 
-@export var invincible : bool = false
+@export var invincible: bool = false
 
-@export var current_time : float = 0
-@export var real_time : float = 0
+@export var current_time: float = 0
+@export var real_time: float = 0
 
-@export var now_main_skill_num : int = 1
-@export var last_lunky_level : int = 1
-@export var last_speed : float = 0
-@export var last_atk_speed : float = 0
+@export var now_main_skill_num: int = 1
+@export var last_lunky_level: int = 1
+@export var last_speed: float = 0
+@export var last_atk_speed: float = 0
 
 # 魔焰相关变量
 @export var main_skill_moyan = 0
 @export var main_skill_moyan_advance = 0
-@export var has_moyan : bool = false
-@export var first_has_moyan : bool = true
-@export var main_skill_moyan_damage : float = 1.0  # 魔焰基础伤害倍率
-@export var moyan_range : float = 220.0  # 魔焰基础射程
+@export var has_moyan: bool = false
+@export var first_has_moyan: bool = true
+@export var main_skill_moyan_damage: float = 1.0 # 魔焰基础伤害倍率
+@export var moyan_range: float = 220.0 # 魔焰基础射程
 
 # 跟升级抽卡有关系的
-@export var now_lunky_level : int = 1
-@export var now_red_p : float = 2
-@export var now_gold_p : float = 5
-@export var now_purple_p : float = 15
-@export var now_blue_p : float = 35
-@export var now_green_p : float = 43
+@export var now_lunky_level: int = 1
+@export var now_red_p: float = 2
+@export var now_gold_p: float = 5
+@export var now_purple_p: float = 15
+@export var now_blue_p: float = 35
+@export var now_green_p: float = 43
 @export var selected_rewards = []
 
 # 存储主要技能等级
@@ -53,83 +53,92 @@ extends Node
 @export var main_skill_swordQi_advance = 0
 
 # 剑气相关属性
-@export var main_skill_swordQi_damage : float = 1
-@export var swordQi_penetration_count : int = 1
-@export var swordQi_other_sword_wave_damage : float = 0.5
-@export var swordQi_range :float = 120
+@export var main_skill_swordQi_damage: float = 1
+@export var swordQi_penetration_count: int = 1
+@export var swordQi_other_sword_wave_damage: float = 0.5
+@export var swordQi_range: float = 120
+@export var jinghong_attack_count: int = 0
 
 # 树枝相关属性
 @export var main_skill_branch = 0
 @export var main_skill_branch_advance = 0
-@export var has_branch : bool = false
-@export var first_has_branch : bool = true
-@export var main_skill_branch_damage : float = 1
-@export var branch_split_count : int = 3
-@export var branch_range :float = 90
+@export var has_branch: bool = false
+@export var first_has_branch: bool = true
+@export var main_skill_branch_damage: float = 1
+@export var branch_split_count: int = 3
+@export var branch_range: float = 90
 
 # 日炎相关变量
 @export var main_skill_riyan = 0
 @export var main_skill_riyan_advance = 0
-@export var main_skill_riyan_damage : float = 1
-@export var has_riyan : bool = false
-@export var first_has_riyan : bool = true
-@export var first_has_riyan_pc : bool = true
-@export var riyan_range : float = 70.0
-@export var riyan_cooldown : float = 0.5
-@export var riyan_hp_max_damage : float = 0.12
-@export var riyan_atk_damage : float = 0.08
+@export var main_skill_riyan_damage: float = 1
+@export var has_riyan: bool = false
+@export var first_has_riyan: bool = true
+@export var first_has_riyan_pc: bool = true
+@export var riyan_range: float = 70.0
+@export var riyan_cooldown: float = 0.5
+@export var riyan_hp_max_damage: float = 0.12
+@export var riyan_atk_damage: float = 0.08
 
 # 环火相关量
 @export var main_skill_ringFire = 0
 @export var main_skill_ringFire_advance = 0
-@export var main_skill_ringFire_damage : float = 1
-@export var has_ringFire : bool = false
-@export var first_has_ringFire : bool = true
+@export var main_skill_ringFire_damage: float = 1
+@export var has_ringFire: bool = false
+@export var first_has_ringFire: bool = true
 
 # 反弹子弹相关属性
-@export var rebound_size_multiplier : float = 0.4  # 反弹子弹大小倍数
-@export var rebound_damage_multiplier : float = 0.35  # 反弹子弹伤害倍数
+@export var rebound_size_multiplier: float = 0.4 # 反弹子弹大小倍数
+@export var rebound_damage_multiplier: float = 0.35 # 反弹子弹伤害倍数
 
 # 环形子弹相关属性
-@export var ring_bullet_enabled : bool = false
-@export var ring_bullet_count : int = 8
-@export var ring_bullet_size_multiplier : float = 0.7
-@export var ring_bullet_damage_multiplier : float = 1
-@export var ring_bullet_interval : float = 2.5
-@export var ring_bullet_last_shot_time : float = 0.0
+@export var ring_bullet_enabled: bool = false
+@export var ring_bullet_count: int = 8
+@export var ring_bullet_size_multiplier: float = 0.7
+@export var ring_bullet_damage_multiplier: float = 1
+@export var ring_bullet_interval: float = 2.5
+@export var ring_bullet_last_shot_time: float = 0.0
+
+# 浪形子弹相关属性
+@export var wave_bullet_enabled: bool = false
+@export var wave_bullet_interval: float = 4.0
+@export var wave_bullet_last_shot_time: float = 0.0
+@export var wave_bullet_damage_multiplier: float = 0.5 # 浪形子弹伤害倍数（默认50%攻击）
+@export var wave_bullet_count: int = 8 # 浪形子弹每轮发射的弹体数量，默认8
 
 # 召唤物相关属性
-@export var summon_count : int = 0  # 当前召唤物数量
-@export var summon_count_max : int = 3  # 当前召唤物数量
-@export var new_summon : String 
-@export var summon_damage_multiplier : float = 1.0  # 召唤物伤害倍数
-@export var summon_interval_multiplier : float = 1.0  # 召唤物发射间隔倍数
-@export var summon_bullet_size_multiplier : float = 1.0  # 召唤物子弹大小倍数 
+@export var summon_count: int = 0 # 当前召唤物数量
+@export var summon_count_max: int = 3 # 当前召唤物数量
+@export var new_summon: String
+@export var summon_damage_multiplier: float = 1.0 # 召唤物伤害倍数
+@export var summon_interval_multiplier: float = 1.0 # 召唤物发射间隔倍数
+@export var summon_bullet_size_multiplier: float = 1.0 # 召唤物子弹大小倍数
 
 
 # 刷新次数
-@export var refresh_num : int = 3 
+@export var refresh_num: int = 3
 
 # 纹章相关字段
-@export var current_emblems : Dictionary = {}  # 当前持有的纹章 {emblem_id: stack}
+@export var emblem_slots_max: int = 4
+@export var current_emblems: Dictionary = {} # 当前持有的纹章 {emblem_id: stack}
 
-@export var is_game_over : bool = false
-@export var movement_disabled : bool = false  # 控制玩家移动是否被禁用
+@export var is_game_over: bool = false
+@export var movement_disabled: bool = false # 控制玩家移动是否被禁用
 
 func _ready():
 	Global.connect("lucky_level_up", Callable(self, "_on_lucky_level_up"))
 
 func _on_lucky_level_up(lunky_up: float) -> void:
-	now_red_p = now_red_p + lunky_up * 0.25
-	now_gold_p = now_gold_p + lunky_up * 0.5
-	now_purple_p = now_purple_p + lunky_up * 0.8
+	now_red_p = now_red_p + lunky_up * 0.2
+	now_gold_p = now_gold_p + lunky_up * 0.4
+	now_purple_p = now_purple_p + lunky_up * 0.6
 	now_blue_p = now_blue_p + lunky_up * 1
 
 func get_reward_acquisition_count(fallback_reward_id: String):
 	return selected_rewards.count(fallback_reward_id)
 
 
-func reset_player_attr() -> void :
+func reset_player_attr() -> void:
 	# 重置玩家奖励权重
 	if PlayerRewardWeights:
 		PlayerRewardWeights.reset_all_weights()
@@ -156,24 +165,31 @@ func reset_player_attr() -> void :
 	
 	PC.pc_lv = 1
 	PC.pc_exp = 0
-	PC.pc_speed = 0 + (Global.cultivation_zhuifeng_level * 0.03)
-	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.03)
+	PC.pc_speed = 0 + (Global.cultivation_zhuifeng_level * 0.02)
+	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.02)
 	
 	PC.invincible = false
 	
 	PC.ring_bullet_enabled = false
 	PC.ring_bullet_count = 8
 	PC.ring_bullet_size_multiplier = 0.9
-	PC.ring_bullet_damage_multiplier = 1
+	PC.ring_bullet_damage_multiplier = 0.7
 	PC.ring_bullet_interval = 2.5
 	PC.ring_bullet_last_shot_time = 0.0
+
+	# 初始化浪形子弹冷却与时间
+	PC.wave_bullet_enabled = false
+	PC.wave_bullet_count = 8
+	PC.wave_bullet_damage_multiplier = 0.5
+	PC.wave_bullet_interval = 4.0
+	PC.wave_bullet_last_shot_time = 0.0
 	
 	# 重置反弹子弹相关属性
 	PC.rebound_size_multiplier = 0.9
 	PC.rebound_damage_multiplier = 0.35
 	
-	PC.summon_count = 0 
-	PC.summon_count_max  = 3
+	PC.summon_count = 0
+	PC.summon_count_max = 3
 	PC.summon_damage_multiplier = 0.0
 	PC.summon_interval_multiplier = 1.0
 	PC.summon_bullet_size_multiplier = 1.0
@@ -271,12 +287,12 @@ func apply_equipment_bonuses() -> void:
 	
 
 func exec_pc_atk() -> void:
-	PC.pc_atk = int (15 + int(get_total_increase(Global.cultivation_poxu_level)))
-	PC.pc_start_atk = PC.pc_atk  # 记录初始HP上限
+	PC.pc_atk = int(15 + int(get_total_increase(Global.cultivation_poxu_level)))
+	PC.pc_start_atk = PC.pc_atk # 记录初始HP上限
 	
 func exec_pc_hp() -> void:
-	PC.pc_max_hp = int (15 + int(get_total_increase_hp(Global.cultivation_xuanyuan_level)))
-	PC.pc_start_max_hp = PC.pc_max_hp  # 记录初始HP上限
+	PC.pc_max_hp = int(15 + int(get_total_increase_hp(Global.cultivation_xuanyuan_level)))
+	PC.pc_start_max_hp = PC.pc_max_hp # 记录初始HP上限
 	PC.pc_hp = PC.pc_max_hp
 	
 func exec_pc_bullet_size() -> void:
@@ -311,9 +327,9 @@ func exec_swordqi_skills() -> void:
 
 func get_total_increase(level) -> String:
 	var total_attack = 1
-	var current_level = 1  # 当前已经处理到第几级
-	var attack_value = 1   # 当前每级增加的攻击力
-	var duration = 2       # 第一个攻击值(+1)持续2次升级
+	var current_level = 1 # 当前已经处理到第几级
+	var attack_value = 1 # 当前每级增加的攻击力
+	var duration = 2 # 第一个攻击值(+1)持续2次升级
 
 	while current_level < level:
 		var remaining_levels = level - current_level
@@ -324,14 +340,14 @@ func get_total_increase(level) -> String:
 
 		if current_level < level:
 			attack_value += 1
-			duration = int(attack_value * attack_value)  # 每个攻击力持续attack_value + 1次
+			duration = int(attack_value * attack_value) # 每个攻击力持续attack_value + 1次
 	return str(total_attack)
 
 func get_total_increase_hp(level) -> String:
 	var total_hp = 1
-	var current_level = 1  # 当前已经处理到第几级
-	var hp_value = 1   
-	var duration = 6      
+	var current_level = 1 # 当前已经处理到第几级
+	var hp_value = 1
+	var duration = 6
 
 	while current_level < level:
 		var remaining_levels = level - current_level
@@ -342,5 +358,73 @@ func get_total_increase_hp(level) -> String:
 
 		if current_level < level:
 			hp_value += 1
-			duration = 6 + int((hp_value + 4) * hp_value)  
+			duration = 6 + int((hp_value + 4) * hp_value)
 	return str(total_hp)
+
+# 角色数据配置 - 用于背包界面显示
+var character_data = {
+	"yiqiu": {
+		"display_name": "奕秋",
+		"animation_path": "res://AssetBundle/Sprites/idle.png",
+		"animation_name": "idle"
+	}
+}
+
+# 获取角色显示名称
+func get_character_display_name(char_name: String = "") -> String:
+	if char_name.is_empty():
+		char_name = player_name
+	if character_data.has(char_name):
+		return character_data[char_name].display_name
+	return char_name
+
+# 获取角色动画资源路径
+func get_character_animation_path(char_name: String = "") -> String:
+	if char_name.is_empty():
+		char_name = player_name
+	if character_data.has(char_name):
+		return character_data[char_name].animation_path
+	return ""
+
+# 获取角色动画名称
+func get_character_animation_name(char_name: String = "") -> String:
+	if char_name.is_empty():
+		char_name = player_name
+	if character_data.has(char_name):
+		return character_data[char_name].animation_name
+	return "idle"
+
+# 获取角色属性文本（用于背包界面显示）
+func get_character_attributes_text() -> String:
+	# 计算基础属性值
+	var base_atk = int(15 + int(get_total_increase(Global.cultivation_poxu_level)))
+	var base_hp = int(15 + int(get_total_increase_hp(Global.cultivation_xuanyuan_level)))
+	
+	# 获取装备加成
+	var equipment_stats = Global.EquipmentManager.calculate_total_equipment_stats()
+	
+	# 计算最终属性
+	var final_atk = base_atk + equipment_stats["pc_atk"]
+	var final_hp = base_hp + equipment_stats["pc_hp"]
+	var atk_speed = (Global.cultivation_liuguang_level * 0.02 + equipment_stats["pc_atk_speed"]) * 100
+	var move_speed = (Global.cultivation_zhuifeng_level * 0.02 + equipment_stats["pc_speed"]) * 100
+	var damage_reduction = min((Global.cultivation_huti_level * 0.002) + equipment_stats["damage_reduction_rate"], 0.7) * 100
+	var crit_rate = (0.1 + Global.cultivation_fengrui_level * 0.005 + equipment_stats["crit_chance"]) * 100
+	var crit_damage = (1.5 + Global.cultivation_liejin_level * 0.01 + equipment_stats["crit_damage_multi"]) * 100
+	var point_rate = (1 + Global.cultivation_hualing_level * 0.05 + equipment_stats["point_multi"]) * 100
+	var exp_rate = (1 + equipment_stats["exp_multi"]) * 100
+	var drop_rate = (1 + equipment_stats["drop_multi"]) * 100
+	
+	var attr_text = ""
+	attr_text += "攻击  " + str(final_atk) + "\n"
+	attr_text += "体力  " + str(final_hp) + "\n"
+	attr_text += "攻击速度  " + str(int(atk_speed)) + "%\n"
+	attr_text += "移动速度  " + str(int(move_speed)) + "%\n"
+	attr_text += "减伤率  " + str(int(damage_reduction)) + "%\n"
+	attr_text += "暴击率  " + str(int(crit_rate)) + "%\n"
+	attr_text += "暴击伤害  " + str(int(crit_damage)) + "%\n"
+	attr_text += "真气获取  " + str(int(point_rate)) + "%\n"
+	attr_text += "经验获取  " + str(int(exp_rate)) + "%\n"
+	attr_text += "掉落率  " + str(int(drop_rate)) + "%"
+	
+	return attr_text
