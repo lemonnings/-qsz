@@ -287,12 +287,12 @@ func apply_equipment_bonuses() -> void:
 	
 
 func exec_pc_atk() -> void:
-	PC.pc_atk = int(15 + int(get_total_increase(Global.cultivation_poxu_level)))
-	PC.pc_start_atk = PC.pc_atk # 记录初始HP上限
+	PC.pc_atk = int(15 + int(Global.cultivation_poxu_level * 2))
+	PC.pc_start_atk = PC.pc_atk
 	
 func exec_pc_hp() -> void:
-	PC.pc_max_hp = int(15 + int(get_total_increase_hp(Global.cultivation_xuanyuan_level)))
-	PC.pc_start_max_hp = PC.pc_max_hp # 记录初始HP上限
+	PC.pc_max_hp = int(15 + int(Global.cultivation_xuanyuan_level * 4))
+	PC.pc_start_max_hp = PC.pc_max_hp
 	PC.pc_hp = PC.pc_max_hp
 	
 func exec_pc_bullet_size() -> void:
@@ -397,8 +397,8 @@ func get_character_animation_name(char_name: String = "") -> String:
 # 获取角色属性文本（用于背包界面显示）
 func get_character_attributes_text() -> String:
 	# 计算基础属性值
-	var base_atk = int(15 + int(get_total_increase(Global.cultivation_poxu_level)))
-	var base_hp = int(15 + int(get_total_increase_hp(Global.cultivation_xuanyuan_level)))
+	var base_atk = int(15 + int(Global.cultivation_poxu_level * 2))
+	var base_hp = int(15 + int(Global.cultivation_xuanyuan_level * 4))
 	
 	# 获取装备加成
 	var equipment_stats = Global.EquipmentManager.calculate_total_equipment_stats()
@@ -415,7 +415,15 @@ func get_character_attributes_text() -> String:
 	var exp_rate = (1 + equipment_stats["exp_multi"]) * 100
 	var drop_rate = (1 + equipment_stats["drop_multi"]) * 100
 	
+	# 计算修为
+	var cultivation_power = _calculate_cultivation_power(
+		final_atk, final_hp, atk_speed, move_speed, damage_reduction,
+		crit_rate, crit_damage, point_rate, exp_rate, drop_rate
+	)
+	
 	var attr_text = ""
+	# 修为使用金红过渡色和稍大字号显示
+	attr_text += _get_cultivation_bbcode(cultivation_power) + "\n"
 	attr_text += "攻击  " + str(final_atk) + "\n"
 	attr_text += "体力  " + str(final_hp) + "\n"
 	attr_text += "攻击速度  " + str(int(atk_speed)) + "%\n"
@@ -428,3 +436,74 @@ func get_character_attributes_text() -> String:
 	attr_text += "掉落率  " + str(int(drop_rate)) + "%"
 	
 	return attr_text
+
+# 计算修为值
+# 公式: 攻击*攻速*暴击期望 + 体力*移动速度*减伤期望 + 真气获取 + 经验获取加成 + 掉落率加成
+func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: float, move_speed: float,
+								   damage_reduction: float, crit_rate: float, crit_damage: float,
+								   point_rate: float, exp_rate: float, drop_rate: float) -> int:
+	# 攻速实际倍率 = 1 + atk_speed/100
+	var atk_speed_multi = 1.0 + atk_speed / 100.0
+	# 暴击期望 = 1 + 暴击率 * (暴击伤害倍率 - 1)
+	# crit_damage 是百分比形式(如150表示150%)，需要转换为倍率
+	var crit_expectation = 1.0 + (crit_rate / 100.0) * (crit_damage / 100.0 - 1.0)
+	# 攻击部分 = 攻击 * 攻速 * 暴击期望
+	var atk_part = final_atk * 8 * atk_speed_multi * crit_expectation
+	
+	# 移动速度实际倍率 = 1 + move_speed/100
+	var move_speed_multi = 1.0 + move_speed / 100.0
+	# 减伤期望 = 1 / (1 - 减伤率)，例如50%减伤可以抗原来200%的伤害
+	# damage_reduction 是百分比形式(如50表示50%)
+	var damage_reduction_ratio = damage_reduction / 100.0
+	var reduction_expectation = 1.0 / max(1.0 - damage_reduction_ratio, 0.1) # 防止除以0
+	# 体力部分 = 体力 * 移动速度 * 减伤期望
+	var hp_part = final_hp * 5 * move_speed_multi * reduction_expectation
+	
+	# 真气获取部分直接加入
+	var point_part = max(point_rate - 100, 0) * 6
+	
+	# 经验获取每超出100%的1%加6点
+	var exp_bonus = max(exp_rate - 100, 0) * 9
+	
+	# 掉落率每超出100%的1%加8点
+	var drop_bonus = max(drop_rate - 100, 0) * 12
+	
+	# === 属性额外加成（不参与乘算） ===
+	# 攻速每1%额外加4点修为
+	var atk_speed_bonus = atk_speed * 16.0
+	# 移动速度每1%额外加4点修为
+	var move_speed_bonus = move_speed * 16.0
+	# 暴击率每0.5%额外加8点修为（即每1%加16点）
+	var crit_rate_bonus = crit_rate * 64.0
+	# 暴击伤害在150%基础上，每1%额外加8点修为
+	var crit_damage_bonus = max(crit_damage - 150, 0) * 16.0
+	# 减伤率每0.1%额外加3点修为（即每1%加30点）
+	var damage_reduction_bonus = damage_reduction * 120.0
+	
+	# 总修为
+	var total_cultivation = atk_part + hp_part + point_part + exp_bonus + drop_bonus \
+		+ atk_speed_bonus + move_speed_bonus + crit_rate_bonus + crit_damage_bonus + damage_reduction_bonus
+	
+	return int(total_cultivation)
+
+# 生成修为的BBCode文本（金红过渡色，稍大字号）
+func _get_cultivation_bbcode(cultivation_power: int) -> String:
+	# 将修为值转换为字符串
+	var power_str = str(cultivation_power)
+	var result = "[font_size=36][color=#FFD700]修为   [/color]"
+	
+	# 为每个字符应用金红渐变色
+	# 金色(FFD700)
+	var colors = [
+		"#FF4500"
+	]
+	
+	var char_count = power_str.length()
+	for i in range(char_count):
+		# 根据字符位置选择颜色
+		var color_index = int(float(i) / float(max(char_count - 1, 1)) * (colors.size() - 1))
+		color_index = clamp(color_index, 0, colors.size() - 1)
+		result += "[color=" + colors[color_index] + "]" + power_str[i] + "[/color]"
+	
+	result += "[/font_size]"
+	return result

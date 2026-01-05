@@ -150,6 +150,7 @@ func _update_character_info():
 	
 	# 更新角色属性
 	if now_character_attr:
+		now_character_attr.bbcode_enabled = true
 		now_character_attr.text = PC.get_character_attributes_text()
 	
 	# 更新角色动画

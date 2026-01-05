@@ -26,7 +26,7 @@ var cultivation_items = [
 # 修炼等级变量名映射
 var cultivation_level_vars = [
 	"cultivation_poxu_level",
-	"cultivation_xuanyuan_level", 
+	"cultivation_xuanyuan_level",
 	"cultivation_liuguang_level",
 	"cultivation_hualing_level",
 	"cultivation_fengrui_level",
@@ -109,7 +109,7 @@ func update_single_cultivation_display(index: int) -> void:
 			var next_bonus = get_cultivation_bonus_text(item["type"], current_level + 1)
 			
 			cultivation_labels[index].text = "Level " + str(current_level) + "\n需 " + str(next_level_exp) + " Point\n当前 " + current_bonus + "\n下一级 " + next_bonus
-			cultivation_labels[index].visible = false  # 默认隐藏，鼠标悬停时显示
+			cultivation_labels[index].visible = false # 默认隐藏，鼠标悬停时显示
 		else:
 			cultivation_labels[index].text = "需要解锁进度: " + str(item["unlock_progress"])
 			cultivation_labels[index].visible = false
@@ -140,7 +140,7 @@ func get_cultivation_bonus_text(type: String, level: int) -> String:
 		"atk":
 			return "+" + str(level * 2) + " 攻击力"
 		"hp":
-			return "+" + str(level * 5) + " 生命值"
+			return "+" + str(level * 4) + " 生命值"
 		"atk_speed":
 			return "+" + str(level * 2) + "% 攻速"
 		"spirit_gain":
@@ -170,19 +170,19 @@ func get_cultivation_bonus_value(type: String, level: int) -> float:
 		"atk_speed":
 			return level * 0.02
 		"spirit_gain":
-			return level * 0.05  # 5%转换为0.05
+			return level * 0.05 # 5%转换为0.05
 		"crit_chance":
-			return level * 0.005  # 0.5%转换为0.005
+			return level * 0.005 # 0.5%转换为0.005
 		"damage_reduction":
-			return level * 0.003  # 0.3%转换为0.003
+			return level * 0.003 # 0.3%转换为0.003
 		"move_speed":
-			return level * 0.02  # 2%转换为0.02
+			return level * 0.02 # 2%转换为0.02
 		"crit_damage":
-			return level * 0.01  # 1%转换为0.01
+			return level * 0.01 # 1%转换为0.01
 		"cool_down":
-			return -level * 0.02  # 2%转换为-0.02
+			return -level * 0.02 # 2%转换为-0.02
 		"final_atk":
-			return level * 0.01  # 1%转换为0.01
+			return level * 0.01 # 1%转换为0.01
 		_:
 			return 0.0
 

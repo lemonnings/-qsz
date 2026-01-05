@@ -34,10 +34,10 @@ class ActiveSkill:
 
 # 闪避技能数据
 class DodgeSkill extends ActiveSkill:
-	var dash_distance: float = 80.0
-	var dash_speed_multiplier: float = 12.0
-	var base_invincible_duration: float = 0.3
-	var invincible_duration: float = 0.3
+	var dash_distance: float = 30.0
+	var dash_speed_multiplier: float = 4.0
+	var base_invincible_duration: float = 0.5
+	var invincible_duration: float = 0.5
 	
 	func _init():
 		super ("dodge", "闪避", "向移动方向位移一小段距离并无敌", 6.0)
@@ -319,6 +319,9 @@ func _spawn_random_strike_bullet(direction: Vector2, damage_ratio: float):
 	
 	# 在add_child之后使用set_direction设置方向（会同时更新精灵旋转）
 	bullet.set_direction(direction)
+	
+	# 为乱击子弹添加金色滤镜
+	bullet.modulate = Color(1.0, 0.85, 0.4, 1.0) # 金色
 
 func get_dash_direction() -> Vector2:
 	"""获取冲刺方向"""
@@ -356,13 +359,19 @@ func start_dash(target_position: Vector2, dodge_skill: DodgeSkill):
 	# 设置无敌状态
 	PC.invincible = true
 	
+	# 设置玩家半虚化状态（无敌提示）
+	_set_player_ghost_effect(true)
+	
+	# 计算冲刺时间
+	var dash_time = dodge_skill.dash_distance / (player.move_speed * dodge_skill.dash_speed_multiplier)
+	
+	# 启动残影效果
+	_start_afterimage_effect(dash_time)
+	
 	# 创建冲刺动画
 	var tween = create_tween()
 	tween.set_ease(Tween.EASE_OUT)
 	tween.set_trans(Tween.TRANS_QUART)
-	
-	# 计算冲刺时间
-	var dash_time = dodge_skill.dash_distance / (player.move_speed * dodge_skill.dash_speed_multiplier)
 	
 	# 执行位移
 	tween.tween_property(player, "global_position", target_position, dash_time)
@@ -370,11 +379,67 @@ func start_dash(target_position: Vector2, dodge_skill: DodgeSkill):
 	# 冲刺完成后的处理
 	tween.tween_callback(func(): on_dash_complete(dodge_skill))
 
+func _set_player_ghost_effect(enabled: bool):
+	"""设置玩家半虚化效果"""
+	if not player:
+		return
+	
+	var sprite = player.get_node_or_null("AnimatedSprite2D")
+	if sprite:
+		if enabled:
+			# 半透明
+			sprite.modulate = Color(1.0, 1.0, 1.0, 0.6)
+		else:
+			# 恢复正常
+			sprite.modulate = Color(1, 1, 1, 1)
+
+func _start_afterimage_effect(duration: float):
+	"""启动残影效果"""
+	if not player:
+		return
+	
+	var sprite = player.get_node_or_null("AnimatedSprite2D")
+	if not sprite:
+		return
+	
+	# 残影数量和间隔
+	var afterimage_count = 5
+	var interval = duration / afterimage_count
+	
+	# 顺序创建残影
+	for i in range(afterimage_count):
+		if is_instance_valid(player) and is_instance_valid(sprite):
+			_create_afterimage(sprite)
+		await get_tree().create_timer(interval).timeout
+
+func _create_afterimage(source_sprite: AnimatedSprite2D):
+	"""创建单个残影"""
+	# 创建残影精灵
+	var afterimage = Sprite2D.new()
+	afterimage.texture = source_sprite.sprite_frames.get_frame_texture(source_sprite.animation, source_sprite.frame)
+	afterimage.global_position = player.global_position
+	afterimage.scale = source_sprite.scale
+	afterimage.flip_h = source_sprite.flip_h
+	afterimage.z_index = player.z_index - 1
+	
+	# 设置残影颜色（淡红色半透明）
+	afterimage.modulate = Color(1.0, 0.5, 0.5, 0.4)
+	
+	# 添加到场景
+	get_tree().current_scene.add_child(afterimage)
+	
+	# 渐隐并消失
+	var tween = create_tween()
+	tween.tween_property(afterimage, "modulate:a", 0.0, 0.3)
+	tween.tween_callback(afterimage.queue_free)
+
 func on_dash_complete(dodge_skill: DodgeSkill):
 	"""冲刺完成处理"""
-	# 延迟结束无敌状态
+	# 延迟结束无敌状态和虚化效果
 	get_tree().create_timer(dodge_skill.invincible_duration).timeout.connect(
-		func(): PC.invincible = false
+		func():
+			PC.invincible = false
+			_set_player_ghost_effect(false)
 	)
 
 func start_skill_cooldown(skill: ActiveSkill):
