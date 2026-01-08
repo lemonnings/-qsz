@@ -1,31 +1,31 @@
 extends Area2D
 
-@export var bullet_speed: float = 575
-@export var bullet_range: float = PC.swordQi_range  # 子弹射程
-@export var penetration_count: int = 1  # 穿透次数，默认为1
+@export var bullet_speed: float = 460
+@export var bullet_range: float = PC.swordQi_range # 子弹射程
+@export var penetration_count: int = 1 # 穿透次数，默认为1
 
 # 子弹的伤害和暴击状态（在创建时确定）
 var bullet_damage: float = 0.0
 var is_crit_hit: bool = false
 
 # 射程和渐隐相关变量
-var start_position: Vector2  # 子弹起始位置
-var traveled_distance: float = 0.0  # 已飞行距离 
-var is_fading: bool = false  # 是否正在渐隐
-var fade_timer: float = 0.0  # 渐隐计时器
-var fade_duration: float = 0.1  # 渐隐持续时间（秒） 
+var start_position: Vector2 # 子弹起始位置
+var traveled_distance: float = 0.0 # 已飞行距离
+var is_fading: bool = false # 是否正在渐隐
+var fade_timer: float = 0.0 # 渐隐计时器
+var fade_duration: float = 0.1 # 渐隐持续时间（秒）
 
-@export var sprite : Sprite2D  # 获取精灵节点引用
-@export var sprite_summon :Sprite2D  # 获取精灵节点引用
-@export var collision_shape :CollisionShape2D  # 获取碰撞形状节点引用
+@export var sprite: Sprite2D # 获取精灵节点引用
+@export var sprite_summon: Sprite2D # 获取精灵节点引用
+@export var collision_shape: CollisionShape2D # 获取碰撞形状节点引用
 
 var direction: Vector2
 
-var is_summon_bullet: bool = false  # 标记是否为额外发射的剑气
-var is_other_sword_wave: bool = false  # 标记是否为额外发射的剑气
+var is_summon_bullet: bool = false # 标记是否为额外发射的剑气
+var is_other_sword_wave: bool = false # 标记是否为额外发射的剑气
 
-var is_rebound: bool = false  # 标记是否为反弹子弹
-var parent_bullet: bool = true  # 标记是否为父级子弹，默认为true
+var is_rebound: bool = false # 标记是否为反弹子弹
+var parent_bullet: bool = true # 标记是否为父级子弹，默认为true
 
 # 用于防止同一帧内多次处理碰撞
 var collision_processed_this_frame: bool = false
@@ -103,7 +103,7 @@ func _update_sprite_rotation() -> void:
 # 设置子弹方向并立即更新旋转
 func set_direction(new_direction: Vector2) -> void:
 	direction = new_direction
-	_update_sprite_rotation()  # 立即更新旋转，避免第一帧显示错误方向
+	_update_sprite_rotation() # 立即更新旋转，避免第一帧显示错误方向
 
 # 初始化子弹的伤害和暴击状态
 func initialize_bullet_damage() -> void:
@@ -111,9 +111,9 @@ func initialize_bullet_damage() -> void:
 	var can_crit: bool = true
 	
 	if is_other_sword_wave:
-		base_damage = PC.pc_atk # * PC.swordQi_other_sword_wave_damage * PC.main_skill_swordQi_damage 
+		base_damage = PC.pc_atk # * PC.swordQi_other_sword_wave_damage * PC.main_skill_swordQi_damage
 	else:
-		base_damage = PC.pc_atk # * PC.main_skill_swordQi_damage 
+		base_damage = PC.pc_atk # * PC.main_skill_swordQi_damage
 
 	is_crit_hit = false
 	bullet_damage = base_damage
@@ -147,7 +147,7 @@ func handle_penetration() -> bool:
 	
 	# 如果这一帧已经处理过碰撞，忽略后续碰撞
 	if collision_processed_this_frame:
-		return false  # 返回false表示忽略这次碰撞
+		return false # 返回false表示忽略这次碰撞
 
 		
 	# 标记这一帧已经处理过碰撞
@@ -170,17 +170,17 @@ func update_collision_shape_size() -> void:
 
 # 当子弹击中敌人时，生成子级反弹子弹
 func create_rebound() -> void:
-	if parent_bullet and not is_rebound:  # 只有父级子弹且非反弹子弹才能反弹
+	if parent_bullet and not is_rebound: # 只有父级子弹且非反弹子弹才能反弹
 		var bullet_bound_num = PC.selected_rewards.count("rebound_num_up")
 		# 创建1-3个随机方向的子级子弹
-		var num_bullets = randi_range(1, (1 + bullet_bound_num* 0.5))
+		var num_bullets = randi_range(1, (1 + bullet_bound_num * 0.5))
 		for i in range(num_bullets):
 			var child_bullet = load("res://Scenes/bullet.tscn").instantiate()
 			# 设置子级子弹属性
 			scale = scale * PC.rebound_size_multiplier
-			update_collision_shape_size()  # 使用新函数同步更新碰撞形状
+			update_collision_shape_size() # 使用新函数同步更新碰撞形状
 			child_bullet.is_rebound = true
-			child_bullet.parent_bullet = false  # 标记为子级子弹，防止无限反弹
+			child_bullet.parent_bullet = false # 标记为子级子弹，防止无限反弹
 			# 随机方向
 			var random_angle = randf_range(0, 2 * PI)
 			child_bullet.direction = Vector2(cos(random_angle), sin(random_angle))
@@ -202,6 +202,6 @@ func find_nearest_enemy() -> void:
 	for enemy in enemies:
 		var distance = global_position.distance_to(enemy.global_position)
 		if enemy and is_instance_valid(enemy) and enemy.has_method("_on_area_entered"):
-			if  distance < nearest_distance:
+			if distance < nearest_distance:
 				nearest_distance = distance
 				nearest_enemy = enemy

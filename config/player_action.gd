@@ -100,7 +100,8 @@ func _process(_delta: float) -> void:
 	#if joystick_right and joystick_right.is_pressed:
 		#rotation = joystick_right.output.angle()
 	if Global.in_town:
-		move_speed = 240.0 * (1 + (Global.cultivation_zhuifeng_level * 0.02) + PC.pc_speed)
+		# 主城中只使用局外属性（追风修炼等级），不使用局内移速 PC.pc_speed
+		move_speed = 240.0 * (1 + (Global.cultivation_zhuifeng_level * 0.02))
 		
 	if velocity == Vector2.ZERO or PC.is_game_over:
 		$RunningSound.stop()

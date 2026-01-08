@@ -63,7 +63,7 @@ func _process(_delta: float) -> void:
 	Global.main_menu_instance = preload("res://Scenes/main_menu.tscn")
 	
 
-func _on_start_pressed() -> void :
+func _on_start_pressed() -> void:
 	pass
 	
 func _on_stage_1_pressed() -> void:
@@ -76,7 +76,7 @@ func _on_stage_2_pressed() -> void:
 	reset_player_attr()
 	get_tree().change_scene_to_file(town_test_scene)
 
-func reset_player_attr() -> void :
+func reset_player_attr() -> void:
 	# 重置玩家奖励权重
 	if PlayerRewardWeights:
 		PlayerRewardWeights.reset_all_weights()
@@ -85,7 +85,7 @@ func reset_player_attr() -> void :
 	Global.in_menu = false
 	PC.is_game_over = false
 	
-	PC.selected_rewards = ["wave_bullet"] 
+	PC.selected_rewards = ["wave_bullet"]
 	print(PC.selected_rewards)
 	
 	exec_pc_atk()
@@ -121,8 +121,8 @@ func reset_player_attr() -> void :
 	PC.rebound_size_multiplier = 0.9
 	PC.rebound_damage_multiplier = 0.35
 	
-	PC.summon_count = 0 
-	PC.summon_count_max  = 3
+	PC.summon_count = 0
+	PC.summon_count_max = 3
 	PC.summon_damage_multiplier = 0.0
 	PC.summon_interval_multiplier = 1.0
 	PC.summon_bullet_size_multiplier = 1.0
@@ -143,7 +143,7 @@ func reset_player_attr() -> void :
 	PC.main_skill_swordQi_damage = 1
 	PC.swordQi_penetration_count = 1
 	PC.swordQi_other_sword_wave_damage = 0.5
-	PC.swordQi_range = 120
+	PC.swordQi_range = 132
 	
 	# 重置魔焰相关属性
 	PC.main_skill_moyan = 0
@@ -185,10 +185,10 @@ func reset_player_attr() -> void :
 	EmblemManager.clear_all_emblems()
 	
 func exec_pc_atk() -> void:
-	PC.pc_atk = int (15 + int(get_total_increase(Global.atk_level)))
+	PC.pc_atk = int(15 + int(get_total_increase(Global.atk_level)))
 	
 func exec_pc_hp() -> void:
-	PC.pc_max_hp = int (15 + int(get_total_increase_hp(Global.hp_level)))
+	PC.pc_max_hp = int(15 + int(get_total_increase_hp(Global.hp_level)))
 	PC.pc_hp = PC.pc_max_hp
 	
 func exec_pc_bullet_size() -> void:
@@ -203,7 +203,7 @@ func exec_lucky_level() -> void:
 	PC.now_green_p = Global.green_p
 
 
-func _on_shop_pressed(not_move_background  : bool = true) -> void:
+func _on_shop_pressed(not_move_background: bool = true) -> void:
 	hero1_button.set_pressed(true)
 	_update_shop_content()
 	if not_move_background:
@@ -224,9 +224,9 @@ func _update_shop_content() -> void:
 
 func get_total_increase(level) -> String:
 	var total_attack = 1
-	var current_level = 1  # 当前已经处理到第几级
-	var attack_value = 1   # 当前每级增加的攻击力
-	var duration = 2       # 第一个攻击值(+1)持续2次升级
+	var current_level = 1 # 当前已经处理到第几级
+	var attack_value = 1 # 当前每级增加的攻击力
+	var duration = 2 # 第一个攻击值(+1)持续2次升级
 
 	while current_level < level:
 		var remaining_levels = level - current_level
@@ -237,13 +237,13 @@ func get_total_increase(level) -> String:
 
 		if current_level < level:
 			attack_value += 1
-			duration = int(attack_value * attack_value)  # 每个攻击力持续attack_value + 1次
+			duration = int(attack_value * attack_value) # 每个攻击力持续attack_value + 1次
 	return str(total_attack)
 
 func get_total_increase_hp(level) -> String:
 	var total_hp = 1
-	var current_level = 1  # 当前已经处理到第几级
-	var hp_value = 1   
+	var current_level = 1 # 当前已经处理到第几级
+	var hp_value = 1
 	var duration = 6
 
 	while current_level < level:
@@ -255,7 +255,7 @@ func get_total_increase_hp(level) -> String:
 
 		if current_level < level:
 			hp_value += 1
-			duration = 6 + int((hp_value + 4) * hp_value)  
+			duration = 6 + int((hp_value + 4) * hp_value)
 	return str(total_hp)
 
 func get_exp_for_level(level: int) -> int:
@@ -297,7 +297,7 @@ func _on_exit_pressed() -> void:
 func _on_exit_pressed_stage() -> void:
 	in_shop = false
 	move_background_up()
-	scale_background_to_1() 
+	scale_background_to_1()
 	_transition_to_layer(canvas_layer, [shop_layer, level_layer], [bgm_change_button, world_level_option], true)
 	
 func _on_next_pressed() -> void:

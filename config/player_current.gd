@@ -2,24 +2,32 @@ extends Node
 
 @export var player_instance: Node = null
 @export var player_name: String = "yiqiu"
-@export var pc_atk: int = 50 # 局内攻击
-@export var pc_start_atk: int = 50 # 局内攻击
+@export var pc_atk: int = 25 # 局内攻击
+@export var pc_start_atk: int = 25 # 局内攻击
 @export var pc_final_atk: float = 0.0 # 局内最终伤害（例如0.1代表最后结算时伤害为110%）
-@export var pc_hp: int = 100 # 局内HP
+@export var pc_hp: int = 50 # 局内HP
 @export var pc_lv: int = 1 # 局内等级
 @export var pc_exp: int = 0 # 局内经验
-@export var pc_max_hp: int = 100 # 局内最大hp
-@export var pc_start_max_hp: int = 100 # 进入关卡时的初始HP上限
+@export var pc_max_hp: int = 50 # 局内最大hp
+@export var pc_start_max_hp: int = 50 # 进入关卡时的初始HP上限
+
 @export var pc_speed: float = 0 # 局内移速
 @export var pc_atk_speed: float = 0 # 局内攻速加成
 @export var crit_chance: float = 0.0 # 局内暴击率
 @export var crit_damage_multi: float = 0.5 # 局内暴击伤害倍率 (例如0.5代表150%伤害)
 @export var damage_reduction_rate: float = 0.0 # 局内减伤率 (例如0.1代表10%减伤)
-@export var bullet_size: float = 0
+@export var bullet_size: float = 0 # 攻击范围
 @export var point_multi: float = 0 # 额外真气获取率
 @export var exp_multi: float = 0 # 额外exp获取率
 @export var drop_multi: float = 0 # 额外掉落率
-@export var body_size: float = 1
+@export var body_size: float = 1 # 体型大小
+@export var heal_multi: float = 0 # 额外治疗加成
+@export var sheild_multi: float = 0 # 额外护盾加成
+@export var normal_monster_multi: float = 0 # 对小怪额外伤害
+@export var boss_multi: float = 0 # 对精英首领额外伤害
+@export var cooldown: float = 0 # 主动技能冷却缩减
+@export var active_skill_multi: float = 0 # 主动技能伤害加成
+
 
 @export var invincible: bool = false
 
@@ -56,7 +64,7 @@ extends Node
 @export var main_skill_swordQi_damage: float = 1
 @export var swordQi_penetration_count: int = 1
 @export var swordQi_other_sword_wave_damage: float = 0.5
-@export var swordQi_range: float = 120
+@export var swordQi_range: float = 132
 @export var jinghong_attack_count: int = 0
 
 # 树枝相关属性
@@ -210,7 +218,7 @@ func reset_player_attr() -> void:
 	PC.main_skill_swordQi_damage = 1
 	PC.swordQi_penetration_count = 1
 	PC.swordQi_other_sword_wave_damage = 0.5
-	PC.swordQi_range = 120
+	PC.swordQi_range = 132
 	
 	# 重置魔焰相关属性
 	PC.main_skill_moyan = 0
@@ -287,11 +295,11 @@ func apply_equipment_bonuses() -> void:
 	
 
 func exec_pc_atk() -> void:
-	PC.pc_atk = int(15 + int(Global.cultivation_poxu_level * 2))
+	PC.pc_atk = int(25 + int(Global.cultivation_poxu_level * 1))
 	PC.pc_start_atk = PC.pc_atk
 	
 func exec_pc_hp() -> void:
-	PC.pc_max_hp = int(15 + int(Global.cultivation_xuanyuan_level * 4))
+	PC.pc_max_hp = int(50 + int(Global.cultivation_xuanyuan_level * 2))
 	PC.pc_start_max_hp = PC.pc_max_hp
 	PC.pc_hp = PC.pc_max_hp
 	
@@ -323,43 +331,6 @@ func exec_swordqi_skills() -> void:
 			PC.main_skill_swordQi_damage += 0.06
 		if learned_skills.has("up41_3"):
 			PC.main_skill_swordQi_damage += 0.06
-
-
-func get_total_increase(level) -> String:
-	var total_attack = 1
-	var current_level = 1 # 当前已经处理到第几级
-	var attack_value = 1 # 当前每级增加的攻击力
-	var duration = 2 # 第一个攻击值(+1)持续2次升级
-
-	while current_level < level:
-		var remaining_levels = level - current_level
-		var add_times = min(duration, remaining_levels)
-
-		total_attack += attack_value * add_times
-		current_level += add_times
-
-		if current_level < level:
-			attack_value += 1
-			duration = int(attack_value * attack_value) # 每个攻击力持续attack_value + 1次
-	return str(total_attack)
-
-func get_total_increase_hp(level) -> String:
-	var total_hp = 1
-	var current_level = 1 # 当前已经处理到第几级
-	var hp_value = 1
-	var duration = 6
-
-	while current_level < level:
-		var remaining_levels = level - current_level
-		var add_times = min(duration, remaining_levels)
-
-		total_hp += hp_value * add_times
-		current_level += add_times
-
-		if current_level < level:
-			hp_value += 1
-			duration = 6 + int((hp_value + 4) * hp_value)
-	return str(total_hp)
 
 # 角色数据配置 - 用于背包界面显示
 var character_data = {
@@ -397,8 +368,8 @@ func get_character_animation_name(char_name: String = "") -> String:
 # 获取角色属性文本（用于背包界面显示）
 func get_character_attributes_text() -> String:
 	# 计算基础属性值
-	var base_atk = int(15 + int(Global.cultivation_poxu_level * 2))
-	var base_hp = int(15 + int(Global.cultivation_xuanyuan_level * 4))
+	var base_atk = int(25 + int(Global.cultivation_poxu_level * 1))
+	var base_hp = int(50 + int(Global.cultivation_xuanyuan_level * 2))
 	
 	# 获取装备加成
 	var equipment_stats = Global.EquipmentManager.calculate_total_equipment_stats()
@@ -415,10 +386,22 @@ func get_character_attributes_text() -> String:
 	var exp_rate = (1 + equipment_stats["exp_multi"]) * 100
 	var drop_rate = (1 + equipment_stats["drop_multi"]) * 100
 	
+	# 计算次要属性（用于修为计算）
+	var bullet_size_val = equipment_stats["bullet_size"] * 100
+	var body_size_val = 0.0 # 基础体型无加成
+	var heal_multi_val = equipment_stats.get("heal_multi", 0) * 100
+	var sheild_multi_val = equipment_stats.get("sheild_multi", 0) * 100
+	var normal_monster_multi_val = equipment_stats.get("normal_monster_multi", 0) * 100
+	var boss_multi_val = equipment_stats.get("boss_multi", 0) * 100
+	var cooldown_val = equipment_stats.get("cooldown", 0) * 100
+	var active_skill_multi_val = equipment_stats.get("active_skill_multi", 0) * 100
+	
 	# 计算修为
 	var cultivation_power = _calculate_cultivation_power(
 		final_atk, final_hp, atk_speed, move_speed, damage_reduction,
-		crit_rate, crit_damage, point_rate, exp_rate, drop_rate
+		crit_rate, crit_damage, point_rate, exp_rate, drop_rate,
+		bullet_size_val, body_size_val, heal_multi_val, sheild_multi_val,
+		normal_monster_multi_val, boss_multi_val, cooldown_val, active_skill_multi_val
 	)
 	
 	var attr_text = ""
@@ -430,18 +413,17 @@ func get_character_attributes_text() -> String:
 	attr_text += "移动速度  " + str(int(move_speed)) + "%\n"
 	attr_text += "减伤率  " + str(int(damage_reduction)) + "%\n"
 	attr_text += "暴击率  " + str(int(crit_rate)) + "%\n"
-	attr_text += "暴击伤害  " + str(int(crit_damage)) + "%\n"
-	attr_text += "真气获取  " + str(int(point_rate)) + "%\n"
-	attr_text += "经验获取  " + str(int(exp_rate)) + "%\n"
-	attr_text += "掉落率  " + str(int(drop_rate)) + "%"
+	attr_text += "暴击伤害  " + str(int(crit_damage)) + "%"
 	
 	return attr_text
 
 # 计算修为值
-# 公式: 攻击*攻速*暴击期望 + 体力*移动速度*减伤期望 + 真气获取 + 经验获取加成 + 掉落率加成
+# 公式: 攻击*攻速*暴击期望 + 体力*移动速度*减伤期望 + 各项额外加成
 func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: float, move_speed: float,
 								   damage_reduction: float, crit_rate: float, crit_damage: float,
-								   point_rate: float, exp_rate: float, drop_rate: float) -> int:
+								   point_rate: float, exp_rate: float, drop_rate: float,
+								   bullet_size: float = 0, body_size: float = 0, heal_multi: float = 0, sheild_multi: float = 0,
+								   normal_monster_multi: float = 0, boss_multi: float = 0, cooldown: float = 0, active_skill_multi: float = 0) -> int:
 	# 攻速实际倍率 = 1 + atk_speed/100
 	var atk_speed_multi = 1.0 + atk_speed / 100.0
 	# 暴击期望 = 1 + 暴击率 * (暴击伤害倍率 - 1)
@@ -480,9 +462,29 @@ func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: floa
 	# 减伤率每0.1%额外加3点修为（即每1%加30点）
 	var damage_reduction_bonus = damage_reduction * 120.0
 	
+	# === 次要属性额外加成 ===
+	# 攻击范围每1%提升16修为
+	var bullet_size_bonus = bullet_size * 16.0
+	# 体型大小每1%提升4修为
+	var body_size_bonus = body_size * 4.0
+	# 治疗加成每1%提升6修为
+	var heal_multi_bonus = heal_multi * 6.0
+	# 护盾加成每1%提升6修为
+	var sheild_multi_bonus = sheild_multi * 6.0
+	# 对小怪增伤每1%提升8修为
+	var normal_monster_bonus = normal_monster_multi * 8.0
+	# 精英首领增伤每1%提升8修为
+	var boss_bonus = boss_multi * 8.0
+	# 主动技能冷却缩减每1%提升32修为
+	var cooldown_bonus = cooldown * 32.0
+	# 主动技能增伤每1%提升6修为
+	var active_skill_bonus = active_skill_multi * 6.0
+	
 	# 总修为
 	var total_cultivation = atk_part + hp_part + point_part + exp_bonus + drop_bonus \
-		+ atk_speed_bonus + move_speed_bonus + crit_rate_bonus + crit_damage_bonus + damage_reduction_bonus
+		+ atk_speed_bonus + move_speed_bonus + crit_rate_bonus + crit_damage_bonus + damage_reduction_bonus \
+		+ bullet_size_bonus + body_size_bonus + heal_multi_bonus + sheild_multi_bonus \
+		+ normal_monster_bonus + boss_bonus + cooldown_bonus + active_skill_bonus
 	
 	return int(total_cultivation)
 
@@ -507,3 +509,36 @@ func _get_cultivation_bbcode(cultivation_power: int) -> String:
 	
 	result += "[/font_size]"
 	return result
+
+# 获取次要属性文本（用于背包界面悬停显示）
+func get_secondary_attributes_text() -> String:
+	# 获取装备加成
+	var equipment_stats = Global.EquipmentManager.calculate_total_equipment_stats()
+	
+	# 计算次要属性
+	var bullet_size_val = (1 + equipment_stats["bullet_size"]) * 100
+	var point_multi_val = (1 + Global.cultivation_hualing_level * 0.05 + equipment_stats["point_multi"]) * 100
+	var exp_multi_val = (1 + equipment_stats["exp_multi"]) * 100
+	var drop_multi_val = (1 + equipment_stats["drop_multi"]) * 100
+	var body_size_val = 100.0 # 基础体型
+	var heal_multi_val = (1 + equipment_stats.get("heal_multi", 0)) * 100
+	var sheild_multi_val = (1 + equipment_stats.get("sheild_multi", 0)) * 100
+	var normal_monster_multi_val = equipment_stats.get("normal_monster_multi", 0) * 100
+	var boss_multi_val = equipment_stats.get("boss_multi", 0) * 100
+	var cooldown_val = equipment_stats.get("cooldown", 0) * 100
+	var active_skill_multi_val = equipment_stats.get("active_skill_multi", 0) * 100
+	
+	var attr_text = ""
+	attr_text += "攻击范围  " + str(int(bullet_size_val)) + "%\n"
+	attr_text += "真气获取  " + str(int(point_multi_val)) + "%\n"
+	attr_text += "经验获取  " + str(int(exp_multi_val)) + "%\n"
+	attr_text += "掉落率  " + str(int(drop_multi_val)) + "%\n"
+	attr_text += "体型大小  " + str(int(body_size_val)) + "%\n"
+	attr_text += "治疗加成  " + str(int(heal_multi_val)) + "%\n"
+	attr_text += "护盾加成  " + str(int(sheild_multi_val)) + "%\n"
+	attr_text += "对小怪增伤  " + str(int(normal_monster_multi_val)) + "%\n"
+	attr_text += "对精英首领增伤  " + str(int(boss_multi_val)) + "%\n"
+	attr_text += "主动技能冷却缩减  " + str(int(cooldown_val)) + "%\n"
+	attr_text += "主动技能增伤  " + str(int(active_skill_multi_val)) + "%"
+	
+	return attr_text

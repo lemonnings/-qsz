@@ -46,6 +46,7 @@ extends CanvasLayer
 @export var now_character_name: RichTextLabel # 当前角色名字
 @export var now_character_attr: RichTextLabel # 当前角色属性
 
+@export var other_attr: Button # 次要属性按钮
 @export var exit_button: Button # 退出界面按钮
 
 # 当前页签和分页状态
@@ -62,6 +63,10 @@ var sorted_items: Array = []
 # 悬浮提示框
 var tooltip_panel: Panel = null
 var tooltip_visible: bool = false
+
+# 次要属性面板
+var secondary_attr_panel: Panel = null
+var secondary_attr_tween: Tween = null # 次要属性面板动画
 
 # 双击检测
 var last_click_time: float = 0.0
@@ -107,6 +112,14 @@ func _ready():
 	
 	# 创建悬浮提示框
 	_create_tooltip()
+	
+	# 创建次要属性面板
+	_create_secondary_attr_panel()
+	
+	# 连接次要属性按钮鼠标事件
+	if other_attr:
+		other_attr.mouse_entered.connect(_on_other_attr_mouse_entered)
+		other_attr.mouse_exited.connect(_on_other_attr_mouse_exited)
 	
 	# 监听可见性变化信号 - 每次显示时刷新界面
 	visibility_changed.connect(_on_visibility_changed)
@@ -686,3 +699,96 @@ func show_bag():
 	PC.movement_disabled = true
 	get_tree().paused = true
 	refresh_bag()
+
+# 创建次要属性面板
+func _create_secondary_attr_panel():
+	secondary_attr_panel = Panel.new()
+	secondary_attr_panel.name = "SecondaryAttrPanel"
+	secondary_attr_panel.visible = false
+	secondary_attr_panel.z_index = 100
+	secondary_attr_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	secondary_attr_panel.modulate.a = 0.0 # 初始透明
+	
+	# 设置半透明黑色背景
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.65)
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
+	secondary_attr_panel.add_theme_stylebox_override("panel", style)
+	
+	# 创建内容标签
+	var content_label = Label.new()
+	content_label.name = "ContentLabel"
+	content_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	content_label.position = Vector2(12, 10)
+	content_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER # 文字居中
+	_setup_label_style(content_label)
+	secondary_attr_panel.add_child(content_label)
+	
+	add_child(secondary_attr_panel)
+
+# 次要属性按钮鼠标进入
+func _on_other_attr_mouse_entered():
+	_show_secondary_attr_panel()
+
+# 次要属性按钮鼠标离开
+func _on_other_attr_mouse_exited():
+	_hide_secondary_attr_panel()
+
+# 显示次要属性面板
+func _show_secondary_attr_panel():
+	if !secondary_attr_panel or !other_attr:
+		return
+	
+	# 获取次要属性文本
+	var content_label = secondary_attr_panel.get_node("ContentLabel")
+	if content_label:
+		content_label.text = PC.get_secondary_attributes_text()
+	
+	# 等待一帧让布局更新
+	await get_tree().process_frame
+	
+	# 计算面板大小
+	if content_label:
+		var content_size = content_label.get_combined_minimum_size()
+		var panel_size = content_size + Vector2(24, 20)
+		secondary_attr_panel.custom_minimum_size = panel_size
+		secondary_attr_panel.size = panel_size
+	
+	# 将面板放在按钮上方
+	var btn_global_pos = other_attr.global_position
+	var panel_pos = btn_global_pos - Vector2(-5, secondary_attr_panel.size.y + 5)
+	
+	# 确保不超出屏幕顶部
+	if panel_pos.y < 0:
+		panel_pos.y = btn_global_pos.y + other_attr.size.y + 5
+	
+	# 确保不超出屏幕右侧
+	var viewport_size = get_viewport().get_visible_rect().size
+	if panel_pos.x + secondary_attr_panel.size.x > viewport_size.x:
+		panel_pos.x = viewport_size.x - secondary_attr_panel.size.x - 10
+	
+	secondary_attr_panel.global_position = panel_pos
+	secondary_attr_panel.visible = true
+	
+	# 渐入动画 - 先停止旧动画
+	if secondary_attr_tween and secondary_attr_tween.is_valid():
+		secondary_attr_tween.kill()
+	secondary_attr_tween = create_tween()
+	secondary_attr_tween.tween_property(secondary_attr_panel, "modulate:a", 1.0, 0.3)
+
+# 隐藏次要属性面板
+func _hide_secondary_attr_panel():
+	if secondary_attr_panel:
+		# 渐出动画 - 先停止旧动画
+		if secondary_attr_tween and secondary_attr_tween.is_valid():
+			secondary_attr_tween.kill()
+		secondary_attr_tween = create_tween()
+		secondary_attr_tween.tween_property(secondary_attr_panel, "modulate:a", 0.0, 0.3)
+		secondary_attr_tween.tween_callback(func(): secondary_attr_panel.visible = false)

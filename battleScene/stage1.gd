@@ -56,7 +56,8 @@ func _ready() -> void:
 	PC.player_instance = $Player
 	Global.emit_signal("reset_camera")
 	map_mechanism_num = 0
-	map_mechanism_num_max = 1080
+	# map_mechanism_num_max = 1080
+	map_mechanism_num_max = 12800
 	
 	Global.reset_dps_counter()
 	

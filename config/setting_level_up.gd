@@ -1301,17 +1301,17 @@ func reward_RBranch():
 
 func reward_SRBranch():
 	PC.main_skill_branch += 1
-	PC.main_skill_branch_damage += 0.26
+	PC.main_skill_branch_damage += 0.25
 	_level_up_action()
 	
 func reward_SSRBranch():
 	PC.main_skill_branch += 1
-	PC.main_skill_branch_damage += 0.32
+	PC.main_skill_branch_damage += 0.3
 	_level_up_action()
 
 func reward_URBranch():
 	PC.main_skill_branch += 1
-	PC.main_skill_branch_damage += 0.44
+	PC.main_skill_branch_damage += 0.4
 	_level_up_action()
 
 func reward_Branch1():
@@ -1357,17 +1357,17 @@ func reward_Rmoyan():
 
 func reward_SRmoyan():
 	PC.main_skill_moyan += 1
-	PC.main_skill_moyan_damage += 0.26
+	PC.main_skill_moyan_damage += 0.25
 	_level_up_action()
 	
 func reward_SSRmoyan():
 	PC.main_skill_moyan += 1
-	PC.main_skill_moyan_damage += 0.32
+	PC.main_skill_moyan_damage += 0.3
 	_level_up_action()
 
 func reward_URmoyan():
 	PC.main_skill_moyan += 1
-	PC.main_skill_moyan_damage += 0.44
+	PC.main_skill_moyan_damage += 0.4
 	_level_up_action()
 
 func reward_Moyan1():
@@ -1402,17 +1402,17 @@ func reward_RRingFire():
 
 func reward_SRRingFire():
 	PC.main_skill_ringFire += 1
-	PC.main_skill_ringFire_damage += 0.26
+	PC.main_skill_ringFire_damage += 0.25
 	_level_up_action()
 	
 func reward_SSRRingFire():
 	PC.main_skill_ringFire += 1
-	PC.main_skill_ringFire_damage += 0.32
+	PC.main_skill_ringFire_damage += 0.3
 	_level_up_action()
 
 func reward_URRingFire():
 	PC.main_skill_ringFire += 1
-	PC.main_skill_ringFire_damage += 0.44
+	PC.main_skill_ringFire_damage += 0.4
 	_level_up_action()
 
 func reward_RingFire1():
@@ -1446,17 +1446,17 @@ func reward_Rriyan():
 
 func reward_SRriyan():
 	PC.main_skill_riyan += 1
-	PC.main_skill_riyan_damage += 0.26
+	PC.main_skill_riyan_damage += 0.25
 	_level_up_action()
 	
 func reward_SSRriyan():
 	PC.main_skill_riyan += 1
-	PC.main_skill_riyan_damage += 0.32
+	PC.main_skill_riyan_damage += 0.3
 	_level_up_action()
 
 func reward_URriyan():
 	PC.main_skill_riyan += 1
-	PC.main_skill_riyan_damage += 0.44
+	PC.main_skill_riyan_damage += 0.4
 	_level_up_action()
 
 func reward_Riyan1():
@@ -1486,11 +1486,12 @@ func reward_Riyan22():
 
 # 全局升级效果处理函数 (当选择某些特定被动后，升级时会触发额外属性转换)
 func global_level_up():
-	# 基础属性成长：攻击+1再乘以1.025，HP上限+2再乘以1.01
-	PC.pc_start_atk += 1
-	PC.pc_atk = int((PC.pc_atk + 1) * 1.025)
+	# 基础属性成长
+	PC.pc_atk += 2
+	PC.pc_start_atk += 2
+	PC.pc_max_hp += 2
 	PC.pc_start_max_hp += 2
-	PC.pc_max_hp = int((PC.pc_max_hp + 2) * 1.01)
+	PC.pc_hp += 2 # 升级时也恢复一点HP
 
 	# R11系列: 行云 - 每4%移速提升攻击与HP上限
 	var r11_count = PC.selected_rewards.count("R11")
@@ -1549,7 +1550,7 @@ func global_level_up():
 
 	# 处理生命恢复效果 (基于 "hpRecover" 标记的数量)
 	var recoverUp = PC.selected_rewards.count("hpRecover") # 获取 "hpRecover" 标记的数量
-	var recoverNum = (0.4 + recoverUp * 0.2) * PC.pc_max_hp # 基础恢复40%HP，每多一个标记额外恢复20%HP
+	var recoverNum = (0.1 + recoverUp * 0.05) * PC.pc_max_hp # 基础恢复10%HP，每多一个标记额外恢复5%HP
 	if PC.pc_hp + recoverNum > PC.pc_max_hp: # 如果恢复后超过HP上限
 		PC.pc_hp = PC.pc_max_hp # 则设置为HP上限
 	else:
