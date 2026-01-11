@@ -8,7 +8,7 @@ var collision_shape: CollisionShape2D
 var lifetime_timer: Timer
 var damage_timer: Timer
 
-var SWORD_WAVE_WIDTH = 0.8 * PC.bullet_size # 剑痕的宽度，可能作为Y轴的缩放值或绝对像素值
+var SWORD_WAVE_WIDTH = 0.9 * PC.bullet_size # 剑痕的宽度，可能作为Y轴的缩放值或绝对像素值
 
 func _ready():
 	# 获取子节点引用，请确保 swordWave.tscn 场景中包含名为 Sprite2D 和 CollisionShape2D 的子节点

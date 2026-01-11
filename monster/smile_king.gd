@@ -1,9 +1,9 @@
 extends Area2D
 
 @onready var sprite = $BossA
-var is_dead : bool = false
-var is_attacking : bool = false
-var allow_turning : bool = true
+var is_dead: bool = false
+var is_attacking: bool = false
+var allow_turning: bool = true
 
 # 屏幕边界
 @export var top_boundary: float = 0.0
@@ -12,28 +12,32 @@ var allow_turning : bool = true
 @export var right_boundary: float = 340.0
 
 # 0为从左到右，1为从右向左，2为随机移动，3为靠近角色，4为y轴靠近x轴保持距离，5为从左向右y随机，6为从右向左y随机
-var move_direction : int = 4
-var target_position : Vector2 # 用于存储移动目标位置
-var update_move_timer : Timer # 移动模式计时器
+var move_direction: int = 4
+var target_position: Vector2 # 用于存储移动目标位置
+var update_move_timer: Timer # 移动模式计时器
 
-var speed : float = SettingMoster.slime("speed") * 0.5 # Boss移动速度，可以调整
-var hpMax : float = (Global.current_dps * 5) + (SettingMoster.slime("hp") * 80) # Boss最大生命值，可以调整
-var hp : float = hpMax # Boss当前生命值
-var atk : float = SettingMoster.slime("atk") * 0.9 # Boss攻击力，可以调整
-var get_point : int = SettingMoster.slime("point") * 25 # 击败Boss获得的积分
-var get_exp : int = 0 # 击败Boss获得的经验
+var speed: float = SettingMoster.slime("speed") * 0.5 # Boss移动速度，可以调整
+var hpMax: float = (Global.current_dps * 5) + (SettingMoster.slime("hp") * 80) # Boss最大生命值，可以调整
+var hp: float = hpMax # Boss当前生命值
+var atk: float = SettingMoster.slime("atk") * 0.9 # Boss攻击力，可以调整
+var get_point: int = SettingMoster.slime("point") * 25 # 击败Boss获得的积分
+var get_exp: int = 0 # 击败Boss获得的经验
 
-var attack_timer : Timer # Boss攻击计时器
-var attack_indicator : Node2D # 攻击范围指示器
-var outer_line_node : Line2D
-var inner_line_node : Line2D
-var charge_indicator_direction : Vector2 # 存储冲锋指示器方向
-var charge_target_global_position : Vector2 # 存储冲锋的最终目标全局位置
+var attack_timer: Timer # Boss攻击计时器
+var attack_indicator: Node2D # 攻击范围指示器
+var outer_line_node: Line2D
+var inner_line_node: Line2D
+var charge_indicator_direction: Vector2 # 存储冲锋指示器方向
+var charge_target_global_position: Vector2 # 存储冲锋的最终目标全局位置
 
 func _ready():
 	# 防止boss升级期间打人
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	hp = hpMax # 初始化当前血量
+	
+	# 创建脚底阴影（Boss阴影较大）
+	CharacterEffects.create_shadow(self, 50.0, 16.0, 14.0)
+	
 	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "史莱姆王")
 	Global.emit_signal("boss_hp_bar_show")
 	
@@ -83,7 +87,7 @@ func _physics_process(delta: float) -> void:
 
 func _move_pattern(delta: float):
 	var direction = position.direction_to(target_position)
-	if position.distance_to(target_position) > 5: 
+	if position.distance_to(target_position) > 5:
 		position += direction * speed * delta
 
 func _choose_attack():
@@ -96,9 +100,9 @@ func _choose_attack():
 	print("Boss chooses attack: ", attack_type)
 
 	match attack_type:
-		1: 
+		1:
 			_attack_charge() # 直线冲锋，撞到墙上，入射角 = 反射角，连续反弹2次（高难下，改为反弹4次）
-		2: 
+		2:
 			_attack_random_circle() # 在玩家周围200px内，每0.1秒生成一个15像素的，长宽比为0.67的圆形攻击范围，预警时间为1秒，共生成30个（高难下，改为0.075-18像素-生成40个）
 		3:
 			_attack_continuous_ground_pound() # 连续震地三次，范围100px,150px，200px（高难下，震地第四次，250px）
@@ -131,10 +135,10 @@ func _attack_charge():
 
 	# 定义边界的四个线段
 	var boundaries = [
-		[Vector2(left_boundary, top_boundary), Vector2(right_boundary, top_boundary)],       # 上边界
+		[Vector2(left_boundary, top_boundary), Vector2(right_boundary, top_boundary)], # 上边界
 		[Vector2(left_boundary, bottom_boundary), Vector2(right_boundary, bottom_boundary)], # 下边界
-		[Vector2(left_boundary, top_boundary), Vector2(left_boundary, bottom_boundary)],     # 左边界
-		[Vector2(right_boundary, top_boundary), Vector2(right_boundary, bottom_boundary)]    # 右边界
+		[Vector2(left_boundary, top_boundary), Vector2(left_boundary, bottom_boundary)], # 左边界
+		[Vector2(right_boundary, top_boundary), Vector2(right_boundary, bottom_boundary)] # 右边界
 	]
 
 	var closest_collision_point = intended_target_pos # 默认为原始目标
@@ -187,18 +191,18 @@ func _attack_charge():
 		tween.tween_property(self, "global_position", final_target_pos, charge_time)
 		tween.finished.connect(func():
 			is_attacking = false
-			sprite.play("run") 
+			sprite.play("run")
 			allow_turning = true # 允许boss转向
 		)
 	else:
 		# 如果无法冲锋 (例如已在边界、目标点与当前位置相同，或计算出的时间为0或距离过小)
 		is_attacking = false
-		sprite.play("run") 
+		sprite.play("run")
 		allow_turning = true # 允许boss转向
 
 
 func _on_body_entered(body: Node2D) -> void:
-	if(body is CharacterBody2D and not is_dead and not PC.invincible) :
+	if (body is CharacterBody2D and not is_dead and not PC.invincible):
 		Global.emit_signal("player_hit")
 		var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate)) # Boss也应用减伤
 		PC.pc_hp -= actual_damage
@@ -227,7 +231,7 @@ func _is_monster_in_damage_range() -> bool:
 	# 扩展边界，使其在屏幕上保持固定的N像素边距 (例如20像素)
 	# 原来的 damage_margin 是固定的世界单位，导致缩放时屏幕上的实际边距变化
 	# 现在我们将其理解为屏幕像素，并转换为世界单位
-	var screen_pixel_margin = 20.0 
+	var screen_pixel_margin = 20.0
 	if camera_zoom.x == 0.0 or camera_zoom.y == 0.0:
 		# 防止除以零错误，尽管camera_zoom通常不会是0
 		# 在这种不太可能的情况下，可以不加边距或设置一个默认的世界边距
@@ -244,7 +248,7 @@ func _is_monster_in_damage_range() -> bool:
 	
 	# 检查怪物位置是否在可伤害范围内
 	var monster_pos = global_position
-	return (monster_pos.x >= left_bound and monster_pos.x <= right_bound and 
+	return (monster_pos.x >= left_bound and monster_pos.x <= right_bound and
 			monster_pos.y >= top_bound and monster_pos.y <= bottom_bound)
 
 
@@ -278,6 +282,10 @@ func _on_area_entered(area: Area2D) -> void:
 				Global.emit_signal("boss_defeated", get_point) # 发送Boss被击败信号
 				
 			is_dead = true
+			# 隐藏阴影
+			var shadow = get_node_or_null("Shadow")
+			if shadow:
+				shadow.visible = false
 			attack_timer.stop()
 			# await get_tree().create_timer(1.0).timeout # 等待死亡动画
 			queue_free()
@@ -355,11 +363,11 @@ func _attack_random_circle():
 		
 		# 开始预警：15像素半径，长宽比0.67的椭圆形攻击
 		warning_circle.start_warning(
-			attack_pos,      # 生成位置
-			0.67,            # 长宽比0.67
-			15.0,            # 半径15像素
-			1.0,             # 预警时间1秒
-			atk              # 伤害值
+			attack_pos, # 生成位置
+			0.67, # 长宽比0.67
+			15.0, # 半径15像素
+			1.0, # 预警时间1秒
+			atk # 伤害值
 		)
 		
 		# 等待0.1秒再生成下一个

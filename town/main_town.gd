@@ -14,6 +14,7 @@ extends Node2D
 @export var tip: Node
 
 @export var battle_scene: String
+@export var battle_scene_stage2: String
 
 @export var cystal: AnimatedSprite2D
 @export var cystal2: AnimatedSprite2D
@@ -427,9 +428,11 @@ func _on_stage_1_pressed() -> void:
 	SceneChange.change_scene(battle_scene, true)
 	
 func _on_stage_2_pressed() -> void:
-	Global.in_town = true
+	Global.in_town = false
+	PC.movement_disabled = false
 	PC.reset_player_attr()
-
+	SceneChange.change_scene(battle_scene_stage2, true)
+	
 func refresh_point() -> void:
 	point_label.text = "真气 " + str(Global.total_points)
 

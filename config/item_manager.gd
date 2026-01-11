@@ -23,7 +23,7 @@ extends Node
 
 var items_data = {
 	"item_001": {
-		"item_name": "生命精华",
+		"item_name": " ",
 		"item_stack_max": 10,
 		"item_type": "immediate", # 立即生效
 		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/healths.png",
@@ -123,8 +123,8 @@ var items_data = {
 			"item_source": "击败水属性怪物获取",
 			"item_use_condition": "",
 			"item_detail": "蕴含微弱水灵力的叶片，可用于炼药与制符",
-			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_010": {
@@ -136,8 +136,8 @@ var items_data = {
 			"item_source": "击败风属性怪物获取",
 			"item_use_condition": "",
 			"item_detail": "含有风息的灵草，轻盈柔韧，多用途基础材",
-			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_011": {
@@ -150,7 +150,7 @@ var items_data = {
 			"item_use_condition": "",
 			"item_detail": "适合书写与绘制符箓的纸张，纤维韧性良好",
 			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_012": {
@@ -175,8 +175,8 @@ var items_data = {
 			"item_source": "击败宣纸精获取",
 			"item_use_condition": "",
 			"item_detail": "特制纸片，耐灵力冲刷，刻绘符阵的常备材",
-			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_014": {
@@ -188,8 +188,8 @@ var items_data = {
 			"item_source": "击败土属性怪物获取",
 			"item_use_condition": "",
 			"item_detail": "蕴含土灵气的矿石，冶炼与炼器的基础材料",
-			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_015": {
@@ -201,8 +201,8 @@ var items_data = {
 			"item_source": "击败火属性怪物获取",
 			"item_use_condition": "",
 			"item_detail": "凝聚火灵的晶体，可为法器提供稳定热源",
-			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_016": {
@@ -227,8 +227,8 @@ var items_data = {
 			"item_source": "击败雷属性怪物获取",
 			"item_use_condition": "",
 			"item_detail": "带有微弱电流的灵丝，导灵性出色",
-			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_018": {
@@ -240,8 +240,8 @@ var items_data = {
 			"item_source": "通过合成获得",
 			"item_use_condition": "",
 			"item_detail": "纯净水属性材料，常作基础媒介",
-			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_019": {
@@ -253,8 +253,8 @@ var items_data = {
 			"item_source": "通过合成获得",
 			"item_use_condition": "",
 			"item_detail": "纯粹风属性材料，适合轻灵法阵",
-			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_020": {
@@ -266,8 +266,8 @@ var items_data = {
 			"item_source": "通过合成获得",
 			"item_use_condition": "",
 			"item_detail": "纯粹雷属性材料，增幅冲击术式",
-			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_021": {
@@ -279,8 +279,8 @@ var items_data = {
 			"item_source": "通过合成获得",
 			"item_use_condition": "",
 			"item_detail": "纯粹土属性材料，稳固器阵结构",
-			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_022": {
@@ -292,8 +292,8 @@ var items_data = {
 			"item_source": "通过合成获得",
 			"item_use_condition": "",
 			"item_detail": "纯粹火属性材料，提升燃性与爆发",
-			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_023": {
@@ -409,8 +409,8 @@ var items_data = {
 			"item_source": "击败水属性敌人有低概率获得",
 			"item_use_condition": "",
 			"item_detail": "高纯度水属性以太，强化水系术式的核心材料",
-			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_rare": "epic", # 传说
+			"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_032": {
@@ -422,8 +422,8 @@ var items_data = {
 			"item_source": "击败风属性敌人有低概率获得",
 			"item_use_condition": "",
 			"item_detail": "高纯度风属性以太，提升灵敏与速率",
-			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_rare": "epic", # 传说
+			"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_033": {
@@ -435,8 +435,8 @@ var items_data = {
 			"item_source": "击败雷属性敌人有低概率获得",
 			"item_use_condition": "",
 			"item_detail": "高纯度雷属性以太，增强穿透与爆发",
-			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_rare": "epic", # 传说
+			"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_034": {
@@ -448,8 +448,8 @@ var items_data = {
 			"item_source": "击败土属性敌人有低概率获得",
 			"item_use_condition": "",
 			"item_detail": "高纯度土属性以太，提升稳定与防护",
-			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_rare": "epic", # 传说
+			"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_035": {
@@ -461,8 +461,8 @@ var items_data = {
 			"item_source": "击败火属性敌人有低概率获得",
 			"item_use_condition": "",
 			"item_detail": "高纯度火属性以太，增强灼烧与爆裂",
-			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_rare": "epic", # 传说
+			"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_036": {
@@ -526,8 +526,8 @@ var items_data = {
 			"item_source": "合成获得",
 			"item_use_condition": "",
 			"item_detail": "果实回复效果提升10%（最多10次）",
-			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_041": {
@@ -539,8 +539,8 @@ var items_data = {
 			"item_source": "合成获得",
 			"item_use_condition": "",
 			"item_detail": "获得后，可在战斗之中解锁武器-仙枝的领悟选项",
-			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_rare": "epic", # 传说
+			"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_042": {
@@ -552,8 +552,8 @@ var items_data = {
 			"item_source": "合成获得",
 			"item_use_condition": "",
 			"item_detail": "获得后，可在战斗之中解锁武器-柔水的领悟选项",
-			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_rare": "epic", # 传说
+			"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_043": {
@@ -565,8 +565,8 @@ var items_data = {
 			"item_source": "合成获得",
 			"item_use_condition": "",
 			"item_detail": "解锁合成篇·下篇",
-			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_rare": "epic", # 传说
+			"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		}
 		# 更多物品可以添加到这里

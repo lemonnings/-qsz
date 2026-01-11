@@ -34,7 +34,7 @@ func _ready():
 
 func create_warning_shape():
 	"""创建预警的扇形形状"""
-	warning_shape = preload("res://util/sector_drawer.gd").new()
+	warning_shape = preload("res://Script/util/sector_drawer.gd").new()
 	add_child(warning_shape)
 	warning_shape.z_index = 10 # 确保在其他元素之上
 
@@ -122,10 +122,14 @@ func finish_warning():
 	"""结束预警，检查伤害"""
 	is_warning_active = false
 	
+	print("扇形AOE预警结束，检查伤害判定...")
+	
 	# 检查玩家是否在范围内
 	if player_ref and is_player_in_range():
 		# 对玩家造成伤害
 		deal_damage_to_player()
+	else:
+		print("玩家不在扇形范围内，未造成伤害")
 	
 	# 播放动画（如果有）
 	if animation_player != null:
@@ -141,6 +145,7 @@ func finish_warning():
 func is_player_in_range() -> bool:
 	"""检查玩家是否在扇形AOE范围内"""
 	if not player_ref:
+		print("扇形AOE: 玩家引用为空")
 		return false
 	
 	# 计算玩家相对于扇形顶点的位置
@@ -149,7 +154,9 @@ func is_player_in_range() -> bool:
 	
 	# 检查距离是否在半径范围内
 	var distance = relative_pos.length()
+	print("扇形AOE判定 - 玩家距离: ", distance, " 扇形半径: ", radius)
 	if distance > radius:
+		print("扇形AOE: 玩家距离超出半径")
 		return false
 	
 	# 计算玩家相对于扇形中心的角度
@@ -158,7 +165,11 @@ func is_player_in_range() -> bool:
 	
 	# 检查角度是否在扇形范围内
 	var half_sector_angle = sector_angle / 2.0
-	return angle_diff <= half_sector_angle
+	print("扇形AOE判定 - 玩家角度差: ", rad_to_deg(angle_diff), "度 扇形半角: ", rad_to_deg(half_sector_angle), "度")
+	
+	var in_range = angle_diff <= half_sector_angle
+	print("扇形AOE判定结果: ", in_range)
+	return in_range
 
 func angle_difference(angle1: float, angle2: float) -> float:
 	"""计算两个角度之间的最小差值"""
@@ -171,9 +182,27 @@ func angle_difference(angle1: float, angle2: float) -> float:
 
 func deal_damage_to_player():
 	"""对玩家造成伤害"""
-	if player_ref and player_ref.has_method("take_damage"):
-		player_ref.take_damage(damage)
-		damage_dealt.emit(damage)
+	if not player_ref or not is_instance_valid(player_ref):
+		return
+	
+	# 检查无敌状态
+	if PC.invincible:
+		return
+	
+	# 触发受击效果
+	Global.emit_signal("player_hit")
+	
+	# 计算实际伤害（考虑减伤率）
+	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))
+	PC.pc_hp -= actual_damage
+	
+	print("扇形AOE对玩家造成伤害: ", actual_damage)
+	
+	# 检查死亡
+	if PC.pc_hp <= 0:
+		PC.player_instance.game_over()
+	
+	damage_dealt.emit(float(actual_damage))
 
 func play_animation():
 	"""播放预警结束后的动画"""

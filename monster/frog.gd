@@ -30,6 +30,14 @@ const FLEE_DURATION: float = 2.4
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 
+# 精英怪相关
+var is_elite: bool = false
+var drop_rate_multiplier: float = 1.0
+
+# 攻击方向锁定
+var locked_attack_direction: Vector2 = Vector2.ZERO # 锁定的攻击方向
+var is_direction_locked: bool = false # 是否锁定方向（用于禁止翻转）
+
 signal debuff_applied(debuff_id: String)
 
 func _ready() -> void:
@@ -37,6 +45,9 @@ func _ready() -> void:
 	add_child(debuff_manager)
 	debuff_applied.connect(debuff_manager.add_debuff)
 	speed = base_speed # Initialize speed
+	
+	# 创建脚底阴影
+	CharacterEffects.create_shadow(self, 20.0, 7.0, 13.0)
 
 	# 初始化移动相关
 	action_timer = Timer.new()
@@ -53,9 +64,12 @@ func _enter_state(new_state: State):
 		State.SEEKING_PLAYER:
 			# 在这个状态下，持续寻找玩家
 			# print("Entering SEEKING_PLAYER")
+			is_direction_locked = false # 解锁方向
 			$AnimatedSprite2D.play("run")
 		State.ATTACKING:
 			# print("Entering ATTACKING")
+			# 在准备攻击时就锁定攻击方向
+			_lock_attack_direction()
 			$AnimatedSprite2D.play("attack") # 或者一个准备攻击的动画
 			action_timer.wait_time = ATTACK_PREPARE_TIME
 			action_timer.timeout.connect(_fire_fireball, CONNECT_ONE_SHOT)
@@ -66,11 +80,21 @@ func _enter_state(new_state: State):
 			_spawn_fireball()
 			_enter_state(State.FLEEING) # 发射后立即进入远离状态
 		State.FLEEING:
+			is_direction_locked = false # 解锁方向
 			$AnimatedSprite2D.play("run")
 			_determine_flee_target()
 			action_timer.wait_time = FLEE_DURATION
 			action_timer.timeout.connect(_on_flee_timeout, CONNECT_ONE_SHOT)
 			action_timer.start()
+
+# 锁定攻击方向
+func _lock_attack_direction() -> void:
+	is_direction_locked = true
+	if PC.player_instance:
+		locked_attack_direction = (PC.player_instance.global_position - global_position).normalized()
+	else:
+		# 没有玩家实例时，使用当前面向
+		locked_attack_direction = Vector2.LEFT if sprite.flip_h else Vector2.RIGHT
 
 func _fire_fireball():
 	if is_dead:
@@ -78,20 +102,18 @@ func _fire_fireball():
 	_enter_state(State.FIRING)
 
 func _spawn_fireball():
-	var fireball_scene = preload("res://Scenes/frog_attack.tscn")
+	var fireball_scene = preload("res://Scenes/moster/frog_attack.tscn")
 	var fireball = fireball_scene.instantiate()
 	get_parent().add_child(fireball)
 	fireball.global_position = global_position # 火球从青蛙当前位置发射
 
-	# 火球方向应朝向玩家
-	if PC.player_instance:
-		var player_position_at_shot = PC.player_instance.global_position
-		var direction_to_player = (player_position_at_shot - global_position).normalized()
-		fireball.set_direction(direction_to_player) # set_direction会自动处理旋转
+	# 使用锁定的攻击方向
+	if locked_attack_direction != Vector2.ZERO:
+		fireball.set_direction(locked_attack_direction)
 	else:
-		# 如果没有玩家实例，默认向右或向左发射
-		var default_direction = Vector2.LEFT if not sprite.flip_h else Vector2.RIGHT
-		fireball.set_direction(default_direction) # set_direction会自动处理旋转
+		# 如果没有锁定方向，使用当前面向
+		var default_direction = Vector2.LEFT if sprite.flip_h else Vector2.RIGHT
+		fireball.set_direction(default_direction)
 	
 	fireball.play_animation("fire") # 假设 frog_attack.gd 有 play_animation 方法
 
@@ -168,22 +190,9 @@ func _physics_process(delta: float) -> void:
 	if is_dead:
 		return
 
-	# 处理敌人之间的碰撞 - 直接防止重叠
-	var overlapping_bodies = get_overlapping_areas()
-	
-	for body in overlapping_bodies:
-		if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
-			var distance = global_position.distance_to(body.global_position)
-			var min_distance = 20.0 # 青蛙稍大，需要更大间距
-			
-			# 只有在非攻击和发射状态下才进行位置调整，避免打断攻击动作
-			if current_state != State.ATTACKING and current_state != State.FIRING:
-				# 如果距离太近，直接调整位置
-				if distance < min_distance and distance > 0.1:
-					var direction_away = (global_position - body.global_position).normalized()
-					var overlap = min_distance - distance
-					# 两个物体各自移动一半的重叠距离
-					position += direction_away * (overlap * 0.5)
+	# 处理推挤效果（攻击和发射状态不推挤，避免打断攻击动作）
+	if current_state != State.ATTACKING and current_state != State.FIRING:
+		CharacterEffects.apply_separation(self, 13.0, 13.0)
 
 	if hp <= 0:
 		free_health_bar()
@@ -199,9 +208,13 @@ func _physics_process(delta: float) -> void:
 				Global.emit_signal("_fire_ring_bullets")
 			$death.play()
 			is_dead = true
+			# 隐藏阴影
+			var shadow = get_node_or_null("Shadow")
+			if shadow:
+				shadow.visible = false
 			if SettingMoster.frog("itemdrop") != null:
 				for key in SettingMoster.frog("itemdrop"):
-					var drop_chance = SettingMoster.frog("itemdrop")[key]
+					var drop_chance = SettingMoster.frog("itemdrop")[key] * drop_rate_multiplier
 					if randf() <= drop_chance:
 						Global.emit_signal("drop_out_item", key, 1, global_position)
 
@@ -217,7 +230,7 @@ func _physics_process(delta: float) -> void:
 		# 区域4深处，城堡
 		# 区域5深处，火山
 		# 区域6核心，山顶
-	if current_state != State.FLEEING and PC.player_instance: # 非逃跑状态下 (SEEKING_PLAYER, ATTACKING, FIRING)，朝向玩家
+	if not is_direction_locked and current_state != State.FLEEING and PC.player_instance: # 未锁定方向且非逃跑状态下，朝向玩家
 		var player_pos = PC.player_instance.global_position
 		if global_position.x > player_pos.x: # 青蛙在玩家右侧
 			sprite.flip_h = true # 面向左 (朝向玩家)

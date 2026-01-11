@@ -39,8 +39,8 @@ var active_summons: Array = [] # 当前活跃的召唤物列表
 
 
 # 摄像头缩放相关变量
-@export var min_zoom: float = 1.6 # 最小缩放（视野最大）
-@export var max_zoom: float = 5.2 # 最大缩放（视野最小）
+@export var min_zoom: float = 1.4 # 最小缩放（视野最大）
+@export var max_zoom: float = 4.5 # 最大缩放（视野最小）
 @export var zoom_speed: float = 0.05 # 缩放速度
 @onready var camera: Camera2D = $Camera2D
 
@@ -48,6 +48,9 @@ var active_summons: Array = [] # 当前活跃的召唤物列表
 func _ready() -> void:
 	# 将player节点添加到player组中
 	add_to_group("player")
+	
+	# 创建脚底阴影
+	CharacterEffects.create_shadow(self, 22.0, 9.0, 7.5)
 	
 	hp = PC.pc_hp
 	sprite_direction_right = not sprite.flip_h
@@ -64,7 +67,7 @@ func _ready() -> void:
 	Global.connect("skill_cooldown_complete_riyan", Callable(self, "_on_fire_riyan"))
 	Global.connect("skill_cooldown_complete_ringFire", Callable(self, "_on_fire_ringFire"))
 	
-	camera.zoom = Vector2(3, 3)
+	camera.zoom = Vector2(1.6, 1.6)
 	
 	# 设置音效使用SFX总线
 	setup_audio_buses()
@@ -160,7 +163,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _reset_camera() -> void:
-	camera.zoom = Vector2(3.0, 3.0)
+	camera.zoom = Vector2(2, 2)
 	
 func _zoom_camera(zoom_delta: float) -> void:
 	var new_zoom = camera.zoom.x + zoom_delta
@@ -636,7 +639,7 @@ func update_skill_attack_speeds() -> void:
 	var total_speed_multiplier = 1 + PC.pc_atk_speed + cooldown_reduction
 	
 	# 主攻击
-	fire_speed.wait_time = 1.0 / total_speed_multiplier
+	fire_speed.wait_time = 0.66 / total_speed_multiplier
 	
 	# 分支攻击
 	if branch_fire_speed:

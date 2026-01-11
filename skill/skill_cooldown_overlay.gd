@@ -2,8 +2,8 @@ extends TextureButton
 
 var cooldown_time: float
 var skill_id: int
-var is_paused : bool = false
-@export var skill_timer : Timer
+var is_paused: bool = false
+@export var skill_timer: Timer
 
 func _ready() -> void:
 	$Label.hide()
@@ -21,7 +21,7 @@ func update_skill(skill: int, cooldown_time_new: float, skill_icon_url: String) 
 
 func _process(delta: float) -> void:
 	$Label.text = "%.2f" % $Timer.time_left
-	$TextureProgressBar.value = int(($Timer.time_left / cooldown_time ) * 100)
+	$TextureProgressBar.value = int(($Timer.time_left / cooldown_time) * 100)
 
 func _on_timer_timeout() -> void:
 	$Timer.start()
@@ -34,11 +34,9 @@ func _on_timer_timeout() -> void:
 		Global.emit_signal("skill_cooldown_complete_moyan", skill_id)
 	if skill_id == 4:
 		$Timer.stop()
-		$Timer.wait_time = 0.0
 		Global.emit_signal("skill_cooldown_complete_riyan", skill_id)
 	if skill_id == 5:
 		$Timer.stop()
-		$Timer.wait_time = 0.0
 		Global.emit_signal("skill_cooldown_complete_ringFire", skill_id)
 
 var remaining_time: float = 0

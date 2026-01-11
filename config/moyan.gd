@@ -1,25 +1,25 @@
 extends Area2D
 
 @export var bullet_speed: float = 160
-@export var bullet_range: float = PC.moyan_range  # 子弹射程
+@export var bullet_range: float = PC.moyan_range # 子弹射程
 @export var penetration_count: int = 1
 
 # 子弹的伤害和暴击状态（在创建时确定）
 var bullet_damage: float = 0.0
-var initial_damage: float = 0.0  # 保存初始伤害值
+var initial_damage: float = 0.0 # 保存初始伤害值
 var is_crit_hit: bool = false
 
 # 射程和爆炸相关变量
-var start_position: Vector2  # 子弹起始位置
-var traveled_distance: float = 0.0  # 已飞行距离 
-var is_exploding: bool = false # 是否正在爆炸 
-@export var sprite : Sprite2D  # 获取精灵节点引用
-@export var collision_shape : CollisionShape2D  # 获取碰撞形状节点引用
+var start_position: Vector2 # 子弹起始位置
+var traveled_distance: float = 0.0 # 已飞行距离
+var is_exploding: bool = false # 是否正在爆炸
+@export var sprite: Sprite2D # 获取精灵节点引用
+@export var collision_shape: CollisionShape2D # 获取碰撞形状节点引用
 
 # 魔焰相关变量
-var initial_scale: Vector2  # 保存初始碰撞形状大小
-static var moyan_count: int = 0  # 魔焰使用次数计数（静态变量以在实例间共享）
-var is_giant_moyan: bool = false  # 是否为巨大魔焰
+var initial_scale: Vector2 # 保存初始碰撞形状大小
+static var moyan_count: int = 0 # 魔焰使用次数计数（静态变量以在实例间共享）
+var is_giant_moyan: bool = false # 是否为巨大魔焰
 
 var direction: Vector2
 
@@ -30,8 +30,9 @@ func _ready() -> void:
 	# 初始化子弹伤害和暴击状态
 	initialize_bullet_damage()
 		
-	# 连接信号
-	area_entered.connect(_on_area_entered)
+	# 连接信号（避免重复连接）
+	if not area_entered.is_connected(_on_area_entered):
+		area_entered.connect(_on_area_entered)
 	
 	# 保存初始值
 	initial_damage = bullet_damage
@@ -42,7 +43,7 @@ func _ready() -> void:
 	if PC.selected_rewards.has("moyan23") and moyan_count >= 3:
 		is_giant_moyan = true
 		moyan_count = 0
-		bullet_damage *= 2.05  # 1.7 * 1.2 (额外20%伤害)
+		bullet_damage *= 2.05 # 1.7 * 1.2 (额外20%伤害)
 		collision_shape.scale *= 1.8
 	elif PC.selected_rewards.has("moyan3") and moyan_count >= 4:
 		is_giant_moyan = true
@@ -73,14 +74,14 @@ func _physics_process(delta: float) -> void:
 		damage_increase_multiplier += floor(distance_meters) * 0.09
 		scale_increase_multiplier += floor(distance_meters) * 0.30
 	# 魔焰1：每前进1米，爆炸范围提升10%，伤害提升3%
-	elif PC.selected_rewards.has("moyan1"): 
+	elif PC.selected_rewards.has("moyan1"):
 		damage_increase_multiplier += floor(distance_meters) * 0.03
 		scale_increase_multiplier += floor(distance_meters) * 0.10
 
 	# 魔焰13：每前进1米，魔焰爆击伤害额外提升5%
 	if PC.selected_rewards.has("moyan13") and is_crit_hit:
 		crit_damage_increase = floor(distance_meters) * 0.05
-		if is_giant_moyan:  # 暴击伤害对巨大魔焰的加成翻倍
+		if is_giant_moyan: # 暴击伤害对巨大魔焰的加成翻倍
 			crit_damage_increase *= 2
 
 	# 应用伤害和范围加成
@@ -105,9 +106,9 @@ func play_explosion_and_die():
 		return
 	is_exploding = true
 
-	# 创建爆炸动画
+	# 创建爆炸动画（使用 call_deferred 避免在物理查询期间修改场景树）
 	var explosion = preload("res://Scenes/player/big_fire_bullet.tscn").instantiate()
-	get_tree().current_scene.add_child(explosion)
+	get_tree().current_scene.call_deferred("add_child", explosion)
 	explosion.global_position = global_position
 	
 	# 根据碰撞形状大小调整爆炸动画 大小
@@ -122,7 +123,7 @@ func play_explosion_and_die():
 		sound_player.play()
 	
 	if anim_player:
-		anim_player.play()		
+		anim_player.play()
 		anim_player.connect("animation_finished", explosion.queue_free)
 		
 	# 隐藏子弹并禁用碰撞
@@ -179,7 +180,7 @@ func _update_sprite_rotation() -> void:
 # 设置子弹方向并立即更新旋转
 func set_direction(new_direction: Vector2) -> void:
 	direction = new_direction
-	_update_sprite_rotation()  # 立即更新旋转，避免第一帧显示错误方向
+	_update_sprite_rotation() # 立即更新旋转，避免第一帧显示错误方向
 
 # 初始化子弹的伤害和暴击状态
 func initialize_bullet_damage() -> void:
@@ -216,7 +217,7 @@ func handle_penetration() -> bool:
 
 	# 如果这一帧已经处理过碰撞，忽略后续碰撞
 	if collision_processed_this_frame:
-		return false  # 返回false表示忽略这次碰撞
+		return false # 返回false表示忽略这次碰撞
 
 	# 标记这一帧已经处理过碰撞
 	collision_processed_this_frame = true
@@ -268,6 +269,6 @@ func find_nearest_enemy() -> void:
 	for enemy in enemies:
 		var distance = global_position.distance_to(enemy.global_position)
 		if enemy and is_instance_valid(enemy) and enemy.has_method("_on_area_entered"):
-			if  distance < nearest_distance:
+			if distance < nearest_distance:
 				nearest_distance = distance
 				nearest_enemy = enemy

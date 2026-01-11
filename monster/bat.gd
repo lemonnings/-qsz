@@ -2,19 +2,19 @@ extends Area2D
 
 @onready var sprite = $AnimatedSprite2D
 var debuff_manager: EnemyDebuffManager
-var is_dead : bool = false
+var is_dead: bool = false
 
 # 0为从左到右，1为从右向左，2为随机移动，3为靠近角色
-var move_direction : int = 1
+var move_direction: int = 1
 
-var base_speed : float = SettingMoster.bat("speed")
-var speed : float # Actual speed after debuffs
-var hpMax : float = SettingMoster.bat("hp")
-var hp : float = SettingMoster.bat("hp")
-var atk : float = SettingMoster.bat("atk")
-var get_point : int = SettingMoster.bat("point")
-var get_exp : int = SettingMoster.bat("exp")
-var get_mechanism : int = SettingMoster.bat("mechanism")
+var base_speed: float = SettingMoster.bat("speed")
+var speed: float # Actual speed after debuffs
+var hpMax: float = SettingMoster.bat("hp")
+var hp: float = SettingMoster.bat("hp")
+var atk: float = SettingMoster.bat("atk")
+var get_point: int = SettingMoster.bat("point")
+var get_exp: int = SettingMoster.bat("exp")
+var get_mechanism: int = SettingMoster.bat("mechanism")
 var health_bar_shown: bool = false
 
 signal debuff_applied(debuff_id: String)
@@ -25,11 +25,18 @@ var progress_bar: ProgressBar
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 
+# 精英怪相关
+var is_elite: bool = false
+var drop_rate_multiplier: float = 1.0
+
 func _ready():
 	debuff_manager = EnemyDebuffManager.new(self)
 	add_child(debuff_manager)
 	debuff_applied.connect(debuff_manager.add_debuff)
 	speed = base_speed # Initialize speed
+	
+	# 创建地面阴影（飞行单位阴影在更下方，表示地面投影）
+	CharacterEffects.create_shadow(self, 16.0, 5.0, 13.0)
 
 func show_health_bar():
 	if not health_bar_shown:
@@ -55,13 +62,17 @@ func _physics_process(delta: float) -> void:
 	if hp < hpMax and hp > 0:
 		show_health_bar()
 
+	# 处理推挤效果（防止怪物重叠）
+	if not is_dead:
+		CharacterEffects.apply_separation(self, 10.0, 12.0)
+	
 	# 处理敌人之间的碰撞 - 直接防止重叠
 	var overlapping_bodies = get_overlapping_areas()
 	
 	for body in overlapping_bodies:
-		if body.is_in_group("enemies") and body.is_in_group("fly") and body != self:
+		if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
 			var distance = global_position.distance_to(body.global_position)
-			var min_distance = 22.0  # 飞行敌人需要稍大的间隔
+			var min_distance = 12.0 # 最小允许距离
 			
 			# 如果距离太近，直接调整位置
 			if distance < min_distance and distance > 0.1:
@@ -114,9 +125,13 @@ func _physics_process(delta: float) -> void:
 				Global.emit_signal("_fire_ring_bullets")
 			$death.play()
 			is_dead = true
+			# 隐藏阴影
+			var shadow = get_node_or_null("Shadow")
+			if shadow:
+				shadow.visible = false
 			if SettingMoster.bat("itemdrop") != null:
 				for key in SettingMoster.bat("itemdrop"):
-					var drop_chance = SettingMoster.bat("itemdrop")[key]
+					var drop_chance = SettingMoster.bat("itemdrop")[key] * drop_rate_multiplier
 					if randf() <= drop_chance:
 						Global.emit_signal("drop_out_item", key, 1, global_position)
 
@@ -125,7 +140,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _on_body_entered(body: Node2D) -> void:
-	if(body is CharacterBody2D and not is_dead and not PC.invincible) :
+	if (body is CharacterBody2D and not is_dead and not PC.invincible):
 		Global.emit_signal("player_hit", self)
 		var damage_before_debuff = atk * (1.0 - PC.damage_reduction_rate)
 		var actual_damage = int(damage_before_debuff * debuff_manager.get_take_damage_multiplier())

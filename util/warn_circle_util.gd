@@ -176,9 +176,27 @@ func is_player_in_range() -> bool:
 		return distance_to_player <= radius
 
 func deal_damage_to_player():
-	if player_ref and player_ref.has_method("take_damage"):
-		player_ref.take_damage(damage)
-		damage_dealt.emit(damage)
+	if not player_ref or not is_instance_valid(player_ref):
+		return
+	
+	# 检查无敌状态
+	if PC.invincible:
+		return
+	
+	# 触发受击效果
+	Global.emit_signal("player_hit")
+	
+	# 计算实际伤害（考虑减伤率）
+	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))
+	PC.pc_hp -= actual_damage
+	
+	print("圆形AOE对玩家造成伤害: ", actual_damage)
+	
+	# 检查死亡
+	if PC.pc_hp <= 0:
+		PC.player_instance.game_over()
+	
+	damage_dealt.emit(float(actual_damage))
 
 func play_animation():
 	# 这里可以根据具体需求实现动画播放逻辑

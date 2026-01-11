@@ -66,12 +66,12 @@ func _ready() -> void:
 	Global.emit_signal("reset_camera")
 	
 	# stage1 特定的相机设置
-	$Player.camera.zoom = Vector2(2.55, 2.55)
-	$Player.min_zoom = 2.25
+	$Player.camera.zoom = Vector2(2.6, 2.6)
+	$Player.min_zoom = 2.2
 	
 	map_mechanism_num = 0
-	map_mechanism_num_max = 180
-	# map_mechanism_num_max = 14000
+	# map_mechanism_num_max = 1080
+	map_mechanism_num_max = 14000
 	
 	Global.reset_dps_counter()
 	
@@ -249,14 +249,14 @@ func _spawn_slime(count: int) -> void:
 		slime_node.move_direction = randi_range(2, 8)
 		
 		match spawn_edge:
-			0: # Top - 基于Camera2D limit_top=-18
-				spawn_position = Vector2(randf_range(-590, 590), -25)
-			1: # Bottom - 基于Camera2D limit_bottom=485
-				spawn_position = Vector2(randf_range(-590, 590), 480)
-			2: # Left - 基于Camera2D limit_left=-600
-				spawn_position = Vector2(-590, randf_range(0, 480))
-			3: # Right - 基于Camera2D limit_right=595
-				spawn_position = Vector2(590, randf_range(0, 480))
+			0: # Top - y轴上限-10
+				spawn_position = Vector2(randf_range(-400, 400), -10)
+			1: # Bottom
+				spawn_position = Vector2(randf_range(-400, 400), 650)
+			2: # Left
+				spawn_position = Vector2(-400, randf_range(15, 650))
+			3: # Right
+				spawn_position = Vector2(400, randf_range(15, 650))
 
 		slime_node.position = spawn_position
 		get_tree().current_scene.add_child(slime_node)
@@ -286,9 +286,9 @@ func _spawn_frog(count: int) -> void:
 		
 		var spawn_side = randi_range(0, 1) # 0 for left, 1 for right
 		if spawn_side == 0:
-			frog_node.position = Vector2(-590, randf_range(15, 259))
+			frog_node.position = Vector2(-400, randf_range(15, 259))
 		else:
-			frog_node.position = Vector2(590, randf_range(15, 259))
+			frog_node.position = Vector2(400, randf_range(15, 259))
 		# Frog move_direction is handled within its own script, typically towards player
 
 		get_tree().current_scene.add_child(frog_node)
@@ -321,14 +321,14 @@ func _spawn_bat(count: int) -> void:
 		bat_node.move_direction = randi_range(2, 8)
 
 		match spawn_edge:
-			0: # Top - 基于Camera2D limit_top=-18
-				spawn_position = Vector2(randf_range(-590, 590), -25)
-			1: # Bottom - 基于Camera2D limit_bottom=485
-				spawn_position = Vector2(randf_range(-590, 590), 480)
-			2: # Left - 基于Camera2D limit_left=-600
-				spawn_position = Vector2(-590, randf_range(0, 480))
-			3: # Right - 基于Camera2D limit_right=595
-				spawn_position = Vector2(590, randf_range(0, 480))
+			0: # Top - y轴上限-10
+				spawn_position = Vector2(randf_range(-400, 400), -10)
+			1: # Bottom
+				spawn_position = Vector2(randf_range(-400, 400), 300)
+			2: # Left
+				spawn_position = Vector2(-400, randf_range(15, 244))
+			3: # Right
+				spawn_position = Vector2(400, randf_range(15, 244))
 
 		bat_node.position = spawn_position
 		get_tree().current_scene.add_child(bat_node)

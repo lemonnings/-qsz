@@ -10,6 +10,7 @@ extends Node2D
 @export var shop_layer: CanvasLayer
 @export var canvas_layer: CanvasLayer
 @export var level_layer: CanvasLayer
+@export var dark_overlay: ColorRect # 黑色滤镜
 
 @export var atk_speed_button: Button
 @export var move_speed_button: Button
@@ -298,6 +299,16 @@ func _on_exit_pressed_stage() -> void:
 	in_shop = false
 	move_background_up()
 	scale_background_to_1()
+	
+	# 隐藏 dark_overlay 渐隐
+	if dark_overlay and dark_overlay.visible:
+		var exit_tween = create_tween()
+		exit_tween.tween_property(dark_overlay, "modulate:a", 0.0, 0.2)
+		exit_tween.tween_callback(func():
+			dark_overlay.visible = false
+			dark_overlay.modulate.a = 0.0
+		).set_delay(0.2)
+	
 	_transition_to_layer(canvas_layer, [shop_layer, level_layer], [bgm_change_button, world_level_option], true)
 	
 func _on_next_pressed() -> void:
@@ -526,6 +537,17 @@ func _on_world_level_item_focused(index: int) -> void:
 
 func _on_change_stage_button_pressed() -> void:
 	scale_background_to_2()
+	
+	# 显示 dark_overlay 渐显
+	if dark_overlay:
+		if transition_tween:
+			transition_tween.kill()
+		transition_tween = create_tween()
+		transition_tween.set_parallel(true)
+		dark_overlay.visible = true
+		dark_overlay.modulate.a = 0.0
+		transition_tween.tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
+	
 	_transition_to_layer(level_layer, [shop_layer, canvas_layer], [bgm_change_button, world_level_option])
 
 
