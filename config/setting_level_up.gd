@@ -370,6 +370,12 @@ func check_SR27() -> bool:
 func check_SR30() -> bool:
 	return PC.selected_rewards.has("wave_bullet")
 
+func check_not_have_SR27() -> bool:
+	return not PC.selected_rewards.has("ring_bullet")
+	
+func check_not_have_SR30() -> bool:
+	return not PC.selected_rewards.has("wave_bullet")
+
 # 检查子弹大小是否小于等于2.0 (通用子弹大小相关技能的前置条件)
 func check_bullet_size_condition() -> bool:
 	return PC.bullet_size <= 2.0
@@ -388,6 +394,15 @@ func check_SplitSwordQi2() -> bool:
 	
 func check_SplitSwordQi3() -> bool:
 	return PC.selected_rewards.has("SplitSwordQi3")
+
+func check_not_have_branch() -> bool:
+	return not PC.selected_rewards.has("branch")
+func check_not_have_moyan() -> bool:
+	return not PC.selected_rewards.has("moyan")
+func check_not_have_riyan() -> bool:
+	return not PC.selected_rewards.has("riyan")
+func check_not_have_ringFire() -> bool:
+	return not PC.selected_rewards.has("ringFire")
 
 func check_branch1() -> bool:
 	return PC.selected_rewards.has("branch1")
@@ -1248,11 +1263,12 @@ func reward_SplitSwordQi1():
 	
 func reward_SplitSwordQi2():
 	PC.selected_rewards.append("SplitSwordQi2")
+	PC.main_skill_swordQi_damage += 0.2 # 剑气伤害+20%
 	_level_up_action()
 	
 func reward_SplitSwordQi3():
 	PC.selected_rewards.append("SplitSwordQi3")
-	PC.swordQi_penetration_count += 2
+	PC.swordQi_penetration_count += 2 # 原来是1次，现在变成3次
 	_level_up_action()
 	
 func reward_SplitSwordQi11():
@@ -1270,19 +1286,22 @@ func reward_SplitSwordQi13():
 	
 func reward_SplitSwordQi21():
 	PC.selected_rewards.append("SplitSwordQi21")
+	PC.main_skill_swordQi_damage += 0.3 # 剑气伤害+30%
 	_level_up_action()
 	
 func reward_SplitSwordQi22():
 	PC.selected_rewards.append("SplitSwordQi22")
+	PC.main_skill_swordQi_damage += 0.2 # 剑气伤害+20%
 	_level_up_action()
 	
 func reward_SplitSwordQi23():
 	PC.selected_rewards.append("SplitSwordQi23")
+	PC.main_skill_swordQi_damage += 0.3 # 剑气伤害+30%
 	_level_up_action()
 	
 func reward_SplitSwordQi31():
 	PC.selected_rewards.append("SplitSwordQi31")
-	PC.swordQi_penetration_count += 2
+	PC.swordQi_penetration_count += 2 # 使穿透次数达到5次
 	_level_up_action()
 	
 func reward_SplitSwordQi32():
@@ -1291,6 +1310,7 @@ func reward_SplitSwordQi32():
 	
 func reward_SplitSwordQi33():
 	PC.selected_rewards.append("SplitSwordQi33")
+	PC.main_skill_swordQi_damage += 0.1 # 剑气伤害+10%
 	_level_up_action()
 	
 
@@ -1340,6 +1360,7 @@ func reward_Branch21():
 
 func reward_Branch12():
 	PC.select_reward.append("branch12")
+	PC.main_skill_branch_damage += 0.2 # 树枝伤害+20%
 	_level_up_action()
 
 func reward_Branch31():

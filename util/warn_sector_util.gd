@@ -8,12 +8,12 @@ signal warning_finished
 signal damage_dealt(damage_amount)
 
 # 预警参数
-var target_point: Vector2 = Vector2.ZERO  # 目标点
-var sector_angle: float = 60.0            # 扇形角度（度）
-var radius: float = 200.0                 # 扇形半径
-var warning_time: float = 2.0             # 预警时间
-var damage: float = 50.0                  # 伤害值
-var animation_player: AnimationPlayer = null  # 预警结束后播放的动画播放器
+var target_point: Vector2 = Vector2.ZERO # 目标点
+var sector_angle: float = 60.0 # 扇形角度（度）
+var radius: float = 200.0 # 扇形半径
+var warning_time: float = 2.0 # 预警时间
+var damage: float = 50.0 # 伤害值
+var animation_player: AnimationPlayer = null # 预警结束后播放的动画播放器
 
 # 内部变量
 var warning_shape: Node2D
@@ -21,11 +21,14 @@ var current_time: float = 0.0
 var start_position: Vector2
 var is_warning_active: bool = false
 var player_ref: Node2D
-var center_direction: float = 0.0  # 扇形中心方向角度
+var center_direction: float = 0.0 # 扇形中心方向角度
 var current_alpha: float = 0.0
 var initial_scale: Vector2 = Vector2(0.1, 0.1)
 
 func _ready():
+	# 设置为可暂停模式，升级等暂停期间动画也会暂停
+	process_mode = Node.PROCESS_MODE_PAUSABLE
+	
 	# 获取玩家引用
 	player_ref = get_tree().get_first_node_in_group("player")
 	
@@ -97,7 +100,7 @@ func update_warning_visual(progress: float):
 		var expand_progress = progress / 0.25
 		var current_scale = expand_progress
 		warning_shape.scale = Vector2(current_scale, current_scale)
-		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35)  # 红色，透明度0.35
+		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35) # 红色，透明度0.35
 	
 	elif progress <= 0.75:
 		# 中间时间：保持稳定
@@ -107,9 +110,9 @@ func update_warning_visual(progress: float):
 	elif progress <= 0.9:
 		# 最后四分之一时间的前部分：开始闪烁
 		var blink_progress = (progress - 0.75) / 0.15
-		var blink_speed = 5.0 + blink_progress * 10.0  # 逐渐加快闪烁
-		var blink_alpha = (sin(current_time * blink_speed) + 1.0) * 0.5  # 0到1的范围
-		var final_alpha = 0.35 * (0.35 + blink_alpha * 0.65)  # 0.35*0.35到0.35的范围
+		var blink_speed = 5.0 + blink_progress * 10.0 # 逐渐加快闪烁
+		var blink_alpha = (sin(current_time * blink_speed) + 1.0) * 0.5 # 0到1的范围
+		var final_alpha = 0.35 * (0.35 + blink_alpha * 0.65) # 0.35*0.35到0.35的范围
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, final_alpha)
 	
 	else:

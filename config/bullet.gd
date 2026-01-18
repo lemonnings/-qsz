@@ -260,6 +260,10 @@ func handle_penetration() -> bool:
 	if collision_processed_this_frame:
 		return false # 返回false表示忽略这次碰撞
 	
+	# SplitSwordQi12: Each sword Qi has 25% chance to split a sub-sword Qi when hitting an enemy
+	if PC.selected_rewards.has("SplitSwordQi12") and randf() < 0.25 and !is_other_sword_wave:
+		spawn_sub_sword_wave()
+	
 	# 返回true表示处理这次碰撞，如果穿透计数<=0则销毁子弹
 	if PC.selected_rewards.has("SplitSwordQi2") and !if_summon:
 		#print("Bullet hit enemy, creating SwordWave at: ", global_position)
@@ -268,10 +272,53 @@ func handle_penetration() -> bool:
 	# 标记这一帧已经处理过碰撞
 	collision_processed_this_frame = true
 	
+	# SplitSwordQi33: Apply debuff to enemy when penetrated
+	if PC.selected_rewards.has("SplitSwordQi33") and penetration_count > 0:
+		apply_penetrate_debuff_to_enemy()
+	
 	# 减少穿透计数
 	penetration_count -= 1
 	
 	return true
+
+# Apply penetrate debuff to enemy (for SplitSwordQi33)
+func apply_penetrate_debuff_to_enemy():
+	var overlapping_areas = get_overlapping_areas()
+	for area in overlapping_areas:
+		if area.is_in_group("enemies") and area.has_method("apply_debuff_effect"):
+			area.apply_debuff_effect("penetrated")
+
+# Spawn a sub sword wave when SplitSwordQi12 triggers
+func spawn_sub_sword_wave():
+	var nearest_enemy = find_nearest_enemy_for_split()
+	if nearest_enemy:
+		var sub_bullet = load("res://Scenes/bullet.tscn").instantiate()
+		sub_bullet.set_bullet_scale(scale)
+		var direction_to_enemy = (nearest_enemy.global_position - global_position).normalized()
+		sub_bullet.set_direction(direction_to_enemy)
+		sub_bullet.position = global_position
+		sub_bullet.penetration_count = penetration_count # Inherit remaining penetration count
+		sub_bullet.bullet_damage = bullet_damage * 0.5 # 50% of mother sword wave damage
+		sub_bullet.is_other_sword_wave = true # Mark as additional sword wave
+		get_tree().current_scene.add_child(sub_bullet)
+
+# 寻找最近的敌人 (for splitting purposes)
+func find_nearest_enemy_for_split() -> Node:
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	if enemies.is_empty():
+		return null
+	
+	var nearest_enemy = null
+	var nearest_distance = INF
+	
+	for enemy in enemies:
+		var distance = global_position.distance_to(enemy.global_position)
+		if enemy and is_instance_valid(enemy) and enemy.has_method("_on_area_entered"):
+			if distance < nearest_distance:
+				nearest_distance = distance
+				nearest_enemy = enemy
+	
+	return nearest_enemy
 
 # 设置子弹速度
 func set_speed(new_speed: float) -> void:

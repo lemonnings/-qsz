@@ -239,8 +239,29 @@ func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1
 
 # 更新发射间隔（当玩家获得相关升级时调用）
 func update_fire_interval() -> void:
-	if fire_timer:
-		fire_timer.wait_time = fire_interval * PC.summon_interval_multiplier
+	if not fire_timer:
+		return
+		
+	var new_wait_time = fire_interval * PC.summon_interval_multiplier
+	
+	if fire_timer.is_stopped():
+		fire_timer.wait_time = new_wait_time
+		return
+		
+	var old_time_left = fire_timer.time_left
+	if old_time_left <= 0.01:
+		fire_timer.wait_time = new_wait_time
+		return
+		
+	fire_timer.start(old_time_left)
+	fire_timer.set_meta("pending_wait_time", new_wait_time)
+	if not fire_timer.timeout.is_connected(_apply_pending_wait_time):
+		fire_timer.timeout.connect(_apply_pending_wait_time)
+
+func _apply_pending_wait_time() -> void:
+	if fire_timer and fire_timer.has_meta("pending_wait_time"):
+		fire_timer.wait_time = fire_timer.get_meta("pending_wait_time")
+		fire_timer.remove_meta("pending_wait_time")
 
 
 func set_summon_type(type: SummonType) -> void:

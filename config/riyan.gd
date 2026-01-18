@@ -1,6 +1,6 @@
 extends Area2D
 
-@export var damage_interval: float = 0.25
+@export var damage_interval: float = 1.0 # 赤曜伤害频率：1秒/次
 
 var player_node: Node2D
 @export var damage_timer: Timer

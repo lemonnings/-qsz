@@ -323,26 +323,25 @@ func _on_fire_detail() -> void:
 	get_tree().current_scene.add_child(main_bullet)
 
 	if PC.selected_rewards.has("SplitSwordQi1"):
-		for angle_deg in [-45.0, 45.0]:
+		for angle_deg in [45.0, 315.0]: # Changed to 45° and 315° (equivalent to -45°) as per requirement
 			var side_bullet = bullet_scene.instantiate()
 			side_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
 			var rotated_direction = base_direction.rotated(deg_to_rad(angle_deg))
 			side_bullet.set_direction(rotated_direction)
 			side_bullet.position = spawn_position
 			side_bullet.penetration_count = PC.swordQi_penetration_count
-			# Assuming bullet_damage is a variable in your bullet script, adjust damage accordingly
-			# side_bullet.damage = calculate_bullet_damage() * 0.5 # Half damage
+			side_bullet.is_other_sword_wave = true # Mark as additional sword wave for damage calculation (50% damage)
 			if PC.selected_rewards.has("rebound"): side_bullet.is_rebound = false
 			get_tree().current_scene.add_child(side_bullet)
 
 	if PC.selected_rewards.has("SplitSwordQi11"):
 		var back_bullet = bullet_scene.instantiate()
 		back_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
-		var back_direction = base_direction.rotated(deg_to_rad(180.0)) # -180 or 180 degrees for backward
+		var back_direction = base_direction.rotated(deg_to_rad(180.0)) # 180 degrees for backward
 		back_bullet.set_direction(back_direction)
 		back_bullet.position = spawn_position
 		back_bullet.penetration_count = PC.swordQi_penetration_count
-		# back_bullet.damage = calculate_bullet_damage() # Full damage for back bullet
+		back_bullet.is_other_sword_wave = true # Mark as additional sword wave for damage calculation (50% damage)
 		if PC.selected_rewards.has("rebound"): back_bullet.is_rebound = false
 		get_tree().current_scene.add_child(back_bullet)
 	
@@ -626,6 +625,37 @@ func update_chenjing_visual():
 	else:
 		chenjing_effect.visible = false
 	
+# 更新定时器的等待时间，同时保持当前进度的百分比
+func update_timer_preserve_ratio(timer: Timer, new_wait_time: float) -> void:
+	if not timer:
+		return
+	
+	# 如果新的等待时间和当前的等待时间几乎一样，就不做任何操作
+	if abs(timer.wait_time - new_wait_time) < 0.0001:
+		return
+		
+	if timer.is_stopped():
+		timer.wait_time = new_wait_time
+		return
+	
+	var old_wait_time = timer.wait_time
+	if old_wait_time <= 0:
+		timer.wait_time = new_wait_time
+		return
+		
+	# 计算剩余时间的比例
+	var ratio_left = timer.time_left / old_wait_time
+	var new_time_left = new_wait_time * ratio_left
+	
+	# 防止时间过短
+	new_time_left = max(0.02, new_time_left)
+	
+	# start(time) 会重置计时器并设置 wait_time 为 time
+	# 注意：如果 start(new_time_left) 被调用，wait_time 也会变成 new_time_left
+	timer.start(new_time_left)
+	# 立即将 wait_time 设置回新的完整周期，这样下一次循环就会使用新的周期
+	timer.wait_time = new_wait_time
+
 # 更新所有技能的攻击速度
 func update_skill_attack_speeds() -> void:
 	# 计算踏风buff的冷却缩减
@@ -639,23 +669,19 @@ func update_skill_attack_speeds() -> void:
 	var total_speed_multiplier = 1 + PC.pc_atk_speed + cooldown_reduction
 	
 	# 主攻击
-	fire_speed.wait_time = 0.66 / total_speed_multiplier
+	update_timer_preserve_ratio(fire_speed, 0.66 / total_speed_multiplier)
 	
 	# 分支攻击
-	if branch_fire_speed:
-		branch_fire_speed.wait_time = 2.0 / total_speed_multiplier
+	update_timer_preserve_ratio(branch_fire_speed, 1.5 / total_speed_multiplier)
 	
 	# 魔焰攻击
-	if moyan_fire_speed:
-		moyan_fire_speed.wait_time = 4.0 / total_speed_multiplier
+	update_timer_preserve_ratio(moyan_fire_speed, 4.0 / total_speed_multiplier)
 	
 	# 日焰攻击
-	if riyan_fire_speed:
-		riyan_fire_speed.wait_time = 0.051 / total_speed_multiplier
+	update_timer_preserve_ratio(riyan_fire_speed, 1.0 / total_speed_multiplier)
 	
 	# 环形火焰攻击
-	if ringFire_fire_speed:
-		ringFire_fire_speed.wait_time = 0.051 / total_speed_multiplier
+	update_timer_preserve_ratio(ringFire_fire_speed, 0.051 / total_speed_multiplier)
 
 # 发射环形子弹
 func _fire_ring_bullets() -> void:

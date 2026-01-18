@@ -12,7 +12,7 @@ func _calc_hp(base_hp: float) -> float:
 func taohua_yao(query: String): # 桃花妖
 	var data = {
 		"atk": _calc_atk(25),
-		"hp": _calc_hp(60),
+		"hp": _calc_hp(600),
 		"speed": 36,
 		"exp": 500 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 15 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.05)),
@@ -69,7 +69,6 @@ func bat(query: String): # 草药怪
 		"itemdrop": {"item_001": 0.02 * (1 + (PC.drop_multi)), "item_010": 0.075 * (1 + (PC.drop_multi)), "item_024": 0.008 * (1 + (PC.drop_multi)), "item_032": 0.005 * (1 + (PC.drop_multi))}
 	}
 	return data.get(query, null)
-
 
 
 func bigSlime(query: String):

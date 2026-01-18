@@ -24,7 +24,8 @@ class DebuffData:
 
 static var debuff_configs: Dictionary = {
 	"slow": DebuffData.new("slow", 5.0, 1, false, "", true, Color.SKY_BLUE),
-	"vulnerable": DebuffData.new("vulnerable", 5.0, 1, false, "", true, Color(1.0, 0.5, 0.5)) # 浅红色
+	"vulnerable": DebuffData.new("vulnerable", 5.0, 1, false, "", true, Color(1.0, 0.5, 0.5)), # 浅红色
+	"penetrated": DebuffData.new("penetrated", 3.0, 1, false, "", false, Color.WHITE) # 穿透debuff，持续3秒
 }
 
 var active_debuffs: Dictionary = {} # {debuff_id: {timer: Timer, stacks: int, original_modulate: Color, effect_instance: Node2D}}
@@ -124,7 +125,7 @@ func _reapply_remaining_debuff_effects():
 		# 找到最后一个（或优先级最高的）有modulate效果的debuff并应用
 		var last_modulate_debuff_id = null
 		for id in active_debuffs:
-			var d_config : DebuffData = active_debuffs[id].config
+			var d_config: DebuffData = active_debuffs[id].config
 			if d_config.has_modulate:
 				last_modulate_debuff_id = id # 简单取最后一个，实际可能需要优先级
 		if last_modulate_debuff_id:
@@ -141,6 +142,8 @@ func get_damage_multiplier() -> float:
 	var multiplier = 1.0
 	if active_debuffs.has("vulnerable"):
 		multiplier += 0.2 # 易伤效果，受到伤害增加20%
+	if active_debuffs.has("penetrated"):
+		multiplier += 0.2 # 穿透debuff，受到伤害增加20%
 	return multiplier
 
 func get_speed_multiplier() -> float:

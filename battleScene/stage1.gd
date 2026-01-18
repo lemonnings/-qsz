@@ -9,8 +9,10 @@ extends Node2D
 @export var warning_scene: Control
 
 # 出怪间隔配置
-var MIN_SPAWN_INTERVAL: float = 2.25
-var next_spawn_interval: float = 4
+var MIN_SPAWN_INTERVAL: float = 0.5
+# var MIN_SPAWN_INTERVAL: float = 2.25
+# var next_spawn_interval: float = 4
+var next_spawn_interval: float = 1
 var SPAWN_INTERVAL_DECREMENT: float = 0.05
 
 # 怪物生成阈值
@@ -70,7 +72,7 @@ func _ready() -> void:
 	$Player.min_zoom = 2.25
 	
 	map_mechanism_num = 0
-	map_mechanism_num_max = 180
+	map_mechanism_num_max = 1800
 	# map_mechanism_num_max = 14000
 	
 	Global.reset_dps_counter()

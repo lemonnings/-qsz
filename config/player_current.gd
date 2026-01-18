@@ -84,14 +84,14 @@ extends Node
 @export var first_has_riyan: bool = true
 @export var first_has_riyan_pc: bool = true
 @export var riyan_range: float = 70.0
-@export var riyan_cooldown: float = 0.5
-@export var riyan_hp_max_damage: float = 0.12
-@export var riyan_atk_damage: float = 0.08
+@export var riyan_cooldown: float = 1.0 # 赤曜伤害频率：1秒/次
+@export var riyan_hp_max_damage: float = 0.2 # 赤曜基础伤害：最大HP的20%
+@export var riyan_atk_damage: float = 0.1 # 赤曜基础伤害：攻击力的10%
 
 # 环火相关量
 @export var main_skill_ringFire = 0
 @export var main_skill_ringFire_advance = 0
-@export var main_skill_ringFire_damage: float = 1
+@export var main_skill_ringFire_damage: float = 0.3 # 炎轮基础伤害30%
 @export var has_ringFire: bool = false
 @export var first_has_ringFire: bool = true
 
@@ -155,7 +155,7 @@ func reset_player_attr() -> void:
 	Global.in_menu = false
 	PC.is_game_over = false
 	
-	PC.selected_rewards = [""]
+	PC.selected_rewards = []
 	
 	exec_pc_atk()
 	exec_pc_hp()

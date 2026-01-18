@@ -41,21 +41,21 @@ const NORMAL_STRAIGHT_BULLET_SCENE = STRAIGHT_BULLET # 原直线子弹作为普�
 const NORMAL_BARRAGE_BULLET_SCENE = preload("res://Scenes/global/small_fire_bullet.tscn")
 
 # 随机弹幕攻击相关常量
-const RANDOM_BARRAGE_BULLET_COUNT = 140
-const RANDOM_BARRAGE_INTERVAL = 0.025
+const RANDOM_BARRAGE_BULLET_COUNT = 130
+const RANDOM_BARRAGE_INTERVAL = 0.03
 
 # 陨石攻击参数
-const METEOR_SPAWN_RANGE: float = 120.0 # 玩家周围生成范围(n像素)
+const METEOR_SPAWN_RANGE: float = 60.0 # 玩家周围生成范围(n像素)
 const METEOR_RADIUS: float = 35.0 # 陨石半径(x)
 const METEOR_COUNT: int = 8 # 陨石数量(y)
 const METEOR_WARNING_TIME: float = 1.5 # 预警时间(z秒)
-const METEOR_PERSIST_DURATION: float = 3.0 # 持续伤害区域持续时间
+const METEOR_PERSIST_DURATION: float = 12.0 # 持续伤害区域持续时间
 
 # 扇形AOE参数
-const SECTOR_ANGLE: float = 60.0 # 扇形角度(n度)
-const SECTOR_WARNING_TIME: float = 1.2 # 扇形预警时间(x秒)
+const SECTOR_ANGLE: float = 50.0 # 扇形角度(n度)
+const SECTOR_WARNING_TIME: float = 1.5 # 扇形预警时间(x秒)
 const SECTOR_RADIUS: float = 2000.0 # 扇形半径(超出场地画幅)
-const MULTI_SECTOR_ROUNDS: int = 5 # 连续扇形轮数
+const MULTI_SECTOR_ROUNDS: int = 4 # 连续扇形轮数
 
 func _ready():
 	# 防止boss升级期间打人（但没生效，子弹会在暂停期间积累到一起全射出来）
@@ -127,13 +127,11 @@ func _choose_attack():
 	# sprite.play("attack_anticipation") 
 	# await get_tree().create_timer(0.5).timeout # 等待前摇
 
-	#var attack_type = randi_range(1, 10) # 随机选择攻击类型
-	#var attack_type = randi_range(1, 5)
-	var attack_type = randi_range(6, 9) # 扩展到新技能
+	var attack_type = randi_range(1, 9) # 扩展到新技能
 	print("Boss chooses attack: ", attack_type)
 
 	# 显示攻击范围
-	if [3, 4].has(attack_type): # 类型 3, 4, 7, 9 使用通用的 _show_attack_indicator
+	if [3, 4].has(attack_type):
 		_show_attack_indicator(attack_type)
 		await get_tree().create_timer(1.0).timeout
 
