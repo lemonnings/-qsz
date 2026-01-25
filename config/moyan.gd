@@ -1,6 +1,6 @@
 extends Area2D
 
-@export var bullet_speed: float = 160
+@export var bullet_speed: float = 180
 @export var bullet_range: float = PC.moyan_range # 子弹射程
 @export var penetration_count: int = 1
 
@@ -33,8 +33,8 @@ func _ready() -> void:
 	# 初始化子弹伤害和暴击状态
 	initialize_bullet_damage()
 		
-	# 连接信号
-	area_entered.connect(_on_area_entered)
+	if not area_entered.is_connected(_on_area_entered):
+		area_entered.connect(_on_area_entered)
 	
 	# 保存初始值
 	initial_damage = bullet_damage
@@ -110,7 +110,9 @@ func play_explosion_and_die():
 	if is_exploding:
 		return
 	is_exploding = true
+	call_deferred("_play_explosion_and_die_deferred")
 
+func _play_explosion_and_die_deferred() -> void:
 	# 创建爆炸动画
 	var explosion = preload("res://Scenes/player/big_fire_bullet.tscn").instantiate()
 	get_tree().current_scene.add_child(explosion)
@@ -175,7 +177,7 @@ func _on_area_entered(area: Area2D) -> void:
 		print("爆炸的distance_meters" + str(distance_meters))
 		if PC.selected_rewards.has("moyan2") and distance_meters < 2:
 			bullet_damage *= 1.3
-		await play_explosion_and_die()
+	play_explosion_and_die()
 
 # 更新精灵旋转以匹配移动方向
 func _update_sprite_rotation() -> void:

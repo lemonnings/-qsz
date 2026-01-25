@@ -36,7 +36,7 @@ func _on_body_entered(body: Node2D) -> void:
 	if body is CharacterBody2D and not PC.invincible:
 		Global.emit_signal("player_hit")
 		var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate)) # 计算实际伤害，考虑减伤
-		PC.pc_hp -= actual_damage # 扣除玩家血量
+		PC.apply_damage(actual_damage) # 扣除玩家血量
 		if PC.pc_hp <= 0:
 			body.game_over() # 如果玩家血量耗尽，则游戏结束
 		queue_free() # 火球击中目标后消失

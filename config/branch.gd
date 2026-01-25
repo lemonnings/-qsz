@@ -5,6 +5,8 @@ extends Area2D
 @export var bullet_range: float = PC.branch_range # 子弹射程
 @export var penetration_count: int = 999
 
+const BranchScene = preload("res://Scenes/branch.tscn")
+
 # 子弹的伤害和暴击状态（在创建时确定）
 var bullet_damage: float = 0.0
 var is_crit_hit: bool = false
@@ -81,7 +83,7 @@ func _physics_process(delta: float) -> void:
 		# 树枝12: 分裂的子枝在达到最大射程后，会向随机方向再射出一个孙枝，造成同等伤害但不会触发分裂与多重分裂-返
 		elif PC.selected_rewards.has("branch12") and not parent_bullet and not grandson_bullet:
 			# 创建孙枝
-			var grandson_bullet = load("res://Scenes/branch.tscn").instantiate()
+			var grandson_bullet = BranchScene.instantiate()
 			grandson_bullet.direction = Vector2.from_angle(randf() * 2 * PI) # 随机方向
 			grandson_bullet.global_position = global_position
 			grandson_bullet.parent_bullet = false # 孙枝也不会分裂
@@ -148,7 +150,7 @@ func initialize_bullet_damage() -> void:
 		crit_chance_bonus += 0.20
 
 	is_crit_hit = false
-	bullet_damage = base_damage * 0.4 # 基础伤害40%
+	bullet_damage = base_damage * 0.5
 
 	if randf() < (PC.crit_chance + crit_chance_bonus):
 		is_crit_hit = true
@@ -222,7 +224,7 @@ func _create_sword_wave_instance(position: Vector2) -> void:
 		var angle_range = deg_to_rad(330)
 
 		for i in range(split_count):
-			var new_bullet = load("res://Scenes/branch.tscn").instantiate()
+			var new_bullet = BranchScene.instantiate()
 			var random_angle = base_angle - angle_range / 2 + randf() * angle_range
 			new_bullet.direction = Vector2.from_angle(random_angle)
 			new_bullet.global_position = position
@@ -253,7 +255,7 @@ func _create_aoe_damage(position: Vector2) -> void:
 	var bodies = aoe_area.get_overlapping_bodies()
 	for body in bodies:
 		if body.is_in_group("enemies") and body.has_method("take_damage"):
-			body.take_damage(bullet_damage * 0.3, false, false)
+			body.take_damage(bullet_damage * 0.4, false, false)
 	
 	aoe_area.queue_free()
 

@@ -2,6 +2,7 @@ extends CanvasLayer
 
 # ============== UI 组件引用 ==============
 @export var hp_bar: ProgressBar
+@export var sheild_bar: ProgressBar
 @export var exp_bar: ProgressBar
 @export var map_mechanism_bar: ProgressBar
 @export var hp_num: Label
@@ -23,6 +24,10 @@ extends CanvasLayer
 @export var skill3: TextureButton
 @export var skill4: TextureButton
 @export var skill5: TextureButton
+@export var skill6: TextureButton
+@export var skill7: TextureButton
+@export var skill8: TextureButton
+@export var skill9: TextureButton
 
 # 主动技能
 @export var active1: TextureButton
@@ -82,7 +87,7 @@ func _init_managers() -> void:
 	# 初始化升级管理器
 	level_up_manager = LevelUpManager.new()
 	add_child(level_up_manager)
-	var skill_nodes_array: Array[TextureButton] = [skill1, skill2, skill3, skill4]
+	var skill_nodes_array: Array[TextureButton] = [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9]
 	level_up_manager.initialize(self, lv_up_change, lv_up_change_b1, lv_up_change_b2, lv_up_change_b3, self, skill_nodes_array)
 	
 	# 连接刷新按钮信号
@@ -164,7 +169,7 @@ func _on_emblem_mouse_exited(emblem_index: int) -> void:
 
 ## 连接技能图标鼠标事件信号
 func _connect_skill_icon_signals() -> void:
-	var skill_icons := [skill1, skill2, skill3, skill4, skill5]
+	var skill_icons := [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9]
 	for i in range(skill_icons.size()):
 		var icon = skill_icons[i]
 		if icon:
@@ -343,7 +348,7 @@ func refresh_active_skills() -> void:
 # ============== UI 更新方法 ==============
 
 ## 更新血条
-func update_hp_bar(current_hp: int, max_hp: int) -> void:
+func update_hp_bar(current_hp: int, max_hp: int, current_shield: int) -> void:
 	var target_value = (float(current_hp) / max_hp) * 100
 	if hp_bar.value != target_value:
 		if abs(target_value - hp_bar.value) > 2:
@@ -352,10 +357,23 @@ func update_hp_bar(current_hp: int, max_hp: int) -> void:
 		else:
 			hp_bar.value = target_value
 	
+	var shield_display = min(current_shield, max_hp)
+	var shield_target_value = (float(shield_display) / max_hp) * 100
+	if sheild_bar.value != shield_target_value:
+		if abs(shield_target_value - sheild_bar.value) > 2:
+			var shield_tween = create_tween()
+			shield_tween.tween_property(sheild_bar, "value", shield_target_value, 0.15)
+		else:
+			sheild_bar.value = shield_target_value
+	
+	var hp_value = current_hp
 	if current_hp <= 0:
-		hp_num.text = '0 / ' + str(max_hp)
+		hp_value = 0
+	
+	if current_shield > 0:
+		hp_num.text = str(hp_value) + " (+" + str(current_shield) + ") / " + str(max_hp)
 	else:
-		hp_num.text = str(current_hp) + ' / ' + str(max_hp)
+		hp_num.text = str(hp_value) + " / " + str(max_hp)
 
 ## 更新经验条
 func update_exp_bar(current_exp: int, required_exp: int) -> void:
@@ -436,6 +454,27 @@ func check_and_update_skill_icons(player_node: Node) -> void:
 		skill5.update_skill(5, player_node.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/ringFire.png")
 		PC.first_has_ringFire = false
 
+	if PC.has_thunder and PC.first_has_thunder:
+		skill6.visible = true
+		skill6.update_skill(6, player_node.thunder_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		PC.first_has_thunder = false
+
+	if PC.has_bloodwave and PC.first_has_bloodwave:
+		skill7.visible = true
+		skill7.update_skill(7, player_node.bloodwave_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		PC.first_has_bloodwave = false
+	
+	if PC.has_bloodboardsword and PC.first_has_bloodboardsword:
+		skill8.visible = true
+		skill8.update_skill(8, player_node.bloodboardsword_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		PC.first_has_bloodboardsword = false
+	
+	if PC.has_ice and PC.first_has_ice:
+		skill9.visible = true
+		skill9.update_skill(9, player_node.ice_flower_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		PC.first_has_ice = false
+
+
 ## 更新技能冷却时间显示
 func update_skill_cooldowns(player_node: Node) -> void:
 	if skill1.visible:
@@ -452,6 +491,18 @@ func update_skill_cooldowns(player_node: Node) -> void:
 	
 	if PC.has_ringFire and skill5.visible:
 		skill5.update_skill(5, player_node.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/ringFire.png")
+	
+	if PC.has_thunder and skill6.visible:
+		skill6.update_skill(6, player_node.thunder_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+	
+	if PC.has_bloodwave and skill7.visible:
+		skill7.update_skill(7, player_node.bloodwave_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+	
+	if PC.has_bloodboardsword and skill8.visible:
+		skill8.update_skill(8, player_node.bloodboardsword_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+
+	if PC.has_ice and skill9.visible:
+		skill9.update_skill(9, player_node.ice_flower_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 
 func _on_skill_attack_speed_updated() -> void:
 	# 需要获取player节点来更新，通过信号通知父场景

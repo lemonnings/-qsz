@@ -189,6 +189,12 @@ func _move_pattern(delta: float):
 func _physics_process(delta: float) -> void:
 	if is_dead:
 		return
+	
+	if debuff_manager.is_action_disabled():
+		action_timer.paused = true
+		return
+	if action_timer.paused:
+		action_timer.paused = false
 
 	# 处理推挤效果（攻击和发射状态不推挤，避免打断攻击动作）
 	if current_state != State.ATTACKING and current_state != State.FIRING:
@@ -257,11 +263,13 @@ func _physics_process(delta: float) -> void:
 		show_health_bar()
 	
 func _on_body_entered(body: Node2D) -> void:
+	if debuff_manager.is_action_disabled():
+		return
 	if (body is CharacterBody2D and not is_dead and not PC.invincible):
 		Global.emit_signal("player_hit", self)
 		var damage_before_debuff = atk * (1.0 - PC.damage_reduction_rate)
 		var actual_damage = int(damage_before_debuff * debuff_manager.get_take_damage_multiplier())
-		PC.pc_hp -= actual_damage
+		PC.apply_damage(actual_damage)
 		if PC.pc_hp <= 0:
 			body.game_over()
 

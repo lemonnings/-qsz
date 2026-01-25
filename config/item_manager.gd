@@ -620,7 +620,9 @@ func _on_item_001_picked_up(player, item_id := ""):
 		#return true # 表示成功拾取
 	#else:
 		#return false # 表示无法拾取
-	PC.pc_hp += int(PC.pc_max_hp * 0.2 * Global.fruit_heal_multi)
+	var base_heal = PC.pc_max_hp * 0.2
+	var final_heal = base_heal * (1 + PC.heal_multi + Global.fruit_heal_multi)
+	PC.pc_hp += int(final_heal)
 	# 防止生命值超过上限
 	if PC.pc_hp > PC.pc_max_hp:
 		PC.pc_hp = PC.pc_max_hp

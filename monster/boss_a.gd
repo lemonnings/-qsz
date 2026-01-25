@@ -1,9 +1,12 @@
 extends Area2D
 
 @onready var sprite = $BossA
+var debuff_manager: EnemyDebuffManager
 var is_dead: bool = false
 var is_attacking: bool = false
 var allow_turning: bool = true
+
+signal debuff_applied(debuff_id: String)
 
 # 屏幕边界
 @export var top_boundary: float = 0.0
@@ -62,6 +65,10 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	hp = hpMax # 初始化当前血量
 	
+	debuff_manager = EnemyDebuffManager.new(self)
+	add_child(debuff_manager)
+	debuff_applied.connect(debuff_manager.add_debuff)
+	
 	# 创建脚底阴影（Boss阴影较大）
 	CharacterEffects.create_shadow(self, 45.0, 14.0, 12.0)
 	
@@ -82,6 +89,10 @@ func _ready():
 	attack_timer.wait_time = 2.5
 	attack_timer.timeout.connect(_choose_attack)
 	attack_timer.start()
+
+
+func apply_debuff_effect(debuff_id: String):
+	emit_signal("debuff_applied", debuff_id)
 
 
 func _update_target_position_mode4():
@@ -334,7 +345,7 @@ func _attack_straight_line():
 		if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
 			Global.emit_signal("player_hit")
 			var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-			PC.pc_hp -= actual_damage
+			PC.apply_damage(actual_damage)
 			if PC.pc_hp <= 0:
 				PC.player_instance.game_over()
 			print("Player hit by straight line attack, damage: ", actual_damage)
@@ -480,7 +491,7 @@ func _attack_triple_line():
 			if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
 				Global.emit_signal("player_hit")
 				var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-				PC.pc_hp -= actual_damage
+				PC.apply_damage(actual_damage)
 				if PC.pc_hp <= 0:
 					PC.player_instance.game_over()
 				player_damaged_this_round = true
@@ -577,7 +588,7 @@ func _attack_eight_directions():
 			if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
 				Global.emit_signal("player_hit")
 				var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-				PC.pc_hp -= actual_damage
+				PC.apply_damage(actual_damage)
 				if PC.pc_hp <= 0:
 					PC.player_instance.game_over()
 				player_damaged_this_attack = true
@@ -681,7 +692,7 @@ func _on_body_entered(body: Node2D) -> void:
 	if (body is CharacterBody2D and not is_dead and not PC.invincible):
 		Global.emit_signal("player_hit")
 		var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate)) # Boss也应用减伤
-		PC.pc_hp -= actual_damage
+		PC.apply_damage(actual_damage)
 		if PC.pc_hp <= 0:
 			body.game_over()
 
@@ -770,6 +781,33 @@ func _on_area_entered(area: Area2D) -> void:
 			queue_free()
 		else:
 			Global.play_hit_anime(position, is_crit)
+
+func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:
+	if is_dead:
+		return
+	if not _is_monster_in_damage_range():
+		return
+	var final_damage_val = int(damage)
+	var damage_offset = Vector2(randf_range(-15, 15), randf_range(-15, 15))
+	if is_summon:
+		Global.emit_signal("monster_damage", 4, final_damage_val, global_position - Vector2(35, 20) + damage_offset)
+	elif is_crit:
+		Global.emit_signal("monster_damage", 2, final_damage_val, global_position - Vector2(35, 20) + damage_offset)
+	else:
+		Global.emit_signal("monster_damage", 1, final_damage_val, global_position - Vector2(35, 20) + damage_offset)
+	Global.emit_signal("boss_hp_bar_take_damage", final_damage_val)
+	hp -= final_damage_val
+	if hp <= 0:
+		if not is_dead:
+			Global.emit_signal("boss_defeated", get_point)
+		is_dead = true
+		var shadow = get_node_or_null("Shadow")
+		if shadow:
+			shadow.visible = false
+		attack_timer.stop()
+		queue_free()
+	else:
+		Global.play_hit_anime(position, is_crit)
 
 # 计算点到直线的距离的辅助函数
 func _point_to_line_distance(point: Vector2, line_start: Vector2, line_end: Vector2) -> float:
@@ -933,7 +971,7 @@ func _deal_persist_damage():
 	if PC.player_instance and not PC.invincible:
 		Global.emit_signal("player_hit")
 		var actual_damage = int(atk * 0.3 * (1.0 - PC.damage_reduction_rate))
-		PC.pc_hp -= actual_damage
+		PC.apply_damage(actual_damage)
 		if PC.pc_hp <= 0:
 			PC.player_instance.game_over()
 		print("持续伤害: ", actual_damage)

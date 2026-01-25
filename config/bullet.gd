@@ -6,6 +6,7 @@ extends Area2D
 
 # 预加载剑痕场景
 const SwordWaveScene = preload("res://Scenes/sword_wave.tscn")
+const BulletScene = preload("res://Scenes/bullet.tscn")
 
 # 子弹的伤害和暴击状态（在创建时确定）
 var bullet_damage: float = 0.0
@@ -292,7 +293,7 @@ func apply_penetrate_debuff_to_enemy():
 func spawn_sub_sword_wave():
 	var nearest_enemy = find_nearest_enemy_for_split()
 	if nearest_enemy:
-		var sub_bullet = load("res://Scenes/bullet.tscn").instantiate()
+		var sub_bullet = BulletScene.instantiate()
 		sub_bullet.set_bullet_scale(scale)
 		var direction_to_enemy = (nearest_enemy.global_position - global_position).normalized()
 		sub_bullet.set_direction(direction_to_enemy)
@@ -375,7 +376,7 @@ func create_rebound() -> void:
 		# 创建1-3个随机方向的子级子弹
 		var num_bullets = randi_range(1, (1 + bullet_bound_num * 0.5))
 		for i in range(num_bullets):
-			var child_bullet = load("res://Scenes/bullet.tscn").instantiate()
+			var child_bullet = BulletScene.instantiate()
 			# 设置子级子弹属性
 			child_bullet.set_bullet_scale(scale * PC.rebound_size_multiplier) # 使用新函数同步更新碰撞形状
 			child_bullet.is_rebound = true

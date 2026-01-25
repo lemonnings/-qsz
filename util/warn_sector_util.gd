@@ -197,7 +197,7 @@ func deal_damage_to_player():
 	
 	# 计算实际伤害（考虑减伤率）
 	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))
-	PC.pc_hp -= actual_damage
+	PC.apply_damage(actual_damage)
 	
 	print("扇形AOE对玩家造成伤害: ", actual_damage)
 	

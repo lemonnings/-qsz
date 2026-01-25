@@ -403,6 +403,66 @@ func check_not_have_riyan() -> bool:
 	return not PC.selected_rewards.has("riyan")
 func check_not_have_ringFire() -> bool:
 	return not PC.selected_rewards.has("ringFire")
+func check_not_have_thunder() -> bool:
+	return not PC.selected_rewards.has("thunder")
+func check_not_have_bloodwave() -> bool:
+	return not PC.selected_rewards.has("bloodwave")
+
+func check_thunder_condition() -> bool:
+	return PC.selected_rewards.has("thunder")
+func check_bloodwave_condition() -> bool:
+	return PC.selected_rewards.has("bloodwave")
+
+func check_bloodboardsword_condition() -> bool:
+	return PC.selected_rewards.has("bloodboardsword")
+
+func check_thunder1() -> bool:
+	return PC.selected_rewards.has("Thunder1")
+
+func check_thunder2() -> bool:
+	return PC.selected_rewards.has("Thunder2")
+
+func check_thunder3() -> bool:
+	return PC.selected_rewards.has("Thunder3")
+func check_bloodwave1() -> bool:
+	return PC.selected_rewards.has("Bloodwave1")
+func check_bloodwave2() -> bool:
+	return PC.selected_rewards.has("Bloodwave2")
+func check_bloodwave3() -> bool:
+	return PC.selected_rewards.has("Bloodwave3")
+
+func check_bloodboardsword1() -> bool:
+	return PC.selected_rewards.has("BloodBoardSword1")
+
+func check_bloodboardsword2() -> bool:
+	return PC.selected_rewards.has("BloodBoardSword2")
+
+func check_bloodboardsword3() -> bool:
+	return PC.selected_rewards.has("BloodBoardSword3")
+
+func check_not_have_bloodboardsword() -> bool:
+	return not PC.selected_rewards.has("bloodboardsword")
+
+func check_not_have_ice() -> bool:
+	return not PC.selected_rewards.has("Ice")
+
+func check_ice_condition() -> bool:
+	return PC.selected_rewards.has("Ice")
+
+func check_ice_condition1() -> bool:
+	return PC.selected_rewards.has("Ice1")
+
+func check_ice_condition2() -> bool:
+	return PC.selected_rewards.has("Ice2")
+
+func check_ice_condition3() -> bool:
+	return PC.selected_rewards.has("Ice3")
+
+func check_ice_condition4() -> bool:
+	return PC.selected_rewards.has("Ice4")
+
+func check_ice_condition5() -> bool:
+	return PC.selected_rewards.has("Ice5")
 
 func check_branch1() -> bool:
 	return PC.selected_rewards.has("branch1")
@@ -865,6 +925,75 @@ func reward_fiveway():
 	PC.bullet_size -= 0.2 # 子弹大小减少0.2
 	_level_up_action()
 
+func reward_Ice():
+	PC.has_ice = true
+	PC.selected_rewards.append("Ice")
+	# 初始化冷却时间
+	var player = get_tree().get_first_node_in_group("player")
+	if player and player.ice_flower_fire_speed:
+		player.ice_flower_fire_speed.start()
+	_level_up_action()
+
+func reward_RIce():
+	PC.main_skill_ice_damage += 0.2
+	PC.selected_rewards.append("RIce")
+	_level_up_action()
+
+func reward_SRIce():
+	PC.main_skill_ice_damage += 0.25
+	PC.selected_rewards.append("SRIce")
+	_level_up_action()
+
+func reward_SSRIce():
+	PC.main_skill_ice_damage += 0.3
+	PC.selected_rewards.append("SSRIce")
+	_level_up_action()
+
+func reward_URIce():
+	PC.main_skill_ice_damage += 0.4
+	PC.selected_rewards.append("URIce")
+	_level_up_action()
+
+func reward_Ice1():
+	PC.selected_rewards.append("Ice1")
+	_level_up_action()
+
+func reward_Ice2():
+	PC.selected_rewards.append("Ice2")
+	_level_up_action()
+
+func reward_Ice3():
+	PC.selected_rewards.append("Ice3")
+	_level_up_action()
+
+func reward_Ice4():
+	PC.selected_rewards.append("Ice4")
+	_level_up_action()
+
+func reward_Ice5():
+	PC.selected_rewards.append("Ice5")
+	_level_up_action()
+
+func reward_Ice11():
+	PC.selected_rewards.append("Ice11")
+	_level_up_action()
+
+func reward_Ice22():
+	PC.selected_rewards.append("Ice22")
+	_level_up_action()
+
+func reward_Ice33():
+	PC.selected_rewards.append("Ice33")
+	_level_up_action()
+
+func reward_Ice44():
+	PC.selected_rewards.append("Ice44")
+	_level_up_action()
+
+func reward_Ice55():
+	PC.selected_rewards.append("Ice55")
+	_level_up_action()
+
 # --- 环形子弹相关奖励函数 ---
 # 获得环形子弹能力
 func reward_SR27():
@@ -1231,6 +1360,23 @@ func reward_Riyan():
 	PC.has_riyan = true
 	_level_up_action()
 
+func reward_Thunder():
+	PC.now_main_skill_num = PC.now_main_skill_num + 1
+	PC.selected_rewards.append("thunder")
+	PC.has_thunder = true
+	_level_up_action()
+
+func reward_Bloodwave():
+	PC.now_main_skill_num = PC.now_main_skill_num + 1
+	PC.selected_rewards.append("bloodwave")
+	PC.has_bloodwave = true
+	_level_up_action()
+
+func reward_BloodBoardSword():
+	PC.now_main_skill_num = PC.now_main_skill_num + 1
+	PC.selected_rewards.append("bloodboardsword")
+	PC.has_bloodboardsword = true
+	_level_up_action()
 
 func reward_RSwordQi():
 	PC.main_skill_swordQi += 1
@@ -1478,6 +1624,177 @@ func reward_SSRriyan():
 func reward_URriyan():
 	PC.main_skill_riyan += 1
 	PC.main_skill_riyan_damage += 0.4
+	_level_up_action()
+
+func reward_RBloodwave():
+	PC.main_skill_bloodwave += 1
+	PC.main_skill_bloodwave_damage += 0.2
+	PC.selected_rewards.append("RBloodwave")
+	_level_up_action()
+
+func reward_SRBloodwave():
+	PC.main_skill_bloodwave += 1
+	PC.main_skill_bloodwave_damage += 0.25
+	PC.selected_rewards.append("SRBloodwave")
+	_level_up_action()
+
+func reward_SSRBloodwave():
+	PC.main_skill_bloodwave += 1
+	PC.main_skill_bloodwave_damage += 0.3
+	PC.selected_rewards.append("SSRBloodwave")
+	_level_up_action()
+
+func reward_URBloodwave():
+	PC.main_skill_bloodwave += 1
+	PC.main_skill_bloodwave_damage += 0.4
+	PC.selected_rewards.append("URBloodwave")
+	_level_up_action()
+
+func reward_RBloodBoardSword():
+	PC.main_skill_bloodboardsword += 1
+	PC.selected_rewards.append("RBloodBoardSword")
+	_level_up_action()
+
+func reward_SRBloodBoardSword():
+	PC.main_skill_bloodboardsword += 1
+	PC.selected_rewards.append("SRBloodBoardSword")
+	_level_up_action()
+
+func reward_SSRBloodBoardSword():
+	PC.main_skill_bloodboardsword += 1
+	PC.selected_rewards.append("SSRBloodBoardSword")
+	_level_up_action()
+
+func reward_URBloodBoardSword():
+	PC.main_skill_bloodboardsword += 1
+	PC.selected_rewards.append("URBloodBoardSword")
+	_level_up_action()
+
+func reward_BloodBoardSword1():
+	PC.selected_rewards.append("BloodBoardSword1")
+	_level_up_action()
+
+func reward_BloodBoardSword2():
+	PC.selected_rewards.append("BloodBoardSword2")
+	_level_up_action()
+
+func reward_BloodBoardSword3():
+	PC.selected_rewards.append("BloodBoardSword3")
+	_level_up_action()
+
+func reward_BloodBoardSword4():
+	PC.selected_rewards.append("BloodBoardSword4")
+	_level_up_action()
+
+func reward_BloodBoardSword11():
+	PC.selected_rewards.append("BloodBoardSword11")
+	_level_up_action()
+
+func reward_BloodBoardSword22():
+	PC.selected_rewards.append("BloodBoardSword22")
+	_level_up_action()
+
+func reward_BloodBoardSword33():
+	PC.selected_rewards.append("BloodBoardSword33")
+	_level_up_action()
+
+func reward_RThunder():
+	PC.main_skill_thunder += 1
+	PC.main_skill_thunder_damage += 0.2
+	PC.selected_rewards.append("RThunder")
+	_level_up_action()
+
+func reward_SRThunder():
+	PC.main_skill_thunder += 1
+	PC.main_skill_thunder_damage += 0.25
+	PC.selected_rewards.append("SRThunder")
+	_level_up_action()
+
+func reward_SSRThunder():
+	PC.main_skill_thunder += 1
+	PC.main_skill_thunder_damage += 0.3
+	PC.selected_rewards.append("SSRThunder")
+	_level_up_action()
+
+func reward_URThunder():
+	PC.main_skill_thunder += 1
+	PC.main_skill_thunder_damage += 0.4
+	PC.selected_rewards.append("URThunder")
+	_level_up_action()
+
+func reward_Thunder1():
+	PC.selected_rewards.append("Thunder1")
+	_level_up_action()
+
+func reward_Thunder2():
+	PC.selected_rewards.append("Thunder2")
+	_level_up_action()
+
+func reward_Thunder3():
+	PC.selected_rewards.append("Thunder3")
+	_level_up_action()
+
+func reward_Thunder4():
+	PC.selected_rewards.append("Thunder4")
+	_level_up_action()
+
+func reward_Thunder11():
+	PC.selected_rewards.append("Thunder11")
+	_level_up_action()
+
+func reward_Thunder22():
+	PC.selected_rewards.append("Thunder22")
+	_level_up_action()
+
+func reward_Thunder33():
+	PC.selected_rewards.append("Thunder33")
+	_level_up_action()
+
+func reward_Bloodwave1():
+	PC.selected_rewards.append("Bloodwave1")
+	PC.main_skill_bloodwave_damage += 0.4
+	PC.bloodwave_apply_bleed = true
+	_level_up_action()
+
+func reward_Bloodwave2():
+	PC.selected_rewards.append("Bloodwave2")
+	PC.main_skill_bloodwave_damage += 0.6
+	PC.bloodwave_hp_cost_multi = 2.0
+	PC.bloodwave_extra_crit_chance += 0.3
+	PC.bloodwave_extra_crit_damage += 0.3
+	_level_up_action()
+
+func reward_Bloodwave3():
+	PC.selected_rewards.append("Bloodwave3")
+	PC.main_skill_bloodwave_damage += 0.3
+	PC.bloodwave_missing_hp_damage_bonus = 0.01
+	PC.bloodwave_missing_hp_range_bonus = 0.02
+	_level_up_action()
+
+func reward_Bloodwave4():
+	PC.selected_rewards.append("Bloodwave4")
+	PC.main_skill_bloodwave_damage += 0.5
+	PC.bloodwave_missing_hp_heal_bonus = 0.01
+	_level_up_action()
+
+func reward_Bloodwave11():
+	PC.selected_rewards.append("Bloodwave11")
+	PC.main_skill_bloodwave_damage += 0.5
+	PC.bloodwave_missing_hp_damage_bonus = 0.015
+	PC.bloodwave_missing_hp_heal_bonus = 0.015
+	_level_up_action()
+
+func reward_Bloodwave22():
+	PC.selected_rewards.append("Bloodwave22")
+	PC.main_skill_bloodwave_damage += 0.4
+	PC.bloodwave_low_hp_damage_bonus = 0.4
+	PC.bloodwave_low_hp_range_bonus = 0.4
+	_level_up_action()
+
+func reward_Bloodwave33():
+	PC.selected_rewards.append("Bloodwave33")
+	PC.main_skill_bloodwave_damage += 0.6
+	PC.bloodwave_bleed_move_speed_bonus = 0.01
 	_level_up_action()
 
 func reward_Riyan1():

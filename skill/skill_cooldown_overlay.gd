@@ -39,6 +39,7 @@ func update_skill(skill: int, cooldown_time_new: float, skill_icon_url: String) 
 		if new_time_left <= 0.01:
 			new_time_left = 0.01
 		$Timer.start(new_time_left)
+		$Timer.wait_time = cooldown_time_new
 
 func _process(delta: float) -> void:
 	$Label.text = "%.2f" % $Timer.time_left
@@ -49,16 +50,24 @@ func _on_timer_timeout() -> void:
 	$TextureProgressBar.value = 100
 	if skill_id == 1:
 		Global.emit_signal("skill_cooldown_complete", skill_id)
-	if skill_id == 2:
+	elif skill_id == 2:
 		Global.emit_signal("skill_cooldown_complete_branch", skill_id)
-	if skill_id == 3:
+	elif skill_id == 3:
 		Global.emit_signal("skill_cooldown_complete_moyan", skill_id)
-	if skill_id == 4:
+	elif skill_id == 4:
 		$Timer.stop()
 		Global.emit_signal("skill_cooldown_complete_riyan", skill_id)
-	if skill_id == 5:
+	elif skill_id == 5:
 		$Timer.stop()
 		Global.emit_signal("skill_cooldown_complete_ringFire", skill_id)
+	elif skill_id == 6:
+		Global.emit_signal("skill_cooldown_complete_thunder", skill_id)
+	elif skill_id == 7:
+		Global.emit_signal("skill_cooldown_complete_bloodwave", skill_id)
+	elif skill_id == 8:
+		Global.emit_signal("skill_cooldown_complete_bloodboardsword", skill_id)
+	elif skill_id == 9:
+		Global.emit_signal("skill_cooldown_complete_ice", skill_id)
 
 var remaining_time: float = 0
 

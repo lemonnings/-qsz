@@ -84,7 +84,7 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 	if enemy.has_method("get") and not enemy.get("is_dead"):
 		var damage_offset = Vector2(35, 20)
 		if is_boss:
-			# Boss伤害显示的偏移可能不同
+			# Boss伤害显示的偏移不同
 			damage_offset = Vector2(
 				randf_range(-15, 15),
 				randf_range(-15, 15)
@@ -106,9 +106,6 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 	return result
 
 # 检查是否应该处理子弹反弹
-# 参数:
-# - bullet: 子弹Area2D节点
-# 返回: 是否应该创建反弹子弹
 static func should_create_rebound(bullet: Area2D) -> bool:
 	if not bullet:
 		return false

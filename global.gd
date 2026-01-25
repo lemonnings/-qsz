@@ -28,6 +28,16 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 
 @export var total_points: int = 1000
 
+@export var exp_multi: float = 0
+@export var drop_multi: float = 0
+@export var body_size: float = 1
+@export var heal_multi: float = 0
+@export var sheild_multi: float = 0
+@export var normal_monster_multi: float = 0
+@export var boss_multi: float = 0
+@export var cooldown: float = 0
+@export var active_skill_multi: float = 0
+
 @export var max_main_skill_num: int = 3
 
 # 纹章相关字段
@@ -165,6 +175,10 @@ signal skill_cooldown_complete_branch
 signal skill_cooldown_complete_moyan
 signal skill_cooldown_complete_riyan
 signal skill_cooldown_complete_ringFire
+signal skill_cooldown_complete_thunder
+signal skill_cooldown_complete_bloodwave
+signal skill_cooldown_complete_bloodboardsword
+signal skill_cooldown_complete_ice
 
 # 其他攻击方式相关
 signal riyan_damage_triggered
@@ -235,6 +249,17 @@ func _ready() -> void:
 	# 游戏启动时立即加载鼠标动画
 	MouseAnimation.start_mouse_animation()
 
+func reset_battle_modifiers() -> void:
+	exp_multi = 0
+	drop_multi = 0
+	body_size = 1
+	heal_multi = 0
+	sheild_multi = 0
+	normal_monster_multi = 0
+	boss_multi = 0
+	cooldown = 0
+	active_skill_multi = 0
+
 func _input(event: InputEvent) -> void:
 	# 全局快捷键：F1打开音频设置
 	if event is InputEventKey and event.pressed:
@@ -258,6 +283,15 @@ func save_game() -> void:
 	var config = ConfigFile.new()
 	var data = {
 		"total_points": total_points,
+		"exp_multi": exp_multi,
+		"drop_multi": drop_multi,
+		"body_size": body_size,
+		"heal_multi": heal_multi,
+		"sheild_multi": sheild_multi,
+		"normal_monster_multi": normal_monster_multi,
+		"boss_multi": boss_multi,
+		"cooldown": cooldown,
+		"active_skill_multi": active_skill_multi,
 		"world_level": world_level,
 		"world_level_multiple": world_level_multiple,
 		"world_level_reward_multiple": world_level_reward_multiple,
@@ -326,6 +360,15 @@ func load_game() -> void:
 		return
 	
 	total_points = config.get_value("save", "total_points", total_points)
+	exp_multi = config.get_value("save", "exp_multi", exp_multi)
+	drop_multi = config.get_value("save", "drop_multi", drop_multi)
+	body_size = config.get_value("save", "body_size", body_size)
+	heal_multi = config.get_value("save", "heal_multi", heal_multi)
+	sheild_multi = config.get_value("save", "sheild_multi", sheild_multi)
+	normal_monster_multi = config.get_value("save", "normal_monster_multi", normal_monster_multi)
+	boss_multi = config.get_value("save", "boss_multi", boss_multi)
+	cooldown = config.get_value("save", "cooldown", cooldown)
+	active_skill_multi = config.get_value("save", "active_skill_multi", active_skill_multi)
 	world_level = config.get_value("save", "world_level", world_level)
 	world_level_multiple = config.get_value("save", "world_level_multiple", world_level_multiple)
 	world_level_reward_multiple = config.get_value("save", "world_level_reward_multiple", world_level_reward_multiple)

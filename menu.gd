@@ -89,6 +89,8 @@ func reset_player_attr() -> void:
 	PC.selected_rewards = ["wave_bullet"]
 	print(PC.selected_rewards)
 	
+	Global.reset_battle_modifiers()
+	
 	exec_pc_atk()
 	exec_pc_hp()
 	exec_pc_bullet_size()
@@ -133,7 +135,15 @@ func reset_player_attr() -> void:
 	PC.crit_damage_multi = 1.5 + (Global.crit_damage_level * 0.01) # 基础暴击伤害倍率 + 局外成长
 	
 	PC.damage_reduction_rate = min(0.0 + (Global.damage_reduction_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
-	PC.body_size = 0
+	PC.exp_multi = Global.exp_multi
+	PC.drop_multi = Global.drop_multi
+	PC.body_size = Global.body_size
+	PC.heal_multi = Global.heal_multi
+	PC.sheild_multi = Global.sheild_multi
+	PC.normal_monster_multi = Global.normal_monster_multi
+	PC.boss_multi = Global.boss_multi
+	PC.cooldown = Global.cooldown
+	PC.active_skill_multi = Global.active_skill_multi
 	PC.last_atk_speed = 0
 	PC.last_speed = 0
 	PC.last_lunky_level = 1
@@ -172,7 +182,7 @@ func reset_player_attr() -> void:
 	PC.first_has_riyan_pc = true
 	PC.riyan_range = 70.0
 	PC.riyan_cooldown = 0.5
-	PC.riyan_hp_max_damage = 0.04
+	PC.riyan_hp_max_damage = 0.03
 	PC.riyan_atk_damage = 0.03
 	
 	# 重置环火相关属性

@@ -4,6 +4,8 @@ extends Area2D
 @export var bullet_range: float = PC.swordQi_range # 子弹射程
 @export var penetration_count: int = 1 # 穿透次数，默认为1
 
+const BulletScene = preload("res://Scenes/bullet.tscn")
+
 # 子弹的伤害和暴击状态（在创建时确定）
 var bullet_damage: float = 0.0
 var is_crit_hit: bool = false
@@ -175,7 +177,7 @@ func create_rebound() -> void:
 		# 创建1-3个随机方向的子级子弹
 		var num_bullets = randi_range(1, (1 + bullet_bound_num * 0.5))
 		for i in range(num_bullets):
-			var child_bullet = load("res://Scenes/bullet.tscn").instantiate()
+			var child_bullet = BulletScene.instantiate()
 			# 设置子级子弹属性
 			scale = scale * PC.rebound_size_multiplier
 			update_collision_shape_size() # 使用新函数同步更新碰撞形状

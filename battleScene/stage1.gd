@@ -133,11 +133,12 @@ func _physics_process(_delta: float) -> void:
 		return
 	
 	PC.real_time += _delta
+	PC.update_shields(_delta)
 	
 	# 更新UI显示
 	layer_ui.update_time_display(PC.real_time)
 	_check_level_up()
-	layer_ui.update_hp_bar(PC.pc_hp, PC.pc_max_hp)
+	layer_ui.update_hp_bar(PC.pc_hp, PC.pc_max_hp, PC.get_total_shield())
 	layer_ui.update_lv_up_visibility()
 	layer_ui.update_exp_bar(PC.pc_exp, layer_ui.get_required_lv_up_value(PC.pc_lv))
 	layer_ui.update_mechanism_bar(map_mechanism_num, map_mechanism_num_max, boss_event_triggered)

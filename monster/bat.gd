@@ -61,6 +61,9 @@ func free_health_bar():
 func _physics_process(delta: float) -> void:
 	if hp < hpMax and hp > 0:
 		show_health_bar()
+	
+	if debuff_manager.is_action_disabled():
+		return
 
 	# 处理推挤效果（防止怪物重叠）
 	if not is_dead:
@@ -141,11 +144,13 @@ func _physics_process(delta: float) -> void:
 
 
 func _on_body_entered(body: Node2D) -> void:
+	if debuff_manager.is_action_disabled():
+		return
 	if (body is CharacterBody2D and not is_dead and not PC.invincible):
 		Global.emit_signal("player_hit", self)
 		var damage_before_debuff = atk * (1.0 - PC.damage_reduction_rate)
 		var actual_damage = int(damage_before_debuff * debuff_manager.get_take_damage_multiplier())
-		PC.pc_hp -= actual_damage
+		PC.apply_damage(actual_damage)
 		if PC.pc_hp <= 0:
 			body.game_over()
 

@@ -31,7 +31,7 @@ func _ready():
 
 func create_warning_shape():
 	"""创建预警的矩形形状"""
-	var RectDrawer = preload("res://util/rect_drawer.gd")
+	var RectDrawer = preload("res://Script/util/rect_drawer.gd")
 	warning_shape = RectDrawer.new()
 	add_child(warning_shape)
 	

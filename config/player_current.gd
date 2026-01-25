@@ -6,6 +6,7 @@ extends Node
 @export var pc_start_atk: int = 25 # 局内攻击
 @export var pc_final_atk: float = 0.0 # 局内最终伤害（例如0.1代表最后结算时伤害为110%）
 @export var pc_hp: int = 50 # 局内HP
+@export var pc_sheild: Array[Dictionary] = [] # 当前盾量
 @export var pc_lv: int = 1 # 局内等级
 @export var pc_exp: int = 0 # 局内经验
 @export var pc_max_hp: int = 50 # 局内最大hp
@@ -44,7 +45,7 @@ extends Node
 @export var main_skill_moyan_advance = 0
 @export var has_moyan: bool = false
 @export var first_has_moyan: bool = true
-@export var main_skill_moyan_damage: float = 1.0 # 魔焰基础伤害倍率
+@export var main_skill_moyan_damage: float = 1.5 # 魔焰基础伤害倍率
 @export var moyan_range: float = 220.0 # 魔焰基础射程
 
 # 跟升级抽卡有关系的
@@ -94,6 +95,52 @@ extends Node
 @export var main_skill_ringFire_damage: float = 0.3 # 炎轮基础伤害30%
 @export var has_ringFire: bool = false
 @export var first_has_ringFire: bool = true
+
+# 雷光相关量
+@export var main_skill_thunder = 0
+@export var main_skill_thunder_advance = 0
+@export var main_skill_thunder_damage: float = 1.0
+@export var has_thunder: bool = false
+@export var first_has_thunder: bool = true
+@export var thunder_range: float = 260.0
+
+# 血气波相关量
+@export var main_skill_bloodwave = 0
+@export var main_skill_bloodwave_advance = 0
+@export var main_skill_bloodwave_damage: float = 1.0
+@export var has_bloodwave: bool = false
+@export var first_has_bloodwave: bool = true
+@export var bloodwave_range: float = 80.0
+@export var bloodwave_apply_bleed: bool = false
+@export var bloodwave_hp_cost_multi: float = 1.0
+@export var bloodwave_extra_crit_chance: float = 0.0
+@export var bloodwave_extra_crit_damage: float = 0.0
+@export var bloodwave_missing_hp_damage_bonus: float = 0.0
+@export var bloodwave_missing_hp_range_bonus: float = 0.0
+@export var bloodwave_missing_hp_heal_bonus: float = 0.0
+@export var bloodwave_low_hp_damage_bonus: float = 0.0
+@export var bloodwave_low_hp_range_bonus: float = 0.0
+@export var bloodwave_bleed_move_speed_bonus: float = 0.0
+
+@export var main_skill_bloodboardsword = 0
+@export var main_skill_bloodboardsword_advance = 0
+@export var has_bloodboardsword: bool = false
+@export var first_has_bloodboardsword: bool = true
+
+# 冰刺术相关变量
+@export var main_skill_ice = 0
+@export var main_skill_ice_advance = 0
+@export var has_ice: bool = false
+@export var first_has_ice: bool = true
+@export var main_skill_ice_damage: float = 0.6
+@export var ice_flower_range: float = 132.0
+@export var ice_flower_penetration_count: int = 0
+@export var ice_flower_pierce_decay: float = 0.0
+@export var ice_flower_extra_small_count: int = 4
+@export var ice_flower_spread_angle: float = 75.0
+@export var ice_flower_small_damage_ratio: float = 0.5
+@export var ice_flower_small_scale_ratio: float = 0.7
+@export var ice_flower_base_scale: float = 1.0
 
 # 反弹子弹相关属性
 @export var rebound_size_multiplier: float = 0.4 # 反弹子弹大小倍数
@@ -155,7 +202,9 @@ func reset_player_attr() -> void:
 	Global.in_menu = false
 	PC.is_game_over = false
 	
-	PC.selected_rewards = []
+	PC.selected_rewards = ["Ice1","Ice3","Ice11","Ice44"]
+	
+	Global.reset_battle_modifiers()
 	
 	exec_pc_atk()
 	exec_pc_hp()
@@ -175,6 +224,7 @@ func reset_player_attr() -> void:
 	PC.pc_exp = 0
 	PC.pc_speed = 0 + (Global.cultivation_zhuifeng_level * 0.02)
 	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.02)
+	PC.pc_sheild = []
 	
 	PC.invincible = false
 	
@@ -207,7 +257,15 @@ func reset_player_attr() -> void:
 	PC.crit_damage_multi = 1.5 + (Global.cultivation_liejin_level * 0.01) # 基础暴击伤害倍率 + 局外成长
 	
 	PC.damage_reduction_rate = min(0.0 + (Global.cultivation_huti_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
-	PC.body_size = 0
+	PC.exp_multi = Global.exp_multi
+	PC.drop_multi = Global.drop_multi
+	PC.body_size = Global.body_size
+	PC.heal_multi = Global.heal_multi
+	PC.sheild_multi = Global.sheild_multi
+	PC.normal_monster_multi = Global.normal_monster_multi
+	PC.boss_multi = Global.boss_multi
+	PC.cooldown = Global.cooldown
+	PC.active_skill_multi = Global.active_skill_multi
 	PC.last_atk_speed = 0
 	PC.last_speed = 0
 	PC.last_lunky_level = 1
@@ -256,12 +314,104 @@ func reset_player_attr() -> void:
 	PC.has_ringFire = false
 	PC.first_has_ringFire = true
 	
+	# 重置雷光相关属性
+	PC.main_skill_thunder = 0
+	PC.main_skill_thunder_advance = 0
+	PC.main_skill_thunder_damage = 1.0
+	PC.has_thunder = false
+	PC.first_has_thunder = true
+	PC.thunder_range = 260.0
+	
+	# 重置血气波相关属性
+	PC.main_skill_bloodwave = 0
+	PC.main_skill_bloodwave_advance = 0
+	PC.main_skill_bloodwave_damage = 1.0
+	PC.has_bloodwave = false
+	PC.first_has_bloodwave = true
+	PC.bloodwave_range = 120.0
+	PC.bloodwave_apply_bleed = false
+	PC.bloodwave_hp_cost_multi = 1.0
+	PC.bloodwave_extra_crit_chance = 0.0
+	PC.bloodwave_extra_crit_damage = 0.0
+	PC.bloodwave_missing_hp_damage_bonus = 0.0
+	PC.bloodwave_missing_hp_range_bonus = 0.0
+	PC.bloodwave_missing_hp_heal_bonus = 0.0
+	PC.bloodwave_low_hp_damage_bonus = 0.0
+	PC.bloodwave_low_hp_range_bonus = 0.0
+	PC.bloodwave_bleed_move_speed_bonus = 0.0
+	
+	PC.main_skill_bloodboardsword = 0
+	PC.main_skill_bloodboardsword_advance = 0
+	PC.has_bloodboardsword = false
+	PC.first_has_bloodboardsword = true
+	
+	# 重置冰刺术相关属性
+	PC.main_skill_ice = 0
+	PC.main_skill_ice_advance = 0
+	PC.has_ice = false
+	PC.first_has_ice = true
+	PC.main_skill_ice_damage = 0.6
+	PC.ice_flower_range = 132.0
+	PC.ice_flower_penetration_count = 0
+	PC.ice_flower_pierce_decay = 0.0
+	PC.ice_flower_extra_small_count = 4
+	PC.ice_flower_spread_angle = 120.0
+	PC.ice_flower_small_damage_ratio = 0.5
+	PC.ice_flower_small_scale_ratio = 0.65
+	PC.ice_flower_base_scale = 1.0
+	
 	PC.refresh_num = Global.refresh_max_num
 	# BuffManager.clear_all_buffs() # 已由下面的EmblemManager.clear_all_emblems()替代
 	
 	# 重置纹章系统
 	PC.current_emblems.clear()
 	EmblemManager.clear_all_emblems()
+
+func add_shield(amount: int, duration: float) -> void:
+	var shield = {"value": amount, "time_left": duration}
+	pc_sheild.append(shield)
+
+func update_shields(delta: float) -> void:
+	for i in range(pc_sheild.size()):
+		var shield = pc_sheild[i]
+		shield["time_left"] = float(shield["time_left"]) - delta
+		pc_sheild[i] = shield
+	_remove_empty_shields()
+
+func get_total_shield() -> int:
+	var total = 0
+	for shield in pc_sheild:
+		total += int(shield["value"])
+	return total
+
+func apply_damage(damage: int) -> int:
+	var remaining_damage = damage
+	if pc_sheild.size() > 0:
+		pc_sheild.sort_custom(func(a, b): return a["time_left"] < b["time_left"])
+		for i in range(pc_sheild.size()):
+			if remaining_damage <= 0:
+				break
+			var shield = pc_sheild[i]
+			var shield_value = int(shield["value"])
+			if shield_value > remaining_damage:
+				shield["value"] = shield_value - remaining_damage
+				remaining_damage = 0
+				pc_sheild[i] = shield
+			else:
+				remaining_damage -= shield_value
+				shield["value"] = 0
+				pc_sheild[i] = shield
+		_remove_empty_shields()
+	if remaining_damage > 0:
+		pc_hp -= remaining_damage
+	return remaining_damage
+
+func _remove_empty_shields() -> void:
+	var remain: Array[Dictionary] = []
+	for shield in pc_sheild:
+		if int(shield["value"]) > 0 and float(shield["time_left"]) > 0:
+			remain.append(shield)
+	pc_sheild = remain
 
 # 应用装备属性加成
 func apply_equipment_bonuses() -> void:
