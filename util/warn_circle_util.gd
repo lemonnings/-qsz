@@ -102,6 +102,7 @@ func _process(delta):
 		update_warning_visual(progress)
 	else:
 		# 预警结束
+
 		finish_warning()
 
 func update_warning_visual(progress: float):

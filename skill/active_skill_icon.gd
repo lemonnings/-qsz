@@ -1,7 +1,6 @@
 extends TextureButton
 
 # 主动技能图标
-# 与自动攻击技能不同，只有主动使用时才会进入冷却
 
 var skill_name: String = "" # 技能名称ID（对应Global.player_now_active_skill中的name）
 var slot_key: String = "" # 槽位键（space/q/e）
@@ -31,7 +30,7 @@ func _ready() -> void:
 		Global.ActiveSkillManager.skill_cooldown_finished.connect(_on_skill_cooldown_finished)
 
 func _setup_ui_nodes() -> void:
-	"""设置UI节点引用"""
+	# 设置UI节点引用
 	cooldown_label = get_node_or_null("Label")
 	cooldown_progress = get_node_or_null("TextureProgressBar")
 	
@@ -60,7 +59,7 @@ func _setup_ui_nodes() -> void:
 			Global.ActiveSkillManager.skill_cooldown_finished.connect(_on_skill_cooldown_finished)
 
 func setup_active_skill(slot: String, hotkey_text: String) -> void:
-	"""初始化主动技能图标"""
+	## 初始化主动技能图标
 	slot_key = slot
 	
 	# 设置快捷键显示
@@ -99,7 +98,7 @@ func setup_active_skill(slot: String, hotkey_text: String) -> void:
 		cooldown_progress.value = 0
 
 func _get_skill_icon_path(skill_id: String) -> String:
-	"""根据技能ID获取图标路径"""
+	## 根据技能ID获取图标路径
 	match skill_id:
 		"dodge":
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/dodge.png"
@@ -109,7 +108,7 @@ func _get_skill_icon_path(skill_id: String) -> String:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png"
 
 func _get_skill_cooldown(skill_id: String) -> float:
-	"""根据技能ID和等级计算冷却时间"""
+	## 根据技能ID和等级计算冷却时间
 	var skill_data = Global.player_active_skill_data.get(skill_id, {})
 	var level = skill_data.get("level", 1)
 	
@@ -121,6 +120,7 @@ func _get_skill_cooldown(skill_id: String) -> float:
 			for lv in [3, 5, 7, 9, 11, 13, 15]:
 				if level >= lv:
 					cd_reduction += 0.5
+			cd_reduction = cd_reduction * PC.cooldown_multi * PC.dodge_multi
 			return max(1.0, base_cd - cd_reduction)
 		"random_strike":
 			# 乱击：基础冷却20秒，等级4，7，10，13时冷却-1秒
@@ -129,6 +129,7 @@ func _get_skill_cooldown(skill_id: String) -> float:
 			for lv in [4, 7, 10, 13]:
 				if level >= lv:
 					cd_reduction += 1.0
+			cd_reduction = cd_reduction * PC.cooldown_multi * PC.random_strike_multi
 			return max(5.0, base_cd - cd_reduction)
 		_:
 			return 10.0
@@ -154,7 +155,7 @@ func _process(delta: float) -> void:
 				cooldown_progress.value = int((current_cooldown / cooldown_time) * 100)
 
 func start_cooldown(cd_time: float = -1.0) -> void:
-	"""开始冷却（主动调用或由技能使用触发）"""
+	## 开始冷却（主动调用或由技能使用触发）
 	if cd_time > 0:
 		cooldown_time = cd_time
 	
@@ -167,12 +168,12 @@ func start_cooldown(cd_time: float = -1.0) -> void:
 		cooldown_progress.value = 100
 
 func _on_skill_cooldown_started(skill_id: String, cd_time: float) -> void:
-	"""当技能进入冷却时（由ActiveSkillManager触发）"""
+	## 当技能进入冷却时（由ActiveSkillManager触发）
 	if skill_id == skill_name:
 		start_cooldown(cd_time)
 
 func _on_skill_cooldown_finished(skill_id: String) -> void:
-	"""当技能冷却完成时"""
+	## 当技能冷却完成时
 	if skill_id == skill_name:
 		is_on_cooldown = false
 		current_cooldown = 0.0
@@ -182,13 +183,13 @@ func _on_skill_cooldown_finished(skill_id: String) -> void:
 			cooldown_progress.value = 0
 
 func is_skill_ready() -> bool:
-	"""检查技能是否可用"""
+	## 检查技能是否可用
 	return not is_on_cooldown and skill_name != ""
 
 func set_game_paused(pause: bool) -> void:
-	"""暂停/恢复冷却"""
+	## 暂停/恢复冷却
 	is_paused = pause
 
 func refresh_skill_config() -> void:
-	"""刷新技能配置（当技能绑定变化时调用）"""
+	## 刷新技能配置（当技能绑定变化时调用）
 	setup_active_skill(slot_key, hotkey_label.text if hotkey_label else "")

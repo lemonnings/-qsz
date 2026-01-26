@@ -5,7 +5,7 @@ const CONFIG_PATH = "user://game_config.cfg"
 # 合成界面状态 - 用于禁用缩放等操作
 var in_synthesis: bool = false
 
-# Buff配置管理器（需要在项目设置中设置为自动加载）
+# Buff配置管理器
 var SettingBuff = preload("res://Script/config/setting_buff.gd").new()
 
 # 纹章配置管理器
@@ -17,7 +17,7 @@ var AudioManager = preload("res://Script/system/audio_manager.gd").new()
 # 设置管理器
 var SettingsManager = preload("res://Script/system/settings_manager.gd").new()
 
-# 柔光滤镜管理器
+# 滤镜管理器
 var SoftGlowManager = preload("res://Script/system/soft_glow_manager.gd").new()
 
 # 主动技能管理器
@@ -37,7 +37,7 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 @export var fruit_heal_multi: float = 1
 @export var fruit_heal_multi_used_count: int = 0 # 回春露已使用次数（最多10次）
 
-# 抽卡有关
+# lunky概率
 @export var lunky_level: int = 1
 @export var red_p: float = 3.5
 @export var gold_p: float = 10
