@@ -56,6 +56,8 @@ func _physics_process(_delta: float) -> void:
 		PC.current_time = PC.current_time + 0.486
 	# print(PC.current_time)
 	
+	PC.update_shields(_delta)
+	
 	if PC.pc_exp >= get_required_lv_up_value(PC.pc_lv):
 		pending_level_ups += 1
 		PC.pc_lv += 1

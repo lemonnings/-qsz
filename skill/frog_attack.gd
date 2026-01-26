@@ -2,7 +2,7 @@ extends Area2D
 
 @onready var animated_sprite_2d = $AnimatedSprite2D
 
-var speed = 200  # 火球飞行速度
+var speed = 150  # 火球飞行速度
 var direction = Vector2.RIGHT # 火球默认飞行方向
 var atk : float = SettingMoster.frog("atk") # 火球攻击力，与青蛙一致
 
@@ -36,8 +36,7 @@ func _on_body_entered(body: Node2D) -> void:
 	if body is CharacterBody2D and not PC.invincible:
 		Global.emit_signal("player_hit")
 		var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate)) # 计算实际伤害，考虑减伤
-		PC.pc_hp -= actual_damage # 扣除玩家血量
-		# print("Player HP: ", PC.pc_hp) # 打印玩家当前血量 (调试用)
+		PC.apply_damage(actual_damage) # 扣除玩家血量
 		if PC.pc_hp <= 0:
 			body.game_over() # 如果玩家血量耗尽，则游戏结束
 		queue_free() # 火球击中目标后消失

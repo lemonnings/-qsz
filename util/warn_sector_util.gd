@@ -8,12 +8,12 @@ signal warning_finished
 signal damage_dealt(damage_amount)
 
 # 预警参数
-var target_point: Vector2 = Vector2.ZERO  # 目标点
-var sector_angle: float = 60.0            # 扇形角度（度）
-var radius: float = 200.0                 # 扇形半径
-var warning_time: float = 2.0             # 预警时间
-var damage: float = 50.0                  # 伤害值
-var animation_player: AnimationPlayer = null  # 预警结束后播放的动画播放器
+var target_point: Vector2 = Vector2.ZERO # 目标点
+var sector_angle: float = 60.0 # 扇形角度（度）
+var radius: float = 200.0 # 扇形半径
+var warning_time: float = 2.0 # 预警时间
+var damage: float = 50.0 # 伤害值
+var animation_player: AnimationPlayer = null # 预警结束后播放的动画播放器
 
 # 内部变量
 var warning_shape: Node2D
@@ -21,11 +21,14 @@ var current_time: float = 0.0
 var start_position: Vector2
 var is_warning_active: bool = false
 var player_ref: Node2D
-var center_direction: float = 0.0  # 扇形中心方向角度
+var center_direction: float = 0.0 # 扇形中心方向角度
 var current_alpha: float = 0.0
 var initial_scale: Vector2 = Vector2(0.1, 0.1)
 
 func _ready():
+	# 设置为可暂停模式，升级等暂停期间动画也会暂停
+	process_mode = Node.PROCESS_MODE_PAUSABLE
+	
 	# 获取玩家引用
 	player_ref = get_tree().get_first_node_in_group("player")
 	
@@ -34,7 +37,7 @@ func _ready():
 
 func create_warning_shape():
 	"""创建预警的扇形形状"""
-	warning_shape = preload("res://util/sector_drawer.gd").new()
+	warning_shape = preload("res://Script/util/sector_drawer.gd").new()
 	add_child(warning_shape)
 	warning_shape.z_index = 10 # 确保在其他元素之上
 
@@ -97,7 +100,7 @@ func update_warning_visual(progress: float):
 		var expand_progress = progress / 0.25
 		var current_scale = expand_progress
 		warning_shape.scale = Vector2(current_scale, current_scale)
-		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35)  # 红色，透明度0.35
+		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35) # 红色，透明度0.35
 	
 	elif progress <= 0.75:
 		# 中间时间：保持稳定
@@ -107,9 +110,9 @@ func update_warning_visual(progress: float):
 	elif progress <= 0.9:
 		# 最后四分之一时间的前部分：开始闪烁
 		var blink_progress = (progress - 0.75) / 0.15
-		var blink_speed = 5.0 + blink_progress * 10.0  # 逐渐加快闪烁
-		var blink_alpha = (sin(current_time * blink_speed) + 1.0) * 0.5  # 0到1的范围
-		var final_alpha = 0.35 * (0.35 + blink_alpha * 0.65)  # 0.35*0.35到0.35的范围
+		var blink_speed = 5.0 + blink_progress * 10.0 # 逐渐加快闪烁
+		var blink_alpha = (sin(current_time * blink_speed) + 1.0) * 0.5 # 0到1的范围
+		var final_alpha = 0.35 * (0.35 + blink_alpha * 0.65) # 0.35*0.35到0.35的范围
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, final_alpha)
 	
 	else:
@@ -122,10 +125,14 @@ func finish_warning():
 	"""结束预警，检查伤害"""
 	is_warning_active = false
 	
+	print("扇形AOE预警结束，检查伤害判定...")
+	
 	# 检查玩家是否在范围内
 	if player_ref and is_player_in_range():
 		# 对玩家造成伤害
 		deal_damage_to_player()
+	else:
+		print("玩家不在扇形范围内，未造成伤害")
 	
 	# 播放动画（如果有）
 	if animation_player != null:
@@ -141,6 +148,7 @@ func finish_warning():
 func is_player_in_range() -> bool:
 	"""检查玩家是否在扇形AOE范围内"""
 	if not player_ref:
+		print("扇形AOE: 玩家引用为空")
 		return false
 	
 	# 计算玩家相对于扇形顶点的位置
@@ -149,7 +157,9 @@ func is_player_in_range() -> bool:
 	
 	# 检查距离是否在半径范围内
 	var distance = relative_pos.length()
+	print("扇形AOE判定 - 玩家距离: ", distance, " 扇形半径: ", radius)
 	if distance > radius:
+		print("扇形AOE: 玩家距离超出半径")
 		return false
 	
 	# 计算玩家相对于扇形中心的角度
@@ -158,7 +168,11 @@ func is_player_in_range() -> bool:
 	
 	# 检查角度是否在扇形范围内
 	var half_sector_angle = sector_angle / 2.0
-	return angle_diff <= half_sector_angle
+	print("扇形AOE判定 - 玩家角度差: ", rad_to_deg(angle_diff), "度 扇形半角: ", rad_to_deg(half_sector_angle), "度")
+	
+	var in_range = angle_diff <= half_sector_angle
+	print("扇形AOE判定结果: ", in_range)
+	return in_range
 
 func angle_difference(angle1: float, angle2: float) -> float:
 	"""计算两个角度之间的最小差值"""
@@ -171,9 +185,27 @@ func angle_difference(angle1: float, angle2: float) -> float:
 
 func deal_damage_to_player():
 	"""对玩家造成伤害"""
-	if player_ref and player_ref.has_method("take_damage"):
-		player_ref.take_damage(damage)
-		damage_dealt.emit(damage)
+	if not player_ref or not is_instance_valid(player_ref):
+		return
+	
+	# 检查无敌状态
+	if PC.invincible:
+		return
+	
+	# 触发受击效果
+	Global.emit_signal("player_hit")
+	
+	# 计算实际伤害（考虑减伤率）
+	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))
+	PC.apply_damage(actual_damage)
+	
+	print("扇形AOE对玩家造成伤害: ", actual_damage)
+	
+	# 检查死亡
+	if PC.pc_hp <= 0:
+		PC.player_instance.game_over()
+	
+	damage_dealt.emit(float(actual_damage))
 
 func play_animation():
 	"""播放预警结束后的动画"""

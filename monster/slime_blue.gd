@@ -65,8 +65,7 @@ func _physics_process(delta: float) -> void:
 			Global.emit_signal("monster_mechanism_gained", get_mechanism)
 			var change = randf()
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
-				# Release a round of sword Qi in (90°)(270°) and other all directions
-				release_round_sword_qi()
+				Global.emit_signal("_fire_ring_bullets")
 			$death.play()
 			is_dead = true
 			# 隐藏阴影
@@ -199,27 +198,3 @@ func apply_debuff_effect(debuff_id: String):
 func apply_knockback(direction: Vector2, force: float):
 	var tween = create_tween()
 	tween.tween_property(self, "position", global_position + direction * force, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-
-# Release a round of sword Qi in (90°)(270°) and other all directions
-func release_round_sword_qi():
-	var bullet_scene = preload("res://Scenes/bullet.tscn")
-	var spawn_position = global_position
-	var bullet_size = PC.bullet_size
-	
-	# Create sword Qi at 90°, 270° and other all directions
-	var angles = [90.0, 270.0] # Initial angles as per requirement
-	# Add other directions to make it a complete round
-	for i in range(8): # Add 6 more directions to make 8 total directions
-		var angle = (360.0 / 8) * i
-		if not (angle == 90.0 or angle == 270.0): # Avoid duplicates
-			angles.append(angle)
-	
-	for angle_deg in angles:
-		var sword_qi = bullet_scene.instantiate()
-		sword_qi.set_bullet_scale(Vector2(bullet_size, bullet_size))
-		var direction = Vector2.RIGHT.rotated(deg_to_rad(angle_deg))
-		sword_qi.set_direction(direction)
-		sword_qi.position = spawn_position
-		sword_qi.penetration_count = PC.swordQi_penetration_count
-		sword_qi.is_other_sword_wave = true # Mark as additional sword wave for damage calculation
-		get_tree().current_scene.add_child(sword_qi)

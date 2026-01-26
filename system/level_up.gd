@@ -22,8 +22,8 @@ var layer_ui: CanvasLayer
 var skill_nodes: Array[TextureButton] = []
 
 # 初始化升级管理器
-func initialize(p_canvas_layer: CanvasLayer, p_lv_up_change: Node2D, 
-			   p_lv_up_change_b1: Button, p_lv_up_change_b2: Button, 
+func initialize(p_canvas_layer: CanvasLayer, p_lv_up_change: Node2D,
+			   p_lv_up_change_b1: Button, p_lv_up_change_b2: Button,
 			   p_lv_up_change_b3: Button, p_layer_ui: CanvasLayer,
 			   p_skill_nodes: Array[TextureButton]):
 	canvas_layer = p_canvas_layer
@@ -35,7 +35,7 @@ func initialize(p_canvas_layer: CanvasLayer, p_lv_up_change: Node2D,
 	skill_nodes = p_skill_nodes
 
 # 主要升级处理函数
-func handle_level_up(main_skill_name: String = '', refresh_id: int = 0, 
+func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 					 scene_tree: SceneTree = null, viewport: Viewport = null) -> void:
 	if scene_tree:
 		await scene_tree.create_timer(0.25).timeout
@@ -61,7 +61,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	if refresh_id == 0 or refresh_id == 1:
 		reward1 = LvUp.get_reward_level(r1_rand, main_skill_name)
 		if reward1 == null:
-			if refresh_id != 0:	
+			if refresh_id != 0:
 				PC.refresh_num += 1
 			print("普通抽取池已空")
 		elif reward1.reward_name == "noReward":
@@ -71,7 +71,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	if refresh_id == 0 or refresh_id == 2:
 		reward2 = LvUp.get_reward_level(r2_rand, main_skill_name)
 		if reward2 == null:
-			if refresh_id != 0:	
+			if refresh_id != 0:
 				PC.refresh_num += 1
 			print("普通抽取池已空")
 		elif reward2.reward_name == "noReward":
@@ -81,11 +81,11 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	if refresh_id == 0 or refresh_id == 3:
 		reward3 = LvUp.get_reward_level(r3_rand, main_skill_name)
 		if reward3 == null:
-			if refresh_id != 0:	
+			if refresh_id != 0:
 				PC.refresh_num += 1
 			print("普通抽取池已空")
 		elif reward3.reward_name == "noReward":
-			if refresh_id != 0:	
+			if refresh_id != 0:
 				PC.refresh_num += 1
 			print("特殊技能抽取池已空")
 	
@@ -96,11 +96,11 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 			dark_overlayOld = get_meta("dark_overlay")
 		if dark_overlayOld == null or not is_instance_valid(dark_overlayOld):
 			var dark_overlay = ColorRect.new()
-			dark_overlay.color = Color(0, 0, 0, 0.35)  # 黑色，50%透明度
+			dark_overlay.color = Color(0, 0, 0, 0.35) # 黑色，50%透明度
 			if viewport:
 				dark_overlay.size = viewport.get_visible_rect().size * 4
 			dark_overlay.position = Vector2(-1000, 0)
-			dark_overlay.z_index = 0  # 确保在其他元素之上，但在CanvasLayer之下
+			dark_overlay.z_index = 0 # 确保在其他元素之上，但在CanvasLayer之下
 			dark_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
 			dark_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			canvas_layer.add_child(dark_overlay)
@@ -144,7 +144,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	
 	# 创建渐显动画
 	var tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	tween.set_parallel(true)  # 允许并行动画
+	tween.set_parallel(true) # 允许并行动画
 	tween.set_ignore_time_scale(true) # 确保tween在暂停时也能运行
 	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 
@@ -159,6 +159,9 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	for skill_node in skill_nodes:
 		if skill_node.has_method("set_game_paused"):
 			skill_node.set_game_paused(true)
+	
+	# 暂停人物和怪物的动画
+	_pause_all_animations(scene_tree)
 	
 	if scene_tree:
 		scene_tree.set_pause(true)
@@ -217,18 +220,18 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 		lvSkillLv.text = "LV. " + str(mainLV)
 		
 		var lights_to_turn_on = min(mainLV % 5, mainLV)
-		if lights_to_turn_on >= 0 :
+		if lights_to_turn_on >= 0:
 			lvAdvanceProgress1.region_rect = rect_ready
-		if lights_to_turn_on >= 1 :
+		if lights_to_turn_on >= 1:
 			lvAdvanceProgress1.region_rect = rect_on
 			lvAdvanceProgress2.region_rect = rect_ready
-		if lights_to_turn_on >= 2 :
+		if lights_to_turn_on >= 2:
 			lvAdvanceProgress2.region_rect = rect_on
 			lvAdvanceProgress3.region_rect = rect_ready
-		if lights_to_turn_on >= 3 :
+		if lights_to_turn_on >= 3:
 			lvAdvanceProgress3.region_rect = rect_on
 			lvAdvanceProgress4.region_rect = rect_ready
-		if lights_to_turn_on >= 4 :
+		if lights_to_turn_on >= 4:
 			lvAdvanceProgress4.region_rect = rect_on
 			lvAdvanceProgress5.region_rect = rect_ready
 	
@@ -255,12 +258,12 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 			skill_node.set_game_paused(false)
 	
 	var advance_change = int(PC.main_skill_swordQi / 5)
-	if PC.main_skill_swordQi != 0 and PC.main_skill_swordQi_advance < advance_change :
+	if PC.main_skill_swordQi != 0 and PC.main_skill_swordQi_advance < advance_change:
 		PC.main_skill_swordQi_advance += 1
 		handle_level_up("swordQi", 0, scene_tree, viewport)
 		# 主技能进阶完成后清空now_main_skill_name
 	# 如果没有主技能进阶，或者主技能进阶处理完毕后，再处理普通待升级
-	elif pending_level_ups > 0: 
+	elif pending_level_ups > 0:
 		handle_level_up("", 0, scene_tree, viewport)
 		# 清理升级选择时创建的背景变暗效果（仅普通升级时）
 		now_main_skill_name = ""
@@ -275,6 +278,8 @@ func _on_level_up_selection_complete(viewport: Viewport = null) -> void:
 	# 恢复游戏
 	if get_tree():
 		get_tree().set_pause(false)
+		# 恢复人物和怪物的动画
+		_resume_all_animations(get_tree())
 
 # 刷新按钮处理函数
 func handle_refresh_button(refresh_id: int, scene_tree: SceneTree = null, viewport: Viewport = null) -> void:
@@ -321,3 +326,41 @@ func _cleanup_dark_overlay() -> void:
 		if dark_overlay != null and is_instance_valid(dark_overlay):
 			dark_overlay.queue_free()
 		remove_meta("dark_overlay")
+
+# 暂停所有人物和怪物的动画
+func _pause_all_animations(scene_tree: SceneTree) -> void:
+	if not scene_tree:
+		return
+	
+	# 暂停玩家动画
+	var players = scene_tree.get_nodes_in_group("player")
+	for player in players:
+		var sprite = player.get_node_or_null("AnimatedSprite2D")
+		if sprite and sprite is AnimatedSprite2D:
+			sprite.pause()
+	
+	# 暂停怪物动画
+	var enemies = scene_tree.get_nodes_in_group("enemies")
+	for enemy in enemies:
+		var sprite = enemy.get_node_or_null("AnimatedSprite2D")
+		if sprite and sprite is AnimatedSprite2D:
+			sprite.pause()
+
+# 恢复所有人物和怪物的动画
+func _resume_all_animations(scene_tree: SceneTree) -> void:
+	if not scene_tree:
+		return
+	
+	# 恢复玩家动画
+	var players = scene_tree.get_nodes_in_group("player")
+	for player in players:
+		var sprite = player.get_node_or_null("AnimatedSprite2D")
+		if sprite and sprite is AnimatedSprite2D:
+			sprite.play()
+	
+	# 恢复怪物动画
+	var enemies = scene_tree.get_nodes_in_group("enemies")
+	for enemy in enemies:
+		var sprite = enemy.get_node_or_null("AnimatedSprite2D")
+		if sprite and sprite is AnimatedSprite2D:
+			sprite.play()

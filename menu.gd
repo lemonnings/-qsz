@@ -10,6 +10,7 @@ extends Node2D
 @export var shop_layer: CanvasLayer
 @export var canvas_layer: CanvasLayer
 @export var level_layer: CanvasLayer
+@export var dark_overlay: ColorRect # 黑色滤镜
 
 @export var atk_speed_button: Button
 @export var move_speed_button: Button
@@ -63,7 +64,7 @@ func _process(_delta: float) -> void:
 	Global.main_menu_instance = preload("res://Scenes/main_menu.tscn")
 	
 
-func _on_start_pressed() -> void :
+func _on_start_pressed() -> void:
 	pass
 	
 func _on_stage_1_pressed() -> void:
@@ -76,7 +77,7 @@ func _on_stage_2_pressed() -> void:
 	reset_player_attr()
 	get_tree().change_scene_to_file(town_test_scene)
 
-func reset_player_attr() -> void :
+func reset_player_attr() -> void:
 	# 重置玩家奖励权重
 	if PlayerRewardWeights:
 		PlayerRewardWeights.reset_all_weights()
@@ -85,8 +86,10 @@ func reset_player_attr() -> void :
 	Global.in_menu = false
 	PC.is_game_over = false
 	
-	PC.selected_rewards = ["wave_bullet"] 
+	PC.selected_rewards = ["wave_bullet"]
 	print(PC.selected_rewards)
+	
+	Global.reset_battle_modifiers()
 	
 	exec_pc_atk()
 	exec_pc_hp()
@@ -121,8 +124,8 @@ func reset_player_attr() -> void :
 	PC.rebound_size_multiplier = 0.9
 	PC.rebound_damage_multiplier = 0.35
 	
-	PC.summon_count = 0 
-	PC.summon_count_max  = 3
+	PC.summon_count = 0
+	PC.summon_count_max = 3
 	PC.summon_damage_multiplier = 0.0
 	PC.summon_interval_multiplier = 1.0
 	PC.summon_bullet_size_multiplier = 1.0
@@ -132,7 +135,15 @@ func reset_player_attr() -> void :
 	PC.crit_damage_multi = 1.5 + (Global.crit_damage_level * 0.01) # 基础暴击伤害倍率 + 局外成长
 	
 	PC.damage_reduction_rate = min(0.0 + (Global.damage_reduction_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
-	PC.body_size = 0
+	PC.exp_multi = Global.exp_multi
+	PC.drop_multi = Global.drop_multi
+	PC.body_size = Global.body_size
+	PC.heal_multi = Global.heal_multi
+	PC.sheild_multi = Global.sheild_multi
+	PC.normal_monster_multi = Global.normal_monster_multi
+	PC.boss_multi = Global.boss_multi
+	PC.cooldown = Global.cooldown
+	PC.active_skill_multi = Global.active_skill_multi
 	PC.last_atk_speed = 0
 	PC.last_speed = 0
 	PC.last_lunky_level = 1
@@ -143,7 +154,7 @@ func reset_player_attr() -> void :
 	PC.main_skill_swordQi_damage = 1
 	PC.swordQi_penetration_count = 1
 	PC.swordQi_other_sword_wave_damage = 0.5
-	PC.swordQi_range = 120
+	PC.swordQi_range = 132
 	
 	# 重置魔焰相关属性
 	PC.main_skill_moyan = 0
@@ -171,7 +182,7 @@ func reset_player_attr() -> void :
 	PC.first_has_riyan_pc = true
 	PC.riyan_range = 70.0
 	PC.riyan_cooldown = 0.5
-	PC.riyan_hp_max_damage = 0.04
+	PC.riyan_hp_max_damage = 0.03
 	PC.riyan_atk_damage = 0.03
 	
 	# 重置环火相关属性
@@ -185,10 +196,10 @@ func reset_player_attr() -> void :
 	EmblemManager.clear_all_emblems()
 	
 func exec_pc_atk() -> void:
-	PC.pc_atk = int (15 + int(get_total_increase(Global.atk_level)))
+	PC.pc_atk = int(15 + int(get_total_increase(Global.atk_level)))
 	
 func exec_pc_hp() -> void:
-	PC.pc_max_hp = int (15 + int(get_total_increase_hp(Global.hp_level)))
+	PC.pc_max_hp = int(15 + int(get_total_increase_hp(Global.hp_level)))
 	PC.pc_hp = PC.pc_max_hp
 	
 func exec_pc_bullet_size() -> void:
@@ -203,7 +214,7 @@ func exec_lucky_level() -> void:
 	PC.now_green_p = Global.green_p
 
 
-func _on_shop_pressed(not_move_background  : bool = true) -> void:
+func _on_shop_pressed(not_move_background: bool = true) -> void:
 	hero1_button.set_pressed(true)
 	_update_shop_content()
 	if not_move_background:
@@ -224,9 +235,9 @@ func _update_shop_content() -> void:
 
 func get_total_increase(level) -> String:
 	var total_attack = 1
-	var current_level = 1  # 当前已经处理到第几级
-	var attack_value = 1   # 当前每级增加的攻击力
-	var duration = 2       # 第一个攻击值(+1)持续2次升级
+	var current_level = 1 # 当前已经处理到第几级
+	var attack_value = 1 # 当前每级增加的攻击力
+	var duration = 2 # 第一个攻击值(+1)持续2次升级
 
 	while current_level < level:
 		var remaining_levels = level - current_level
@@ -237,13 +248,13 @@ func get_total_increase(level) -> String:
 
 		if current_level < level:
 			attack_value += 1
-			duration = int(attack_value * attack_value)  # 每个攻击力持续attack_value + 1次
+			duration = int(attack_value * attack_value) # 每个攻击力持续attack_value + 1次
 	return str(total_attack)
 
 func get_total_increase_hp(level) -> String:
 	var total_hp = 1
-	var current_level = 1  # 当前已经处理到第几级
-	var hp_value = 1   
+	var current_level = 1 # 当前已经处理到第几级
+	var hp_value = 1
 	var duration = 6
 
 	while current_level < level:
@@ -255,7 +266,7 @@ func get_total_increase_hp(level) -> String:
 
 		if current_level < level:
 			hp_value += 1
-			duration = 6 + int((hp_value + 4) * hp_value)  
+			duration = 6 + int((hp_value + 4) * hp_value)
 	return str(total_hp)
 
 func get_exp_for_level(level: int) -> int:
@@ -297,7 +308,17 @@ func _on_exit_pressed() -> void:
 func _on_exit_pressed_stage() -> void:
 	in_shop = false
 	move_background_up()
-	scale_background_to_1() 
+	scale_background_to_1()
+	
+	# 隐藏 dark_overlay 渐隐
+	if dark_overlay and dark_overlay.visible:
+		var exit_tween = create_tween()
+		exit_tween.tween_property(dark_overlay, "modulate:a", 0.0, 0.2)
+		exit_tween.tween_callback(func():
+			dark_overlay.visible = false
+			dark_overlay.modulate.a = 0.0
+		).set_delay(0.2)
+	
 	_transition_to_layer(canvas_layer, [shop_layer, level_layer], [bgm_change_button, world_level_option], true)
 	
 func _on_next_pressed() -> void:
@@ -526,6 +547,17 @@ func _on_world_level_item_focused(index: int) -> void:
 
 func _on_change_stage_button_pressed() -> void:
 	scale_background_to_2()
+	
+	# 显示 dark_overlay 渐显
+	if dark_overlay:
+		if transition_tween:
+			transition_tween.kill()
+		transition_tween = create_tween()
+		transition_tween.set_parallel(true)
+		dark_overlay.visible = true
+		dark_overlay.modulate.a = 0.0
+		transition_tween.tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
+	
 	_transition_to_layer(level_layer, [shop_layer, canvas_layer], [bgm_change_button, world_level_option])
 
 

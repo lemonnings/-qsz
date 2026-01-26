@@ -2,18 +2,18 @@ extends Area2D
 
 @onready var sprite = $AnimatedSprite2D
 var debuff_manager: EnemyDebuffManager
-var is_dead : bool = false
+var is_dead: bool = false
 # 0为从左到右，1为从右向左，2为随机移动，3为靠近角色
-var move_direction : int = 1
+var move_direction: int = 1
 
-var base_speed : float = SettingMoster.bigSlime("speed")
-var speed : float # Actual speed after debuffs
-var hpMax : float = SettingMoster.bigSlime("hp")
-var hp : float = SettingMoster.bigSlime("hp")
-var atk : float = SettingMoster.bigSlime("atk")
-var get_point : int = SettingMoster.bigSlime("point") 
-var get_exp : int = SettingMoster.bigSlime("exp")
-var get_mechanism : int = SettingMoster.bigSlime("mechanism")
+var base_speed: float = SettingMoster.bigSlime("speed")
+var speed: float # Actual speed after debuffs
+var hpMax: float = SettingMoster.bigSlime("hp")
+var hp: float = SettingMoster.bigSlime("hp")
+var atk: float = SettingMoster.bigSlime("atk")
+var get_point: int = SettingMoster.bigSlime("point")
+var get_exp: int = SettingMoster.bigSlime("exp")
+var get_mechanism: int = SettingMoster.bigSlime("mechanism")
 var health_bar_shown: bool = false
 var health_bar: Node2D
 var progress_bar: ProgressBar
@@ -28,6 +28,9 @@ func _ready():
 	add_child(debuff_manager)
 	debuff_applied.connect(debuff_manager.add_debuff)
 	speed = base_speed
+	
+	# 创建脚底阴影（大史莱姆阴影稍大）
+	CharacterEffects.create_shadow(self, 28.0, 9.0, 5.0)
 
 func show_health_bar():
 	if not health_bar_shown:
@@ -51,7 +54,6 @@ func free_health_bar():
 		health_bar.queue_free()
 
 func _physics_process(delta: float) -> void:
-	
 	if hp <= 0:
 		free_health_bar()
 		if not is_dead: # Add this check
@@ -66,12 +68,19 @@ func _physics_process(delta: float) -> void:
 				Global.emit_signal("_fire_ring_bullets")
 			$death.play()
 			is_dead = true
+			# 隐藏阴影
+			var shadow = get_node_or_null("Shadow")
+			if shadow:
+				shadow.visible = false
 		
 			await get_tree().create_timer(0.35).timeout
 			queue_free()
 		
 	if hp < hpMax and hp > 0:
 		show_health_bar()
+	
+	if debuff_manager.is_action_disabled():
+		return
 		
 	if not is_dead:
 		if move_direction == 0:
@@ -93,20 +102,9 @@ func _physics_process(delta: float) -> void:
 				else:
 					sprite.flip_h = false
 	
-	
-	# 处理敌人之间的碰撞
-	var overlapping_bodies = get_overlapping_areas()
-	for body in overlapping_bodies:
-		if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
-			var direction_to_other = global_position.direction_to(body.global_position)
-			var distance = global_position.distance_to(body.global_position)
-			# 只有在距离很近时才施加推力，避免远距离的不必要推动
-			if distance < 20.0:
-				# 使用更温和的推力，并根据距离调整强度
-				var push_strength = 0.3 * (20.0 - distance) / 20.0 # 距离越近推力越强
-				# 使用lerp使移动更平滑
-				var target_offset = -direction_to_other * push_strength * delta * 50
-				position = position.lerp(position + target_offset, 0.5)
+	# 处理推挤效果（防止怪物重叠）
+	if not is_dead:
+		CharacterEffects.apply_separation(self, 15.0, 15.0)
 	
 	# 确保史莱姆不会因为推动而移出边界太快
 	if move_direction == 0 and position.x <= -534:
@@ -119,14 +117,15 @@ func _physics_process(delta: float) -> void:
 
 
 func _on_body_entered(body: Node2D) -> void:
-	if(body is CharacterBody2D and not is_dead and not PC.invincible) :
+	if debuff_manager.is_action_disabled():
+		return
+	if (body is CharacterBody2D and not is_dead and not PC.invincible):
 		Global.emit_signal("player_hit")
 		var damage_before_debuff = atk * (1.0 - PC.damage_reduction_rate)
 		var actual_damage = int(damage_before_debuff * debuff_manager.get_take_damage_multiplier())
-		PC.pc_hp -= actual_damage
+		PC.apply_damage(actual_damage)
 		if PC.pc_hp <= 0:
 			body.game_over()
-
 
 
 func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:

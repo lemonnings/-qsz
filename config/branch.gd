@@ -2,26 +2,30 @@ extends Area2D
 
 @export var bullet_speed: float = 325
 @export var bullet_fisson: float = 1
-@export var bullet_range: float = PC.branch_range  # 子弹射程
+@export var bullet_range: float = PC.branch_range # 子弹射程
 @export var penetration_count: int = 999
+
+const BranchScene = preload("res://Scenes/branch.tscn")
 
 # 子弹的伤害和暴击状态（在创建时确定）
 var bullet_damage: float = 0.0
 var is_crit_hit: bool = false
 
 # 射程和渐隐相关变量
-var start_position: Vector2  # 子弹起始位置
-var traveled_distance: float = 0.0  # 已飞行距离 
-var is_fading: bool = false  # 是否正在渐隐
-var fade_timer: float = 0.0  # 渐隐计时器
-var fade_duration: float = 0.2  # 渐隐持续时间（秒） 
-@export var sprite : Sprite2D  # 获取精灵节点引用
-@export var collision_shape :CollisionShape2D  # 获取碰撞形状节点引用
+var start_position: Vector2 # 子弹起始位置
+var traveled_distance: float = 0.0 # 已飞行距离
+var is_fading: bool = false # 是否正在渐隐
+var is_half_split: bool = false
+var fade_timer: float = 0.0 # 渐隐计时器
+var fade_duration: float = 0.2 # 渐隐持续时间（秒）
+@export var sprite: Sprite2D # 获取精灵节点引用
+@export var collision_shape: CollisionShape2D # 获取碰撞形状节点引用
 
 var direction: Vector2
 
-var is_rebound: bool = false  # 标记是否为反弹子弹
-var parent_bullet: bool = true  # 标记是否为父级子弹，默认为true
+var is_rebound: bool = false # 标记是否为反弹子弹
+var parent_bullet: bool = true # 标记是否为父级子弹，默认为true
+var grandson_bullet: bool = false # 标记是否为孙级子弹
 
 func _ready() -> void:
 	# 记录子弹起始位置
@@ -32,6 +36,9 @@ func _ready() -> void:
 		
 	# 初始化碰撞形状大小
 	update_collision_shape_size()
+	
+	# 连接区域进入信号
+	area_entered.connect(_on_area_entered)
 	
 	await get_tree().create_timer(3).timeout
 	if !Global.is_level_up:
@@ -50,16 +57,17 @@ func _physics_process(delta: float) -> void:
 		var damage_increase_multiplier = 1.0 + floor(distance_meters / 0.2) * 0.02
 		bullet_damage *= damage_increase_multiplier
 
-	# 树枝1: 行进至射程一半时分裂
-	if PC.selected_rewards.has("branch1") and not is_fading and traveled_distance >= bullet_range / 2:
+	# 树枝1: 行进至射程一半时分裂(视觉上提前一点分裂)
+	if PC.selected_rewards.has("branch1") and not is_fading and traveled_distance >= bullet_range / 2.25 and not is_half_split:
+		is_half_split = true
 		_create_sword_wave_instance(global_position)
 		# 防止重复分裂
 		#PC.selected_rewards.erase("branch1")
 
 	# 检查是否超出射程
 	if not is_fading and traveled_distance >= bullet_range:
-		_create_sword_wave_instance(global_position)
-		start_fade_out()
+		if parent_bullet: # 只有父级子弹才会在射程终点分裂
+			_create_sword_wave_instance(global_position)
 		# 树枝11: 到达最大射程后返回
 		if PC.selected_rewards.has("branch11") and not is_rebound:
 			is_rebound = true
@@ -68,17 +76,24 @@ func _physics_process(delta: float) -> void:
 				direction = (player.global_position - global_position).normalized()
 				start_position = global_position # 重置起始位置以计算返回距离
 				traveled_distance = 0
+				# 重新设置射程为到玩家的距离
+				bullet_range = global_position.distance_to(player.global_position)
 			else:
 				start_fade_out()
-
-
-		# 树枝23: 分裂的树枝在最大射程后发射飞刺
-		elif PC.selected_rewards.has("branch23") and not parent_bullet:
-			_create_sword_wave_instance(global_position)
+		# 树枝12: 分裂的子枝在达到最大射程后，会向随机方向再射出一个孙枝，造成同等伤害但不会触发分裂与多重分裂-返
+		elif PC.selected_rewards.has("branch12") and not parent_bullet and not grandson_bullet:
+			# 创建孙枝
+			var grandson_bullet = BranchScene.instantiate()
+			grandson_bullet.direction = Vector2.from_angle(randf() * 2 * PI) # 随机方向
+			grandson_bullet.global_position = global_position
+			grandson_bullet.parent_bullet = false # 孙枝也不会分裂
+			grandson_bullet.is_rebound = true # 避免多重分裂-返效果
+			grandson_bullet.bullet_damage = bullet_damage # 继承当前伤害
+			grandson_bullet.grandson_bullet = true # 标记为孙级子弹
+			get_parent().add_child(grandson_bullet)
 			start_fade_out()
 		else:
 			start_fade_out()
-
 	
 	# 更新精灵旋转以匹配移动方向
 	
@@ -122,7 +137,7 @@ func _update_sprite_rotation() -> void:
 # 设置子弹方向并立即更新旋转
 func set_direction(new_direction: Vector2) -> void:
 	direction = new_direction
-	_update_sprite_rotation()  # 立即更新旋转，避免第一帧显示错误方向
+	_update_sprite_rotation() # 立即更新旋转，避免第一帧显示错误方向
 
 # 初始化子弹的伤害和暴击状态
 func initialize_bullet_damage() -> void:
@@ -133,11 +148,9 @@ func initialize_bullet_damage() -> void:
 	var crit_chance_bonus = 0.0
 	if PC.selected_rewards.has("branch4"):
 		crit_chance_bonus += 0.20
-	if PC.selected_rewards.has("branch33"):
-		crit_chance_bonus += 0.05
 
 	is_crit_hit = false
-	bullet_damage = base_damage * 0.4
+	bullet_damage = base_damage * 0.5
 
 	if randf() < (PC.crit_chance + crit_chance_bonus):
 		is_crit_hit = true
@@ -163,16 +176,16 @@ func handle_penetration() -> bool:
 
 	# 如果这一帧已经处理过碰撞，忽略后续碰撞
 	if collision_processed_this_frame:
-		return false  # 返回false表示忽略这次碰撞
+		return false # 返回false表示忽略这次碰撞
 
 	# 标记这一帧已经处理过碰撞
 	collision_processed_this_frame = true
 
 	# 树枝2 & 12: 穿透伤害提升
-	if penetration_count < 999: # 意味着至少穿透了一次
-		var damage_increase = 0.08
-		if PC.selected_rewards.has("branch12"):
-			damage_increase = 0.12
+	if PC.selected_rewards.has("branch2"): # 意味着至少穿透了一次
+		var damage_increase = 0.3
+		if PC.selected_rewards.has("branch21"):
+			damage_increase = 0.4
 		bullet_damage *= (1 + damage_increase)
 
 	# 树枝4: 击退效果
@@ -211,14 +224,14 @@ func _create_sword_wave_instance(position: Vector2) -> void:
 		var angle_range = deg_to_rad(330)
 
 		for i in range(split_count):
-			var new_bullet = load("res://Scenes/branch.tscn").instantiate()
+			var new_bullet = BranchScene.instantiate()
 			var random_angle = base_angle - angle_range / 2 + randf() * angle_range
 			new_bullet.direction = Vector2.from_angle(random_angle)
 			new_bullet.global_position = position
 			new_bullet.parent_bullet = false # 子弹不再分裂
 			
 			# 树枝12: 分裂出的子树枝也会继承这个加成
-			if PC.selected_rewards.has("branch12"):
+			if PC.selected_rewards.has("branch21"):
 				new_bullet.bullet_damage = bullet_damage # 继承当前伤害
 			
 			get_parent().add_child(new_bullet)
@@ -242,7 +255,7 @@ func _create_aoe_damage(position: Vector2) -> void:
 	var bodies = aoe_area.get_overlapping_bodies()
 	for body in bodies:
 		if body.is_in_group("enemies") and body.has_method("take_damage"):
-			body.take_damage(bullet_damage * 0.3, false, false)
+			body.take_damage(bullet_damage * 0.4, false, false)
 	
 	aoe_area.queue_free()
 
@@ -258,6 +271,13 @@ func find_nearest_enemy() -> void:
 	for enemy in enemies:
 		var distance = global_position.distance_to(enemy.global_position)
 		if enemy and is_instance_valid(enemy) and enemy.has_method("_on_area_entered"):
-			if  distance < nearest_distance:
+			if distance < nearest_distance:
 				nearest_distance = distance
 				nearest_enemy = enemy
+
+# 当与其他区域进入碰撞时
+func _on_area_entered(area: Area2D) -> void:
+	if area.is_in_group("enemies") and PC.selected_rewards.has("branch4") and parent_bullet and not is_rebound:
+		# 应用击退效果（只对父级子弹生效）
+		if area.has_method("apply_knockback"):
+			area.apply_knockback(direction, 30)

@@ -1,40 +1,41 @@
 extends Area2D
 
-@export var bullet_speed: float = 375
-@export var bullet_range: float = PC.swordQi_range  # 子弹射程
-@export var penetration_count: int = 1  # 穿透次数，默认为1
+@export var bullet_speed: float = 300
+@export var bullet_range: float = PC.swordQi_range # 子弹射程
+@export var penetration_count: int = 1 # 穿透次数，默认为1
 
 # 预加载剑痕场景
 const SwordWaveScene = preload("res://Scenes/sword_wave.tscn")
+const BulletScene = preload("res://Scenes/bullet.tscn")
 
 # 子弹的伤害和暴击状态（在创建时确定）
 var bullet_damage: float = 0.0
 var is_crit_hit: bool = false
 
 # 射程和渐隐相关变量
-var start_position: Vector2  # 子弹起始位置
-var traveled_distance: float = 0.0  # 已飞行距离 
-var is_fading: bool = false  # 是否正在渐隐
-var fade_timer: float = 0.0  # 渐隐计时器
-var fade_duration: float = 0.1  # 渐隐持续时间（秒） 
-@export var sprite : Sprite2D  # 获取精灵节点引用
-@export var sprite_summon :Sprite2D  # 获取精灵节点引用
-@export var collision_shape :CollisionShape2D  # 获取碰撞形状节点引用
+var start_position: Vector2 # 子弹起始位置
+var traveled_distance: float = 0.0 # 已飞行距离
+var is_fading: bool = false # 是否正在渐隐
+var fade_timer: float = 0.0 # 渐隐计时器
+var fade_duration: float = 0.1 # 渐隐持续时间（秒）
+@export var sprite: Sprite2D # 获取精灵节点引用
+@export var sprite_summon: Sprite2D # 获取精灵节点引用
+@export var collision_shape: CollisionShape2D # 获取碰撞形状节点引用
 
 var direction: Vector2
 
-var is_other_sword_wave: bool = false  # 标记是否为额外发射的剑气
+var is_other_sword_wave: bool = false # 标记是否为额外发射的剑气
 
-var is_rebound: bool = false  # 标记是否为反弹子弹
-var parent_bullet: bool = true  # 标记是否为父级子弹，默认为true
-var is_ring_bullet: bool = false  # 标记是否为环形子弹
-var ring_bullet_damage_multiplier: float = 1.0  # 环形子弹伤害倍数
+var is_rebound: bool = false # 标记是否为反弹子弹
+var parent_bullet: bool = true # 标记是否为父级子弹，默认为true
+var is_ring_bullet: bool = false # 标记是否为环形子弹
+var ring_bullet_damage_multiplier: float = 1.0 # 环形子弹伤害倍数
 
-var is_wave_bullet: bool = false  # 标记是否为浪形子弹
-var wave_bullet_damage_multiplier: float = 1.0  # 浪形子弹伤害倍数
+var is_wave_bullet: bool = false # 标记是否为浪形子弹
+var wave_bullet_damage_multiplier: float = 1.0 # 浪形子弹伤害倍数
 var if_summon: bool = false
-var is_summon_bullet: bool = false  # 标记是否为召唤物子弹
-var summon_damage: float = 0.0  # 召唤物子弹伤害
+var is_summon_bullet: bool = false # 标记是否为召唤物子弹
+var summon_damage: float = 0.0 # 召唤物子弹伤害
 var extra_damage_multiplier: float = 1.0 # 额外伤害倍率
 var is_extra_attack_flag: bool = false # 是否为额外攻击
 
@@ -43,19 +44,19 @@ var sword_wave_trace_enabled: bool = false
 var trace_positions: Array[Vector2] = []
 var trace_sprites: Array[Sprite2D] = []
 var trace_damage_areas: Array[Area2D] = []
-var trace_update_interval: float = 0.05  # 痕迹更新间隔
+var trace_update_interval: float = 0.05 # 痕迹更新间隔
 var trace_timer: float = 0.0
-var trace_lifetime: float = 2.0  # 痕迹持续时间
-var trace_fade_start_time: float = 1.0  # 开始渐隐的时间
-var trace_damage_percent: float = 0.2  # 痕迹伤害百分比
+var trace_lifetime: float = 2.0 # 痕迹持续时间
+var trace_fade_start_time: float = 1.0 # 开始渐隐的时间
+var trace_damage_percent: float = 0.2 # 痕迹伤害百分比
 
 # SwordQi4 追踪相关变量
 var sword_qi4_enabled: bool = false
 var target_enemy: Node = null
 var speed_boost_timer: float = 0.0
-var speed_boost_interval: float = 0.1  # 每0.1秒提升速度
-var speed_boost_amount: float = 50.0  # 每次提升50速度
-var has_hit_target: bool = false  # 是否已击中目标
+var speed_boost_interval: float = 0.1 # 每0.1秒提升速度
+var speed_boost_amount: float = 50.0 # 每次提升50速度
+var has_hit_target: bool = false # 是否已击中目标
 
 func _ready() -> void:
 	# 记录子弹起始位置
@@ -155,7 +156,7 @@ func _update_sprite_rotation() -> void:
 # 设置子弹方向并立即更新旋转
 func set_direction(new_direction: Vector2) -> void:
 	direction = new_direction
-	_update_sprite_rotation()  # 立即更新旋转，避免第一帧显示错误方向
+	_update_sprite_rotation() # 立即更新旋转，避免第一帧显示错误方向
 
 # 设置环形子弹伤害倍数
 func set_ring_bullet_damage(damage_multiplier: float) -> void:
@@ -174,14 +175,14 @@ func initialize_bullet_damage() -> void:
 	var can_crit: bool = not is_summon_bullet # 召唤物子弹不参与暴击
 	
 	if is_summon_bullet:
-		base_damage = summon_damage * PC.main_skill_swordQi_damage 
+		base_damage = summon_damage * PC.main_skill_swordQi_damage
 	elif is_ring_bullet:
-		base_damage = PC.pc_atk * ring_bullet_damage_multiplier* PC.main_skill_swordQi_damage 
+		base_damage = PC.pc_atk * ring_bullet_damage_multiplier * PC.main_skill_swordQi_damage
 	elif is_wave_bullet:
 		# 新增：浪形子弹伤害为角色攻击的指定倍数（此处由调用处设置倍数，如0.5）
-		base_damage = PC.pc_atk * wave_bullet_damage_multiplier * PC.main_skill_swordQi_damage 
+		base_damage = PC.pc_atk * wave_bullet_damage_multiplier * PC.main_skill_swordQi_damage
 	elif is_other_sword_wave:
-		base_damage = PC.pc_atk * PC.swordQi_other_sword_wave_damage* PC.main_skill_swordQi_damage 
+		base_damage = PC.pc_atk * PC.swordQi_other_sword_wave_damage * PC.main_skill_swordQi_damage
 	else:
 		base_damage = PC.pc_atk * PC.main_skill_swordQi_damage
 	
@@ -258,7 +259,11 @@ func handle_penetration() -> bool:
 	
 	# 如果这一帧已经处理过碰撞，忽略后续碰撞
 	if collision_processed_this_frame:
-		return false  # 返回false表示忽略这次碰撞
+		return false # 返回false表示忽略这次碰撞
+	
+	# SplitSwordQi12: Each sword Qi has 25% chance to split a sub-sword Qi when hitting an enemy
+	if PC.selected_rewards.has("SplitSwordQi12") and randf() < 0.25 and !is_other_sword_wave:
+		spawn_sub_sword_wave()
 	
 	# 返回true表示处理这次碰撞，如果穿透计数<=0则销毁子弹
 	if PC.selected_rewards.has("SplitSwordQi2") and !if_summon:
@@ -268,10 +273,53 @@ func handle_penetration() -> bool:
 	# 标记这一帧已经处理过碰撞
 	collision_processed_this_frame = true
 	
+	# SplitSwordQi33: Apply debuff to enemy when penetrated
+	if PC.selected_rewards.has("SplitSwordQi33") and penetration_count > 0:
+		apply_penetrate_debuff_to_enemy()
+	
 	# 减少穿透计数
 	penetration_count -= 1
 	
 	return true
+
+# Apply penetrate debuff to enemy (for SplitSwordQi33)
+func apply_penetrate_debuff_to_enemy():
+	var overlapping_areas = get_overlapping_areas()
+	for area in overlapping_areas:
+		if area.is_in_group("enemies") and area.has_method("apply_debuff_effect"):
+			area.apply_debuff_effect("penetrated")
+
+# Spawn a sub sword wave when SplitSwordQi12 triggers
+func spawn_sub_sword_wave():
+	var nearest_enemy = find_nearest_enemy_for_split()
+	if nearest_enemy:
+		var sub_bullet = BulletScene.instantiate()
+		sub_bullet.set_bullet_scale(scale)
+		var direction_to_enemy = (nearest_enemy.global_position - global_position).normalized()
+		sub_bullet.set_direction(direction_to_enemy)
+		sub_bullet.position = global_position
+		sub_bullet.penetration_count = penetration_count # Inherit remaining penetration count
+		sub_bullet.bullet_damage = bullet_damage * 0.5 # 50% of mother sword wave damage
+		sub_bullet.is_other_sword_wave = true # Mark as additional sword wave
+		get_tree().current_scene.add_child(sub_bullet)
+
+# 寻找最近的敌人 (for splitting purposes)
+func find_nearest_enemy_for_split() -> Node:
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	if enemies.is_empty():
+		return null
+	
+	var nearest_enemy = null
+	var nearest_distance = INF
+	
+	for enemy in enemies:
+		var distance = global_position.distance_to(enemy.global_position)
+		if enemy and is_instance_valid(enemy) and enemy.has_method("_on_area_entered"):
+			if distance < nearest_distance:
+				nearest_distance = distance
+				nearest_enemy = enemy
+	
+	return nearest_enemy
 
 # 设置子弹速度
 func set_speed(new_speed: float) -> void:
@@ -285,7 +333,7 @@ func update_collision_shape_size() -> void:
 
 
 func _create_sword_wave_instance(position: Vector2) -> void:
-	if  PC.swordQi_penetration_count == 1 or (PC.swordQi_penetration_count > 1 and penetration_count == PC.swordQi_penetration_count):
+	if PC.swordQi_penetration_count == 1 or (PC.swordQi_penetration_count > 1 and penetration_count == PC.swordQi_penetration_count):
 		if SwordWaveScene:
 			var sword_wave_instance = SwordWaveScene.instantiate()
 			# 将剑痕实例添加到与子弹相同的父节点下，或者一个专门管理特效的节点下
@@ -304,14 +352,14 @@ func _create_sword_wave_instance(position: Vector2) -> void:
 			if collision_shape.shape is RectangleShape2D:
 				var rect_shape = collision_shape.shape as RectangleShape2D
 				# 设置新的大小，基于原始大小和当前缩放
-				var original_size = Vector2(14, 26)  # 原始碰撞形状大小
+				var original_size = Vector2(14, 26) # 原始碰撞形状大小
 				rect_shape.size = original_size * scale
 			
 			# 如果是CircleShape2D
 			elif collision_shape.shape is CircleShape2D:
 				var circle_shape = collision_shape.shape as CircleShape2D
 				# 设置新的半径，基于原始半径和当前缩放的平均值
-				var original_radius = 20.0  # 原始碰撞形状半径
+				var original_radius = 20.0 # 原始碰撞形状半径
 				if PC.selected_rewards.has("SplitSwordQi21"):
 					original_radius = 25.0
 				circle_shape.radius = original_radius * ((scale.x + scale.y) / 2.0)
@@ -323,16 +371,16 @@ func set_bullet_scale(new_scale: Vector2) -> void:
 
 # 当子弹击中敌人时，生成子级反弹子弹
 func create_rebound() -> void:
-	if parent_bullet and not is_rebound:  # 只有父级子弹且非反弹子弹才能反弹
+	if parent_bullet and not is_rebound: # 只有父级子弹且非反弹子弹才能反弹
 		var bullet_bound_num = PC.selected_rewards.count("rebound_num_up")
 		# 创建1-3个随机方向的子级子弹
-		var num_bullets = randi_range(1, (1 + bullet_bound_num* 0.5))
+		var num_bullets = randi_range(1, (1 + bullet_bound_num * 0.5))
 		for i in range(num_bullets):
-			var child_bullet = load("res://Scenes/bullet.tscn").instantiate()
+			var child_bullet = BulletScene.instantiate()
 			# 设置子级子弹属性
-			child_bullet.set_bullet_scale(scale * PC.rebound_size_multiplier)  # 使用新函数同步更新碰撞形状
+			child_bullet.set_bullet_scale(scale * PC.rebound_size_multiplier) # 使用新函数同步更新碰撞形状
 			child_bullet.is_rebound = true
-			child_bullet.parent_bullet = false  # 标记为子级子弹，防止无限反弹
+			child_bullet.parent_bullet = false # 标记为子级子弹，防止无限反弹
 			# 随机方向
 			var random_angle = randf_range(0, 2 * PI)
 			child_bullet.direction = Vector2(cos(random_angle), sin(random_angle))
@@ -354,7 +402,7 @@ func find_nearest_enemy() -> void:
 	for enemy in enemies:
 		var distance = global_position.distance_to(enemy.global_position)
 		if enemy and is_instance_valid(enemy) and enemy.has_method("_on_area_entered"):
-			if  distance < nearest_distance:
+			if distance < nearest_distance:
 				nearest_distance = distance
 				nearest_enemy = enemy
 	

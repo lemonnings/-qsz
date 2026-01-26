@@ -23,12 +23,21 @@ var chenjing_effect: Node2D = null # 沉静纹章的脚底光圈效果
 @export var summon_scene: PackedScene
 @export var riyan_scene: PackedScene
 @export var ringfire_scene: PackedScene
+@export var thunder_scene: PackedScene
+@export var bloodwave_scene: PackedScene
+@export var bloodboardsword_scene: PackedScene
+@export var ice_flower_scene: PackedScene
 
 @export var fire_speed: Timer
 @export var branch_fire_speed: Timer
 @export var moyan_fire_speed: Timer
 @export var riyan_fire_speed: Timer
 @export var ringFire_fire_speed: Timer
+@export var thunder_fire_speed: Timer
+@export var bloodwave_fire_speed: Timer
+@export var bloodboardsword_fire_speed: Timer
+@export var ice_flower_fire_speed: Timer
+
 @export var invincible_time: Timer
 
 var active_summons: Array = [] # 当前活跃的召唤物列表
@@ -39,8 +48,8 @@ var active_summons: Array = [] # 当前活跃的召唤物列表
 
 
 # 摄像头缩放相关变量
-@export var min_zoom: float = 1.6 # 最小缩放（视野最大）
-@export var max_zoom: float = 5.2 # 最大缩放（视野最小）
+@export var min_zoom: float = 1.4 # 最小缩放（视野最大）
+@export var max_zoom: float = 4.5 # 最大缩放（视野最小）
 @export var zoom_speed: float = 0.05 # 缩放速度
 @onready var camera: Camera2D = $Camera2D
 
@@ -48,6 +57,9 @@ var active_summons: Array = [] # 当前活跃的召唤物列表
 func _ready() -> void:
 	# 将player节点添加到player组中
 	add_to_group("player")
+	
+	# 创建脚底阴影
+	CharacterEffects.create_shadow(self, 22.0, 9.0, 7.5)
 	
 	hp = PC.pc_hp
 	sprite_direction_right = not sprite.flip_h
@@ -63,8 +75,12 @@ func _ready() -> void:
 	Global.connect("skill_cooldown_complete_moyan", Callable(self, "_on_fire_moyan"))
 	Global.connect("skill_cooldown_complete_riyan", Callable(self, "_on_fire_riyan"))
 	Global.connect("skill_cooldown_complete_ringFire", Callable(self, "_on_fire_ringFire"))
+	Global.connect("skill_cooldown_complete_thunder", Callable(self, "_on_fire_thunder"))
+	Global.connect("skill_cooldown_complete_bloodwave", Callable(self, "_on_fire_bloodwave"))
+	Global.connect("skill_cooldown_complete_bloodboardsword", Callable(self, "_on_fire_bloodboardsword"))
+	Global.connect("skill_cooldown_complete_ice", Callable(self, "_on_fire_ice"))
 	
-	camera.zoom = Vector2(3, 3)
+	camera.zoom = Vector2(1.6, 1.6)
 	
 	# 设置音效使用SFX总线
 	setup_audio_buses()
@@ -100,7 +116,11 @@ func _process(_delta: float) -> void:
 	#if joystick_right and joystick_right.is_pressed:
 		#rotation = joystick_right.output.angle()
 	if Global.in_town:
-		move_speed = 160.0 * (1 + (Global.cultivation_zhuifeng_level * 0.02) + PC.pc_speed)
+		# 主城中只使用局外属性（追风修炼等级），不使用局内移速 PC.pc_speed
+		move_speed = 240.0 * (1 + (Global.cultivation_zhuifeng_level * 0.02))
+	else:
+		var bloodwave_speed_bonus = _get_bloodwave_move_speed_bonus()
+		move_speed = 120.0 * (1 + (Global.cultivation_zhuifeng_level * 0.02) + PC.pc_speed + bloodwave_speed_bonus)
 		
 	if velocity == Vector2.ZERO or PC.is_game_over:
 		$RunningSound.stop()
@@ -159,7 +179,7 @@ func _input(event: InputEvent) -> void:
 
 
 func _reset_camera() -> void:
-	camera.zoom = Vector2(3.0, 3.0)
+	camera.zoom = Vector2(2, 2)
 	
 func _zoom_camera(zoom_delta: float) -> void:
 	var new_zoom = camera.zoom.x + zoom_delta
@@ -185,6 +205,9 @@ func _zoom_camera(zoom_delta: float) -> void:
 		camera.zoom = Vector2(new_zoom, new_zoom)
 
 func _physics_process(_delta: float) -> void:
+	var missing_hp_ratio = float(PC.pc_max_hp - PC.pc_hp) / float(PC.pc_max_hp)
+	var bloodwave_heal_bonus = missing_hp_ratio * PC.bloodwave_missing_hp_heal_bonus * 100.0
+	PC.heal_multi = Global.heal_multi + bloodwave_heal_bonus
 	if not PC.is_game_over and not PC.movement_disabled:
 		# 获取输入向量（键盘或虚拟摇杆）
 		var input_vector = Vector2.ZERO
@@ -286,6 +309,40 @@ func _on_fire_ringFire(skill_id: int) -> void:
 		return
 	_on_fire_detail_ringFire()
 
+func _on_fire_thunder(skill_id: int) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	_on_fire_detail_thunder()
+
+func _on_fire_bloodwave(skill_id: int) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	if not PC.has_bloodwave:
+		return
+	_on_fire_detail_bloodwave()
+
+func _on_fire_bloodboardsword(skill_id: int) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	if not PC.has_bloodboardsword:
+		return
+	_on_fire_detail_bloodboardsword()
+
+func _on_fire_ice(skill_id: int = 9) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	if not PC.has_ice:
+		return
+	_on_fire_detail_ice()
+
 func _on_fire_detail() -> void:
 	var bullet_node_size = PC.bullet_size
 	var base_direction = Vector2.RIGHT # Default direction
@@ -319,26 +376,25 @@ func _on_fire_detail() -> void:
 	get_tree().current_scene.add_child(main_bullet)
 
 	if PC.selected_rewards.has("SplitSwordQi1"):
-		for angle_deg in [-45.0, 45.0]:
+		for angle_deg in [45.0, 315.0]: # Changed to 45° and 315° (equivalent to -45°) as per requirement
 			var side_bullet = bullet_scene.instantiate()
 			side_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
 			var rotated_direction = base_direction.rotated(deg_to_rad(angle_deg))
 			side_bullet.set_direction(rotated_direction)
 			side_bullet.position = spawn_position
 			side_bullet.penetration_count = PC.swordQi_penetration_count
-			# Assuming bullet_damage is a variable in your bullet script, adjust damage accordingly
-			# side_bullet.damage = calculate_bullet_damage() * 0.5 # Half damage
+			side_bullet.is_other_sword_wave = true # Mark as additional sword wave for damage calculation (50% damage)
 			if PC.selected_rewards.has("rebound"): side_bullet.is_rebound = false
 			get_tree().current_scene.add_child(side_bullet)
 
 	if PC.selected_rewards.has("SplitSwordQi11"):
 		var back_bullet = bullet_scene.instantiate()
 		back_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
-		var back_direction = base_direction.rotated(deg_to_rad(180.0)) # -180 or 180 degrees for backward
+		var back_direction = base_direction.rotated(deg_to_rad(180.0)) # 180 degrees for backward
 		back_bullet.set_direction(back_direction)
 		back_bullet.position = spawn_position
 		back_bullet.penetration_count = PC.swordQi_penetration_count
-		# back_bullet.damage = calculate_bullet_damage() # Full damage for back bullet
+		back_bullet.is_other_sword_wave = true # Mark as additional sword wave for damage calculation (50% damage)
 		if PC.selected_rewards.has("rebound"): back_bullet.is_rebound = false
 		get_tree().current_scene.add_child(back_bullet)
 	
@@ -435,6 +491,318 @@ func _on_fire_detail_riyan() -> void:
 
 func _on_fire_detail_ringFire() -> void:
 	Global.emit_signal("ringFire_damage_triggered")
+
+func _on_fire_detail_thunder() -> void:
+	var start_position = global_position
+	var thunder_data = _build_thunder_data()
+	var shot_targets = find_nearest_enemies_for_thunder(start_position, thunder_data.range, thunder_data.shot_count)
+	var end_positions: Array[Vector2] = []
+	var target_enemies: Array[Node2D] = []
+	
+	if shot_targets.is_empty():
+		var fallback_dir = Vector2.RIGHT if sprite_direction_right else Vector2.LEFT
+		for i in range(thunder_data.shot_count):
+			end_positions.append(start_position + fallback_dir * thunder_data.range)
+			target_enemies.append(null)
+	else:
+		var primary_target: Node2D = shot_targets[0]
+		for i in range(thunder_data.shot_count):
+			var target_enemy: Node2D = primary_target
+			if i < shot_targets.size():
+				target_enemy = shot_targets[i]
+			target_enemies.append(target_enemy)
+			end_positions.append(target_enemy.global_position)
+	
+	for i in range(thunder_data.shot_count):
+		var thunder_instance = thunder_scene.instantiate()
+		get_tree().current_scene.add_child(thunder_instance)
+		thunder_instance.setup_thunder(start_position, end_positions[i], target_enemies[i], thunder_data.damage * thunder_data.shot_damage_multiplier, thunder_data.chain_left, thunder_data.damage_decay, thunder_data.chain_range, thunder_data.paralyze_duration, thunder_data.boss_extra_damage, self)
+
+func _on_fire_detail_bloodwave() -> void:
+	var bloodwave_data = _build_bloodwave_data()
+	var base_direction = Vector2.RIGHT
+	var nearest_enemy = find_nearest_enemy()
+	if nearest_enemy:
+		base_direction = (nearest_enemy.position - position).normalized()
+	else:
+		if not sprite_direction_right:
+			base_direction = Vector2.LEFT
+		else:
+			base_direction = Vector2.RIGHT
+	
+	if PC.pc_hp > 1:
+		var raw_cost = PC.pc_hp * 0.01 * PC.bloodwave_hp_cost_multi
+		var hp_cost = int(ceil(raw_cost))
+		if hp_cost < 1:
+			hp_cost = 1
+		PC.pc_hp -= hp_cost
+		if PC.pc_hp < 1:
+			PC.pc_hp = 1
+	
+	var bloodwave_instance = bloodwave_scene.instantiate()
+	get_tree().current_scene.add_child(bloodwave_instance)
+	bloodwave_instance.setup_blood_wave(global_position, base_direction, bloodwave_data.range, bloodwave_data.damage, bloodwave_data.apply_bleed, bloodwave_data.extra_crit_chance, bloodwave_data.extra_crit_damage)
+
+func _on_fire_detail_bloodboardsword() -> void:
+	var bloodboardsword_instance = bloodboardsword_scene.instantiate()
+	get_tree().current_scene.add_child(bloodboardsword_instance)
+
+func _on_fire_detail_ice() -> void:
+	var ice_data = _build_ice_flower_data()
+	var spawn_position = global_position
+	var base_direction = Vector2.RIGHT
+	
+	var nearest_enemy = find_nearest_enemy()
+	if nearest_enemy:
+		base_direction = (nearest_enemy.position - position).normalized()
+	else:
+		if not sprite_direction_right:
+			base_direction = Vector2.LEFT
+		else:
+			base_direction = Vector2.RIGHT
+			
+	# 发射主冰刺
+	var main_ice = ice_flower_scene.instantiate()
+	get_tree().current_scene.add_child(main_ice)
+	main_ice.setup_ice_flower(
+		spawn_position, 
+		base_direction, 
+		ice_data.range, 
+		ice_data.damage, 
+		ice_data.penetration_count, 
+		ice_data.pierce_decay, 
+		ice_data.base_scale * PC.bullet_size
+	)
+	
+	# 发射小冰刺
+	var half_angle = ice_data.spread_angle / 2.0
+	for i in range(ice_data.small_count):
+		# 随机角度
+		var random_angle = randf_range(-half_angle, half_angle)
+		var small_direction = base_direction.rotated(deg_to_rad(random_angle))
+		
+		var small_ice = ice_flower_scene.instantiate()
+		get_tree().current_scene.add_child(small_ice)
+		
+		var small_damage = ice_data.damage * ice_data.small_damage_ratio
+		var small_scale = ice_data.base_scale * ice_data.small_scale_ratio * PC.bullet_size
+		
+		# 小冰刺也继承穿透和衰减
+		small_ice.setup_ice_flower(
+			spawn_position,
+			small_direction,
+			ice_data.range,
+			small_damage,
+			ice_data.penetration_count,
+			ice_data.pierce_decay,
+			small_scale
+		)
+
+func _build_ice_flower_data() -> Dictionary:
+	# 基础属性
+	var damage_multiplier = PC.main_skill_ice_damage
+	var small_damage_ratio = PC.ice_flower_small_damage_ratio
+	var spread_angle = PC.ice_flower_spread_angle
+	var small_count = PC.ice_flower_extra_small_count
+	var penetration_count = PC.ice_flower_penetration_count
+	var pierce_decay = PC.ice_flower_pierce_decay
+	var base_scale = PC.ice_flower_base_scale
+	var small_scale_ratio = PC.ice_flower_small_scale_ratio
+	
+	# 根据升级修正属性
+	if PC.selected_rewards.has("Ice1"):
+		damage_multiplier += 0.3
+		spread_angle += 79.0
+		small_count += 5
+	
+	if PC.selected_rewards.has("Ice2"):
+		damage_multiplier += 0.3
+		small_damage_ratio = 0.75 # 提升至75%
+		
+	if PC.selected_rewards.has("Ice3"):
+		damage_multiplier += 0.2
+		small_count += 8
+		
+	if PC.selected_rewards.has("Ice4"):
+		damage_multiplier += 0.2
+		penetration_count += 1
+		pierce_decay = 0.4 # 衰减40%
+		
+	if PC.selected_rewards.has("Ice5"):
+		damage_multiplier += 0.4
+		base_scale += 0.3
+		small_scale_ratio += 0.1
+		
+	if PC.selected_rewards.has("Ice11"):
+		damage_multiplier += 0.2
+		spread_angle += 79.0
+		small_count += 8
+		
+	if PC.selected_rewards.has("Ice22"):
+		damage_multiplier += 0.2
+		small_damage_ratio = 1.0 # 等同于冰刺术伤害
+		
+	if PC.selected_rewards.has("Ice33"):
+		damage_multiplier += 0.3
+		small_damage_ratio = 1.0
+		pierce_decay = max(0.0, pierce_decay - 0.05) # 每次伤害衰减降低5% (这里假设是在原有衰减基础上降低，或者设置一个新的衰减值)
+		# 描述是“每次伤害衰减降低5%”，如果之前是40%衰减，现在是35%？
+		# 假设基础衰减是0，如果有Ice4变成0.4。这里如果有了Ice4和Ice33，就是0.35。
+		if penetration_count > 0:
+			pierce_decay = max(0.0, pierce_decay - 0.05)
+		
+	if PC.selected_rewards.has("Ice44"):
+		damage_multiplier += 0.7
+		spread_angle += 79.0
+		base_scale += 0.2
+		small_count += 5
+		
+	if PC.selected_rewards.has("Ice55"):
+		damage_multiplier += 0.6
+		penetration_count += 2 # 可以穿透2次，是在原有基础上增加？描述是“冰刺术和小冰刺术可以穿透2次”
+		# 假设是设置为2次，或者增加2次。如果有了Ice4 (1次) 和 Ice55 (2次)，应该是取最大或者叠加？
+		# 通常这种描述是“增加穿透次数”或者“穿透次数变为X”。这里假设是叠加。
+		# 但描述是“可以穿透2次”，可能意味着总共2次（如果之前没有）。如果之前有1次，变成3次？
+		# 结合语境，可能是总共2次，或者+2次。为了稳妥，假设是+2次或者设置为max(current, 2)。
+		# 这里我选择 += 2，因为通常高级技能是叠加的。
+		# 但描述是“可以穿透2次”，看起来像是一个定值设定。不过为了兼容Ice4，我假设是累加。
+		# 修正：Ice55描述是“冰刺术和小冰刺术可以穿透2次”，Ice4是“穿透1次”。如果同时拥有，应该是3次？
+		# 或者Ice55覆盖Ice4。考虑到这是 roguelike，通常是叠加。
+		# 但如果是“穿透2次”，也可能是指设定值为2。
+		# 让我们假设是叠加：penetration_count += 2
+		# 另外“穿透的伤害衰减降低5%”
+		pierce_decay = max(0.0, pierce_decay - 0.05)
+
+	# 伤害强化卡已在 setting_level_up.gd 中直接增加 damage_multiplier
+	# 移除此处的判断逻辑
+
+	var final_damage = PC.pc_atk * damage_multiplier
+	
+	return {
+		"damage": final_damage,
+		"range": PC.ice_flower_range,
+		"spread_angle": spread_angle,
+		"small_count": small_count,
+		"penetration_count": penetration_count,
+		"pierce_decay": pierce_decay,
+		"base_scale": base_scale,
+		"small_damage_ratio": small_damage_ratio,
+		"small_scale_ratio": small_scale_ratio
+	}
+
+func _build_thunder_data() -> Dictionary:
+	var damage_ratio = 0.65
+	var chain_left = 3
+	var chain_range = 130.0
+	var damage_decay = 0.45
+	var range = PC.thunder_range
+	var paralyze_duration = 0.0
+	var boss_extra_damage = 0.0
+	var shot_count = 1
+	var shot_damage_multiplier = 1.0
+	
+	if PC.selected_rewards.has("RThunder"):
+		damage_ratio += 0.2
+	if PC.selected_rewards.has("SRThunder"):
+		damage_ratio += 0.25
+	if PC.selected_rewards.has("SSRThunder"):
+		damage_ratio += 0.3
+	if PC.selected_rewards.has("URThunder"):
+		damage_ratio += 0.4
+	
+	if PC.selected_rewards.has("Thunder1"):
+		damage_ratio += 0.4
+		damage_decay = 0.4
+		chain_left = 5
+	
+	if PC.selected_rewards.has("Thunder2"):
+		damage_ratio += 0.4
+		shot_count = 2
+		shot_damage_multiplier = 0.6
+	
+	if PC.selected_rewards.has("Thunder3"):
+		damage_ratio += 0.6
+		chain_range = 195.0
+	
+	if PC.selected_rewards.has("Thunder4"):
+		damage_ratio += 0.4
+		paralyze_duration = 0.2
+		boss_extra_damage = 0.3
+	
+	if PC.selected_rewards.has("Thunder11"):
+		damage_ratio += 0.3
+		damage_decay = 0.35
+		chain_left = 7
+	
+	if PC.selected_rewards.has("Thunder22"):
+		damage_ratio += 0.6
+		paralyze_duration = 0.25
+		boss_extra_damage = 0.5
+	
+	if PC.selected_rewards.has("Thunder33"):
+		damage_ratio += 0.5
+		shot_count = 3
+		shot_damage_multiplier = 0.5
+	
+	var damage = PC.pc_atk * PC.main_skill_thunder_damage * damage_ratio
+	
+	return {
+		"damage": damage,
+		"chain_left": chain_left,
+		"chain_range": chain_range,
+		"damage_decay": damage_decay,
+		"range": range,
+		"paralyze_duration": paralyze_duration,
+		"boss_extra_damage": boss_extra_damage,
+		"shot_count": shot_count,
+		"shot_damage_multiplier": shot_damage_multiplier
+	}
+
+func _build_bloodwave_data() -> Dictionary:
+	var base_damage = PC.pc_atk * PC.main_skill_bloodwave_damage
+	var base_range = PC.bloodwave_range
+	var missing_hp_ratio = 0.0
+	if PC.pc_max_hp > 0:
+		missing_hp_ratio = float(PC.pc_max_hp - PC.pc_hp) / float(PC.pc_max_hp)
+	
+	var damage_bonus_ratio = missing_hp_ratio * PC.bloodwave_missing_hp_damage_bonus
+	var range_bonus_ratio = missing_hp_ratio * PC.bloodwave_missing_hp_range_bonus
+	
+	if PC.pc_max_hp > 0:
+		var hp_ratio = float(PC.pc_hp) / float(PC.pc_max_hp)
+		if hp_ratio < 0.5:
+			damage_bonus_ratio += PC.bloodwave_low_hp_damage_bonus
+			range_bonus_ratio += PC.bloodwave_low_hp_range_bonus
+	
+	var final_damage = base_damage * (1.0 + damage_bonus_ratio)
+	var final_range = base_range * (1.0 + range_bonus_ratio)
+	
+	return {
+		"damage": final_damage,
+		"range": final_range,
+		"apply_bleed": PC.bloodwave_apply_bleed,
+		"extra_crit_chance": PC.bloodwave_extra_crit_chance,
+		"extra_crit_damage": PC.bloodwave_extra_crit_damage
+	}
+
+func find_nearest_enemies_for_thunder(from_position: Vector2, max_range: float, count: int) -> Array[Node2D]:
+	var candidates: Array[Dictionary] = []
+	
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	for enemy in enemies:
+		var distance = from_position.distance_to(enemy.global_position)
+		if distance > max_range:
+			continue
+		candidates.append({"enemy": enemy, "distance": distance})
+	
+	candidates.sort_custom(func(a, b): return a["distance"] < b["distance"])
+	
+	var results: Array[Node2D] = []
+	for item in candidates:
+		results.append(item["enemy"])
+		if results.size() >= count:
+			break
+	return results
 
 
 func reload_scene() -> void:
@@ -621,7 +989,52 @@ func update_chenjing_visual():
 			ellipse_sprite.scale = Vector2(scale_factor, scale_factor)
 	else:
 		chenjing_effect.visible = false
+
+func _get_bloodwave_move_speed_bonus() -> float:
+	if PC.bloodwave_bleed_move_speed_bonus <= 0.0:
+		return 0.0
+	var bleeding_count = _get_bleeding_enemy_count()
+	return float(bleeding_count) * PC.bloodwave_bleed_move_speed_bonus
+
+func _get_bleeding_enemy_count() -> int:
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	var count = 0
+	for enemy in enemies:
+		if enemy.debuff_manager.has_debuff("bleed"):
+			count += 1
+	return count
 	
+# 更新定时器的等待时间，同时保持当前进度的百分比
+func update_timer_preserve_ratio(timer: Timer, new_wait_time: float) -> void:
+	if not timer:
+		return
+	
+	# 如果新的等待时间和当前的等待时间几乎一样，就不做任何操作
+	if abs(timer.wait_time - new_wait_time) < 0.0001:
+		return
+		
+	if timer.is_stopped():
+		timer.wait_time = new_wait_time
+		return
+	
+	var old_wait_time = timer.wait_time
+	if old_wait_time <= 0:
+		timer.wait_time = new_wait_time
+		return
+		
+	# 计算剩余时间的比例
+	var ratio_left = timer.time_left / old_wait_time
+	var new_time_left = new_wait_time * ratio_left
+	
+	# 防止时间过短
+	new_time_left = max(0.02, new_time_left)
+	
+	# start(time) 会重置计时器并设置 wait_time 为 time
+	# 注意：如果 start(new_time_left) 被调用，wait_time 也会变成 new_time_left
+	timer.start(new_time_left)
+	# 立即将 wait_time 设置回新的完整周期，这样下一次循环就会使用新的周期
+	timer.wait_time = new_wait_time
+
 # 更新所有技能的攻击速度
 func update_skill_attack_speeds() -> void:
 	# 计算踏风buff的冷却缩减
@@ -635,23 +1048,27 @@ func update_skill_attack_speeds() -> void:
 	var total_speed_multiplier = 1 + PC.pc_atk_speed + cooldown_reduction
 	
 	# 主攻击
-	fire_speed.wait_time = 1.0 / total_speed_multiplier
+	update_timer_preserve_ratio(fire_speed, 0.66 / total_speed_multiplier)
 	
 	# 分支攻击
-	if branch_fire_speed:
-		branch_fire_speed.wait_time = 2.0 / total_speed_multiplier
+	update_timer_preserve_ratio(branch_fire_speed, 1.5 / total_speed_multiplier)
 	
 	# 魔焰攻击
-	if moyan_fire_speed:
-		moyan_fire_speed.wait_time = 4.0 / total_speed_multiplier
+	update_timer_preserve_ratio(moyan_fire_speed, 4.0 / total_speed_multiplier)
 	
 	# 日焰攻击
-	if riyan_fire_speed:
-		riyan_fire_speed.wait_time = 0.051 / total_speed_multiplier
+	update_timer_preserve_ratio(riyan_fire_speed, 1.0 / total_speed_multiplier)
 	
 	# 环形火焰攻击
-	if ringFire_fire_speed:
-		ringFire_fire_speed.wait_time = 0.051 / total_speed_multiplier
+	update_timer_preserve_ratio(ringFire_fire_speed, 0.051 / total_speed_multiplier)
+	
+	# 雷光攻击
+	update_timer_preserve_ratio(thunder_fire_speed, 1.2 / total_speed_multiplier)
+	
+	# 血气波攻击
+	update_timer_preserve_ratio(bloodwave_fire_speed, 2.0 / total_speed_multiplier)
+	
+	update_timer_preserve_ratio(bloodboardsword_fire_speed, 2.0 / total_speed_multiplier)
 
 # 发射环形子弹
 func _fire_ring_bullets() -> void:

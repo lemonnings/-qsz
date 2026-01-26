@@ -6,38 +6,41 @@ class_name WarnCircleUtil
 
 signal warning_finished
 signal damage_dealt(damage_amount)
-signal area_entered(player_node)  # 玩家进入持续区域时触发
-signal area_exited(player_node)   # 玩家离开持续区域时触发
-signal area_effect_triggered(player_node, effect_type)  # 玩家接触区域时触发特定效果
+signal area_entered(player_node) # 玩家进入持续区域时触发
+signal area_exited(player_node) # 玩家离开持续区域时触发
+signal area_effect_triggered(player_node, effect_type) # 玩家接触区域时触发特定效果
 
 # 释放模式枚举
 enum ReleaseMode {
-	INSTANT_DAMAGE,    # 模式1：动画完成后直接判定伤害
-	PERSISTENT_AREA    # 模式2：动画完成后生成持续区域效果
+	INSTANT_DAMAGE, # 模式1：动画完成后直接判定伤害
+	PERSISTENT_AREA # 模式2：动画完成后生成持续区域效果
 }
 
 # 预警参数
-var aspect_ratio: float = 1.0  # 长宽比，1.0为圆形
-var radius: float = 100.0      # 半径
-var warning_time: float = 2.0  # 预警时间
-var damage: float = 50.0       # 伤害值
-var animation_player: AnimationPlayer = null  # 预警结束后播放的动画播放器
-var release_mode: ReleaseMode = ReleaseMode.INSTANT_DAMAGE  # 释放模式
-var area_sprite_scene: PackedScene = null  # 持续区域显示的精灵场景
-var area_duration: float = -1.0  # 持续区域持续时间，-1表示永久
-var effect_type: String = ""  # 区域效果类型（如"damage", "heal", "slow", "buff"等）
+var aspect_ratio: float = 1.0 # 长宽比，1.0为圆形
+var radius: float = 100.0 # 半径
+var warning_time: float = 2.0 # 预警时间
+var damage: float = 50.0 # 伤害值
+var animation_player: AnimationPlayer = null # 预警结束后播放的动画播放器
+var release_mode: ReleaseMode = ReleaseMode.INSTANT_DAMAGE # 释放模式
+var area_sprite_scene: PackedScene = null # 持续区域显示的精灵场景
+var area_duration: float = -1.0 # 持续区域持续时间，-1表示永久
+var effect_type: String = "" # 区域效果类型（如"damage", "heal", "slow", "buff"等）
 
 # 内部变量
 var warning_shape: Node2D
 var current_time: float = 0.0
 var is_warning_active: bool = false
 var player_ref: Node2D
-var persistent_area: Area2D = null  # 持续区域节点
-var area_sprite: AnimatedSprite2D = null  # 区域内的精灵
-var area_timer: Timer = null  # 区域持续时间计时器
-var player_in_area: bool = false  # 玩家是否在区域内
+var persistent_area: Area2D = null # 持续区域节点
+var area_sprite: AnimatedSprite2D = null # 区域内的精灵
+var area_timer: Timer = null # 区域持续时间计时器
+var player_in_area: bool = false # 玩家是否在区域内
 
 func _ready():
+	# 设置为可暂停模式，升级等暂停期间动画也会暂停
+	process_mode = Node.PROCESS_MODE_PAUSABLE
+	
 	# 获取玩家引用
 	player_ref = get_tree().get_first_node_in_group("player")
 	
@@ -55,9 +58,9 @@ func create_warning_shape():
 	# 初始时不可见
 	warning_shape.modulate.a = 0.0
 
-func start_warning(pos: Vector2, _aspect_ratio: float = 1.0, _radius: float = 100.0, 
+func start_warning(pos: Vector2, _aspect_ratio: float = 1.0, _radius: float = 100.0,
 				  _warning_time: float = 2.0, _damage: float = 50.0, _animation_player: AnimationPlayer = null,
-				  _release_mode: ReleaseMode = ReleaseMode.INSTANT_DAMAGE, _area_sprite_scene: PackedScene = null, 
+				  _release_mode: ReleaseMode = ReleaseMode.INSTANT_DAMAGE, _area_sprite_scene: PackedScene = null,
 				  _area_duration: float = -1.0, _effect_type: String = ""):
 	# 开始预警
 	# pos: 生成位置
@@ -114,7 +117,7 @@ func update_warning_visual(progress: float):
 		var expand_progress = progress / 0.1
 		var current_scale = expand_progress
 		warning_shape.scale = Vector2(current_scale, current_scale)
-		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35)  # 红色，透明度0.35
+		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35) # 红色，透明度0.35
 	
 	elif progress <= 0.65:
 		# 中间时间：保持稳定
@@ -124,8 +127,8 @@ func update_warning_visual(progress: float):
 	elif progress <= 0.8:
 		# 开始闪烁阶段：缩短闪烁时间
 		var blink_progress = (progress - 0.65) / 0.15
-		var blink_speed = 3.0 + blink_progress * 6.0  # 逐渐加快闪烁
-		var blink_alpha = (sin(current_time * blink_speed) + 1.0) * 0.5  # 0到1的范围
+		var blink_speed = 3.0 + blink_progress * 6.0 # 逐渐加快闪烁
+		var blink_alpha = (sin(current_time * blink_speed) + 1.0) * 0.5 # 0到1的范围
 		# 修正透明度计算：在0.2到0.35之间闪烁，避免过暗
 		var final_alpha = 0.2 + blink_alpha * 0.15
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, final_alpha)
@@ -177,9 +180,27 @@ func is_player_in_range() -> bool:
 		return distance_to_player <= radius
 
 func deal_damage_to_player():
-	if player_ref and player_ref.has_method("take_damage"):
-		player_ref.take_damage(damage)
-		damage_dealt.emit(damage)
+	if not player_ref or not is_instance_valid(player_ref):
+		return
+	
+	# 检查无敌状态
+	if PC.invincible:
+		return
+	
+	# 触发受击效果
+	Global.emit_signal("player_hit")
+	
+	# 计算实际伤害（考虑减伤率）
+	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))
+	PC.apply_damage(actual_damage)
+	
+	print("圆形AOE对玩家造成伤害: ", actual_damage)
+	
+	# 检查死亡
+	if PC.pc_hp <= 0:
+		PC.player_instance.game_over()
+	
+	damage_dealt.emit(float(actual_damage))
 
 func play_animation():
 	# 这里可以根据具体需求实现动画播放逻辑

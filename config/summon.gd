@@ -188,15 +188,15 @@ func fire_heal_bullet(color: Color) -> void:
 	if PC.is_game_over:
 		return
 	# 计算治疗量：攻击力 * heal_ratio，并受召唤物增伤（用于“增强其他召唤物的治疗/伤害提升”）影响
-	var heal_amount: int = int(PC.pc_atk * heal_ratio * (1.0 + PC.summon_damage_multiplier))
+	var heal_amount: int = int(PC.pc_atk * heal_ratio * (1.0 + PC.summon_damage_multiplier) * (1.0 + PC.heal_multi))
+	if heal_amount == 0:
+		heal_amount = 1
 	PC.pc_hp += heal_amount
 	# 上限处理，确保生命值不超过最大生命值
 	if PC.pc_hp > PC.pc_max_hp:
 		PC.pc_hp = PC.pc_max_hp
-	# 可选：更新面板显示由其他系统负责，这里只负责数值
 
 # 辅助型召唤：主要提供持续增益，定时器触发时无需额外行为
-# 保持函数存在以符合调用结构（_on_fire_timer_timeout），避免复杂逻辑集中在一处
 func fire_aux_bullet(color: Color) -> void:
 	# 辅助效果在 set_summon_type 中一次性应用，这里不做额外处理
 	pass
@@ -239,8 +239,29 @@ func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1
 
 # 更新发射间隔（当玩家获得相关升级时调用）
 func update_fire_interval() -> void:
-	if fire_timer:
-		fire_timer.wait_time = fire_interval * PC.summon_interval_multiplier
+	if not fire_timer:
+		return
+		
+	var new_wait_time = fire_interval * PC.summon_interval_multiplier
+	
+	if fire_timer.is_stopped():
+		fire_timer.wait_time = new_wait_time
+		return
+		
+	var old_time_left = fire_timer.time_left
+	if old_time_left <= 0.01:
+		fire_timer.wait_time = new_wait_time
+		return
+		
+	fire_timer.start(old_time_left)
+	fire_timer.set_meta("pending_wait_time", new_wait_time)
+	if not fire_timer.timeout.is_connected(_apply_pending_wait_time):
+		fire_timer.timeout.connect(_apply_pending_wait_time)
+
+func _apply_pending_wait_time() -> void:
+	if fire_timer and fire_timer.has_meta("pending_wait_time"):
+		fire_timer.wait_time = fire_timer.get_meta("pending_wait_time")
+		fire_timer.remove_meta("pending_wait_time")
 
 
 func set_summon_type(type: SummonType) -> void:
@@ -270,16 +291,13 @@ func set_summon_type(type: SummonType) -> void:
 			bullet_speed_multiplier = 2.0
 		# --- 治疗类 ---
 		SummonType.HEAL_PURPLE:
-			# SR21 愈灵：10%攻击，间隔2s
-			heal_ratio = 0.10
+			heal_ratio = 0.015
 			fire_interval = 2.0
 		SummonType.HEAL_GOLD:
-			# SSR21 护灵：20%攻击，间隔1.5s
-			heal_ratio = 0.20
+			heal_ratio = 0.02
 			fire_interval = 1.5
 		SummonType.HEAL_RED:
-			# UR21 生灵：18%攻击，间隔1.2s，并提供5%减伤
-			heal_ratio = 0.18
+			heal_ratio = 0.015
 			fire_interval = 1.2
 			applied_damage_reduction_bonus = 0.05
 			PC.damage_reduction_rate = min(PC.damage_reduction_rate + applied_damage_reduction_bonus, 0.9)
