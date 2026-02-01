@@ -288,6 +288,12 @@ extends Node
 @export var emblem_slots_max: int = 4
 @export var current_emblems: Dictionary = {} # 当前持有的纹章 {emblem_id: stack}
 
+# active配置字段
+@export var cooldown_multi: float = 1.0 # active cd
+@export var dodge_multi: float = 1.0
+@export var random_strike_multi: float = 1.0
+
+
 @export var is_game_over: bool = false
 @export var movement_disabled: bool = false # 控制玩家移动是否被禁用
 
@@ -305,7 +311,7 @@ func get_reward_acquisition_count(fallback_reward_id: String):
 
 
 func reset_player_attr() -> void:
-	# 重置玩家奖励权重
+	# 重置权重
 	if PlayerRewardWeights:
 		PlayerRewardWeights.reset_all_weights()
 
@@ -581,7 +587,6 @@ func reset_player_attr() -> void:
 	PC.holylight_dot_damage = 0.0
 	
 	PC.refresh_num = Global.refresh_max_num
-	# BuffManager.clear_all_buffs() # 已由下面的EmblemManager.clear_all_emblems()替代
 	
 	# 重置纹章系统
 	PC.current_emblems.clear()
