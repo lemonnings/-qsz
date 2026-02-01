@@ -27,6 +27,15 @@ var chenjing_effect: Node2D = null # 沉静纹章的脚底光圈效果
 @export var bloodwave_scene: PackedScene
 @export var bloodboardsword_scene: PackedScene
 @export var ice_flower_scene: PackedScene
+@export var thunder_break_scene: PackedScene
+@export var light_bullet_scene: PackedScene
+@export var water_scene: PackedScene
+@export var qiankun_scene: PackedScene
+@export var xuanwu_scene: PackedScene
+@export var xunfeng_scene: PackedScene
+@export var genshan_scene: PackedScene
+@export var duize_scene: PackedScene
+@export var holy_light_scene: PackedScene
 
 @export var fire_speed: Timer
 @export var branch_fire_speed: Timer
@@ -37,6 +46,15 @@ var chenjing_effect: Node2D = null # 沉静纹章的脚底光圈效果
 @export var bloodwave_fire_speed: Timer
 @export var bloodboardsword_fire_speed: Timer
 @export var ice_flower_fire_speed: Timer
+@export var thunder_break_fire_speed: Timer
+@export var light_bullet_fire_speed: Timer
+@export var water_fire_speed: Timer
+@export var qiankun_fire_speed: Timer
+@export var xuanwu_fire_speed: Timer
+@export var xunfeng_fire_speed: Timer
+@export var genshan_fire_speed: Timer
+@export var duize_fire_speed: Timer
+@export var holy_light_fire_speed: Timer
 
 @export var invincible_time: Timer
 
@@ -79,6 +97,15 @@ func _ready() -> void:
 	Global.connect("skill_cooldown_complete_bloodwave", Callable(self, "_on_fire_bloodwave"))
 	Global.connect("skill_cooldown_complete_bloodboardsword", Callable(self, "_on_fire_bloodboardsword"))
 	Global.connect("skill_cooldown_complete_ice", Callable(self, "_on_fire_ice"))
+	Global.connect("skill_cooldown_complete_thunder_break", Callable(self, "_on_fire_thunder_break"))
+	Global.connect("skill_cooldown_complete_light_bullet", Callable(self, "_on_fire_light_bullet"))
+	Global.connect("skill_cooldown_complete_water", Callable(self, "_on_fire_water"))
+	Global.connect("skill_cooldown_complete_qiankun", Callable(self, "_on_fire_qiankun"))
+	Global.connect("skill_cooldown_complete_xuanwu", Callable(self, "_on_fire_xuanwu"))
+	Global.connect("skill_cooldown_complete_xunfeng", Callable(self, "_on_fire_xunfeng"))
+	Global.connect("skill_cooldown_complete_genshan", Callable(self, "_on_fire_genshan"))
+	Global.connect("skill_cooldown_complete_duize", Callable(self, "_on_fire_duize"))
+	Global.connect("skill_cooldown_complete_holylight", Callable(self, "_on_fire_holylight"))
 	
 	camera.zoom = Vector2(1.6, 1.6)
 	
@@ -95,6 +122,9 @@ func _ready() -> void:
 			get_parent().add_child(riyan_instance)
 			riyan_instance.global_position = global_position
 			PC.first_has_riyan_pc = false
+			
+	if PC.has_qiankun:
+		init_qiankun()
 	
 	## 初始化虚拟摇杆
 	#joystick_center = joystick_position
@@ -343,6 +373,387 @@ func _on_fire_ice(skill_id: int = 9) -> void:
 		return
 	_on_fire_detail_ice()
 
+func _on_fire_thunder_break(skill_id: int = 10) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	_on_fire_detail_thunder_break()
+
+func _on_fire_light_bullet(skill_id: int = 11) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	_on_fire_detail_light_bullet()
+
+func _on_fire_detail_light_bullet() -> void:
+	if not light_bullet_scene:
+		return
+		
+	var data = _build_light_bullet_data()
+	var spawn_position = global_position
+	var base_direction = Vector2.RIGHT
+	
+	var nearest_enemy = find_nearest_enemy()
+	if nearest_enemy:
+		base_direction = (nearest_enemy.position - position).normalized()
+	else:
+		if not sprite_direction_right:
+			base_direction = Vector2.LEFT
+		else:
+			base_direction = Vector2.RIGHT
+			
+	var shot_directions = []
+	var offsets = []
+	
+	if data.shot_type == "triple":
+		# 三发并排，中间差距5像素
+		# 假设 base_direction 是正前方
+		# 需要计算垂直于 base_direction 的向量
+		var perpendicular = Vector2(-base_direction.y, base_direction.x)
+		offsets = [
+			perpendicular * -5.0,
+			Vector2.ZERO,
+			perpendicular * 5.0
+		]
+		shot_directions = [base_direction, base_direction, base_direction]
+	elif data.shot_type == "double":
+		# 双发并排，中间差距6像素
+		var perpendicular = Vector2(-base_direction.y, base_direction.x)
+		offsets = [
+			perpendicular * -3.0,
+			perpendicular * 3.0
+		]
+		shot_directions = [base_direction, base_direction]
+	else:
+		# 单发
+		offsets = [Vector2.ZERO]
+		shot_directions = [base_direction]
+		
+	# 处理 LightBullet4: 每发射15次，向周围一圈额外发射
+	if data.extra_ring_shot:
+		PC.light_bullet_shot_count += 1
+		
+		if PC.light_bullet_shot_count >= 15:
+			PC.light_bullet_shot_count = 0
+			_fire_light_bullet_ring(data)
+			
+	for i in range(offsets.size()):
+		var instance = light_bullet_scene.instantiate()
+		get_tree().current_scene.add_child(instance)
+		
+		var pos = spawn_position + offsets[i]
+		var dir = shot_directions[i]
+		
+		var options = {
+			"apply_light_accumulation": data.apply_light_accumulation,
+			"accumulation_max_stacks_bonus": data.accumulation_max_stacks_bonus
+		}
+		
+		instance.setup_light_bullet(pos, dir, data.damage, data.range, data.penetration_count, options)
+
+func _fire_light_bullet_ring(data: Dictionary) -> void:
+	# 向周围一圈发射
+	# LightBullet4: 一轮
+	# LightBullet44: 两轮，伤害提升30%
+	var rounds = 1
+	var damage_mult = 1.0
+	
+	if PC.selected_rewards.has("LightBullet44"):
+		rounds = 2
+		damage_mult = 1.3
+		
+	# 每圈子弹数量
+	var bullet_count = 44
+	var angle_step_deg = 9.0
+	var interval = 0.025
+	
+	# 起始方向：正上方 (Vector2.UP = (0, -1))
+	var start_angle = -PI / 2 # -90 degrees
+	
+	# 用于跟踪每一轮的发射进度
+	var current_bullet_indices = []
+	for r in range(rounds):
+		current_bullet_indices.append(0)
+		
+	# 如果是第二轮，需要在第一轮发射到50%时开始
+	var second_round_start_threshold = int(bullet_count * 0.5)
+	
+	# 用一个循环来驱动，每一帧检查各轮是否需要发射
+	var max_steps = bullet_count
+	if rounds > 1:
+		max_steps += second_round_start_threshold
+		
+	for step in range(max_steps):
+		# 检查对象是否有效
+		if not is_instance_valid(self) or PC.is_game_over:
+			return
+			
+		# 处理暂停
+		while Global.in_menu or Global.in_town or get_tree().paused:
+			if PC.is_game_over:
+				return
+			await get_tree().create_timer(0.1).timeout
+			
+		# 尝试发射每一轮的子弹
+		for r in range(rounds):
+			# 判断当前轮是否可以发射
+			var can_fire = false
+			
+			if r == 0:
+				# 第一轮：只要还没发完就可以发
+				if current_bullet_indices[r] < bullet_count:
+					can_fire = true
+			elif r == 1:
+				# 第二轮：需要第一轮发射超过阈值 (即 step >= threshold) 且自己还没发完
+				if step >= second_round_start_threshold and current_bullet_indices[r] < bullet_count:
+					can_fire = true
+					
+			if can_fire:
+				var i = current_bullet_indices[r]
+				current_bullet_indices[r] += 1
+				
+				var current_angle = start_angle + deg_to_rad(i * angle_step_deg)
+				var dir = Vector2(cos(current_angle), sin(current_angle))
+				
+				var spawn_position = global_position
+				
+				var instance = light_bullet_scene.instantiate()
+				get_tree().current_scene.add_child(instance)
+				
+				var options = {
+					"apply_light_accumulation": data.apply_light_accumulation,
+					"accumulation_max_stacks_bonus": data.accumulation_max_stacks_bonus
+				}
+				
+				instance.setup_light_bullet(spawn_position, dir, data.damage * damage_mult, data.range, data.penetration_count, options)
+		
+		# 等待间隔
+		await get_tree().create_timer(interval).timeout
+
+func _build_light_bullet_data() -> Dictionary:
+	var damage_multiplier = PC.main_skill_light_bullet_damage # Base 0.35
+	var range_val = 300.0
+	var penetration_count = 0
+	
+	var shot_type = "single" # single, double, triple
+	var apply_light_accumulation = false
+	var accumulation_max_stacks_bonus = 0
+	var extra_ring_shot = false
+	
+	# LightBullet1: 析光
+	if PC.selected_rewards.has("LightBullet1"):
+		penetration_count += 2
+		
+	# LightBullet2: 蓄光
+	if PC.selected_rewards.has("LightBullet2"):
+		apply_light_accumulation = true
+		
+	# LightBullet3: 凝光
+	if PC.selected_rewards.has("LightBullet3"):
+		range_val *= 1.2
+		# 范围提升50% -> 这里的范围如果是指子弹大小/宽度，light_bullet.gd 似乎没有宽度参数，只有 collision shape
+		# 我们可以在 setup 中缩放 sprite
+		
+	# LightBullet4: 溢光
+	if PC.selected_rewards.has("LightBullet4"):
+		extra_ring_shot = true
+		
+	# LightBullet5: 双发
+	if PC.selected_rewards.has("LightBullet5"):
+		shot_type = "double"
+		damage_multiplier *= 0.5 # 单发伤害降低50%
+		# 范围降低30% -> 缩放降低
+		
+	# LightBullet11: 双发-蓄光 (三发)
+	if PC.selected_rewards.has("LightBullet11"):
+		shot_type = "triple"
+		damage_multiplier *= 0.35 # 单发伤害降低30%
+		accumulation_max_stacks_bonus += 10
+		
+	# LightBullet22: 溢光-析光
+	if PC.selected_rewards.has("LightBullet22"):
+		penetration_count += 1
+		
+	# LightBullet33: 蓄光-凝光
+	if PC.selected_rewards.has("LightBullet33"):
+		range_val *= 1.3
+		accumulation_max_stacks_bonus += 10
+		
+	# LightBullet44: 析光-溢光
+	if PC.selected_rewards.has("LightBullet44"):
+		pass
+		
+	var damage = PC.pc_atk * damage_multiplier
+	
+	return {
+		"damage": damage,
+		"range": range_val,
+		"penetration_count": penetration_count,
+		"shot_type": shot_type,
+		"apply_light_accumulation": apply_light_accumulation,
+		"accumulation_max_stacks_bonus": accumulation_max_stacks_bonus,
+		"extra_ring_shot": extra_ring_shot
+	}
+
+func _on_fire_water(skill_id: int = 12) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	_on_fire_detail_water()
+
+func _on_fire_detail_water() -> void:
+	if not water_scene:
+		return
+		
+	var data = _build_water_data()
+	var instance = water_scene.instantiate()
+	get_tree().current_scene.add_child(instance)
+	
+	var options = {
+		"enable_sector": data.enable_sector,
+		"apply_slow": data.apply_slow,
+		"apply_shield": data.apply_shield,
+		"shield_hp_threshold": data.shield_hp_threshold,
+		"extra_damage_on_slow": data.extra_damage_on_slow,
+		"shield_bonus": data.shield_bonus,
+		"heal_reduction": data.heal_reduction,
+		"conditional_heal_bonus": data.conditional_heal_bonus
+	}
+	
+	instance.setup_water(global_position, data.damage, data.range, data.heal_amount, options)
+
+func _build_water_data() -> Dictionary:
+	var damage_multiplier = PC.main_skill_water_damage # Base 0.45
+	var range_val = 65.0
+	var heal_amount = 0 # 基础治疗量
+	
+	# 计算基础治疗量：1.5% 最大体力，最低1点
+	if PC.pc_max_hp > 0:
+		heal_amount = max(1, int(float(PC.pc_max_hp) * 0.015))
+	
+	var enable_sector = false
+	var apply_slow = false
+	var apply_shield = false
+	var shield_hp_threshold = 0.3
+	var extra_damage_on_slow = false
+	var shield_bonus = 1.0
+	var heal_reduction = 1.0
+	var conditional_heal_bonus = false
+	
+	# Water1: 水波
+	if PC.selected_rewards.has("Water1"):
+		enable_sector = true
+		
+	# Water2: 迟滞
+	if PC.selected_rewards.has("Water2"):
+		apply_slow = true
+		
+	# Water3: 流水
+	if PC.selected_rewards.has("Water3"):
+		apply_shield = true
+		
+	# Water4: 流幕
+	if PC.selected_rewards.has("Water4"):
+		# 恢复量提升至2%最大体力，最低2点
+		if PC.pc_max_hp > 0:
+			heal_amount = max(2, int(float(PC.pc_max_hp) * 0.02))
+			
+	# Water11: 水波-迟滞
+	if PC.selected_rewards.has("Water11"):
+		extra_damage_on_slow = true
+		
+	# Water22: 流水-流幕
+	if PC.selected_rewards.has("Water22"):
+		shield_hp_threshold = 0.7
+		heal_reduction = 0.7 # 治疗量降低30%
+		shield_bonus = 2.0 # 提供护盾量提升100%
+		
+	# Water33: 水波-流幕
+	if PC.selected_rewards.has("Water33"):
+		conditional_heal_bonus = true
+		
+	var damage = PC.pc_atk * damage_multiplier
+	
+	return {
+		"damage": damage,
+		"range": range_val,
+		"heal_amount": heal_amount,
+		"enable_sector": enable_sector,
+		"apply_slow": apply_slow,
+		"apply_shield": apply_shield,
+		"shield_hp_threshold": shield_hp_threshold,
+		"extra_damage_on_slow": extra_damage_on_slow,
+		"shield_bonus": shield_bonus,
+		"heal_reduction": heal_reduction,
+		"conditional_heal_bonus": conditional_heal_bonus
+	}
+
+var qian_instance: Node2D = null
+var kun_instance: Node2D = null
+
+func init_qiankun() -> void:
+	if Global.in_town:
+		return
+	if not qiankun_scene:
+		return
+		
+	# 检查是否已经存在，如果存在就不重复创建
+	if qian_instance and is_instance_valid(qian_instance):
+		qian_instance.queue_free()
+	if kun_instance and is_instance_valid(kun_instance):
+		kun_instance.queue_free()
+		
+	var stats = _get_qiankun_stats()
+	
+	# Spawn Qian
+	qian_instance = qiankun_scene.instantiate()
+	# 作为子节点添加到当前场景，或者直接添加到Player下？
+	# 为了跟随方便，如果不作为子节点，就需要手动在 _process 里跟随。
+	# qiankun.gd 已经实现了跟随逻辑（依赖 player_ref）。
+	get_tree().current_scene.add_child(qian_instance)
+	qian_instance.setup(global_position, true, stats)
+	
+	# Spawn Kun
+	kun_instance = qiankun_scene.instantiate()
+	get_tree().current_scene.add_child(kun_instance)
+	kun_instance.setup(global_position, false, stats)
+
+func _get_qiankun_stats() -> Dictionary:
+	return {
+		"damage": PC.pc_atk * PC.main_skill_qiankun_damage,
+		"speed": PC.qiankun_speed,
+		"range": PC.qiankun_range,
+		"speed_per_enemy": PC.qiankun_speed_per_enemy,
+		"damage_per_debuff": PC.qiankun_damage_per_debuff,
+		"damage_per_enemy": PC.qiankun_damage_per_enemy,
+		"crit_on_3_debuffs": PC.qiankun_crit_on_3_debuffs
+	}
+
+func _on_fire_qiankun(skill_id: int = 13) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	
+	# 确保剑已初始化
+	if not qian_instance or not is_instance_valid(qian_instance) or not kun_instance or not is_instance_valid(kun_instance):
+		init_qiankun()
+		
+	# 更新属性（因为可能会升级）
+	var stats = _get_qiankun_stats()
+	if qian_instance and qian_instance.has_method("update_stats"):
+		qian_instance.update_stats(stats)
+		if qian_instance.has_method("launch"):
+			qian_instance.launch()
+			
+	if kun_instance and kun_instance.has_method("update_stats"):
+		kun_instance.update_stats(stats)
+		if kun_instance.has_method("launch"):
+			kun_instance.launch()
+
 func _on_fire_detail() -> void:
 	var bullet_node_size = PC.bullet_size
 	var base_direction = Vector2.RIGHT # Default direction
@@ -360,18 +771,14 @@ func _on_fire_detail() -> void:
 		else:
 			base_direction = Vector2.RIGHT
 
-	# Play sound
 	$FireSound.play()
 
-	# Instantiate bullets
-	# Default bullet
 	var main_bullet = bullet_scene.instantiate()
 	main_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
 	main_bullet.set_direction(base_direction)
 	main_bullet.position = spawn_position
 	main_bullet.penetration_count = PC.swordQi_penetration_count
-	# Assuming bullet_damage is a variable in your bullet script, otherwise, you might need to pass damage as a parameter
-	# main_bullet.damage = calculate_bullet_damage() # Placeholder for actual damage calculation
+	
 	if PC.selected_rewards.has("rebound"): main_bullet.is_rebound = false
 	get_tree().current_scene.add_child(main_bullet)
 
@@ -383,24 +790,26 @@ func _on_fire_detail() -> void:
 			side_bullet.set_direction(rotated_direction)
 			side_bullet.position = spawn_position
 			side_bullet.penetration_count = PC.swordQi_penetration_count
-			side_bullet.is_other_sword_wave = true # Mark as additional sword wave for damage calculation (50% damage)
+			side_bullet.is_other_sword_wave = true
 			if PC.selected_rewards.has("rebound"): side_bullet.is_rebound = false
 			get_tree().current_scene.add_child(side_bullet)
 
 	if PC.selected_rewards.has("SplitSwordQi11"):
 		var back_bullet = bullet_scene.instantiate()
 		back_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
-		var back_direction = base_direction.rotated(deg_to_rad(180.0)) # 180 degrees for backward
+		var back_direction = base_direction.rotated(deg_to_rad(180.0)) 
 		back_bullet.set_direction(back_direction)
 		back_bullet.position = spawn_position
 		back_bullet.penetration_count = PC.swordQi_penetration_count
-		back_bullet.is_other_sword_wave = true # Mark as additional sword wave for damage calculation (50% damage)
+		back_bullet.is_other_sword_wave = true 
 		if PC.selected_rewards.has("rebound"): back_bullet.is_rebound = false
 		get_tree().current_scene.add_child(back_bullet)
 	
 func fire_extra_attack(damage_multiplier: float) -> void:
+	if PC.is_game_over:
+		return
 	var bullet_node_size = PC.bullet_size
-	var base_direction = Vector2.RIGHT # Default direction
+	var base_direction = Vector2.RIGHT 
 	var spawn_position = position
 
 	# 直接攻击最近的敌人，不再使用预测瞄准
@@ -598,6 +1007,163 @@ func _on_fire_detail_ice() -> void:
 			small_scale
 		)
 
+
+func _on_fire_duize(skill_id: int = 14) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	_on_fire_detail_duize()
+
+func _on_fire_detail_duize() -> void:
+	if not duize_scene:
+		return
+	
+	var damage = PC.pc_atk * PC.main_skill_duize_damage
+	var range_val = PC.duize_range
+	var slow_ratio = PC.duize_slow_ratio
+	
+	var spawn_pos = find_densest_enemy_position(range_val)
+	
+	var instance = duize_scene.instantiate()
+	get_tree().current_scene.add_child(instance)
+	
+	instance.setup(spawn_pos, damage)
+
+# ==========================================
+# 圣光术逻辑
+# ==========================================
+func _on_fire_holylight(skill_id: int = 18) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	_on_fire_detail_holylight()
+
+func _on_fire_detail_holylight() -> void:
+	if not holy_light_scene:
+		return
+		
+	var data = _build_holylight_data()
+	var spawn_pos = find_densest_enemy_position(data.radius)
+	
+	var instance = holy_light_scene.instantiate()
+	get_tree().current_scene.add_child(instance)
+	
+	var options = {
+		"center_extra_damage": data.center_extra_damage,
+		"dot_damage": data.dot_damage
+	}
+	
+	instance.setup(spawn_pos, data.damage, data.heal_base, data.heal_ratio, data.duration, data.range_scale, options)
+
+func _build_holylight_data() -> Dictionary:
+	var damage_multiplier = PC.main_skill_holylight_damage # Base 0.7
+	var range_scale = PC.holylight_range_scale # Base 1.0
+	var duration = PC.holylight_duration # Base 3.0
+	var heal_base = PC.holylight_heal_base # Base 1
+	var heal_ratio = PC.holylight_heal_ratio # Base 1%
+	var center_extra_damage = PC.holylight_center_extra_damage # Base 0
+	var dot_damage_ratio = PC.holylight_dot_damage # Base 0
+	
+	# HolyLight1: 辉光
+	if PC.selected_rewards.has("HolyLight1"):
+		range_scale *= 1.35
+		
+	# HolyLight2: 炫光
+	if PC.selected_rewards.has("HolyLight2"):
+		range_scale *= 1.15
+		center_extra_damage += 1.0
+		
+	# HolyLight3: 愈光
+	if PC.selected_rewards.has("HolyLight3"):
+		heal_base = 2
+		heal_ratio = 0.015
+		
+	# HolyLight4: 耀光
+	if PC.selected_rewards.has("HolyLight4"):
+		duration += 1.0
+		dot_damage_ratio = 0.2
+		
+	# HolyLight11: 辉光-炫光
+	if PC.selected_rewards.has("HolyLight11"):
+		range_scale *= 1.25
+		center_extra_damage = 2.0
+		
+	# HolyLight22: 愈光-耀光
+	if PC.selected_rewards.has("HolyLight22"):
+		duration += 1.0
+		heal_ratio = 0.02
+		
+	# HolyLight33: 炫光-耀光
+	if PC.selected_rewards.has("HolyLight33"):
+		dot_damage_ratio = 0.4
+		
+	var damage = PC.pc_atk * damage_multiplier
+	var dot_damage = PC.pc_atk * dot_damage_ratio
+	
+	# 估算半径用于索敌 (假设基础半径100)
+	var radius = 100.0 * range_scale
+	
+	return {
+		"damage": damage,
+		"range_scale": range_scale,
+		"duration": duration,
+		"heal_base": heal_base,
+		"heal_ratio": heal_ratio,
+		"center_extra_damage": center_extra_damage,
+		"dot_damage": dot_damage,
+		"radius": radius
+	}
+
+func find_densest_enemy_position(radius: float) -> Vector2:
+	var enemies = get_tree().get_nodes_in_group("monster")
+	if enemies.is_empty():
+		# 没有敌人时，随机位置（或角色前方）
+		var angle = randf() * TAU
+		var dist = randf_range(100, 300)
+		return global_position + Vector2(cos(angle), sin(angle)) * dist
+		
+	# 采样
+	var candidates = []
+	var sample_count = min(enemies.size(), 15) # 最多采样15个
+	
+	if enemies.size() <= sample_count:
+		candidates = enemies
+	else:
+		# 随机采样
+		var indices = range(enemies.size())
+		indices.shuffle()
+		for i in range(sample_count):
+			candidates.append(enemies[indices[i]])
+	
+	var best_pos = Vector2.ZERO
+	var max_count = -1
+	
+	for center_enemy in candidates:
+		if not is_instance_valid(center_enemy):
+			continue
+			
+		var center_pos = center_enemy.global_position
+		var count = 0
+		
+		# 统计范围内的敌人数量
+		for enemy in enemies:
+			if not is_instance_valid(enemy):
+				continue
+			if center_pos.distance_to(enemy.global_position) <= radius:
+				count += 1
+		
+		if count > max_count:
+			max_count = count
+			best_pos = center_pos
+			
+	# 如果没有找到任何（max_count = -1），说明没有有效敌人
+	if max_count == -1:
+		return global_position
+		
+	return best_pos
+
 func _build_ice_flower_data() -> Dictionary:
 	# 基础属性
 	var damage_multiplier = PC.main_skill_ice_damage
@@ -688,6 +1254,109 @@ func _build_ice_flower_data() -> Dictionary:
 		"base_scale": base_scale,
 		"small_damage_ratio": small_damage_ratio,
 		"small_scale_ratio": small_scale_ratio
+	}
+
+func _on_fire_detail_thunder_break() -> void:
+	if not thunder_break_scene:
+		return
+		
+	var data = _build_thunder_break_data()
+	var spawn_position = global_position
+	var base_direction = Vector2.RIGHT
+	
+	var nearest_enemy = find_nearest_enemy()
+	if nearest_enemy:
+		base_direction = (nearest_enemy.position - position).normalized()
+	else:
+		if not sprite_direction_right:
+			base_direction = Vector2.LEFT
+		else:
+			base_direction = Vector2.RIGHT
+			
+	var instance = thunder_break_scene.instantiate()
+	get_tree().current_scene.add_child(instance)
+	
+	var options = {
+		"infinite_range": data.infinite_range,
+		"damage_drop_after_400": data.damage_drop_after_400,
+		"crit_after_180": data.crit_after_180,
+		"apply_electrified": data.apply_electrified,
+		"damage_distance_bonus": data.damage_distance_bonus,
+		"apply_vulnerable": data.apply_vulnerable
+	}
+	
+	instance.setup_thunder_break(spawn_position, base_direction, data.damage, data.range, data.width, options)
+
+func _build_thunder_break_data() -> Dictionary:
+	var damage_multiplier = 0.5 # Base 50%
+	var range_val = 200.0
+	var width = 50.0
+	
+	var infinite_range = false
+	var damage_drop_after_400 = false
+	var crit_after_180 = false
+	var apply_electrified = false
+	var damage_distance_bonus = false
+	var apply_vulnerable = false
+	
+	# R/SR/SSR/UR
+	if PC.selected_rewards.has("RThunderBreak"):
+		damage_multiplier += 0.2
+	if PC.selected_rewards.has("SRThunderBreak"):
+		damage_multiplier += 0.25
+	if PC.selected_rewards.has("SSRThunderBreak"):
+		damage_multiplier += 0.3
+	if PC.selected_rewards.has("URThunderBreak"):
+		damage_multiplier += 0.4
+		
+	# ThunderBreak1: 引雷
+	if PC.selected_rewards.has("ThunderBreak1"):
+		damage_multiplier += 0.4
+		width *= 1.3
+		
+	# ThunderBreak2: 穿雷
+	if PC.selected_rewards.has("ThunderBreak2"):
+		damage_multiplier += 0.3
+		range_val += 120.0
+		
+	# ThunderBreak3: 感电
+	if PC.selected_rewards.has("ThunderBreak3"):
+		damage_multiplier += 0.2
+		apply_electrified = true
+		
+	# ThunderBreak4: 霹雷
+	if PC.selected_rewards.has("ThunderBreak4"):
+		damage_multiplier += 0.2
+		damage_distance_bonus = true
+		
+	# ThunderBreak11: 引雷x穿雷
+	if PC.selected_rewards.has("ThunderBreak11"):
+		damage_multiplier += 0.3
+		infinite_range = true
+		damage_drop_after_400 = true
+		
+	# ThunderBreak22: 穿雷x霹雷
+	if PC.selected_rewards.has("ThunderBreak22"):
+		damage_multiplier += 0.4
+		crit_after_180 = true
+		
+	# ThunderBreak33: 引雷x震雷
+	if PC.selected_rewards.has("ThunderBreak33"):
+		damage_multiplier += 0.8
+		apply_vulnerable = true
+		
+	var damage = PC.pc_atk * damage_multiplier
+	
+	return {
+		"damage": damage,
+		"range": range_val,
+		"width": width,
+		"infinite_range": infinite_range,
+		"damage_drop_after_400": damage_drop_after_400,
+		"crit_after_180": crit_after_180,
+		"apply_electrified": apply_electrified,
+		"damage_distance_bonus": damage_distance_bonus,
+		"apply_vulnerable": apply_vulnerable
 	}
 
 func _build_thunder_data() -> Dictionary:
@@ -842,7 +1511,7 @@ func determine_summon_type() -> int:
 	elif PC.new_summon == "orange":
 		PC.new_summon = ""
 		return 2 # 橙色追踪召唤物
-	elif PC.new_summon == "purple":
+	elif PC.new_summon == "darkorchid":
 		PC.new_summon = ""
 		return 1 # 紫色定向召唤物
 	else:
@@ -1069,9 +1738,80 @@ func update_skill_attack_speeds() -> void:
 	update_timer_preserve_ratio(bloodwave_fire_speed, 2.0 / total_speed_multiplier)
 	
 	update_timer_preserve_ratio(bloodboardsword_fire_speed, 2.0 / total_speed_multiplier)
+	
+	# 冰刺术
+	update_timer_preserve_ratio(ice_flower_fire_speed, 1 / total_speed_multiplier)
+	
+	# 天雷破 (基础1.6秒/次)
+	update_timer_preserve_ratio(thunder_break_fire_speed, 1.6 / total_speed_multiplier)
+
+	# 光弹 (基础0.4秒/次) todo
+	var light_bullet_interval = 0.4
+	# LightBullet4: 攻击间隔额外减少10%
+	if PC.selected_rewards.has("LightBullet4"):
+		light_bullet_interval *= 0.9
+	# LightBullet22: 攻击间隔额外降低20%
+	if PC.selected_rewards.has("LightBullet22"):
+		light_bullet_interval *= 0.8
+		
+	update_timer_preserve_ratio(light_bullet_fire_speed, light_bullet_interval / total_speed_multiplier)
+	
+	# 坎水诀 (基础2.2秒/次)
+	update_timer_preserve_ratio(water_fire_speed, 2.2 / total_speed_multiplier)
+	
+	# 乾坤双剑 (基础3.5秒/次)
+	update_timer_preserve_ratio(qiankun_fire_speed, 3.5 / total_speed_multiplier)
+
+	# 玄武盾 (基础4秒/次)
+	update_timer_preserve_ratio(xuanwu_fire_speed, 4 / total_speed_multiplier)
+
+	# 巽风诀 (基础0.6秒/次)
+	update_timer_preserve_ratio(xunfeng_fire_speed, PC.xunfeng_cooldown / total_speed_multiplier)
+
+	# 艮山诀 (基础3.5秒/次)
+	update_timer_preserve_ratio(genshan_fire_speed, 3.5 / total_speed_multiplier)
+
+	# 兑泽诀 (基础4.0秒/次)
+	update_timer_preserve_ratio(duize_fire_speed, 4.0 / total_speed_multiplier)
+
+func _on_fire_xunfeng(skill_id: int) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	if not PC.has_xunfeng:
+		return
+	_on_fire_detail_xunfeng()
+
+func _on_fire_detail_xunfeng() -> void:
+	if not xunfeng_scene:
+		return
+		
+	var XunfengScript = load("res://Script/skill/xunfeng.gd")
+	if XunfengScript and XunfengScript.has_method("fire_skill"):
+		XunfengScript.fire_skill(xunfeng_scene, global_position, get_tree())
+
+func _on_fire_genshan(skill_id: int) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	if not PC.has_genshan:
+		return
+	_on_fire_detail_genshan()
+
+func _on_fire_detail_genshan() -> void:
+	if not genshan_scene:
+		return
+		
+	var GenshanScript = load("res://Script/skill/genshan.gd")
+	if GenshanScript and GenshanScript.has_method("fire_skill"):
+		GenshanScript.fire_skill(genshan_scene, global_position, get_tree())
 
 # 发射环形子弹
 func _fire_ring_bullets() -> void:
+	if PC.is_game_over:
+		return
 	var bullet_count = PC.ring_bullet_count
 	var bullet_size = PC.ring_bullet_size_multiplier
 	var spawn_position = position
@@ -1101,6 +1841,8 @@ func _fire_ring_bullets() -> void:
 # 浪形子弹
 # 每发伤害为角色攻击的50%（通过 bullet.gd 的 set_wave_bullet_damage 配置）
 func _fire_wave_bullets() -> void:
+	if PC.is_game_over:
+		return
 	var bullet_count = PC.wave_bullet_count
 	var spawn_position = position
 	var base_direction = Vector2.RIGHT
@@ -1133,3 +1875,35 @@ func _fire_wave_bullets() -> void:
 		
 		# 每发间隔0.05秒
 		await get_tree().create_timer(0.02).timeout
+
+func _on_fire_xuanwu(skill_id: int) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	if not PC.has_xuanwu:
+		return
+		
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	var target = null
+	var min_dist = INF
+	
+	for enemy in enemies:
+		if is_instance_valid(enemy):
+			var dist = global_position.distance_to(enemy.global_position)
+			if dist < min_dist:
+				min_dist = dist
+				target = enemy
+	
+	var target_pos = Vector2.ZERO
+	if target:
+		target_pos = target.global_position
+	else:
+		if sprite_direction_right:
+			target_pos = global_position + Vector2(100, 0)
+		else:
+			target_pos = global_position + Vector2(-100, 0)
+			
+	var instance = xuanwu_scene.instantiate()
+	get_tree().current_scene.add_child(instance)
+	instance.setup(global_position, target_pos)

@@ -33,6 +33,7 @@ func _ready() -> void:
 	# 初始化子弹伤害和暴击状态
 	initialize_bullet_damage()
 		
+	# 不要在 _ready 中连接 area_entered，改在发射逻辑中处理碰撞
 	if not area_entered.is_connected(_on_area_entered):
 		area_entered.connect(_on_area_entered)
 	
@@ -53,24 +54,44 @@ func _ready() -> void:
 		bullet_damage *= 1.8
 		sprite.modulate = Color(1, 0.5, 0.5) # 红色滤镜
 	
-	await get_tree().create_timer(4).timeout
-	if !Global.is_level_up:
-		queue_free()
 	# 初始化时设置精灵方向
 	_update_sprite_rotation()
+	
+	# 设置一个安全销毁定时器，防止子弹永远存在
+	await get_tree().create_timer(4).timeout
+	if is_instance_valid(self) and !is_exploding:
+		queue_free()
 
 func _physics_process(delta: float) -> void:
-	# 子弹始终保持移动（包括渐隐过程中）
+	if is_exploding:
+		return
+
+	# 子弹始终保持移动
 	position += direction * bullet_speed * delta
+	
 	# 更新已飞行距离
 	traveled_distance = start_position.distance_to(global_position)
 	distance_meters = traveled_distance / 20.0 # 20像素=1米
-	# 魔焰逻辑
+	
+	# 检查是否超出射程
+	if traveled_distance >= bullet_range:
+		play_explosion_and_die()
+		return
+
+	# 魔焰逻辑 - 动态更新伤害和范围
+	_update_moyan_stats()
+	
+	# 更新精灵旋转以匹配移动方向
+	_update_sprite_rotation()
+
+func _update_moyan_stats() -> void:
 	var damage_increase_multiplier = 1.0
 	var crit_damage_increase = 0.0
 	scale_increase_multiplier = 1.0
+	
 	if is_giant_moyan:
 		scale_increase_multiplier = 1.6
+		
 	# 魔焰12：发射后的前2米，爆炸范围及伤害提升量提升至500%
 	if PC.selected_rewards.has("moyan12"):
 		var dist_int = floor(distance_meters)
@@ -86,7 +107,6 @@ func _physics_process(delta: float) -> void:
 		damage_increase_multiplier += floor(distance_meters) * 0.06
 		scale_increase_multiplier += floor(distance_meters) * 0.04
 
-
 	# 魔焰13：每前进1米，魔焰爆击伤害额外提升10%
 	if PC.selected_rewards.has("moyan13") and is_crit_hit:
 		crit_damage_increase = floor(distance_meters) * 0.10
@@ -95,15 +115,10 @@ func _physics_process(delta: float) -> void:
 
 	# 应用伤害和范围加成
 	bullet_damage = initial_damage * damage_increase_multiplier * (1 + crit_damage_increase)
-	collision_shape.scale = initial_scale * scale_increase_multiplier
-
-	# 检查是否超出射程或需要提前爆炸
-	if not is_exploding:
-		if traveled_distance >= bullet_range:
-			play_explosion_and_die()
-
-	# 更新精灵旋转以匹配移动方向
-	_update_sprite_rotation()
+	# 碰撞体缩放只影响爆炸范围，不影响飞行时的碰撞体（或者你可以选择也影响飞行）
+	# 这里假设飞行时的碰撞体大小不变，或者也随之变大
+	# 如果不希望飞行时变大太夸张，可以限制一下
+	# collision_shape.scale = initial_scale * scale_increase_multiplier 
 	
 # 播放爆炸动画并销毁自身
 func play_explosion_and_die():

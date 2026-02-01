@@ -157,7 +157,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	
 	# 立即暂停游戏
 	for skill_node in skill_nodes:
-		if skill_node.has_method("set_game_paused"):
+		if skill_node and skill_node.has_method("set_game_paused"):
 			skill_node.set_game_paused(true)
 	
 	# 暂停人物和怪物的动画
@@ -254,7 +254,7 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 	
 	# 恢复技能节点状态
 	for skill_node in skill_nodes:
-		if skill_node.has_method("set_game_paused"):
+		if skill_node and skill_node.has_method("set_game_paused"):
 			skill_node.set_game_paused(false)
 	
 	var advance_change = int(PC.main_skill_swordQi / 5)
@@ -316,7 +316,7 @@ func get_required_lv_up_value(level: int) -> float:
 	# todo 测试期间/10
 	var value: float = 100
 	for i in range(level):
-		value = (value + 300) * 1.05
+		value = (value + 300) * 1.035
 	return value
 
 # 清理dark_overlay的私有函数

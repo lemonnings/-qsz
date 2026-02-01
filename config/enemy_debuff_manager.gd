@@ -61,7 +61,11 @@ static var debuff_configs: Dictionary = {
 	"stun": DebuffData.new("stun", 3.0, 1, false, "", true, Color(0.9, 0.9, 0.9), 0.0, 0.0, 0.0, true, 0.0, 1.0, false, 40.0),
 	"bleed": DebuffData.new("bleed", 5.0, 5, false, "", true, Color(0.9, 0.3, 0.3), 0.0, 0.0, 0.0, false, 0.1, 1.0, false, 40.0),
 	"shock": DebuffData.new("shock", 5.0, 1, false, "", true, Color(1.0, 0.9, 0.4), 0.0, 0.0, 0.0, false, 0.3, 1.0, false, 40.0),
-	"burn": DebuffData.new("burn", 5.0, 1, false, "", true, Color(1.0, 0.6, 0.2), 0.0, 0.0, 0.0, false, 0.1, 1.0, true, 60.0)
+	"burn": DebuffData.new("burn", 5.0, 1, false, "", true, Color(1.0, 0.6, 0.2), 0.0, 0.0, 0.0, false, 0.1, 1.0, true, 60.0),
+	"electrified": DebuffData.new("electrified", 3.0, 1, false, "", true, Color(0.8, 0.8, 0.0), 0.0, 0.0, 0.0, false, 0.3, 1.0, false, 40.0),
+	"light_accumulation": DebuffData.new("light_accumulation", 5.0, 20, false, "", true, Color(1.0, 1.0, 0.8), 0.0, 0.05, 0.0, false, 0.0, 1.0, false, 40.0),
+	"corrosion": DebuffData.new("corrosion", 5.0, 1, false, "", true, Color(0.6, 0.8, 0.2), 0.0, 0.2, 0.0, false, 0.0, 1.0, false, 40.0), # 腐蚀：受到的伤害增加20%
+	"corrosion2": DebuffData.new("corrosion2", 5.0, 1, false, "", true, Color(0.5, 0.9, 0.1), 0.0, 0.3, 0.0, false, 0.0, 1.0, false, 40.0) # 腐蚀2：受到的伤害增加30%
 }
 
 var active_debuffs: Dictionary = {} # {debuff_id: {timer: Timer, stacks: int, config: DebuffData, effect_instance: Node2D, dot_elapsed: float}}
@@ -72,15 +76,16 @@ func _init(enemy: Node2D):
 	target_enemy = enemy
 	base_modulate = target_enemy.modulate
 
-func add_debuff(debuff_id: String):
+func add_debuff(debuff_id: String, extra_stacks_limit: int = 0):
 	var config: DebuffData = debuff_configs[debuff_id]
 
 	if active_debuffs.has(debuff_id):
 		# 更新现有debuff
 		var current_debuff = active_debuffs[debuff_id]
 		var new_stacks = current_debuff["stacks"] + 1
-		if new_stacks > config.max_stacks:
-			new_stacks = config.max_stacks
+		var limit = config.max_stacks + extra_stacks_limit
+		if new_stacks > limit:
+			new_stacks = limit
 		current_debuff["stacks"] = new_stacks
 		current_debuff["timer"].start(config.duration)
 		active_debuffs[debuff_id] = current_debuff

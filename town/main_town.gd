@@ -710,4 +710,5 @@ func _on_bag_pressed() -> void:
 				ui_tweens["bagLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
 		
 		# 先显示设置面板本身
-		ui_tweens["bagLayer"].tween_property(bagLayer, "modulate:a", 1.0, 0.15)
+		# BagLayer 是 CanvasLayer，没有 modulate 属性，所以不需要对 bagLayer 本身做透明度动画
+		# ui_tweens["bagLayer"].tween_property(bagLayer, "modulate:a", 1.0, 0.15)

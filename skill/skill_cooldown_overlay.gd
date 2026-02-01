@@ -68,6 +68,24 @@ func _on_timer_timeout() -> void:
 		Global.emit_signal("skill_cooldown_complete_bloodboardsword", skill_id)
 	elif skill_id == 9:
 		Global.emit_signal("skill_cooldown_complete_ice", skill_id)
+	elif skill_id == 10:
+		Global.emit_signal("skill_cooldown_complete_thunder_break", skill_id)
+	elif skill_id == 11:
+		Global.emit_signal("skill_cooldown_complete_light_bullet", skill_id)
+	elif skill_id == 12:
+		Global.emit_signal("skill_cooldown_complete_water", skill_id)
+	elif skill_id == 13:
+		Global.emit_signal("skill_cooldown_complete_qiankun", skill_id)
+	elif skill_id == 14:
+		Global.emit_signal("skill_cooldown_complete_xuanwu", skill_id)
+	elif skill_id == 15:
+		Global.emit_signal("skill_cooldown_complete_xunfeng", skill_id)
+	elif skill_id == 16:
+		Global.emit_signal("skill_cooldown_complete_genshan", skill_id)
+	elif skill_id == 17:
+		Global.emit_signal("skill_cooldown_complete_duize", skill_id)
+	elif skill_id == 18:
+		Global.emit_signal("skill_cooldown_complete_holylight", skill_id)
 
 var remaining_time: float = 0
 

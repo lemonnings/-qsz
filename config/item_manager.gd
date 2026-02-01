@@ -611,6 +611,8 @@ func get_item_property(item_id: String, property_name: String):
 
 # 野果拾取函数
 func _on_item_001_picked_up(player, item_id := ""):
+	if PC.is_game_over:
+		return false
 	# 只有满血时才能拾取
 	#if PC.pc_hp != PC.pc_max_hp:
 		#PC.pc_hp += PC.pc_max_hp * 0.2

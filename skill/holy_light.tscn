@@ -1,0 +1,35 @@
+[gd_scene load_steps=6 format=3 uid="uid://d0p7x265t3gck"]
+
+[ext_resource type="Script" uid="uid://dg5l5bw56d3ow" path="res://Script/skill/holy_light.gd" id="1_hv5yv"]
+[ext_resource type="Texture2D" uid="uid://cy0x6h2hkbq8c" path="res://AssetBundle/Sprites/SpecialEffects/Yellow Effect Bullet Impact Explosion 32x32.png" id="1_n4dqg"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_hv5yv"]
+atlas = ExtResource("1_n4dqg")
+region = Rect2(608, 384, 32, 32)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_6fph6"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hv5yv")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_n4dqg"]
+radius = 16.0
+
+[node name="HolyLight" type="Area2D" node_paths=PackedStringArray("sprite", "collision")]
+script = ExtResource("1_hv5yv")
+sprite = NodePath("AnimatedSprite2D")
+collision = NodePath("CollisionShape2D")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+modulate = Color(1.3358752, 1.3358752, 0, 1)
+self_modulate = Color(1, 1, 0, 1)
+sprite_frames = SubResource("SpriteFrames_6fph6")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape2D_n4dqg")

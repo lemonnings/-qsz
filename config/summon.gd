@@ -3,13 +3,13 @@ extends Area2D
 # 召唤物类型枚举
 enum SummonType {
 	BLUE_RANDOM,     # 蓝色：随机方向射击
-	PURPLE_DIRECTED, # 紫色：定向射击（角色上下30px）
+	darkorchid_DIRECTED, # 紫色：定向射击（角色上下30px）
 	ORANGE_TRACKING, # 橙色：追踪射击
 	GOLD_ENHANCED,    # 金色：强化追踪射击
-	HEAL_PURPLE, # 治疗-紫色
+	HEAL_darkorchid, # 治疗-紫色
 	HEAL_GOLD, # 治疗-金色
 	HEAL_RED, # 治疗-红色
-	AUX_PURPLE, # 辅助-紫色
+	AUX_darkorchid, # 辅助-紫色
 	AUX_GOLD, # 辅助-金色
 	AUX_RED # 辅助-红色
 }
@@ -53,8 +53,8 @@ func setup_appearance() -> void:
 	match summon_type:
 		SummonType.BLUE_RANDOM:
 			sprite.modulate = Color.BLUE
-		SummonType.PURPLE_DIRECTED:
-			sprite.modulate = Color.PURPLE
+		SummonType.darkorchid_DIRECTED:
+			sprite.modulate = Color.MEDIUM_PURPLE
 			#sprite.scale = Vector2(1.1, 1.1)
 		SummonType.ORANGE_TRACKING:
 			sprite.modulate = Color.ORANGE
@@ -62,8 +62,8 @@ func setup_appearance() -> void:
 		SummonType.GOLD_ENHANCED:
 			sprite.modulate = Color.GOLD
 			#sprite.scale = Vector2(1.3, 1.3)
-		SummonType.HEAL_PURPLE, SummonType.AUX_PURPLE:
-			sprite.modulate = Color.PURPLE
+		SummonType.HEAL_darkorchid, SummonType.AUX_darkorchid:
+			sprite.modulate = Color.MEDIUM_PURPLE
 		SummonType.HEAL_GOLD, SummonType.AUX_GOLD:
 			sprite.modulate = Color.GOLD
 		SummonType.HEAL_RED, SummonType.AUX_RED:
@@ -99,20 +99,20 @@ func _on_fire_timer_timeout() -> void:
 	match summon_type:
 		SummonType.BLUE_RANDOM:
 			fire_random_bullet()
-		SummonType.PURPLE_DIRECTED:
+		SummonType.darkorchid_DIRECTED:
 			fire_directed_bullets()
 		SummonType.ORANGE_TRACKING:
 			fire_tracking_bullet()
 		SummonType.GOLD_ENHANCED:
 			fire_enhanced_tracking_bullets()
-		SummonType.HEAL_PURPLE:
-			fire_heal_bullet(Color.PURPLE)
+		SummonType.HEAL_darkorchid:
+			fire_heal_bullet(Color.DARK_ORCHID)
 		SummonType.HEAL_GOLD:
 			fire_heal_bullet(Color.GOLD)
 		SummonType.HEAL_RED:
 			fire_heal_bullet(Color.RED)
-		SummonType.AUX_PURPLE:
-			fire_aux_bullet(Color.PURPLE)
+		SummonType.AUX_darkorchid:
+			fire_aux_bullet(Color.DARK_ORCHID)
 		SummonType.AUX_GOLD:
 			fire_aux_bullet(Color.GOLD)
 		SummonType.AUX_RED:
@@ -275,7 +275,7 @@ func set_summon_type(type: SummonType) -> void:
 			damage_multiplier = 0.36
 			fire_interval = 0.85
 			bullets_per_shot = 1
-		SummonType.PURPLE_DIRECTED:
+		SummonType.darkorchid_DIRECTED:
 			damage_multiplier = 0.2
 			fire_interval = 0.8
 			bullets_per_shot = 2
@@ -290,7 +290,7 @@ func set_summon_type(type: SummonType) -> void:
 			bullets_per_shot = 2
 			bullet_speed_multiplier = 2.0
 		# --- 治疗类 ---
-		SummonType.HEAL_PURPLE:
+		SummonType.HEAL_darkorchid:
 			heal_ratio = 0.015
 			fire_interval = 2.0
 		SummonType.HEAL_GOLD:
@@ -302,7 +302,7 @@ func set_summon_type(type: SummonType) -> void:
 			applied_damage_reduction_bonus = 0.05
 			PC.damage_reduction_rate = min(PC.damage_reduction_rate + applied_damage_reduction_bonus, 0.9)
 		# --- 辅助类（提供攻击与移速，并增强其他召唤物伤害/治疗） ---
-		SummonType.AUX_PURPLE:
+		SummonType.AUX_darkorchid:
 			# SR22 谐灵：+5%攻击力与移速；其他召唤物提升10%
 			applied_speed_bonus = 0.05
 			PC.pc_speed += applied_speed_bonus

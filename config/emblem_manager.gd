@@ -190,6 +190,9 @@ static func clear_all_emblems():
 		remove_emblem(emblem_id)
 	# 清除PC中的纹章记录
 	PC.current_emblems.clear()
+	# 清除静态数据
+	active_emblems.clear()
+	emblem_data.clear()
 
 # 公共方法：获取所有活跃纹章的ID列表
 static func get_active_emblem_ids() -> Array:

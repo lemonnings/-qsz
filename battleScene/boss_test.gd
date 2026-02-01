@@ -167,11 +167,11 @@ func get_reward_level(rand_num: float) -> LvUp.Reward:
 		return LvUp.unbelievable_gold()
 	elif rand_num <= PC.now_orange_p + PC.now_gold_p:
 		return LvUp.super2_rare_orange()
-	elif rand_num <= PC.now_purple_p + PC.now_orange_p + PC.now_gold_p:
-		return LvUp.super_rare_purple()
-	elif rand_num <= PC.now_blue_p + PC.now_purple_p + PC.now_orange_p + PC.now_gold_p:
+	elif rand_num <= PC.now_darkorchid_p + PC.now_orange_p + PC.now_gold_p:
+		return LvUp.super_rare_darkorchid()
+	elif rand_num <= PC.now_blue_p + PC.now_darkorchid_p + PC.now_orange_p + PC.now_gold_p:
 		return LvUp.rare_blue()
-	elif rand_num <= PC.now_green_p + PC.now_blue_p + PC.now_purple_p + PC.now_orange_p + PC.now_gold_p:
+	elif rand_num <= PC.now_green_p + PC.now_blue_p + PC.now_darkorchid_p + PC.now_orange_p + PC.now_gold_p:
 		return LvUp.pro_green()
 	return LvUp.normal_white()
 

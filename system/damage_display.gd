@@ -79,17 +79,34 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	# 1. 初始显示 (渐入)
 	tween.tween_property(damage_label, "modulate:a", 1.0, 0.25)
 
-	# 2. 保持显示1s，暴击额外0.5s
-	tween.tween_interval(2)
+	# 2. 保持显示1s，暴击额外0.6s
+	# 注意：tween_interval 会等待前面的动画完成后再执行
 	if damage_type == DamageType.PLAYER_BULLET_CRIT:
-		tween.tween_interval(0.6)
+		tween.tween_interval(1)
+	else:
+		tween.tween_interval(0.5)
 
 	# 3. 向上飘动并渐隐
-	# 获取当前damage_label的相对位置，因为动画是作用于damage_label的
+	# 获取当前damage_label的相对位置
 	var current_label_pos = damage_label.position
-	# 向上飘动20个像素渐隐，持续0.3秒
-	tween.parallel().tween_property(damage_label, "position:y", current_label_pos.y - 20.0, 0.4)
-	tween.parallel().tween_property(damage_label, "modulate:a", 0.0, 0.4)
+	
+	# 下面的并行通过 set_parallel(true) 来开启并行执行
+	# 但由于之前是 false (串行)，我们需要显式地开启并行
+	# 或者使用 parallel() 链式调用，但这只对当前步骤有效？
+	# 实际上，tween.parallel() 会使该步骤与前一个步骤并行。
+	# 但这里我们需要的是步骤3的两个属性变化并行，而步骤3整体要在步骤2之后。
+	
+	# 正确的做法是：
+	# 串行等到 interval 结束 -> 开启并行 -> 两个属性变化
+	
+	# 这里创建一个新的并行步骤
+	# 注意：在 Godot 4 中，tween.parallel() 是指"这一步与上一步并行"。
+	# 如果我们想让步骤3的两个动作并行，但都在步骤2之后：
+	# tween.tween_property(...)
+	# tween.parallel().tween_property(...)
+	
+	tween.tween_property(damage_label, "position:y", current_label_pos.y - 20.0, 0.5)
+	tween.parallel().tween_property(damage_label, "modulate:a", 0.0, 0.5)
 
 	# 动画完成后自动销毁节点
 	tween.finished.connect(queue_free)

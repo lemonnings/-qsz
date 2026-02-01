@@ -226,6 +226,8 @@ func _apply_damage(attack_data: Dictionary) -> Dictionary:
 	return {"hit_count": hit_count, "hit_bleed": hit_bleed}
 
 func _apply_heal(attack_data: Dictionary, hit_result: Dictionary) -> void:
+	if PC.is_game_over:
+		return
 	var missing_hp = PC.pc_max_hp - PC.pc_hp
 	if missing_hp <= 0:
 		return

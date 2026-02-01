@@ -51,7 +51,7 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 @export var lunky_level: int = 1
 @export var red_p: float = 3.5
 @export var gold_p: float = 10
-@export var purple_p: float = 18
+@export var darkorchid_p: float = 18
 @export var blue_p: float = 25
 @export var green_p: float = 30
 
@@ -179,6 +179,16 @@ signal skill_cooldown_complete_thunder
 signal skill_cooldown_complete_bloodwave
 signal skill_cooldown_complete_bloodboardsword
 signal skill_cooldown_complete_ice
+signal skill_cooldown_complete_thunder_break
+signal skill_cooldown_complete_light_bullet
+signal skill_cooldown_complete_water
+signal skill_cooldown_complete_qiankun
+signal skill_cooldown_complete_xuanwu
+signal skill_cooldown_complete_xunfeng
+signal skill_cooldown_complete_genshan
+signal skill_cooldown_complete_duize
+signal skill_cooldown_complete_holylight
+
 
 # 其他攻击方式相关
 signal riyan_damage_triggered
@@ -298,7 +308,7 @@ func save_game() -> void:
 		"lunky_level": lunky_level,
 		"red_p": red_p,
 		"gold_p": gold_p,
-		"purple_p": purple_p,
+		"darkorchid_p": darkorchid_p,
 		"blue_p": blue_p,
 		"green_p": green_p,
 		"player_inventory": player_inventory,
@@ -375,7 +385,7 @@ func load_game() -> void:
 	lunky_level = config.get_value("save", "lunky_level", lunky_level)
 	red_p = config.get_value("save", "red_p", red_p)
 	gold_p = config.get_value("save", "gold_p", gold_p)
-	purple_p = config.get_value("save", "purple_p", purple_p)
+	darkorchid_p = config.get_value("save", "darkorchid_p", darkorchid_p)
 	blue_p = config.get_value("save", "blue_p", blue_p)
 	green_p = config.get_value("save", "green_p", green_p)
 	player_inventory = config.get_value("save", "player_inventory", player_inventory)

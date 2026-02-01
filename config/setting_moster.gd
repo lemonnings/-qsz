@@ -6,13 +6,13 @@ func _calc_atk(base_atk: float) -> float:
 
 func _calc_hp(base_hp: float) -> float:
 	var t = PC.real_time
-	return 1.6 * (base_hp + t / 3.0) * (1.0 + 26.0 * t / 4000.0 + t * t / 22000.0) * Global.world_level_multiple
+	return 1.6 * (base_hp + t / 3.0) * (1.0 + 26.0 * t / 3500.0 + t * t / 20000.0) * Global.world_level_multiple
 
 # 关卡1 桃林
 func taohua_yao(query: String): # 桃花妖
 	var data = {
 		"atk": _calc_atk(25),
-		"hp": _calc_hp(600),
+		"hp": _calc_hp(55),
 		"speed": 36,
 		"exp": 500 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 15 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.05)),

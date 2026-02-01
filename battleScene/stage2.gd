@@ -282,14 +282,22 @@ func _spawn_frog(count: int) -> void:
 		if current_monster_count >= max_monster_limit:
 			return
 		var frog_node = frog_scene.instantiate()
-		# Frog always spawns from left or right and moves towards player
-		# frog保留特殊行动模式
 		
-		var spawn_side = randi_range(0, 1) # 0 for left, 1 for right
-		if spawn_side == 0:
-			frog_node.position = Vector2(-400, randf_range(15, 259))
-		else:
-			frog_node.position = Vector2(400, randf_range(15, 259))
+		# Determine spawn edge (0: top, 1: bottom, 2: left, 3: right)
+		var spawn_edge = randi_range(0, 3)
+		var spawn_position = Vector2.ZERO
+		
+		match spawn_edge:
+			0: # Top
+				spawn_position = Vector2(randf_range(-400, 400), -10)
+			1: # Bottom
+				spawn_position = Vector2(randf_range(-400, 400), 650)
+			2: # Left
+				spawn_position = Vector2(-400, randf_range(15, 650))
+			3: # Right
+				spawn_position = Vector2(400, randf_range(15, 650))
+				
+		frog_node.position = spawn_position
 		# Frog move_direction is handled within its own script, typically towards player
 
 		get_tree().current_scene.add_child(frog_node)
@@ -398,6 +406,13 @@ func _apply_elite_visual(monster_node: Node) -> void:
 	
 # ============== 游戏结果 ==============
 func show_game_over():
+	# 标记游戏结束
+	PC.is_game_over = true
+	# 清除所有纹章效果
+	EmblemManager.clear_all_emblems()
+	# 停止DPS计数器
+	Global.stop_dps_counter()
+	
 	layer_ui.show_game_over()
 	await get_tree().create_timer(2).timeout
 	Global.emit_signal("normal_bgm")
@@ -405,6 +420,15 @@ func show_game_over():
 
 func _on_boss_defeated(get_point: int):
 	if not PC.is_game_over:
+		# 标记游戏结束状态，防止后续逻辑触发
+		PC.is_game_over = true
+		
+		# 清除所有纹章效果
+		EmblemManager.clear_all_emblems()
+		
+		# 停止DPS计数器
+		Global.stop_dps_counter()
+		
 		$Victory.play()
 		layer_ui.show_victory()
 		get_tree().current_scene.point += get_point

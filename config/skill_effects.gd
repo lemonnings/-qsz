@@ -191,8 +191,8 @@ static func apply_yiqiu_1_up21_1() -> void:
 	# 开启紫色系 - 等级1
 	if Global.player_study_data.has("yiqiu"):
 		var learned_skills = Global.player_study_data["yiqiu"].get("learned_skills", [])
-		if not learned_skills.has("summonPurple"):
-			learned_skills.append("summonPurple")
+		if not learned_skills.has("summondarkorchid"):
+			learned_skills.append("summondarkorchid")
 			Global.player_study_data["yiqiu"]["learned_skills"] = learned_skills
 			print("开启召唤紫色系")
 

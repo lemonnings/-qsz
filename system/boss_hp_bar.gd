@@ -28,7 +28,7 @@ const BAR_COLORS: Array[Color] = [
 	Color.YELLOW,    # 第三条血的颜色
 	Color.GREEN,     # 第四条血的颜色
 	Color.ROYAL_BLUE,       # 第五条血的颜色
-	Color.PURPLE       # 第五条血的颜色
+	Color.DARK_MAGENTA       # 第五条血的颜色
 ]
 
 #-------------------- Private Variables (私有变量) --------------------#

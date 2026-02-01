@@ -31,6 +31,10 @@ func _ready():
 	self.modulate.a = 0
 	
 func start_animation(text: String, tips_time: float) -> void:
+	# 强制重置可见性和透明度
+	self.visible = true
+	self.modulate.a = 1.0
+	
 	# 如果有正在进行的动画，立即停止它
 	if current_tween and current_tween.is_valid():
 		current_tween.kill()
@@ -46,6 +50,9 @@ func _perform_animation(text: String, tips_time: float):
 	
 	current_tween = create_tween()
 	
+	# 确保tween在process中运行，避免被暂停影响（如果游戏有暂停逻辑）
+	current_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	
 	current_tween.set_parallel(true)
 	current_tween.tween_property(self, "modulate:a", 1, tips_time * 0.3)
 	current_tween.tween_property(self, "position:y", 100, tips_time * 0.3)
@@ -54,7 +61,7 @@ func _perform_animation(text: String, tips_time: float):
 	current_tween.set_parallel(false)
 	
 	current_tween.tween_property(self, "modulate:a", 0, tips_time * 0.6)
-	current_tween.connect("finished", Callable(self, "_on_tween_completed"))
+	current_tween.finished.connect(_on_tween_completed)
 
 
 # 当动画结束时调用的函数

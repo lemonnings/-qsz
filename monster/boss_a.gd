@@ -4,6 +4,7 @@ extends Area2D
 var debuff_manager: EnemyDebuffManager
 var is_dead: bool = false
 var is_attacking: bool = false
+var is_charging: bool = false # 是否正在冲锋
 var allow_turning: bool = true
 
 signal debuff_applied(debuff_id: String)
@@ -117,7 +118,8 @@ func _physics_process(delta: float) -> void:
 		_move_pattern(delta)
 		
 	if is_attacking:
-		$BossA.play("idle")
+		if not is_charging:
+			$BossA.play("idle")
 		attack_timer.paused = true
 	if not is_attacking:
 		$BossA.play("run")
@@ -246,7 +248,7 @@ func _show_attack_indicator(type: int):
 			charge_target_global_position = global_position + aim_direction * 600.0
 			print_debug("存储冲锋指示器方向: ", charge_indicator_direction, " 存储冲锋目标全局位置: ", charge_target_global_position)
 
-			var charge_appear_tween = create_tween()
+			var charge_appear_tween = create_tween().bind_node(attack_indicator)
 			charge_appear_tween.set_parallel(true)
 			
 			var current_frame_texture = sprite.sprite_frames.get_frame_texture(sprite.animation, sprite.frame)
@@ -368,7 +370,7 @@ func _show_attack_indicator_for_straight_line(direction: Vector2):
 	add_child(attack_indicator)
 	attack_indicator.global_position = global_position # 确保指示器在正确位置
 
-	var line_appear_tween = create_tween()
+	var line_appear_tween = create_tween().bind_node(attack_indicator)
 	line_appear_tween.set_parallel(true)
 
 	var outer_line_width = 45
@@ -513,7 +515,7 @@ func _show_attack_indicator_for_triple_line(base_direction: Vector2):
 	add_child(attack_indicator)
 	attack_indicator.global_position = global_position # 确保指示器在正确位置
 
-	var tri_appear_tween = create_tween()
+	var tri_appear_tween = create_tween().bind_node(attack_indicator)
 	tri_appear_tween.set_parallel(true)
 	var base_angle_rad = base_direction.angle()
 	var angles_offset = [-deg_to_rad(20), 0, deg_to_rad(20)]
@@ -599,7 +601,7 @@ func _attack_eight_directions():
 
 
 func _attack_charge():
-	is_attacking = false
+	# is_attacking = false # 不要过早重置攻击状态，否则会导致move_pattern在冲锋过程中执行，干扰冲锋方向
 	print("Attack: Charge")
 
 	# 根据 charge_indicator_direction (即瞄准方向) 设置sprite朝向
@@ -678,12 +680,14 @@ func _attack_charge():
 		tween.tween_property(self, "global_position", final_target_pos, charge_time)
 		tween.finished.connect(func():
 			is_attacking = false
+			is_charging = false
 			$BossA.play("run")
 			allow_turning = true # 允许boss转向
 		)
 	else:
 		# 如果无法冲锋 (例如已在边界、目标点与当前位置相同，或计算出的时间为0或距离过小)
 		is_attacking = false
+		is_charging = false
 		$BossA.play("run")
 		allow_turning = true # 允许boss转向
 

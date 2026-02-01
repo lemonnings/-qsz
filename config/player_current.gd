@@ -52,7 +52,7 @@ extends Node
 @export var now_lunky_level: int = 1
 @export var now_red_p: float = 2
 @export var now_gold_p: float = 5
-@export var now_purple_p: float = 15
+@export var now_darkorchid_p: float = 15
 @export var now_blue_p: float = 35
 @export var now_green_p: float = 43
 @export var selected_rewards = []
@@ -142,6 +142,117 @@ extends Node
 @export var ice_flower_small_scale_ratio: float = 0.7
 @export var ice_flower_base_scale: float = 1.0
 
+# 天雷破相关变量
+@export var main_skill_thunder_break = 0
+@export var main_skill_thunder_break_advance = 0
+@export var has_thunder_break: bool = false
+@export var first_has_thunder_break: bool = true
+@export var main_skill_thunder_break_damage: float = 0.5
+@export var thunder_break_final_damage_multi: float = 1.0 # 天雷破总伤害加成
+
+# 光弹相关变量
+@export var main_skill_light_bullet = 0
+@export var main_skill_light_bullet_advance = 0
+@export var has_light_bullet: bool = false
+@export var first_has_light_bullet: bool = true
+@export var main_skill_light_bullet_damage: float = 0.35
+@export var light_bullet_final_damage_multi: float = 1.0 # 光弹总伤害加成
+@export var light_bullet_shot_count = 0
+
+# 坎水诀相关变量
+@export var main_skill_water = 0
+@export var main_skill_water_advance = 0
+@export var has_water: bool = false
+@export var first_has_water: bool = true
+@export var main_skill_water_damage: float = 0.45
+@export var water_final_damage_multi: float = 1.0 # 坎水诀总伤害加成
+
+# 乾坤双剑相关变量
+@export var main_skill_qiankun = 0
+@export var main_skill_qiankun_advance = 0
+@export var has_qiankun: bool = false
+@export var first_has_qiankun: bool = true
+@export var main_skill_qiankun_damage: float = 0.35
+@export var qiankun_final_damage_multi: float = 1.0 # 乾坤双剑总伤害加成
+@export var qiankun_speed: float = 100.0
+@export var qiankun_range: float = 240.0
+@export var qiankun_extra_damage_speed: bool = false # 飞速
+@export var qiankun_extra_damage_range: bool = false # 搜寻
+@export var qiankun_speed_per_enemy: float = 0.0 # 激发: 每个敌人提升速度
+@export var qiankun_damage_per_debuff: float = 0.0 # 乘虚: 每个异常提升伤害
+@export var qiankun_damage_per_enemy: float = 0.0 # 搜寻-激发: 每个敌人提升伤害
+@export var qiankun_crit_on_3_debuffs: bool = false # 搜寻-乘虚
+
+# 玄武相关变量
+@export var main_skill_xuanwu = 0
+@export var main_skill_xuanwu_advance = 0
+@export var has_xuanwu: bool = false
+@export var first_has_xuanwu: bool = true
+@export var main_skill_xuanwu_damage: float = 0.3 # 45% 攻击
+@export var xuanwu_hp_damage_ratio: float = 0.35 # 35% 最大体力
+@export var xuanwu_range: float = 240.0
+@export var xuanwu_shield_base: int = 6
+@export var xuanwu_shield_hp_ratio: float = 0.06
+@export var xuanwu_width_scale: float = 1.0 # 宽度缩放
+# Upgrade flags
+@export var xuanwu_slow_duration: float = 0.0
+@export var xuanwu_vulnerable_duration: float = 0.0
+@export var xuanwu_shield_bonus_damage: float = 0.0
+@export var xuanwu_return_shield_bonus: float = 0.0
+@export var xuanwu_shield_base_bonus: int = 0
+@export var xuanwu_final_damage_multi: float = 1.0 # 玄武盾总伤害加成
+
+# 巽风诀相关变量
+@export var main_skill_xunfeng = 0
+@export var main_skill_xunfeng_advance = 0
+@export var has_xunfeng: bool = false
+@export var first_has_xunfeng: bool = true
+@export var main_skill_xunfeng_damage: float = 0.55
+@export var xunfeng_final_damage_multi: float = 1.0
+@export var xunfeng_range: float = 280.0
+@export var xunfeng_size_scale: float = 1.0
+@export var xunfeng_speed: float = 400.0
+@export var xunfeng_cooldown: float = 0.6
+@export var xunfeng_penetration_count: int = 0
+@export var xunfeng_pierce_decay: float = 0.0
+@export var xunfeng_attack_count: int = 0
+@export var xunfeng_extra_blade_angle_offset: float = 0.0 # 额外风刃的累计偏移角度
+@export var xunfeng_extra_blade_count_threshold: int = 3 # 额外风刃触发攻击次数阈值
+@export var xunfeng_extra_blade_damage_ratio: float = 0.6 # 额外风刃伤害倍率
+
+# 艮山诀相关变量
+@export var main_skill_genshan = 0
+@export var main_skill_genshan_advance = 0
+@export var has_genshan: bool = false
+@export var first_has_genshan: bool = true
+@export var main_skill_genshan_damage: float = 1.2
+@export var genshan_final_damage_multi: float = 1.0
+@export var genshan_range: float = 230.0
+
+# 兑泽诀相关变量
+@export var main_skill_duize = 0
+@export var main_skill_duize_advance = 0
+@export var has_duize: bool = false
+@export var first_has_duize: bool = true
+@export var main_skill_duize_damage: float = 0.2 # 基础20%攻击/s
+@export var duize_final_damage_multi: float = 1.0
+@export var duize_range: float = 60.0
+@export var duize_slow_ratio: float = 0.2
+
+# 圣光术相关变量
+@export var main_skill_holylight = 0
+@export var main_skill_holylight_advance = 0
+@export var has_holylight: bool = false
+@export var first_has_holylight: bool = true
+@export var main_skill_holylight_damage: float = 0.7 # 70%攻击
+@export var holylight_final_damage_multi: float = 1.0
+@export var holylight_range_scale: float = 1.0
+@export var holylight_duration: float = 3.0
+@export var holylight_center_extra_damage: float = 0.0
+@export var holylight_heal_base: int = 1
+@export var holylight_heal_ratio: float = 0.01
+@export var holylight_dot_damage: float = 0.0
+
 # 反弹子弹相关属性
 @export var rebound_size_multiplier: float = 0.4 # 反弹子弹大小倍数
 @export var rebound_damage_multiplier: float = 0.35 # 反弹子弹伤害倍数
@@ -186,7 +297,7 @@ func _ready():
 func _on_lucky_level_up(lunky_up: float) -> void:
 	now_red_p = now_red_p + lunky_up * 0.2
 	now_gold_p = now_gold_p + lunky_up * 0.4
-	now_purple_p = now_purple_p + lunky_up * 0.6
+	now_darkorchid_p = now_darkorchid_p + lunky_up * 0.6
 	now_blue_p = now_blue_p + lunky_up * 1
 
 func get_reward_acquisition_count(fallback_reward_id: String):
@@ -202,7 +313,7 @@ func reset_player_attr() -> void:
 	Global.in_menu = false
 	PC.is_game_over = false
 	
-	PC.selected_rewards = ["Ice1","Ice3","Ice11","Ice44"]
+	PC.selected_rewards = ["Duize1","Duize2","Duize3","Duize4","Duize11","Duize22","Duize33","Duize44"]
 	
 	Global.reset_battle_modifiers()
 	
@@ -360,6 +471,115 @@ func reset_player_attr() -> void:
 	PC.ice_flower_small_scale_ratio = 0.65
 	PC.ice_flower_base_scale = 1.0
 	
+	# 重置天雷破相关属性
+	PC.main_skill_thunder_break = 0
+	PC.main_skill_thunder_break_advance = 0
+	PC.has_thunder_break = false
+	PC.first_has_thunder_break = true
+	PC.main_skill_thunder_break_damage = 0.5
+	PC.thunder_break_final_damage_multi = 1.0
+	
+	# 重置光弹相关属性
+	PC.main_skill_light_bullet = 0
+	PC.main_skill_light_bullet_advance = 0
+	PC.has_light_bullet = false
+	PC.first_has_light_bullet = true
+	PC.main_skill_light_bullet_damage = 0.35
+	PC.light_bullet_final_damage_multi = 1.0
+	
+	# 重置坎水诀相关属性
+	PC.main_skill_water = 0
+	PC.main_skill_water_advance = 0
+	PC.has_water = false
+	PC.first_has_water = true
+	PC.main_skill_water_damage = 0.45
+	PC.water_final_damage_multi = 1.0
+	
+	# 重置乾坤双剑相关属性
+	PC.main_skill_qiankun = 0
+	PC.main_skill_qiankun_advance = 0
+	PC.has_qiankun = false
+	PC.first_has_qiankun = true
+	PC.main_skill_qiankun_damage = 0.35
+	PC.qiankun_final_damage_multi = 1.0
+	PC.qiankun_speed = 300.0
+	PC.qiankun_range = 240.0
+	PC.qiankun_extra_damage_speed = false
+	PC.qiankun_extra_damage_range = false
+	PC.qiankun_speed_per_enemy = 0.0
+	PC.qiankun_damage_per_debuff = 0.0
+	PC.qiankun_damage_per_enemy = 0.0
+	PC.qiankun_crit_on_3_debuffs = false
+	
+	# 重置玄武盾相关属性
+	PC.main_skill_xuanwu = 0
+	PC.main_skill_xuanwu_advance = 0
+	PC.has_xuanwu = false
+	PC.first_has_xuanwu = true
+	PC.main_skill_xuanwu_damage = 0.3
+	PC.xuanwu_hp_damage_ratio = 0.35
+	PC.xuanwu_range = 240.0
+	PC.xuanwu_shield_base = 6
+	PC.xuanwu_shield_hp_ratio = 0.06
+	PC.xuanwu_width_scale = 1.0
+	PC.xuanwu_slow_duration = 0.0
+	PC.xuanwu_vulnerable_duration = 0.0
+	PC.xuanwu_shield_bonus_damage = 0.0
+	PC.xuanwu_return_shield_bonus = 0.0
+	PC.xuanwu_shield_base_bonus = 0
+	PC.xuanwu_final_damage_multi = 1.0
+	
+	# 重置巽风诀相关属性
+	PC.main_skill_xunfeng = 0
+	PC.main_skill_xunfeng_advance = 0
+	PC.has_xunfeng = false
+	PC.first_has_xunfeng = true
+	PC.main_skill_xunfeng_damage = 0.55
+	PC.xunfeng_final_damage_multi = 1.0
+	PC.xunfeng_range = 280.0
+	PC.xunfeng_size_scale = 1.0
+	PC.xunfeng_speed = 400.0
+	PC.xunfeng_cooldown = 0.6
+	PC.xunfeng_penetration_count = 0
+	PC.xunfeng_pierce_decay = 0.0
+	PC.xunfeng_attack_count = 0
+	PC.xunfeng_extra_blade_angle_offset = 0.0
+	PC.xunfeng_extra_blade_count_threshold = 3
+	PC.xunfeng_extra_blade_damage_ratio = 0.6
+	
+	# 重置艮山诀相关属性
+	PC.main_skill_genshan = 0
+	PC.main_skill_genshan_advance = 0
+	PC.has_genshan = false
+	PC.first_has_genshan = true
+	PC.main_skill_genshan_damage = 1.2
+	PC.genshan_final_damage_multi = 1.0
+	PC.genshan_range = 230.0
+	
+	# 重置兑泽诀相关属性
+	PC.main_skill_duize = 0
+	PC.main_skill_duize_advance = 0
+	PC.has_duize = false
+	PC.first_has_duize = true
+	PC.main_skill_duize_damage = 0.2
+	PC.duize_final_damage_multi = 1.0
+	PC.duize_range = 60.0
+	PC.duize_slow_ratio = 0.2
+	
+	# 重置圣光术相关属性
+	PC.main_skill_holylight = 0
+	PC.main_skill_holylight_advance = 0
+	PC.has_holylight = false
+	PC.first_has_holylight = true
+	PC.main_skill_holylight_damage = 0.7
+	PC.holylight_final_damage_multi = 1.0
+	PC.holylight_range_scale = 1.0
+	PC.holylight_duration = 3.0
+	PC.holylight_center_extra_damage = 0.0
+	PC.holylight_heal_base = 1
+	PC.holylight_heal_ratio = 0.01
+	PC.holylight_dot_damage = 0.0
+	
 	PC.refresh_num = Global.refresh_max_num
 	# BuffManager.clear_all_buffs() # 已由下面的EmblemManager.clear_all_emblems()替代
 	
@@ -368,6 +588,8 @@ func reset_player_attr() -> void:
 	EmblemManager.clear_all_emblems()
 
 func add_shield(amount: int, duration: float) -> void:
+	if is_game_over:
+		return
 	var shield = {"value": amount, "time_left": duration}
 	pc_sheild.append(shield)
 
@@ -460,7 +682,7 @@ func exec_lucky_level() -> void:
 	PC.now_lunky_level = Global.lunky_level
 	PC.now_red_p = Global.red_p + Global.lunky_level * 0.25
 	PC.now_gold_p = Global.gold_p + Global.lunky_level * 0.5
-	PC.now_purple_p = Global.purple_p + Global.lunky_level * 0.8
+	PC.now_darkorchid_p = Global.darkorchid_p + Global.lunky_level * 0.8
 	PC.now_blue_p = Global.blue_p + Global.lunky_level * 1
 
 func exec_swordqi_skills() -> void:

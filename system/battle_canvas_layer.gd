@@ -28,6 +28,16 @@ extends CanvasLayer
 @export var skill7: TextureButton
 @export var skill8: TextureButton
 @export var skill9: TextureButton
+@export var skill10: TextureButton
+@export var skill11: TextureButton
+@export var skill12: TextureButton
+@export var skill13: TextureButton
+@export var skill14: TextureButton
+@export var skill15: TextureButton
+@export var skill16: TextureButton
+@export var skill17: TextureButton
+@export var skill18: TextureButton
+@export var skill19: TextureButton
 
 # 主动技能
 @export var active1: TextureButton
@@ -87,7 +97,8 @@ func _init_managers() -> void:
 	# 初始化升级管理器
 	level_up_manager = LevelUpManager.new()
 	add_child(level_up_manager)
-	var skill_nodes_array: Array[TextureButton] = [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9]
+	 # todo
+	var skill_nodes_array: Array[TextureButton] = [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9, skill10, skill11, skill12, skill13, skill14, skill15, skill16, skill17, skill18]
 	level_up_manager.initialize(self, lv_up_change, lv_up_change_b1, lv_up_change_b2, lv_up_change_b3, self, skill_nodes_array)
 	
 	# 连接刷新按钮信号
@@ -117,9 +128,9 @@ func _connect_signals() -> void:
 	Global.connect("level_up_selection_complete", Callable(self, "_check_and_process_pending_level_ups"))
 	
 	# 连接主动技能信号
-	if Global.ActiveSkillManager:
-		Global.ActiveSkillManager.skill_cooldown_started.connect(_on_active_skill_cooldown_started)
-		Global.ActiveSkillManager.skill_cooldown_finished.connect(_on_active_skill_cooldown_finished)
+	# if Global.ActiveSkillManager:
+	# 	Global.ActiveSkillManager.skill_cooldown_started.connect(_on_active_skill_cooldown_started)
+	# 	Global.ActiveSkillManager.skill_cooldown_finished.connect(_on_active_skill_cooldown_finished)
 
 ## 连接刷新按钮信号
 func _connect_refresh_buttons() -> void:
@@ -169,7 +180,7 @@ func _on_emblem_mouse_exited(emblem_index: int) -> void:
 
 ## 连接技能图标鼠标事件信号
 func _connect_skill_icon_signals() -> void:
-	var skill_icons := [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9]
+	var skill_icons := [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9, skill10, skill11, skill12, skill13, skill14, skill15, skill16, skill17, skill18]
 	for i in range(skill_icons.size()):
 		var icon = skill_icons[i]
 		if icon:
@@ -331,15 +342,6 @@ func _has_skill_in_slot(slot: String) -> bool:
 	var skill_config = Global.player_now_active_skill.get(slot, {})
 	return skill_config.get("name", "") != ""
 
-func _on_active_skill_cooldown_started(skill_id: String, cooldown_time: float) -> void:
-	"""主动技能冷却开始"""
-	# UI更新由active_skill_icon.gd自己处理
-	pass
-
-func _on_active_skill_cooldown_finished(skill_id: String) -> void:
-	"""主动技能冷却完成"""
-	# UI更新由active_skill_icon.gd自己处理
-	pass
 
 func refresh_active_skills() -> void:
 	"""刷新主动技能UI（当技能配置变化时调用）"""
@@ -473,6 +475,51 @@ func check_and_update_skill_icons(player_node: Node) -> void:
 		skill9.visible = true
 		skill9.update_skill(9, player_node.ice_flower_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 		PC.first_has_ice = false
+	
+	if PC.has_thunder_break and PC.first_has_thunder_break:
+		skill10.visible = true
+		skill10.update_skill(10, player_node.thunder_break_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		PC.first_has_thunder_break = false
+	
+	if PC.has_light_bullet and PC.first_has_light_bullet:
+		skill11.visible = true
+		skill11.update_skill(11, player_node.light_bullet_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		PC.first_has_light_bullet = false
+	
+	if PC.has_water and PC.first_has_water:
+		skill12.visible = true
+		skill12.update_skill(12, player_node.water_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		PC.first_has_water = false
+	
+	if PC.has_qiankun and PC.first_has_qiankun:
+		skill13.visible = true
+		skill13.update_skill(13, player_node.qiankun_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		PC.first_has_qiankun = false
+	
+	if PC.has_xuanwu and PC.first_has_xuanwu:
+		skill14.visible = true
+		skill14.update_skill(14, player_node.xuanwu_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		PC.first_has_xuanwu = false
+	
+	if PC.has_xunfeng and PC.first_has_xunfeng:
+		skill15.visible = true
+		skill15.update_skill(15, player_node.xunfeng_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		PC.first_has_xunfeng = false
+	
+	if PC.has_genshan and PC.first_has_genshan:
+		skill16.visible = true
+		skill16.update_skill(16, player_node.genshan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		PC.first_has_genshan = false
+	
+	if PC.has_duize and PC.first_has_duize:
+		skill17.visible = true
+		skill17.update_skill(17, player_node.duize_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		PC.first_has_duize = false
+	
+	if PC.has_holylight and PC.first_has_holylight:
+		skill18.visible = true
+		skill18.update_skill(18, player_node.holy_light_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		PC.first_has_holylight = false
 
 
 ## 更新技能冷却时间显示
@@ -503,6 +550,33 @@ func update_skill_cooldowns(player_node: Node) -> void:
 
 	if PC.has_ice and skill9.visible:
 		skill9.update_skill(9, player_node.ice_flower_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		
+	if PC.has_thunder_break and skill10.visible:
+		skill10.update_skill(10, player_node.thunder_break_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		
+	if PC.has_light_bullet and skill11.visible:
+		skill11.update_skill(11, player_node.light_bullet_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		
+	if PC.has_water and skill12.visible:
+		skill12.update_skill(12, player_node.water_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		
+	if PC.has_qiankun and skill13.visible:
+		skill13.update_skill(13, player_node.qiankun_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		
+	if PC.has_xuanwu and skill14.visible:
+		skill14.update_skill(14, player_node.xuanwu_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		
+	if PC.has_xunfeng and skill15.visible:
+		skill15.update_skill(15, player_node.xunfeng_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		
+	if PC.has_genshan and skill16.visible:
+		skill16.update_skill(16, player_node.genshan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		
+	if PC.has_duize and skill17.visible:
+		skill17.update_skill(17, player_node.duize_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		
+	if PC.has_holylight and skill18.visible:
+		skill18.update_skill(18, player_node.holy_light_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 
 func _on_skill_attack_speed_updated() -> void:
 	# 需要获取player节点来更新，通过信号通知父场景
@@ -564,7 +638,11 @@ const REWARD_NAMES: Dictionary = {
 	"RingFire1": "分炎", "RingFire2": "轮转", "RingFire3": "灵焰", "RingFire4": "爆炎",
 	"RingFire11": "分炎-暴", "RingFire44": "爆炎-破",
 	"Riyan1": "炎甲", "Riyan2": "心能", "Riyan3": "生蕴", "Riyan4": "炎潮",
-	"Riyan11": "炎甲-护", "Riyan22": "心能-极"
+	"Riyan11": "炎甲-护", "Riyan22": "心能-极",
+	"HolyLight": "圣光术",
+	"RHolyLight": "圣光术强化", "SRHolyLight": "圣光术强化", "SSRHolyLight": "圣光术强化", "URHolyLight": "圣光术强化",
+	"HolyLight1": "辉光", "HolyLight2": "炫光", "HolyLight3": "愈光", "HolyLight4": "耀光",
+	"HolyLight11": "辉光-炫光", "HolyLight22": "愈光-耀光", "HolyLight33": "炫光-耀光"
 }
 
 ## 获取开悟的中文名列表

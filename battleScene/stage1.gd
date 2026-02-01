@@ -24,15 +24,15 @@ var FROG_MIN_SPAWN_INCREASE_THRESHOLD: int = 15
 var FROG_MAX_SPAWN_INCREASE_THRESHOLD: int = 20
 
 # 怪物生成数量
-var slime_min_spawn: int = 2
-var slime_max_spawn: int = 4
-var slime_upper_limit: int = 12
-var bat_min_spawn: int = 1
-var bat_max_spawn: int = 2
-var bat_upper_limit: int = 8
-var frog_min_spawn: int = 1
-var frog_max_spawn: int = 1
-var frog_upper_limit: int = 4
+var slime_min_spawn: int = 4
+var slime_max_spawn: int = 8
+var slime_upper_limit: int = 24
+var bat_min_spawn: int = 2
+var bat_max_spawn: int = 4
+var bat_upper_limit: int = 16
+var frog_min_spawn: int = 2
+var frog_max_spawn: int = 2
+var frog_upper_limit: int = 8
 
 @export var monster_spawn_timer: Timer
 
@@ -43,8 +43,8 @@ var map_mechanism_num_max: float
 
 var spawn_count: int = 0
 var current_monster_count: int = 0
-var max_monster_limit: int = 12
-const MAX_MONSTER_CAP: int = 60
+var max_monster_limit: int = 24
+const MAX_MONSTER_CAP: int = 120
 const MONSTER_LIMIT_INCREASE_INTERVAL: float = 6.0
 var monster_limit_increase_timer: float = 0.0
 
@@ -284,14 +284,22 @@ func _spawn_frog(count: int) -> void:
 		if current_monster_count >= max_monster_limit:
 			return
 		var frog_node = frog_scene.instantiate()
-		# Frog always spawns from left or right and moves towards player
-		# frog保留特殊行动模式
 		
-		var spawn_side = randi_range(0, 1) # 0 for left, 1 for right
-		if spawn_side == 0:
-			frog_node.position = Vector2(-590, randf_range(15, 259))
-		else:
-			frog_node.position = Vector2(590, randf_range(15, 259))
+		# Determine spawn edge (0: top, 1: bottom, 2: left, 3: right)
+		var spawn_edge = randi_range(0, 3)
+		var spawn_position = Vector2.ZERO
+		
+		match spawn_edge:
+			0: # Top - 基于Camera2D limit_top=-18
+				spawn_position = Vector2(randf_range(-590, 590), -25)
+			1: # Bottom - 基于Camera2D limit_bottom=485
+				spawn_position = Vector2(randf_range(-590, 590), 480)
+			2: # Left - 基于Camera2D limit_left=-600
+				spawn_position = Vector2(-590, randf_range(0, 480))
+			3: # Right - 基于Camera2D limit_right=595
+				spawn_position = Vector2(590, randf_range(0, 480))
+
+		frog_node.position = spawn_position
 		# Frog move_direction is handled within its own script, typically towards player
 
 		get_tree().current_scene.add_child(frog_node)
@@ -407,6 +415,15 @@ func show_game_over():
 
 func _on_boss_defeated(get_point: int):
 	if not PC.is_game_over:
+		# 标记游戏结束状态，防止后续逻辑触发
+		PC.is_game_over = true
+		
+		# 清除所有纹章效果
+		EmblemManager.clear_all_emblems()
+		
+		# 停止DPS计数器
+		Global.stop_dps_counter()
+		
 		$Victory.play()
 		layer_ui.show_victory()
 		get_tree().current_scene.point += get_point

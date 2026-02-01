@@ -209,7 +209,7 @@ func exec_lucky_level() -> void:
 	PC.now_lunky_level = Global.lunky_level
 	PC.now_red_p = Global.red_p
 	PC.now_gold_p = Global.gold_p
-	PC.now_purple_p = Global.purple_p
+	PC.now_darkorchid_p = Global.darkorchid_p
 	PC.now_blue_p = Global.blue_p
 	PC.now_green_p = Global.green_p
 
