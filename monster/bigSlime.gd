@@ -67,7 +67,14 @@ func _physics_process(delta: float) -> void:
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
 				Global.emit_signal("_fire_ring_bullets")
 			$death.play()
+			Global.emit_signal("monster_killed")
 			is_dead = true
+			var collision_shape = get_node("CollisionShape2D")
+			collision_shape.disabled = true
+			collision_layer = 0
+			collision_mask = 0
+			monitoring = false
+			monitorable = false
 			# 隐藏阴影
 			var shadow = get_node_or_null("Shadow")
 			if shadow:

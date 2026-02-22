@@ -9,12 +9,17 @@ extends CanvasLayer
 @export var score_label: Label
 @export var gameover_label: Label
 @export var victory_label: Label
+@export var victory_summary_container: VBoxContainer
+@export var victory_time_label: RichTextLabel
+@export var victory_score_label: RichTextLabel
+@export var victory_kill_label: RichTextLabel
+@export var victory_total_label: RichTextLabel
 @export var attr_label: RichTextLabel
 
+@export var warning_node: Control
 @export var buff_box: HBoxContainer
 
 @export var now_time: Label
-@export var current_multi: Label
 @export var now_lv: Label
 @export var exit_button: Button
 
@@ -38,6 +43,7 @@ extends CanvasLayer
 @export var skill17: TextureButton
 @export var skill18: TextureButton
 @export var skill19: TextureButton
+@export var skill20: TextureButton
 
 # 主动技能
 @export var active1: TextureButton
@@ -76,6 +82,39 @@ extends CanvasLayer
 @export var emblem8_panel: Panel
 @export var emblem8_detail: RichTextLabel
 
+# 法则标签
+@export var faze: HBoxContainer
+@export var faze1: TextureRect
+@export var faze1_panel: Panel
+@export var faze1_detail: RichTextLabel
+@export var faze2: TextureRect
+@export var faze2_panel: Panel
+@export var faze2_detail: RichTextLabel
+@export var faze3: TextureRect
+@export var faze3_panel: Panel
+@export var faze3_detail: RichTextLabel
+@export var faze4: TextureRect
+@export var faze4_panel: Panel
+@export var faze4_detail: RichTextLabel
+@export var faze5: TextureRect
+@export var faze5_panel: Panel
+@export var faze5_detail: RichTextLabel
+@export var faze6: TextureRect
+@export var faze6_panel: Panel
+@export var faze6_detail: RichTextLabel
+@export var faze7: TextureRect
+@export var faze7_panel: Panel
+@export var faze7_detail: RichTextLabel
+@export var faze8: TextureRect
+@export var faze8_panel: Panel
+@export var faze8_detail: RichTextLabel
+@export var faze9: TextureRect
+@export var faze9_panel: Panel
+@export var faze9_detail: RichTextLabel
+@export var faze10: TextureRect
+@export var faze10_panel: Panel
+@export var faze10_detail: RichTextLabel
+
 # 技能标签
 @export var skill_label1: RichTextLabel
 
@@ -86,19 +125,21 @@ var emblem_manager: EmblemManager
 # ============== 信号 ==============
 signal refresh_button_pressed(button_id: int)
 signal skill_icon_hovered(skill_id: int, is_hovered: bool)
+signal victory_evaluation_finished
 
 # ============== 初始化 ==============
 func _ready() -> void:
 	_init_managers()
 	_connect_signals()
 	_init_active_skills()
+	victory_summary_container.visible = false
 
 func _init_managers() -> void:
 	# 初始化升级管理器
 	level_up_manager = LevelUpManager.new()
 	add_child(level_up_manager)
-	 # todo
-	var skill_nodes_array: Array[TextureButton] = [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9, skill10, skill11, skill12, skill13, skill14, skill15, skill16, skill17, skill18]
+	# todo
+	var skill_nodes_array: Array[TextureButton] = [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9, skill10, skill11, skill12, skill13, skill14, skill15, skill16, skill17, skill18, skill19, skill20]
 	level_up_manager.initialize(self, lv_up_change, lv_up_change_b1, lv_up_change_b2, lv_up_change_b3, self, skill_nodes_array)
 	
 	# 连接刷新按钮信号
@@ -180,7 +221,7 @@ func _on_emblem_mouse_exited(emblem_index: int) -> void:
 
 ## 连接技能图标鼠标事件信号
 func _connect_skill_icon_signals() -> void:
-	var skill_icons := [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9, skill10, skill11, skill12, skill13, skill14, skill15, skill16, skill17, skill18]
+	var skill_icons := [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9, skill10, skill11, skill12, skill13, skill14, skill15, skill16, skill17, skill18, skill19, skill20]
 	for i in range(skill_icons.size()):
 		var icon = skill_icons[i]
 		if icon:
@@ -247,8 +288,7 @@ func hide_active_skill_label() -> void:
 ## 构建闪避技能详情文本
 func _build_dodge_skill_text(level: int) -> String:
 	var text = "[font_size=24]闪避  LV. " + str(level) + "[/font_size]\n"
-	text += "快捷键：Space\n\n"
-	text += "效果：向移动方向位移一小段距离并获得无敌\n\n"
+	text += "向移动方向位移一小段距离并获得无敌\n\n"
 	
 	# 计算当前无敌时间
 	var invincible_time = 0.5
@@ -274,8 +314,7 @@ func _build_dodge_skill_text(level: int) -> String:
 ## 构建乱击技能详情文本
 func _build_random_strike_skill_text(level: int) -> String:
 	var text = "[font_size=24]乱击  LV. " + str(level) + "[/font_size]\n"
-	text += "快捷键：Q\n\n"
-	text += "效果：向随机方向每0.1秒射出剑气\n\n"
+	text += "向随机方向每0.1秒射出剑气\n\n"
 	
 	# 计算当前伤害倍率
 	var damage_multi = 50
@@ -420,7 +459,7 @@ func update_score_display(point: int) -> void:
 func update_dps_display() -> void:
 	var current_dps = Global.get_current_dps()
 	var formatted_dps = "%.1f" % current_dps
-	current_multi.text = "DPS: " + formatted_dps
+	#current_multi.text = "DPS: " + formatted_dps
 
 ## 更新升级选择UI可见性
 func update_lv_up_visibility() -> void:
@@ -431,95 +470,104 @@ func update_lv_up_visibility() -> void:
 
 ## 初始化主技能图标
 func init_main_skill(fire_speed_wait_time: float) -> void:
+	if not PC.selected_rewards.has("swordQi"):
+		skill1.visible = false
+		skill1.get_node("Timer").stop()
+		return
 	skill1.visible = true
 	skill1.update_skill(1, fire_speed_wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
 
 ## 检查并更新技能图标可见性
 func check_and_update_skill_icons(player_node: Node) -> void:
-	if PC.has_branch and PC.first_has_branch:
+	if PC.selected_rewards.has("SwordQi") and PC.first_has_swordqi:
+		skill1.visible = true
+		skill1.update_skill(1, player_node.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+		PC.first_has_swordqi = false
+
+	if PC.selected_rewards.has("Branch") and PC.first_has_branch:
 		skill2.visible = true
 		skill2.update_skill(2, player_node.branch_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		PC.first_has_branch = false
 
-	if PC.has_moyan and PC.first_has_moyan:
+	if PC.selected_rewards.has("Moyan") and PC.first_has_moyan:
 		skill3.visible = true
 		skill3.update_skill(3, player_node.moyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/moyan.png")
 		PC.first_has_moyan = false
 
-	if PC.has_riyan and PC.first_has_riyan:
+	if PC.selected_rewards.has("Riyan") and PC.first_has_riyan:
 		skill4.visible = true
 		skill4.update_skill(4, player_node.riyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/riyan.png")
 		PC.first_has_riyan = false
 
-	if PC.has_ringFire and PC.first_has_ringFire:
+	if PC.selected_rewards.has("RingFire") and PC.first_has_ringFire:
 		skill5.visible = true
 		skill5.update_skill(5, player_node.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/ringFire.png")
 		PC.first_has_ringFire = false
 
-	if PC.has_thunder and PC.first_has_thunder:
+	if PC.selected_rewards.has("Thunder") and PC.first_has_thunder:
 		skill6.visible = true
 		skill6.update_skill(6, player_node.thunder_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		PC.first_has_thunder = false
 
-	if PC.has_bloodwave and PC.first_has_bloodwave:
+	if PC.selected_rewards.has("Bloodwave") and not skill7.visible:
 		skill7.visible = true
 		skill7.update_skill(7, player_node.bloodwave_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
-		PC.first_has_bloodwave = false
 	
-	if PC.has_bloodboardsword and PC.first_has_bloodboardsword:
+	if PC.selected_rewards.has("BloodBoardSword") and PC.first_has_bloodboardsword:
 		skill8.visible = true
 		skill8.update_skill(8, player_node.bloodboardsword_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		PC.first_has_bloodboardsword = false
 	
-	if PC.has_ice and PC.first_has_ice:
+	if PC.selected_rewards.has("Ice") and not skill9.visible:
 		skill9.visible = true
 		skill9.update_skill(9, player_node.ice_flower_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
-		PC.first_has_ice = false
 	
-	if PC.has_thunder_break and PC.first_has_thunder_break:
+	if PC.selected_rewards.has("ThunderBreak") and PC.first_has_thunder_break:
 		skill10.visible = true
 		skill10.update_skill(10, player_node.thunder_break_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 		PC.first_has_thunder_break = false
 	
-	if PC.has_light_bullet and PC.first_has_light_bullet:
+	if PC.selected_rewards.has("LightBullet") and PC.first_has_light_bullet:
 		skill11.visible = true
 		skill11.update_skill(11, player_node.light_bullet_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 		PC.first_has_light_bullet = false
 	
-	if PC.has_water and PC.first_has_water:
+	if PC.selected_rewards.has("Water") and PC.first_has_water:
 		skill12.visible = true
 		skill12.update_skill(12, player_node.water_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 		PC.first_has_water = false
 	
-	if PC.has_qiankun and PC.first_has_qiankun:
+	if PC.selected_rewards.has("Qiankun") and not skill13.visible:
 		skill13.visible = true
 		skill13.update_skill(13, player_node.qiankun_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
-		PC.first_has_qiankun = false
 	
-	if PC.has_xuanwu and PC.first_has_xuanwu:
+	if PC.selected_rewards.has("Xuanwu") and not skill14.visible:
 		skill14.visible = true
 		skill14.update_skill(14, player_node.xuanwu_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
-		PC.first_has_xuanwu = false
 	
-	if PC.has_xunfeng and PC.first_has_xunfeng:
+	if PC.selected_rewards.has("Xunfeng") and not skill15.visible:
 		skill15.visible = true
 		skill15.update_skill(15, player_node.xunfeng_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
-		PC.first_has_xunfeng = false
 	
-	if PC.has_genshan and PC.first_has_genshan:
+	if PC.selected_rewards.has("Genshan") and PC.first_has_genshan:
 		skill16.visible = true
 		skill16.update_skill(16, player_node.genshan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 		PC.first_has_genshan = false
 	
-	if PC.has_duize and PC.first_has_duize:
+	if PC.selected_rewards.has("Duize") and PC.first_has_duize:
 		skill17.visible = true
 		skill17.update_skill(17, player_node.duize_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 		PC.first_has_duize = false
 	
-	if PC.has_holylight and PC.first_has_holylight:
+	if PC.selected_rewards.has("HolyLight") and PC.first_has_holylight:
 		skill18.visible = true
 		skill18.update_skill(18, player_node.holy_light_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 		PC.first_has_holylight = false
+	
+	if PC.selected_rewards.has("Qigong") and PC.first_has_qigong:
+		skill19.visible = true
+		skill19.update_skill(19, player_node.qigong_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		PC.first_has_qigong = false
 
 
 ## 更新技能冷却时间显示
@@ -527,56 +575,81 @@ func update_skill_cooldowns(player_node: Node) -> void:
 	if skill1.visible:
 		skill1.update_skill(1, player_node.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
 	
-	if PC.has_branch and skill2.visible:
+	if PC.selected_rewards.has("Branch") and skill2.visible:
 		skill2.update_skill(2, player_node.branch_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 	
-	if PC.has_moyan and skill3.visible:
+	if PC.selected_rewards.has("Moyan") and skill3.visible:
 		skill3.update_skill(3, player_node.moyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/moyan.png")
 	
-	if PC.has_riyan and skill4.visible:
+	if PC.selected_rewards.has("Riyan") and skill4.visible:
 		skill4.update_skill(4, player_node.riyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/riyan.png")
 	
-	if PC.has_ringFire and skill5.visible:
+	if PC.selected_rewards.has("RingFire") and skill5.visible:
 		skill5.update_skill(5, player_node.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/ringFire.png")
 	
-	if PC.has_thunder and skill6.visible:
+	if PC.selected_rewards.has("Thunder") and skill6.visible:
 		skill6.update_skill(6, player_node.thunder_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 	
-	if PC.has_bloodwave and skill7.visible:
+	if PC.selected_rewards.has("Bloodwave") and skill7.visible:
 		skill7.update_skill(7, player_node.bloodwave_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 	
-	if PC.has_bloodboardsword and skill8.visible:
+	if PC.selected_rewards.has("bloodboardsword") and skill8.visible:
 		skill8.update_skill(8, player_node.bloodboardsword_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 
-	if PC.has_ice and skill9.visible:
+	if PC.selected_rewards.has("Ice") and skill9.visible:
 		skill9.update_skill(9, player_node.ice_flower_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		
-	if PC.has_thunder_break and skill10.visible:
+	if PC.selected_rewards.has("ThunderBreak") and skill10.visible:
 		skill10.update_skill(10, player_node.thunder_break_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		
-	if PC.has_light_bullet and skill11.visible:
+	if PC.selected_rewards.has("LightBullet") and skill11.visible:
 		skill11.update_skill(11, player_node.light_bullet_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		
-	if PC.has_water and skill12.visible:
+	if PC.selected_rewards.has("Water") and skill12.visible:
 		skill12.update_skill(12, player_node.water_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		
-	if PC.has_qiankun and skill13.visible:
+	if PC.selected_rewards.has("Qiankun") and skill13.visible:
 		skill13.update_skill(13, player_node.qiankun_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		
-	if PC.has_xuanwu and skill14.visible:
+	if PC.selected_rewards.has("Xuanwu") and skill14.visible:
 		skill14.update_skill(14, player_node.xuanwu_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		
-	if PC.has_xunfeng and skill15.visible:
+	if PC.selected_rewards.has("Xunfeng") and skill15.visible:
 		skill15.update_skill(15, player_node.xunfeng_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		
-	if PC.has_genshan and skill16.visible:
+	if PC.selected_rewards.has("Genshan") and skill16.visible:
 		skill16.update_skill(16, player_node.genshan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
-		
-	if PC.has_duize and skill17.visible:
+
+	if PC.selected_rewards.has("Duize") and skill17.visible:
 		skill17.update_skill(17, player_node.duize_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
-		
-	if PC.has_holylight and skill18.visible:
+
+	if PC.selected_rewards.has("HolyLight") and skill18.visible:
 		skill18.update_skill(18, player_node.holy_light_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+
+	if PC.selected_rewards.has("qigong") and skill19.visible:
+		skill19.update_skill(19, player_node.qigong_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+
+func stop_all_skill_cooldowns() -> void:
+	skill1.stop_cooldown()
+	skill2.stop_cooldown()
+	skill3.stop_cooldown()
+	skill4.stop_cooldown()
+	skill5.stop_cooldown()
+	skill6.stop_cooldown()
+	skill7.stop_cooldown()
+	skill8.stop_cooldown()
+	skill9.stop_cooldown()
+	skill10.stop_cooldown()
+	skill11.stop_cooldown()
+	skill12.stop_cooldown()
+	skill13.stop_cooldown()
+	skill14.stop_cooldown()
+	skill15.stop_cooldown()
+	skill16.stop_cooldown()
+	skill17.stop_cooldown()
+	skill18.stop_cooldown()
+	skill19.stop_cooldown()
+	skill20.stop_cooldown()
 
 func _on_skill_attack_speed_updated() -> void:
 	# 需要获取player节点来更新，通过信号通知父场景
@@ -843,6 +916,153 @@ func show_game_over() -> void:
 func show_victory() -> void:
 	victory_label.visible = true
 
+func play_victory_sequence() -> void:
+	show_victory()
+	await get_tree().create_timer(1.0).timeout
+	var fade_tween = create_tween()
+	fade_tween.tween_property(victory_label, "modulate:a", 0.0, 0.6)
+	await fade_tween.finished
+	victory_label.visible = false
+	victory_label.modulate = Color(1, 1, 1, 1)
+	_prepare_victory_summary()
+	await _show_victory_summary_sequence()
+	emit_signal("victory_evaluation_finished")
+
+func _prepare_victory_summary() -> void:
+	victory_summary_container.visible = true
+	var summary_labels = _get_victory_summary_labels()
+	for label in summary_labels:
+		label.visible = false
+
+func _show_victory_summary_sequence() -> void:
+	var summary_labels = _get_victory_summary_labels()
+	var summary_texts = _build_victory_summary_texts()
+	for i in range(summary_labels.size()):
+		var label = summary_labels[i]
+		label.text = summary_texts[i]
+		label.visible = true
+		await get_tree().create_timer(0.5).timeout
+	await get_tree().create_timer(3.0).timeout
+
+func _get_victory_summary_labels() -> Array:
+	return [victory_time_label, victory_score_label, victory_kill_label, victory_total_label]
+
+func _build_victory_summary_texts() -> Array:
+	var time_text = now_time.text
+	var time_seconds = _get_time_seconds_from_text(time_text)
+	var time_grade_name = _get_time_grade_name(time_seconds)
+	var time_grade_info = _get_grade_info(time_grade_name)
+	var score_text = score_label.text
+	var score_value = _get_score_value_from_text(score_text)
+	var score_grade_name = _get_score_grade_name(score_value)
+	var score_grade_info = _get_grade_info(score_grade_name)
+	var kill_count = GU.get_kill_count()
+	var kill_grade_name = _get_kill_grade_name(kill_count)
+	var kill_grade_info = _get_grade_info(kill_grade_name)
+	var total_score = time_grade_info["score"] + score_grade_info["score"] + kill_grade_info["score"]
+	var total_grade_name = _get_total_grade_name(total_score)
+	var total_grade_info = _get_grade_info(total_grade_name)
+	var time_line = _build_summary_line("通关时间", time_text, time_grade_info)
+	var score_line = _build_summary_line("获取真气", score_text, score_grade_info)
+	var kill_line = _build_summary_line("击杀敌人", str(kill_count), kill_grade_info)
+	var total_line = _build_summary_line("总体评价", "总分 " + str(total_score), total_grade_info)
+	return [time_line, score_line, kill_line, total_line]
+
+func _build_summary_line(title: String, value_text: String, grade_info: Dictionary) -> String:
+	var grade_name = grade_info["name"]
+	var grade_color = grade_info["color"]
+	var grade_size = grade_info["size"]
+	var line = "[right][font_size=28]" + title + "：" + value_text + "  评级：" + "[/font_size]"
+	line += "[font_size=" + str(grade_size) + "][color=" + grade_color + "]" + grade_name + "[/color][/font_size][/right]"
+	return line
+
+func _get_time_seconds_from_text(time_text: String) -> int:
+	var parts = time_text.split(":")
+	var minutes_text = parts[0].strip_edges()
+	var seconds_text = parts[1].strip_edges()
+	var minutes = int(minutes_text)
+	var seconds = int(seconds_text)
+	return minutes * 60 + seconds
+
+func _get_score_value_from_text(score_text: String) -> int:
+	var clean_text = score_text.replace("真气", "").strip_edges()
+	var value = 0.0
+	if clean_text.ends_with("m"):
+		var num_text = clean_text.trim_suffix("m")
+		value = float(num_text) * 1000000.0
+	elif clean_text.ends_with("k"):
+		var num_text = clean_text.trim_suffix("k")
+		value = float(num_text) * 1000.0
+	else:
+		value = float(clean_text)
+	return int(value)
+
+func _get_time_grade_name(seconds: int) -> String:
+	if seconds <= 360:
+		return "神"
+	if seconds <= 480:
+		return "极"
+	if seconds <= 600:
+		return "优"
+	if seconds <= 720:
+		return "良"
+	return "可"
+
+func _get_score_grade_name(score_value: int) -> String:
+	if score_value > 10000:
+		return "神"
+	if score_value >= 8000:
+		return "极"
+	if score_value >= 6000:
+		return "优"
+	if score_value >= 4000:
+		return "良"
+	return "可"
+
+func _get_kill_grade_name(kill_count: int) -> String:
+	if kill_count > 1000:
+		return "神"
+	if kill_count >= 800:
+		return "极"
+	if kill_count >= 600:
+		return "优"
+	if kill_count >= 400:
+		return "良"
+	return "可"
+
+func _get_total_grade_name(total_score: int) -> String:
+	if total_score >= 140:
+		return "神"
+	if total_score >= 110:
+		return "极"
+	if total_score >= 80:
+		return "优"
+	if total_score >= 50:
+		return "良"
+	return "可"
+
+func _get_grade_info(grade_name: String) -> Dictionary:
+	var color = "#ffffff"
+	var size = 28
+	var score = 10
+	if grade_name == "神":
+		color = "#ff3b30"
+		size = 36
+		score = 50
+	elif grade_name == "极":
+		color = "#f5c400"
+		size = 34
+		score = 40
+	elif grade_name == "优":
+		color = "#b14cff"
+		size = 32
+		score = 30
+	elif grade_name == "良":
+		color = "#4aa3ff"
+		size = 30
+		score = 20
+	return {"name": grade_name, "color": color, "size": size, "score": score}
+
 # ============== 升级管理 ==============
 
 func _on_level_up(main_skill_name: String = '', refresh_id: int = 0) -> void:
@@ -862,19 +1082,13 @@ func add_pending_level_up() -> void:
 
 # ============== Warning动画 ==============
 
-func play_warning_animation() -> void:
-	var warning_node = get_node_or_null("Warning")
-	if warning_node == null:
-		print("ERROR: Warning node not found in CanvasLayer!")
-		return
-	
+func play_warning_animation() -> void:	
 	warning_node.process_mode = Node.PROCESS_MODE_ALWAYS
 	warning_node.visible = false
 	warning_node.modulate = Color(1, 1, 1, 0)
 	
-	var warning_audio = warning_node.get_node_or_null("warning") as AudioStreamPlayer
-	if warning_audio:
-		warning_audio.play()
+	var warning_audio = warning_node.get_node("warning") as AudioStreamPlayer
+	warning_audio.play()
 	
 	warning_node.visible = true
 	

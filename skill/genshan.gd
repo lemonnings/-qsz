@@ -1,7 +1,18 @@
 extends Area2D
+class_name Genshan
 
 @export var sprite : AnimatedSprite2D
 @export var collision : CollisionShape2D
+
+static var main_skill_genshan_damage: float = 1.2
+static var genshan_final_damage_multi: float = 1.0
+static var genshan_range: float = 230.0
+
+static func reset_data() -> void:
+	main_skill_genshan_damage = 1.2
+	genshan_final_damage_multi = 1.0
+	genshan_range = 230.0
+	enemy_hit_records.clear()
 
 # 基础属性
 var damage: float = 0.0
@@ -69,12 +80,12 @@ static func _spawn_genshan(scene: PackedScene, tree: SceneTree, origin_pos: Vect
 	var instance = scene.instantiate()
 	tree.current_scene.add_child(instance)
 	
-	var damage = PC.pc_atk * PC.main_skill_genshan_damage * PC.genshan_final_damage_multi
+	var damage = PC.pc_atk * main_skill_genshan_damage * genshan_final_damage_multi
 	
 	# 从 PC.bullet_size 获取基础 scale
 	var base_scale = 1.0 + PC.bullet_size
 	
-	instance.setup(origin_pos, dir, damage, PC.genshan_range, multiplier, base_scale, should_apply_shield)
+	instance.setup(origin_pos, dir, damage, genshan_range, multiplier, base_scale, should_apply_shield)
 
 func setup(pos: Vector2, dir: Vector2, p_damage: float, p_range: float, p_multiplier: float, p_base_scale: float, p_can_apply_shield: bool) -> void:
 	global_position = pos

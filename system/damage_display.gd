@@ -8,7 +8,11 @@ enum DamageType {
 	PLAYER_BULLET,       # 玩家子弹伤害
 	PLAYER_BULLET_CRIT,  # 玩家子弹暴击伤害
 	SUMMON_DAMAGE,       # 召唤物伤害
-	PLAYER_SKILL         # 玩家技能伤害
+	PLAYER_SKILL,        # 玩家技能伤害
+	DOT_SHOCK,           # 感电持续伤害
+	DOT_BURN,            # 燃烧持续伤害
+	DOT_BLEED,           # 流血持续伤害
+	DOT_POISON           # 中毒持续伤害
 }
 
 # 伤害类型对应的颜色
@@ -16,8 +20,14 @@ const DAMAGE_COLORS = {
 	DamageType.PLAYER_BULLET: Color.WHITE,
 	DamageType.PLAYER_BULLET_CRIT: Color.ORANGE, # 橙红色
 	DamageType.SUMMON_DAMAGE: Color.SKY_BLUE,    # 浅蓝色
-	DamageType.PLAYER_SKILL: Color.YELLOW
+	DamageType.PLAYER_SKILL: Color.YELLOW,
+	DamageType.DOT_SHOCK: Color8(160, 210, 255),
+	DamageType.DOT_BURN: Color8(255, 205, 160),
+	DamageType.DOT_BLEED: Color8(255, 160, 160),
+	DamageType.DOT_POISON: Color8(160, 230, 160)
 }
+
+var base_font_size: int = 0
 
 func _ready():
 	# 初始化时确保Label节点已设置
@@ -30,6 +40,7 @@ func _ready():
 		return
 	# 初始时可以隐藏Label
 	damage_label.visible = false
+	base_font_size = damage_label.get_theme_font_size("font_size")
 
 # 信号处理函数
 # damage_type: 使用 DamageType 枚举的值
@@ -48,6 +59,14 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 		damage_type = DamageType.PLAYER_SKILL
 	if damage_type_int == 4:
 		damage_type = DamageType.SUMMON_DAMAGE
+	if damage_type_int == 5:
+		damage_type = DamageType.DOT_SHOCK
+	if damage_type_int == 6:
+		damage_type = DamageType.DOT_BURN
+	if damage_type_int == 7:
+		damage_type = DamageType.DOT_BLEED
+	if damage_type_int == 8:
+		damage_type = DamageType.DOT_POISON
 		
 	# 设置显示位置
 	global_position = display_position
@@ -61,6 +80,10 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 
 	var text_to_display = str(int(round(damage_value))) # 四舍五入并转为整数显示
 	damage_label.scale = damage_label.scale * 0.8
+	if damage_type == DamageType.DOT_SHOCK or damage_type == DamageType.DOT_BURN or damage_type == DamageType.DOT_BLEED or damage_type == DamageType.DOT_POISON:
+		damage_label.add_theme_font_size_override("font_size", base_font_size - 2)
+	else:
+		damage_label.add_theme_font_size_override("font_size", base_font_size)
 	if damage_type == DamageType.PLAYER_BULLET_CRIT:
 		text_to_display += " !"
 		damage_label.scale = damage_label.scale * 1.15

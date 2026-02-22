@@ -20,6 +20,7 @@ var extra_damage_on_slow: bool = false # Water11: 水波-迟滞
 var shield_bonus: float = 1.0 # Water22: 护盾量倍率
 var heal_reduction: float = 1.0 # Water22: 治疗量倍率
 var conditional_heal_bonus: bool = false # Water33: 击中敌人恢复量提升
+var heal_multiplier: float = 1.0
 
 # 内部变量
 var hit_targets_circle: Dictionary = {}
@@ -66,18 +67,19 @@ func setup_water(pos: Vector2, p_damage: float, p_range: float, p_heal: int, opt
 	
 	# 立即执行治疗（坎水诀基础效果：恢复体力）
 	# 注意：Water22 可能会降低治疗量
-	var actual_heal = int(heal_amount * heal_reduction * PC.heal_multi)
+	heal_multiplier = 1.0 + PC.heal_multi
+	var actual_heal = int(heal_amount * heal_reduction * heal_multiplier)
 	if actual_heal < 1:
 		actual_heal = 1
 	
 	# Water3: 如果体力低于阈值，提供护盾
 	# Water22: 提供护盾量提升100%
 	var shield_value = 0
-	if apply_shield and player_ref:
-		var hp_ratio = float(player_ref.hp) / float(player_ref.maxHP)
+	if apply_shield:
+		var hp_ratio = float(PC.pc_hp) / float(PC.pc_max_hp)
 		if hp_ratio < shield_hp_threshold:
-			shield_value = int(actual_heal * shield_bonus * PC.shield_multi)
-			player_ref.add_shield(shield_value, 12.0)
+			shield_value = int(actual_heal * shield_bonus)
+			PC.add_shield(shield_value, 12.0)
 	
 	# 如果 Water33 生效（击中敌人恢复量提升），则这里的治疗可能需要延迟到击中敌人后处理
 	# 但题目描述是“如果击中敌人，恢复量提升至...”，这意味着基础恢复还是有的？
@@ -212,8 +214,8 @@ func _process_enemy_hit(area: Area2D) -> void:
 			if hit_targets_circle.size() == 1:
 				# 计算额外治疗量
 				var max_hp = player_ref.maxHP
-				var target_heal = max(3, int(float(max_hp) * 0.025 * PC.heal_multi))
-				var current_base_heal = max(1, int(heal_amount * heal_reduction * PC.heal_multi))
+				var target_heal = max(3, int(float(max_hp) * 0.025 * heal_multiplier))
+				var current_base_heal = max(1, int(heal_amount * heal_reduction * heal_multiplier))
 				var extra_heal = target_heal - current_base_heal
 				if extra_heal > 0:
 					_perform_heal(extra_heal)
@@ -286,6 +288,5 @@ func _deal_damage(enemy: Area2D, deal_circle: bool, deal_sector: bool) -> void:
 func _perform_heal(amount: int) -> void:
 	if PC.is_game_over:
 		return
-	if player_ref and amount > 0:
-		player_ref.hp = min(player_ref.hp + amount, player_ref.maxHP)
-		# 可以在这里播放治疗特效或飘字
+	if amount > 0:
+		player_ref.heal(amount)

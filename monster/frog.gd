@@ -213,7 +213,14 @@ func _physics_process(delta: float) -> void:
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
 				Global.emit_signal("_fire_ring_bullets")
 			$death.play()
+			Global.emit_signal("monster_killed")
 			is_dead = true
+			var collision_shape = get_node("CollisionShape2D")
+			collision_shape.disabled = true
+			collision_layer = 0
+			collision_mask = 0
+			monitoring = false
+			monitorable = false
 			# 隐藏阴影
 			var shadow = get_node_or_null("Shadow")
 			if shadow:
@@ -274,6 +281,7 @@ func _on_body_entered(body: Node2D) -> void:
 			body.game_over()
 
 func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:
+	var damage_offset = Vector2(35, 20)
 	var final_damage = int(damage * debuff_manager.get_damage_multiplier())
 	if damage_type == "sword_wave":
 		var current_time = Time.get_ticks_msec() / 1000.0
@@ -282,6 +290,12 @@ func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: Strin
 			last_sword_wave_damage_time = current_time
 	else:
 		hp -= final_damage
+		var damage_type_int = 1
+		if is_summon:
+			damage_type_int = 4
+		elif is_crit:
+			damage_type_int = 2
+		Global.emit_signal("monster_damage", damage_type_int, final_damage, global_position - damage_offset)
 
 
 func _on_area_entered(area: Area2D) -> void:

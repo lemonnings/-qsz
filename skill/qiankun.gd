@@ -1,4 +1,5 @@
 extends Area2D
+class_name Qiankun
 
 @export var sprite_qian: AnimatedSprite2D
 @export var sprite_kun: AnimatedSprite2D
@@ -13,6 +14,30 @@ var damage_per_debuff: float = 0.0
 var damage_per_enemy: float = 0.0
 var crit_on_3_debuffs: bool = false
 
+static var main_skill_qiankun_damage: float = 0.35
+static var qiankun_final_damage_multi: float = 1.0
+static var qiankun_speed: float = 300.0
+static var qiankun_range: float = 240.0
+static var qiankun_extra_damage_speed: bool = false
+static var qiankun_extra_damage_range: bool = false
+static var qiankun_speed_per_enemy: float = 0.0
+static var qiankun_damage_per_debuff: float = 0.0
+static var qiankun_damage_per_enemy: float = 0.0
+static var qiankun_crit_on_3_debuffs: bool = false
+
+static func reset_data() -> void:
+	main_skill_qiankun_damage = 0.35
+	qiankun_final_damage_multi = 1.0
+	qiankun_speed = 300.0
+	qiankun_range = 240.0
+	qiankun_extra_damage_speed = false
+	qiankun_extra_damage_range = false
+	qiankun_speed_per_enemy = 0.0
+	qiankun_damage_per_debuff = 0.0
+	qiankun_damage_per_enemy = 0.0
+	qiankun_crit_on_3_debuffs = false
+
+
 enum State { IDLE, ATTACK, RETURN }
 var state: State = State.IDLE
 var player_ref: Node2D = null
@@ -25,6 +50,50 @@ var total_attack_distance: float = 0.0 # 攻击总距离
 var moving: bool = false
 var hit_targets: Dictionary = {} # {enemy_id: time_left}
 var hit_cooldown: float = 0.5
+
+# Static references to instances
+static var qian_instance: Node2D = null
+static var kun_instance: Node2D = null
+
+static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree) -> void:
+	if not scene:
+		return
+		
+	# 确保剑已初始化
+	if not qian_instance or not is_instance_valid(qian_instance) or not kun_instance or not is_instance_valid(kun_instance):
+		init_instances(scene, tree, origin_pos)
+		
+	# 更新属性
+	if qian_instance and is_instance_valid(qian_instance) and qian_instance.has_method("update_stats"):
+		qian_instance.update_stats()
+		if qian_instance.has_method("launch"):
+			qian_instance.launch()
+			
+	if kun_instance and is_instance_valid(kun_instance) and kun_instance.has_method("update_stats"):
+		kun_instance.update_stats()
+		if kun_instance.has_method("launch"):
+			kun_instance.launch()
+
+static func init_instances(scene: PackedScene, tree: SceneTree, origin_pos: Vector2) -> void:
+	if Global.in_town:
+		return
+		
+	# 清理旧实例
+	if qian_instance and is_instance_valid(qian_instance):
+		qian_instance.queue_free()
+	if kun_instance and is_instance_valid(kun_instance):
+		kun_instance.queue_free()
+		
+	# Spawn Qian
+	qian_instance = scene.instantiate()
+	tree.current_scene.add_child(qian_instance)
+	qian_instance.setup(origin_pos, true)
+	
+	# Spawn Kun
+	kun_instance = scene.instantiate()
+	tree.current_scene.add_child(kun_instance)
+	kun_instance.setup(origin_pos, false)
+
 
 func _process(delta: float) -> void:
 	# 尝试获取玩家引用，如果尚未获取
@@ -119,7 +188,7 @@ func _process(delta: float) -> void:
 				var angle = disp.angle() + PI/4
 				rotation = lerp_angle(rotation, angle, 10.0 * delta)
 
-func setup(pos: Vector2, _is_qian: bool, options: Dictionary) -> void:
+func setup(pos: Vector2, _is_qian: bool) -> void:
 	global_position = pos
 	is_qian = _is_qian
 	
@@ -135,7 +204,7 @@ func setup(pos: Vector2, _is_qian: bool, options: Dictionary) -> void:
 		idle_offset = Vector2(25, -5) # 右上方
 		rotation = deg_to_rad(-45) # 默认朝向调整默认朝向右上
 		
-	update_stats(options)
+	update_stats()
 	
 	# 切换贴图
 	if sprite_qian:
@@ -147,15 +216,48 @@ func setup(pos: Vector2, _is_qian: bool, options: Dictionary) -> void:
 		
 	state = State.IDLE
 
-func update_stats(options: Dictionary) -> void:
+func update_stats() -> void:
 	# 读取属性
-	damage = options.get("damage", 0)
-	speed = options.get("speed", 100)
-	search_range = options.get("range", 240)
-	speed_per_enemy = options.get("speed_per_enemy", 0)
-	damage_per_debuff = options.get("damage_per_debuff", 0)
-	damage_per_enemy = options.get("damage_per_enemy", 0)
-	crit_on_3_debuffs = options.get("crit_on_3_debuffs", false)
+	var damage_multiplier = main_skill_qiankun_damage
+	speed = qiankun_speed
+	search_range = qiankun_range
+	var final_damage_multi = qiankun_final_damage_multi
+	
+	speed_per_enemy = qiankun_speed_per_enemy # 激发
+	damage_per_debuff = qiankun_damage_per_debuff # 乘虚
+	damage_per_enemy = qiankun_damage_per_enemy # 搜寻-激发
+	crit_on_3_debuffs = qiankun_crit_on_3_debuffs # 搜寻-乘虚
+	
+	# Upgrades logic
+	# Qiankun1: 飞速
+	if PC.selected_rewards.has("Qiankun1"):
+		speed *= 1.5
+		
+	# Qiankun2: 搜寻
+	if PC.selected_rewards.has("Qiankun2"):
+		search_range *= 1.5
+		
+	# Qiankun3: 激发
+	if PC.selected_rewards.has("Qiankun3"):
+		speed_per_enemy = 10.0
+		
+	# Qiankun4: 乘虚
+	if PC.selected_rewards.has("Qiankun4"):
+		damage_per_debuff = 0.2
+		
+	# Qiankun11: 飞速-搜寻
+	if PC.selected_rewards.has("Qiankun11"):
+		pass
+		
+	# Qiankun22: 搜寻-激发
+	if PC.selected_rewards.has("Qiankun22"):
+		damage_per_enemy = 0.05
+		
+	# Qiankun33: 搜寻-乘虚
+	if PC.selected_rewards.has("Qiankun33"):
+		crit_on_3_debuffs = true
+		
+	damage = PC.pc_atk * damage_multiplier * final_damage_multi
 
 func launch() -> void:
 	if state != State.IDLE and state != State.RETURN:
@@ -240,7 +342,7 @@ func _on_area_entered(area: Area2D) -> void:
 		if hit_targets.has(id):
 			return
 			
-		hit_targets[id] = 0.5 # 0.5s cooldown
+		hit_targets[id] = hit_cooldown
 		
 		var final_damage = damage
 		var is_crit = false
@@ -265,8 +367,8 @@ func _on_area_entered(area: Area2D) -> void:
 			final_damage *= PC.crit_damage_multi
 			
 		# Apply final total damage multiplier
-		if PC.qiankun_final_damage_multi > 1.0:
-			final_damage *= PC.qiankun_final_damage_multi
+		if qiankun_final_damage_multi > 1.0:
+			final_damage *= qiankun_final_damage_multi
 			
 		if area.has_method("take_damage"):
 			area.take_damage(int(final_damage), is_crit, false, "qiankun")

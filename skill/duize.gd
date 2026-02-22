@@ -1,7 +1,19 @@
 extends Area2D
+class_name Duize
 
 @export var sprite : AnimatedSprite2D
 @export var collision : CollisionShape2D
+
+static var main_skill_duize_damage: float = 0.2
+static var duize_final_damage_multi: float = 1.0
+static var duize_range: float = 60.0
+static var duize_slow_ratio: float = 0.2
+
+static func reset_data() -> void:
+	main_skill_duize_damage = 0.2
+	duize_final_damage_multi = 1.0
+	duize_range = 60.0
+	duize_slow_ratio = 0.2
 
 # 基础属性
 var damage_per_sec: float = 0.0
@@ -52,7 +64,7 @@ static func _find_best_target_pos(origin: Vector2, tree: SceneTree) -> Vector2:
 	# 取数量最多的敌人的位置作为中心
 	var best_pos = candidates[0].global_position
 	var max_count = 0
-	var skill_radius = PC.duize_range # 使用当前技能范围
+	var skill_radius = duize_range # 使用当前技能范围
 	var skill_radius_sq = skill_radius * skill_radius
 	
 	for center_candidate in candidates:
@@ -72,7 +84,7 @@ static func _spawn_duize(scene: PackedScene, tree: SceneTree, target_pos: Vector
 	var instance = scene.instantiate()
 	tree.current_scene.add_child(instance)
 	
-	var damage = PC.pc_atk * PC.main_skill_duize_damage * PC.duize_final_damage_multi
+	var damage = PC.pc_atk * main_skill_duize_damage * duize_final_damage_multi
 	
 	instance.setup(target_pos, damage)
 
@@ -87,7 +99,7 @@ func setup(pos: Vector2, p_damage: float) -> void:
 		
 	global_position = pos
 	damage_per_sec = p_damage
-	slow_ratio = PC.duize_slow_ratio
+	slow_ratio = duize_slow_ratio
 	
 	# 升级效果参数初始化
 	if PC.selected_rewards.has("Duize2"):
@@ -101,10 +113,10 @@ func setup(pos: Vector2, p_damage: float) -> void:
 	# 范围缩放
 	# 默认 scale x1.0 y1.285
 	# 默认 collision x3.155 y1.645
-	# 基础范围 60. 现在的 range 已经是计算过加成的 PC.duize_range
-	# 需要计算 scale_multiplier = PC.duize_range / 60.0
+	# 基础范围 60. 现在的 range 已经是计算过加成的 duize_range
+	# 需要计算 scale_multiplier = duize_range / 60.0
 	# 初始兑泽的大小改为现在的3倍
-	var scale_multiplier = (PC.duize_range / 60.0) * 3.0
+	var scale_multiplier = (duize_range / 60.0) * 3.0
 	
 	var target_sprite_scale = Vector2(1.0, 1.285) * scale_multiplier
 	var target_collision_scale = Vector2(3.155, 1.645) * scale_multiplier

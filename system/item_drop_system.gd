@@ -1,6 +1,9 @@
 extends Node
 
 var DroppedItemScene = preload("res://Scenes/global/drop_normal.tscn") # 请替换为实际路径
+var victory_attracting: bool = false
+var victory_player: Node2D
+var victory_speed: float = 100.0
 
 func _ready():
 	# 连接到全局信号
@@ -8,6 +11,23 @@ func _ready():
 		Global.drop_out_item.connect(_on_drop_out_item)
 	else:
 		printerr("Global signal 'drop_out_item' not found!")
+
+func _process(delta: float) -> void:
+	if not victory_attracting:
+		return
+	var items = get_tree().get_nodes_in_group("drop_item")
+	for item in items:
+		var distance = item.global_position.distance_to(victory_player.global_position)
+		if distance <= 2.0:
+			item._on_body_entered(victory_player)
+		else:
+			var step = victory_speed * delta
+			item.global_position = item.global_position.move_toward(victory_player.global_position, step)
+
+func start_victory_collect(player: Node2D, speed: float = 100.0) -> void:
+	victory_attracting = true
+	victory_player = player
+	victory_speed = speed
 
 func _on_drop_out_item(item_id: String, quantity: int, drop_position: Vector2):
 	var item_data = ItemManager.get_item_all_data(item_id)
@@ -20,6 +40,7 @@ func _on_drop_out_item(item_id: String, quantity: int, drop_position: Vector2):
 		
 		# 整体缩小到四分之一
 		dropped_item_instance.scale = Vector2(0.2, 0.2)
+		dropped_item_instance.add_to_group("drop_item")
 		
 		# 设置掉落物属性
 		dropped_item_instance.item_id = item_id

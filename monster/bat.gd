@@ -70,19 +70,20 @@ func _physics_process(delta: float) -> void:
 		CharacterEffects.apply_separation(self, 10.0, 12.0)
 	
 	# 处理敌人之间的碰撞 - 直接防止重叠
-	var overlapping_bodies = get_overlapping_areas()
-	
-	for body in overlapping_bodies:
-		if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
-			var distance = global_position.distance_to(body.global_position)
-			var min_distance = 12.0 # 最小允许距离
-			
-			# 如果距离太近，直接调整位置
-			if distance < min_distance and distance > 0.1:
-				var direction_away = (global_position - body.global_position).normalized()
-				var overlap = min_distance - distance
-				# 两个物体各自移动一半的重叠距离
-				position += direction_away * (overlap * 0.5)
+	if monitoring:
+		var overlapping_bodies = get_overlapping_areas()
+		
+		for body in overlapping_bodies:
+			if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
+				var distance = global_position.distance_to(body.global_position)
+				var min_distance = 12.0 # 最小允许距离
+				
+				# 如果距离太近，直接调整位置
+				if distance < min_distance and distance > 0.1:
+					var direction_away = (global_position - body.global_position).normalized()
+					var overlap = min_distance - distance
+					# 两个物体各自移动一半的重叠距离
+					position += direction_away * (overlap * 0.5)
 
 		
 	if not is_dead:
@@ -128,7 +129,14 @@ func _physics_process(delta: float) -> void:
 				# Release a round of sword Qi in (90°)(270°) and other all directions
 				release_round_sword_qi()
 			$death.play()
+			Global.emit_signal("monster_killed")
 			is_dead = true
+			var collision_shape = get_node("CollisionShape2D")
+			collision_shape.disabled = true
+			collision_layer = 0
+			collision_mask = 0
+			monitoring = false
+			monitorable = false
 			# 隐藏阴影
 			var shadow = get_node_or_null("Shadow")
 			if shadow:
@@ -167,7 +175,12 @@ func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: Strin
 			last_sword_wave_damage_time = current_time
 	else:
 		hp -= final_damage
-		Global.emit_signal("monster_damage", 1, final_damage, global_position - damage_offset)
+		var damage_type_int = 1
+		if is_summon:
+			damage_type_int = 4
+		elif is_crit:
+			damage_type_int = 2
+		Global.emit_signal("monster_damage", damage_type_int, final_damage, global_position - damage_offset)
 
 
 func _on_area_entered(area: Area2D) -> void:

@@ -1,7 +1,7 @@
 extends Node
 
 @export var player_instance: Node = null
-@export var player_name: String = "yiqiu"
+@export var player_name: String = "moning"
 @export var pc_atk: int = 25 # 局内攻击
 @export var pc_start_atk: int = 25 # 局内攻击
 @export var pc_final_atk: float = 0.0 # 局内最终伤害（例如0.1代表最后结算时伤害为110%）
@@ -29,6 +29,27 @@ extends Node
 @export var cooldown: float = 0 # 主动技能冷却缩减
 @export var active_skill_multi: float = 0 # 主动技能伤害加成
 
+@export var faze_blood_level: int = 0
+@export var faze_sword_level: int = 0
+@export var faze_thunder_level: int = 0
+@export var faze_heal_level: int = 0
+@export var faze_summon_level: int = 0
+@export var faze_shield_level: int = 0
+@export var faze_fire_level: int = 0
+@export var faze_destroy_level: int = 0
+@export var faze_life_level: int = 0
+@export var faze_bullet_level: int = 0
+@export var faze_wide_level: int = 0
+@export var faze_bagua_level: int = 0
+@export var faze_treasure_level: int = 0
+@export var faze_chaos_level: int = 0
+@export var faze_skill_level: int = 0
+@export var faze_sixsense_level: int = 0
+@export var faze_bagua_progress: int = 0
+@export var faze_bagua_complete_layers: int = 0
+@export var faze_bagua_next_threshold: int = 100
+@export var faze_sword_coldlight_stack: int = 0
+
 
 @export var invincible: bool = false
 
@@ -43,7 +64,6 @@ extends Node
 # 魔焰相关变量
 @export var main_skill_moyan = 0
 @export var main_skill_moyan_advance = 0
-@export var has_moyan: bool = false
 @export var first_has_moyan: bool = true
 @export var main_skill_moyan_damage: float = 1.5 # 魔焰基础伤害倍率
 @export var moyan_range: float = 220.0 # 魔焰基础射程
@@ -67,11 +87,11 @@ extends Node
 @export var swordQi_other_sword_wave_damage: float = 0.5
 @export var swordQi_range: float = 132
 @export var jinghong_attack_count: int = 0
+@export var first_has_swordqi: bool = true
 
 # 树枝相关属性
 @export var main_skill_branch = 0
 @export var main_skill_branch_advance = 0
-@export var has_branch: bool = false
 @export var first_has_branch: bool = true
 @export var main_skill_branch_damage: float = 1
 @export var branch_split_count: int = 3
@@ -81,7 +101,6 @@ extends Node
 @export var main_skill_riyan = 0
 @export var main_skill_riyan_advance = 0
 @export var main_skill_riyan_damage: float = 1
-@export var has_riyan: bool = false
 @export var first_has_riyan: bool = true
 @export var first_has_riyan_pc: bool = true
 @export var riyan_range: float = 70.0
@@ -93,59 +112,34 @@ extends Node
 @export var main_skill_ringFire = 0
 @export var main_skill_ringFire_advance = 0
 @export var main_skill_ringFire_damage: float = 0.3 # 炎轮基础伤害30%
-@export var has_ringFire: bool = false
 @export var first_has_ringFire: bool = true
 
 # 雷光相关量
 @export var main_skill_thunder = 0
 @export var main_skill_thunder_advance = 0
 @export var main_skill_thunder_damage: float = 1.0
-@export var has_thunder: bool = false
 @export var first_has_thunder: bool = true
 @export var thunder_range: float = 260.0
 
 # 血气波相关量
 @export var main_skill_bloodwave = 0
 @export var main_skill_bloodwave_advance = 0
-@export var main_skill_bloodwave_damage: float = 1.0
-@export var has_bloodwave: bool = false
 @export var first_has_bloodwave: bool = true
-@export var bloodwave_range: float = 80.0
-@export var bloodwave_apply_bleed: bool = false
-@export var bloodwave_hp_cost_multi: float = 1.0
-@export var bloodwave_extra_crit_chance: float = 0.0
-@export var bloodwave_extra_crit_damage: float = 0.0
-@export var bloodwave_missing_hp_damage_bonus: float = 0.0
-@export var bloodwave_missing_hp_range_bonus: float = 0.0
-@export var bloodwave_missing_hp_heal_bonus: float = 0.0
-@export var bloodwave_low_hp_damage_bonus: float = 0.0
-@export var bloodwave_low_hp_range_bonus: float = 0.0
-@export var bloodwave_bleed_move_speed_bonus: float = 0.0
+
 
 @export var main_skill_bloodboardsword = 0
 @export var main_skill_bloodboardsword_advance = 0
-@export var has_bloodboardsword: bool = false
 @export var first_has_bloodboardsword: bool = true
 
 # 冰刺术相关变量
 @export var main_skill_ice = 0
 @export var main_skill_ice_advance = 0
-@export var has_ice: bool = false
 @export var first_has_ice: bool = true
-@export var main_skill_ice_damage: float = 0.6
-@export var ice_flower_range: float = 132.0
-@export var ice_flower_penetration_count: int = 0
-@export var ice_flower_pierce_decay: float = 0.0
-@export var ice_flower_extra_small_count: int = 4
-@export var ice_flower_spread_angle: float = 75.0
-@export var ice_flower_small_damage_ratio: float = 0.5
-@export var ice_flower_small_scale_ratio: float = 0.7
-@export var ice_flower_base_scale: float = 1.0
+
 
 # 天雷破相关变量
 @export var main_skill_thunder_break = 0
 @export var main_skill_thunder_break_advance = 0
-@export var has_thunder_break: bool = false
 @export var first_has_thunder_break: bool = true
 @export var main_skill_thunder_break_damage: float = 0.5
 @export var thunder_break_final_damage_multi: float = 1.0 # 天雷破总伤害加成
@@ -153,16 +147,14 @@ extends Node
 # 光弹相关变量
 @export var main_skill_light_bullet = 0
 @export var main_skill_light_bullet_advance = 0
-@export var has_light_bullet: bool = false
 @export var first_has_light_bullet: bool = true
-@export var main_skill_light_bullet_damage: float = 0.35
+@export var main_skill_light_bullet_damage: float = 0.5
 @export var light_bullet_final_damage_multi: float = 1.0 # 光弹总伤害加成
 @export var light_bullet_shot_count = 0
 
 # 坎水诀相关变量
 @export var main_skill_water = 0
 @export var main_skill_water_advance = 0
-@export var has_water: bool = false
 @export var first_has_water: bool = true
 @export var main_skill_water_damage: float = 0.45
 @export var water_final_damage_multi: float = 1.0 # 坎水诀总伤害加成
@@ -170,88 +162,43 @@ extends Node
 # 乾坤双剑相关变量
 @export var main_skill_qiankun = 0
 @export var main_skill_qiankun_advance = 0
-@export var has_qiankun: bool = false
 @export var first_has_qiankun: bool = true
-@export var main_skill_qiankun_damage: float = 0.35
-@export var qiankun_final_damage_multi: float = 1.0 # 乾坤双剑总伤害加成
-@export var qiankun_speed: float = 100.0
-@export var qiankun_range: float = 240.0
-@export var qiankun_extra_damage_speed: bool = false # 飞速
-@export var qiankun_extra_damage_range: bool = false # 搜寻
-@export var qiankun_speed_per_enemy: float = 0.0 # 激发: 每个敌人提升速度
-@export var qiankun_damage_per_debuff: float = 0.0 # 乘虚: 每个异常提升伤害
-@export var qiankun_damage_per_enemy: float = 0.0 # 搜寻-激发: 每个敌人提升伤害
-@export var qiankun_crit_on_3_debuffs: bool = false # 搜寻-乘虚
+
 
 # 玄武相关变量
 @export var main_skill_xuanwu = 0
 @export var main_skill_xuanwu_advance = 0
-@export var has_xuanwu: bool = false
 @export var first_has_xuanwu: bool = true
-@export var main_skill_xuanwu_damage: float = 0.3 # 45% 攻击
-@export var xuanwu_hp_damage_ratio: float = 0.35 # 35% 最大体力
-@export var xuanwu_range: float = 240.0
-@export var xuanwu_shield_base: int = 6
-@export var xuanwu_shield_hp_ratio: float = 0.06
-@export var xuanwu_width_scale: float = 1.0 # 宽度缩放
-# Upgrade flags
-@export var xuanwu_slow_duration: float = 0.0
-@export var xuanwu_vulnerable_duration: float = 0.0
-@export var xuanwu_shield_bonus_damage: float = 0.0
-@export var xuanwu_return_shield_bonus: float = 0.0
-@export var xuanwu_shield_base_bonus: int = 0
-@export var xuanwu_final_damage_multi: float = 1.0 # 玄武盾总伤害加成
+
 
 # 巽风诀相关变量
 @export var main_skill_xunfeng = 0
 @export var main_skill_xunfeng_advance = 0
-@export var has_xunfeng: bool = false
 @export var first_has_xunfeng: bool = true
-@export var main_skill_xunfeng_damage: float = 0.55
-@export var xunfeng_final_damage_multi: float = 1.0
-@export var xunfeng_range: float = 280.0
-@export var xunfeng_size_scale: float = 1.0
-@export var xunfeng_speed: float = 400.0
-@export var xunfeng_cooldown: float = 0.6
-@export var xunfeng_penetration_count: int = 0
-@export var xunfeng_pierce_decay: float = 0.0
-@export var xunfeng_attack_count: int = 0
-@export var xunfeng_extra_blade_angle_offset: float = 0.0 # 额外风刃的累计偏移角度
-@export var xunfeng_extra_blade_count_threshold: int = 3 # 额外风刃触发攻击次数阈值
-@export var xunfeng_extra_blade_damage_ratio: float = 0.6 # 额外风刃伤害倍率
+
 
 # 艮山诀相关变量
 @export var main_skill_genshan = 0
 @export var main_skill_genshan_advance = 0
-@export var has_genshan: bool = false
 @export var first_has_genshan: bool = true
-@export var main_skill_genshan_damage: float = 1.2
-@export var genshan_final_damage_multi: float = 1.0
-@export var genshan_range: float = 230.0
 
 # 兑泽诀相关变量
 @export var main_skill_duize = 0
 @export var main_skill_duize_advance = 0
-@export var has_duize: bool = false
 @export var first_has_duize: bool = true
-@export var main_skill_duize_damage: float = 0.2 # 基础20%攻击/s
-@export var duize_final_damage_multi: float = 1.0
-@export var duize_range: float = 60.0
-@export var duize_slow_ratio: float = 0.2
 
 # 圣光术相关变量
 @export var main_skill_holylight = 0
 @export var main_skill_holylight_advance = 0
-@export var has_holylight: bool = false
 @export var first_has_holylight: bool = true
-@export var main_skill_holylight_damage: float = 0.7 # 70%攻击
-@export var holylight_final_damage_multi: float = 1.0
-@export var holylight_range_scale: float = 1.0
-@export var holylight_duration: float = 3.0
-@export var holylight_center_extra_damage: float = 0.0
-@export var holylight_heal_base: int = 1
-@export var holylight_heal_ratio: float = 0.01
-@export var holylight_dot_damage: float = 0.0
+
+
+# 气功波相关变量
+@export var main_skill_qigong = 0
+@export var main_skill_qigong_advance = 0
+@export var first_has_qigong: bool = true
+@export var main_skill_qigong_damage: float = 1.0
+
 
 # 反弹子弹相关属性
 @export var rebound_size_multiplier: float = 0.4 # 反弹子弹大小倍数
@@ -319,7 +266,16 @@ func reset_player_attr() -> void:
 	Global.in_menu = false
 	PC.is_game_over = false
 	
-	PC.selected_rewards = ["Duize1","Duize2","Duize3","Duize4","Duize11","Duize22","Duize33","Duize44"]
+	# todo 测试武器升级
+	PC.selected_rewards = ["LightBullet1","LightBullet2","LightBullet3","LightBullet4","LightBullet5","LightBullet11","LightBullet22","LightBullet33","LightBullet44","LightBullet55","Ice1","Ice2","Ice3","Ice4","Ice5","Ice11","Ice22","Ice33","Ice44","Ice55","Xunfeng1","Xunfeng2","Xunfeng3","Xunfeng4","Xunfeng5","Xunfeng11","Xunfeng22","Xunfeng33","Xunfeng44","Xunfeng55"]
+	if PC.player_name == "moning":
+		PC.selected_rewards.append("qigong")
+	if PC.player_name == "yiqiu":
+		PC.selected_rewards.append("swordQi")
+	if PC.player_name == "noam":
+		PC.selected_rewards.append("LightBullet")
+	if PC.player_name == "kansel":
+		PC.selected_rewards.append("Ice")
 	
 	Global.reset_battle_modifiers()
 	
@@ -386,6 +342,27 @@ func reset_player_attr() -> void:
 	PC.last_atk_speed = 0
 	PC.last_speed = 0
 	PC.last_lunky_level = 1
+
+	PC.faze_blood_level = 0
+	PC.faze_sword_level = 0
+	PC.faze_thunder_level = 0
+	PC.faze_heal_level = 0
+	PC.faze_summon_level = 0
+	PC.faze_shield_level = 0
+	PC.faze_fire_level = 0
+	PC.faze_destroy_level = 0
+	PC.faze_life_level = 0
+	PC.faze_bullet_level = 0
+	PC.faze_wide_level = 0
+	PC.faze_bagua_level = 0
+	PC.faze_treasure_level = 0
+	PC.faze_chaos_level = 0
+	PC.faze_skill_level = 0
+	PC.faze_sixsense_level = 0
+	PC.faze_bagua_progress = 0
+	PC.faze_bagua_complete_layers = 0
+	PC.faze_bagua_next_threshold = 100
+	PC.faze_sword_coldlight_stack = 0
 	
 	# 重置主要技能等级
 	PC.main_skill_swordQi = 0
@@ -394,11 +371,11 @@ func reset_player_attr() -> void:
 	PC.swordQi_penetration_count = 1
 	PC.swordQi_other_sword_wave_damage = 0.5
 	PC.swordQi_range = 132
+	PC.first_has_swordqi = true
 	
 	# 重置魔焰相关属性
 	PC.main_skill_moyan = 0
 	PC.main_skill_moyan_advance = 0
-	PC.has_moyan = false
 	PC.first_has_moyan = true
 	PC.main_skill_moyan_damage = 1.0
 	PC.moyan_range = 220.0
@@ -406,7 +383,6 @@ func reset_player_attr() -> void:
 	# 重置树枝相关属性
 	PC.main_skill_branch = 0
 	PC.main_skill_branch_advance = 0
-	PC.has_branch = false
 	PC.first_has_branch = true
 	PC.main_skill_branch_damage = 1
 	PC.branch_split_count = 3
@@ -416,7 +392,6 @@ func reset_player_attr() -> void:
 	PC.main_skill_riyan = 0
 	PC.main_skill_riyan_advance = 0
 	PC.main_skill_riyan_damage = 1
-	PC.has_riyan = false
 	PC.first_has_riyan = true
 	PC.first_has_riyan_pc = true
 	PC.riyan_range = 70.0
@@ -428,59 +403,32 @@ func reset_player_attr() -> void:
 	PC.main_skill_ringFire = 0
 	PC.main_skill_ringFire_advance = 0
 	PC.main_skill_ringFire_damage = 1
-	PC.has_ringFire = false
 	PC.first_has_ringFire = true
 	
 	# 重置雷光相关属性
 	PC.main_skill_thunder = 0
 	PC.main_skill_thunder_advance = 0
 	PC.main_skill_thunder_damage = 1.0
-	PC.has_thunder = false
 	PC.first_has_thunder = true
 	PC.thunder_range = 260.0
 	
 	# 重置血气波相关属性
 	PC.main_skill_bloodwave = 0
 	PC.main_skill_bloodwave_advance = 0
-	PC.main_skill_bloodwave_damage = 1.0
-	PC.has_bloodwave = false
 	PC.first_has_bloodwave = true
-	PC.bloodwave_range = 120.0
-	PC.bloodwave_apply_bleed = false
-	PC.bloodwave_hp_cost_multi = 1.0
-	PC.bloodwave_extra_crit_chance = 0.0
-	PC.bloodwave_extra_crit_damage = 0.0
-	PC.bloodwave_missing_hp_damage_bonus = 0.0
-	PC.bloodwave_missing_hp_range_bonus = 0.0
-	PC.bloodwave_missing_hp_heal_bonus = 0.0
-	PC.bloodwave_low_hp_damage_bonus = 0.0
-	PC.bloodwave_low_hp_range_bonus = 0.0
-	PC.bloodwave_bleed_move_speed_bonus = 0.0
 	
 	PC.main_skill_bloodboardsword = 0
 	PC.main_skill_bloodboardsword_advance = 0
-	PC.has_bloodboardsword = false
 	PC.first_has_bloodboardsword = true
 	
 	# 重置冰刺术相关属性
 	PC.main_skill_ice = 0
 	PC.main_skill_ice_advance = 0
-	PC.has_ice = false
 	PC.first_has_ice = true
-	PC.main_skill_ice_damage = 0.6
-	PC.ice_flower_range = 132.0
-	PC.ice_flower_penetration_count = 0
-	PC.ice_flower_pierce_decay = 0.0
-	PC.ice_flower_extra_small_count = 4
-	PC.ice_flower_spread_angle = 120.0
-	PC.ice_flower_small_damage_ratio = 0.5
-	PC.ice_flower_small_scale_ratio = 0.65
-	PC.ice_flower_base_scale = 1.0
 	
 	# 重置天雷破相关属性
 	PC.main_skill_thunder_break = 0
 	PC.main_skill_thunder_break_advance = 0
-	PC.has_thunder_break = false
 	PC.first_has_thunder_break = true
 	PC.main_skill_thunder_break_damage = 0.5
 	PC.thunder_break_final_damage_multi = 1.0
@@ -488,15 +436,13 @@ func reset_player_attr() -> void:
 	# 重置光弹相关属性
 	PC.main_skill_light_bullet = 0
 	PC.main_skill_light_bullet_advance = 0
-	PC.has_light_bullet = false
 	PC.first_has_light_bullet = true
-	PC.main_skill_light_bullet_damage = 0.35
+	PC.main_skill_light_bullet_damage = 0.45
 	PC.light_bullet_final_damage_multi = 1.0
 	
 	# 重置坎水诀相关属性
 	PC.main_skill_water = 0
 	PC.main_skill_water_advance = 0
-	PC.has_water = false
 	PC.first_has_water = true
 	PC.main_skill_water_damage = 0.45
 	PC.water_final_damage_multi = 1.0
@@ -504,87 +450,32 @@ func reset_player_attr() -> void:
 	# 重置乾坤双剑相关属性
 	PC.main_skill_qiankun = 0
 	PC.main_skill_qiankun_advance = 0
-	PC.has_qiankun = false
 	PC.first_has_qiankun = true
-	PC.main_skill_qiankun_damage = 0.35
-	PC.qiankun_final_damage_multi = 1.0
-	PC.qiankun_speed = 300.0
-	PC.qiankun_range = 240.0
-	PC.qiankun_extra_damage_speed = false
-	PC.qiankun_extra_damage_range = false
-	PC.qiankun_speed_per_enemy = 0.0
-	PC.qiankun_damage_per_debuff = 0.0
-	PC.qiankun_damage_per_enemy = 0.0
-	PC.qiankun_crit_on_3_debuffs = false
 	
 	# 重置玄武盾相关属性
 	PC.main_skill_xuanwu = 0
 	PC.main_skill_xuanwu_advance = 0
-	PC.has_xuanwu = false
 	PC.first_has_xuanwu = true
-	PC.main_skill_xuanwu_damage = 0.3
-	PC.xuanwu_hp_damage_ratio = 0.35
-	PC.xuanwu_range = 240.0
-	PC.xuanwu_shield_base = 6
-	PC.xuanwu_shield_hp_ratio = 0.06
-	PC.xuanwu_width_scale = 1.0
-	PC.xuanwu_slow_duration = 0.0
-	PC.xuanwu_vulnerable_duration = 0.0
-	PC.xuanwu_shield_bonus_damage = 0.0
-	PC.xuanwu_return_shield_bonus = 0.0
-	PC.xuanwu_shield_base_bonus = 0
-	PC.xuanwu_final_damage_multi = 1.0
 	
 	# 重置巽风诀相关属性
 	PC.main_skill_xunfeng = 0
 	PC.main_skill_xunfeng_advance = 0
-	PC.has_xunfeng = false
 	PC.first_has_xunfeng = true
-	PC.main_skill_xunfeng_damage = 0.55
-	PC.xunfeng_final_damage_multi = 1.0
-	PC.xunfeng_range = 280.0
-	PC.xunfeng_size_scale = 1.0
-	PC.xunfeng_speed = 400.0
-	PC.xunfeng_cooldown = 0.6
-	PC.xunfeng_penetration_count = 0
-	PC.xunfeng_pierce_decay = 0.0
-	PC.xunfeng_attack_count = 0
-	PC.xunfeng_extra_blade_angle_offset = 0.0
-	PC.xunfeng_extra_blade_count_threshold = 3
-	PC.xunfeng_extra_blade_damage_ratio = 0.6
 	
 	# 重置艮山诀相关属性
 	PC.main_skill_genshan = 0
 	PC.main_skill_genshan_advance = 0
-	PC.has_genshan = false
 	PC.first_has_genshan = true
-	PC.main_skill_genshan_damage = 1.2
-	PC.genshan_final_damage_multi = 1.0
-	PC.genshan_range = 230.0
 	
 	# 重置兑泽诀相关属性
 	PC.main_skill_duize = 0
 	PC.main_skill_duize_advance = 0
-	PC.has_duize = false
 	PC.first_has_duize = true
-	PC.main_skill_duize_damage = 0.2
-	PC.duize_final_damage_multi = 1.0
-	PC.duize_range = 60.0
-	PC.duize_slow_ratio = 0.2
 	
 	# 重置圣光术相关属性
 	PC.main_skill_holylight = 0
 	PC.main_skill_holylight_advance = 0
-	PC.has_holylight = false
 	PC.first_has_holylight = true
-	PC.main_skill_holylight_damage = 0.7
-	PC.holylight_final_damage_multi = 1.0
-	PC.holylight_range_scale = 1.0
-	PC.holylight_duration = 3.0
-	PC.holylight_center_extra_damage = 0.0
-	PC.holylight_heal_base = 1
-	PC.holylight_heal_ratio = 0.01
-	PC.holylight_dot_damage = 0.0
 	
 	PC.refresh_num = Global.refresh_max_num
 	
@@ -595,7 +486,9 @@ func reset_player_attr() -> void:
 func add_shield(amount: int, duration: float) -> void:
 	if is_game_over:
 		return
-	var shield = {"value": amount, "time_left": duration}
+	var shield_bonus = 1.0 + PC.sheild_multi
+	var final_amount = int(ceil(float(amount) * shield_bonus))
+	var shield = {"value": final_amount, "time_left": duration}
 	pc_sheild.append(shield)
 
 func update_shields(delta: float) -> void:
@@ -713,6 +606,11 @@ func exec_swordqi_skills() -> void:
 var character_data = {
 	"yiqiu": {
 		"display_name": "奕秋",
+		"animation_path": "res://AssetBundle/Sprites/idle.png",
+		"animation_name": "idle"
+	},
+	"moning": {
+		"display_name": "墨宁",
 		"animation_path": "res://AssetBundle/Sprites/idle.png",
 		"animation_name": "idle"
 	}

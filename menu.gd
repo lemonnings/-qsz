@@ -78,46 +78,7 @@ func _on_stage_2_pressed() -> void:
 	get_tree().change_scene_to_file(town_test_scene)
 
 func reset_player_attr() -> void:
-	# 重置玩家奖励权重
-	if PlayerRewardWeights:
-		PlayerRewardWeights.reset_all_weights()
-		
-	# 初始化一系列单局内会发生变化的变量
-	Global.in_menu = false
-	PC.is_game_over = false
-	
-	PC.selected_rewards = ["wave_bullet"]
-	print(PC.selected_rewards)
-	
-	Global.reset_battle_modifiers()
-	
-	exec_pc_atk()
-	exec_pc_hp()
-	exec_pc_bullet_size()
-	exec_lucky_level()
-	
-	PC.real_time = 0
-	PC.current_time = 0
-	
-	PC.pc_lv = 1
-	PC.pc_exp = 0
-	PC.pc_speed = 0
-	PC.pc_atk_speed = 0
-	
-	PC.invincible = false
-	
-	PC.ring_bullet_enabled = false
-	PC.ring_bullet_count = 8
-	PC.ring_bullet_size_multiplier = 0.9
-	PC.ring_bullet_damage_multiplier = 0.7
-	PC.ring_bullet_interval = 2.5
-	PC.ring_bullet_last_shot_time = 0.0
-
-	PC.wave_bullet_enabled = false
-	PC.wave_bullet_count = 8
-	PC.wave_bullet_size_multiplier = 0.9
-	PC.wave_bullet_damage_multiplier = 0.5
-	PC.wave_bullet_interval = 4
+	PC.reset_player_attr()
 	PC.wave_bullet_last_shot_time = 0.0
 	
 	# 重置反弹子弹相关属性
@@ -155,11 +116,11 @@ func reset_player_attr() -> void:
 	PC.swordQi_penetration_count = 1
 	PC.swordQi_other_sword_wave_damage = 0.5
 	PC.swordQi_range = 132
+	PC.first_has_swordqi = true
 	
 	# 重置魔焰相关属性
 	PC.main_skill_moyan = 0
 	PC.main_skill_moyan_advance = 0
-	PC.has_moyan = false
 	PC.first_has_moyan = true
 	PC.main_skill_moyan_damage = 1.0
 	PC.moyan_range = 220.0
@@ -167,7 +128,6 @@ func reset_player_attr() -> void:
 	# 重置树枝相关属性
 	PC.main_skill_branch = 0
 	PC.main_skill_branch_advance = 0
-	PC.has_branch = false
 	PC.first_has_branch = true
 	PC.main_skill_branch_damage = 1
 	PC.branch_split_count = 3
@@ -177,7 +137,6 @@ func reset_player_attr() -> void:
 	PC.main_skill_riyan = 0
 	PC.main_skill_riyan_advance = 0
 	PC.main_skill_riyan_damage = 1
-	PC.has_riyan = false
 	PC.first_has_riyan = true
 	PC.first_has_riyan_pc = true
 	PC.riyan_range = 70.0
@@ -189,8 +148,9 @@ func reset_player_attr() -> void:
 	PC.main_skill_ringFire = 0
 	PC.main_skill_ringFire_advance = 0
 	PC.main_skill_ringFire_damage = 1
-	PC.has_ringFire = false
 	PC.first_has_ringFire = true
+	
+	# 重置冰刺术相关属性 (IceFlower 静态变量已移至 IceFlower.reset_data())
 	
 	PC.refresh_num = Global.refresh_max_num
 	EmblemManager.clear_all_emblems()

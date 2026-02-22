@@ -24,15 +24,15 @@ var FROG_MIN_SPAWN_INCREASE_THRESHOLD: int = 15
 var FROG_MAX_SPAWN_INCREASE_THRESHOLD: int = 20
 
 # 怪物生成数量
-var slime_min_spawn: int = 4
-var slime_max_spawn: int = 8
-var slime_upper_limit: int = 24
+var slime_min_spawn: int = 3
+var slime_max_spawn: int = 12
+var slime_upper_limit: int = 36
 var bat_min_spawn: int = 2
-var bat_max_spawn: int = 4
-var bat_upper_limit: int = 16
-var frog_min_spawn: int = 2
+var bat_max_spawn: int = 8
+var bat_upper_limit: int = 24
+var frog_min_spawn: int = 0
 var frog_max_spawn: int = 2
-var frog_upper_limit: int = 8
+var frog_upper_limit: int = 4
 
 @export var monster_spawn_timer: Timer
 
@@ -69,10 +69,10 @@ func _ready() -> void:
 	
 	# stage1 特定的相机设置
 	$Player.camera.zoom = Vector2(2.55, 2.55)
-	$Player.min_zoom = 2.25
+	$Player.min_zoom = 2.2
 	
 	map_mechanism_num = 0
-	map_mechanism_num_max = 1800
+	map_mechanism_num_max = 180
 	# map_mechanism_num_max = 14000
 	
 	Global.reset_dps_counter()
@@ -177,6 +177,20 @@ func _on_warning_finished() -> void:
 
 	boss_node.position = Vector2(-370, randf_range(185, 259))
 	get_tree().current_scene.add_child(boss_node)
+	_clear_non_boss_enemies()
+
+func _clear_non_boss_enemies() -> void:
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	for enemy in enemies:
+		if enemy.is_in_group("boss"):
+			continue
+		enemy.monitoring = false
+		enemy.monitorable = false
+		enemy.collision_layer = 0
+		enemy.collision_mask = 0
+		var tween = enemy.create_tween()
+		tween.tween_property(enemy, "modulate:a", 0.0, 0.4)
+		tween.tween_callback(func(): enemy.queue_free())
 
 
 func _on_monster_spawn_timer_timeout() -> void:
@@ -371,6 +385,7 @@ func _try_make_elite(monster_node: Node) -> void:
 	
 	# 标记为精英怪
 	monster_node.is_elite = true
+	monster_node.add_to_group("elite")
 	
 	# 体型增加30%
 	monster_node.scale *= ELITE_SCALE_MULTIPLIER
@@ -409,6 +424,9 @@ func _apply_elite_visual(monster_node: Node) -> void:
 # ============== 游戏结果 ==============
 func show_game_over():
 	layer_ui.show_game_over()
+	var player = get_node("Player")
+	player.stop_all_skill_cooldowns()
+	layer_ui.stop_all_skill_cooldowns()
 	await get_tree().create_timer(2).timeout
 	Global.emit_signal("normal_bgm")
 	SceneChange.change_scene("res://Scenes/main_town.tscn", true)
@@ -425,11 +443,17 @@ func _on_boss_defeated(get_point: int):
 		Global.stop_dps_counter()
 		
 		$Victory.play()
-		layer_ui.show_victory()
+		var player = get_node("Player")
+		player.enter_victory_state()
+		player.stop_all_skill_cooldowns()
+		layer_ui.stop_all_skill_cooldowns()
+		var item_control = get_node("ItemControl")
+		item_control.start_victory_collect(player, 225.0)
 		get_tree().current_scene.point += get_point
 		Global.total_points += get_point
 		Global.save_game()
-		await get_tree().create_timer(5).timeout
+		
+		await layer_ui.play_victory_sequence()
 		
 		Global.emit_signal("normal_bgm")
 		Global.in_menu = true

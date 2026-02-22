@@ -774,8 +774,15 @@ func _on_area_entered(area: Area2D) -> void:
 			if not is_dead:
 				# $death.play() # Boss死亡音效
 				Global.emit_signal("boss_defeated", get_point) # 发送Boss被击败信号
+				Global.emit_signal("monster_killed")
 				
 			is_dead = true
+			var collision_shape = get_node("CollisionShape2D")
+			collision_shape.disabled = true
+			collision_layer = 0
+			collision_mask = 0
+			monitoring = false
+			monitorable = false
 			# 隐藏阴影
 			var shadow = get_node_or_null("Shadow")
 			if shadow:
@@ -804,7 +811,14 @@ func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: Strin
 	if hp <= 0:
 		if not is_dead:
 			Global.emit_signal("boss_defeated", get_point)
+			Global.emit_signal("monster_killed")
 		is_dead = true
+		var collision_shape = get_node("CollisionShape2D")
+		collision_shape.disabled = true
+		collision_layer = 0
+		collision_mask = 0
+		monitoring = false
+		monitorable = false
 		var shadow = get_node_or_null("Shadow")
 		if shadow:
 			shadow.visible = false

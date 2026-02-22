@@ -21,6 +21,8 @@ var start_position: Vector2
 var velocity: Vector2
 var hit_targets: Dictionary = {}
 var travelled_distance: float = 0.0
+var reached_max_range: bool = false
+var fade_out_duration: float = 0.4
 
 func _ready() -> void:
 	if not sprite:
@@ -53,17 +55,23 @@ func setup_light_bullet(pos: Vector2, dir: Vector2, p_damage: float, p_range: fl
 
 func _process(delta: float) -> void:
 	elapsed += delta
-	travelled_distance += speed * delta
+	if reached_max_range:
+		modulate.a -= delta / fade_out_duration
+		if modulate.a <= 0.0:
+			queue_free()
+		return
 	
+	travelled_distance += speed * delta
 	position += velocity * delta
 	
-	# 渐隐效果：射程90%开始渐隐
 	if travelled_distance > range_val * 0.9:
 		var fade_ratio = (travelled_distance - range_val * 0.9) / (range_val * 0.1)
 		modulate.a = 1.0 - fade_ratio
-		
+	
 	if travelled_distance >= range_val:
-		queue_free()
+		reached_max_range = true
+		velocity = Vector2.ZERO
+		collision_shape.disabled = true
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("enemies"):

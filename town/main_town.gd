@@ -4,12 +4,10 @@ extends Node2D
 @export var defaultLayer: CanvasLayer
 @export var levelChangeLayer: CanvasLayer
 @export var cultivationLayer: CanvasLayer
-@export var setting: Panel
-@export var settingButton: Button
 @export var canvasLayer: CanvasLayer
 @export var synthesisLayer: CanvasLayer
 @export var studyLayer: CanvasLayer
-@export var bagLayer: CanvasLayer
+@export var heroLayer: CanvasLayer
 
 @export var tip: Node
 
@@ -17,7 +15,6 @@ extends Node2D
 @export var battle_scene_stage2: String
 
 @export var cystal: AnimatedSprite2D
-@export var cystal2: AnimatedSprite2D
 @export var levelUpMan: AnimatedSprite2D
 @export var levelUpMan2: AnimatedSprite2D
 @export var blackSmith: AnimatedSprite2D
@@ -37,16 +34,6 @@ extends Node2D
 @export var cultivation_msg: RichTextLabel
 @export var point_label: Label
 
-# 设置
-@export var main_volume: HSlider
-@export var bgm_volume: HSlider
-@export var se_volume: HSlider
-@export var screen_resolution: OptionButton
-@export var full_screen: CheckButton
-@export var vignetting: CheckButton
-@export var particle: CheckButton
-
-
 @export var interaction_distance: float = 35.0
 var dialog_file_to_start: String = "res://AssetBundle/Dialog/test_dialog.txt"
 var qian_dialog: String = "res://AssetBundle/Dialog/qian_dialog.txt"
@@ -62,14 +49,12 @@ var player: CharacterBody2D
 func _ready() -> void:
 	# 设置音效使用SFX总线
 	setup_audio_buses()
+	player = $Player
 	Global.load_game()
 	Global.in_town = true
+	player.change_hero(PC.player_name)
 	
-	if $Player is CharacterBody2D:
-		player = $Player
-	
-	# 初始化设置界面
-	setup_settings_ui()
+	defaultLayer.unlock_setting_button()
 
 func setup_audio_buses() -> void:
 	# 设置所有音效使用SFX总线
@@ -117,11 +102,15 @@ func setup_audio_buses() -> void:
 	
 	if studyLayer:
 		studyLayer.visible = false
+	
+	if heroLayer:
+		heroLayer.visible = false
 
 	Global.emit_signal("reset_camera")
 	Global.connect("press_f", Callable(self, "press_interact"))
 	Global.connect("press_g", Callable(self, "press_interact2"))
 	Global.connect("press_h", Callable(self, "press_interact3"))
+	heroLayer.exit_button.pressed.connect(_on_exit_pressed)
 
 # UI动画处理函数
 func animate_ui_element(ui_element: Control, ui_name: String, should_show: bool) -> void:
@@ -153,16 +142,18 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(player):
 		return
 
-	if player.global_position.distance_to(cystal2.global_position) < interaction_distance:
+	if player.global_position.distance_to(cystal.global_position) < interaction_distance:
 		animate_ui_element(cystalTips, "cystalTips", true)
-		cystalTips.change_label1_text("切换英雄 [F]")
+		levelUpManTips.change_name("乾
+		<侠士切换>")
+		cystalTips.change_label1_text("切换侠士 [F]")
 	else:
 		animate_ui_element(cystalTips, "cystalTips", false)
 		
 				
 	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance:
 		animate_ui_element(levelUpManTips, "levelUpManTips", true)
-		levelUpManTips.change_name("艮
+		levelUpManTips.change_name("巽
 		<修炼>")
 		levelUpManTips.change_label1_text("修习 [F]")
 		levelUpManTips.change_function2_visible(true)
@@ -194,7 +185,7 @@ func _process(delta: float) -> void:
 				
 	if player.global_position.distance_to(portal.global_position) < interaction_distance:
 		animate_ui_element(portalTips, "portalTips", true)
-		portalTips.change_name("传送阵
+		portalTips.change_name("衍阵
 		<关卡选择>")
 		portalTips.change_label1_text("传送 [F]")
 	else:
@@ -208,10 +199,30 @@ func _process(delta: float) -> void:
 		
 # F交互
 func press_interact():
-	settingButton.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if player.global_position.distance_to(cystal2.global_position) < interaction_distance:
-		if not dialog_control.visible:
-			start_dialog_interaction("crystal")
+	defaultLayer.lock_setting_button()
+	if player.global_position.distance_to(cystal.global_position) < interaction_distance:
+		PC.movement_disabled = true
+		defaultLayer.visible = false
+		if dark_overlay:
+			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
+				ui_tweens["dark_overlay"].kill()
+			
+			ui_tweens["dark_overlay"] = create_tween()
+			dark_overlay.visible = true
+			dark_overlay.modulate.a = 0.0
+			ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
+		
+		if ui_tweens.has("heroLayer") and ui_tweens["heroLayer"]:
+			ui_tweens["heroLayer"].kill()
+		
+		ui_tweens["heroLayer"] = create_tween()
+		ui_tweens["heroLayer"].set_parallel(true)
+		heroLayer.visible = true
+		
+		for child in heroLayer.get_children():
+			if child.has_method("set_modulate"):
+				child.modulate.a = 0.0
+				ui_tweens["heroLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
 	
 	if player.global_position.distance_to(portal.global_position) < interaction_distance:
 		PC.movement_disabled = true
@@ -325,7 +336,7 @@ func press_interact():
 
 # G交互
 func press_interact2():
-	settingButton.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	defaultLayer.lock_setting_button()
 	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance:
 		if not dialog_control.visible:
 			start_dialog_interaction("qian")
@@ -350,7 +361,8 @@ func start_dialog_interaction(npc_id: String) -> void:
 func _on_exit_pressed() -> void:
 	PC.movement_disabled = false
 	defaultLayer.visible = true
-	settingButton.mouse_filter = Control.MOUSE_FILTER_STOP
+	defaultLayer.unlock_setting_button()
+	defaultLayer.close_setting_panel()
 	
 	var exit_tween = create_tween()
 	exit_tween.set_parallel(true)
@@ -403,20 +415,13 @@ func _on_exit_pressed() -> void:
 					child.modulate.a = 1.0
 		).set_delay(0.1)
 
-	# 渐出设置界面
-	if setting.visible:
-		# 先淡出子节点
-		for child in setting.get_children():
+	if heroLayer.visible:
+		for child in heroLayer.get_children():
 			if child.has_method("set_modulate"):
 				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)
-		
-		# 然后淡出设置面板本身
-		exit_tween.tween_property(setting, "modulate:a", 0.0, 0.2)
 		exit_tween.tween_callback(func():
-			setting.visible = false
-			setting.modulate.a = 1.0
-			# 重置子节点透明度
-			for child in setting.get_children():
+			heroLayer.visible = false
+			for child in heroLayer.get_children():
 				if child.has_method("set_modulate"):
 					child.modulate.a = 1.0
 		).set_delay(0.2)
@@ -576,139 +581,3 @@ func _on_liejin_mouse_exited() -> void:
 
 func _on_liejin_pressed() -> void:
 	_on_cmp("liejin")
-
-# 设置界面初始化
-func setup_settings_ui() -> void:
-	# 初始化音量滑块
-	if main_volume:
-		main_volume.min_value = 0.0
-		main_volume.max_value = 1.0
-		main_volume.step = 0.01
-		main_volume.value = Global.AudioManager.get_master_volume()
-		main_volume.value_changed.connect(_on_main_volume_changed)
-	
-	if bgm_volume:
-		bgm_volume.min_value = 0.0
-		bgm_volume.max_value = 1.0
-		bgm_volume.step = 0.01
-		bgm_volume.value = Global.AudioManager.get_bgm_volume()
-		bgm_volume.value_changed.connect(_on_bgm_volume_changed)
-	
-	if se_volume:
-		se_volume.min_value = 0.0
-		se_volume.max_value = 1.0
-		se_volume.step = 0.01
-		se_volume.value = Global.AudioManager.get_sfx_volume()
-		se_volume.value_changed.connect(_on_se_volume_changed)
-	
-	# 初始化分辨率选项
-	if screen_resolution:
-		screen_resolution.clear()
-	# 初始化分辨率选项
-	screen_resolution.add_item("1024 × 576")
-	screen_resolution.add_item("1366 × 768")
-	screen_resolution.add_item("1920 × 1080")
-	screen_resolution.add_item("2240 × 1260")
-	screen_resolution.selected = Global.SettingsManager.get_current_resolution_index()
-	screen_resolution.item_selected.connect(_on_resolution_selected)
-	
-	# 初始化全屏复选框
-	if full_screen:
-		full_screen.button_pressed = Global.SettingsManager.is_fullscreen_enabled()
-		full_screen.toggled.connect(_on_fullscreen_toggled)
-	
-	# 初始化暗角效果复选框
-	if vignetting:
-		vignetting.button_pressed = Global.SettingsManager.is_vignetting_enabled()
-		vignetting.toggled.connect(_on_vignetting_toggled)
-	
-	# 初始化粒子效果复选框（暂未实现功能）
-	if particle:
-		particle.button_pressed = Global.SettingsManager.is_particle_enabled()
-		particle.toggled.connect(_on_particle_toggled)
-
-# 音量设置信号处理函数
-func _on_main_volume_changed(value: float) -> void:
-	Global.AudioManager.set_master_volume(value)
-
-func _on_bgm_volume_changed(value: float) -> void:
-	Global.AudioManager.set_bgm_volume(value)
-
-func _on_se_volume_changed(value: float) -> void:
-	Global.AudioManager.set_sfx_volume(value)
-
-# 显示设置信号处理函数
-func _on_resolution_selected(index: int) -> void:
-	Global.SettingsManager.set_resolution(index)
-
-func _on_fullscreen_toggled(pressed: bool) -> void:
-	Global.SettingsManager.set_fullscreen(pressed)
-
-func _on_vignetting_toggled(pressed: bool) -> void:
-	Global.SettingsManager.set_vignetting(pressed)
-
-func _on_particle_toggled(pressed: bool) -> void:
-	Global.SettingsManager.set_particle(pressed)
-
-func _on_setting_pressed() -> void:
-	if !setting.visible:
-		PC.movement_disabled = true
-		
-		if dark_overlay:
-			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
-				ui_tweens["dark_overlay"].kill()
-			
-			ui_tweens["dark_overlay"] = create_tween()
-			dark_overlay.visible = true
-			dark_overlay.modulate.a = 0.0
-			ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
-		
-		# 渐进显示设置界面
-		if ui_tweens.has("setting") and ui_tweens["setting"]:
-			ui_tweens["setting"].kill()
-		
-		ui_tweens["setting"] = create_tween()
-		ui_tweens["setting"].set_parallel(true)
-		setting.visible = true
-		setting.modulate.a = 0.0
-		
-		# 然后对设置面板的所有子节点进行动画
-		for child in setting.get_children():
-			if child.has_method("set_modulate"):
-				child.modulate.a = 0.0
-				ui_tweens["setting"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
-		
-		# 先显示设置面板本身
-		ui_tweens["setting"].tween_property(setting, "modulate:a", 1.0, 0.15)
-
-func _on_bag_pressed() -> void:
-	if !bagLayer.visible:
-		PC.movement_disabled = true
-		
-		if dark_overlay:
-			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
-				ui_tweens["dark_overlay"].kill()
-			
-			ui_tweens["dark_overlay"] = create_tween()
-			dark_overlay.visible = true
-			dark_overlay.modulate.a = 0.0
-			ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
-		
-		# 渐进显示设置界面
-		if ui_tweens.has("bagLayer") and ui_tweens["bagLayer"]:
-			ui_tweens["bagLayer"].kill()
-		
-		ui_tweens["bagLayer"] = create_tween()
-		ui_tweens["bagLayer"].set_parallel(true)
-		bagLayer.visible = true
-		#bagLayer.modulate.a = 0.0
-		
-		# 然后对设置面板的所有子节点进行动画
-		for child in bagLayer.get_children():
-			if child.has_method("set_modulate"):
-				child.modulate.a = 0.0
-				ui_tweens["bagLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
-		
-		# 先显示设置面板本身
-		# BagLayer 是 CanvasLayer，没有 modulate 属性，所以不需要对 bagLayer 本身做透明度动画
-		# ui_tweens["bagLayer"].tween_property(bagLayer, "modulate:a", 1.0, 0.15)

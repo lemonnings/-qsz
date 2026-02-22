@@ -168,9 +168,13 @@ func _update_character_info():
 	
 	# 更新角色动画
 	if now_character:
-		var anim_name = PC.get_character_animation_name()
-		if now_character.sprite_frames and now_character.sprite_frames.has_animation(anim_name):
-			now_character.play(anim_name)
+		var player = get_tree().current_scene.get_node("Player")
+		var hero_frames = player.get_hero_sprite_frames(PC.player_name)
+		now_character.sprite_frames = hero_frames
+		now_character.play("idle")
+
+func refresh_character_display() -> void:
+	_update_character_info()
 
 # 页签按钮点击事件
 func _on_all_pressed():

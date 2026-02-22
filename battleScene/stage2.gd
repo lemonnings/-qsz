@@ -74,6 +74,7 @@ func _ready() -> void:
 	map_mechanism_num_max = 14000
 	
 	Global.reset_dps_counter()
+	GU.reset_kill_count()
 	
 	# 连接关卡特定信号
 	Global.connect("monster_mechanism_gained", Callable(self, "_on_monster_mechanism_gained"))
@@ -175,6 +176,20 @@ func _on_warning_finished() -> void:
 
 	boss_node.position = Vector2(-370, randf_range(185, 259))
 	get_tree().current_scene.add_child(boss_node)
+	_clear_non_boss_enemies()
+
+func _clear_non_boss_enemies() -> void:
+	var enemies = get_tree().get_nodes_in_group("enemies")
+	for enemy in enemies:
+		if enemy.is_in_group("boss"):
+			continue
+		enemy.monitoring = false
+		enemy.monitorable = false
+		enemy.collision_layer = 0
+		enemy.collision_mask = 0
+		var tween = enemy.create_tween()
+		tween.tween_property(enemy, "modulate:a", 0.0, 0.4)
+		tween.tween_callback(func(): enemy.queue_free())
 
 
 func _on_monster_spawn_timer_timeout() -> void:
@@ -369,6 +384,7 @@ func _try_make_elite(monster_node: Node) -> void:
 	
 	# 标记为精英怪
 	monster_node.is_elite = true
+	monster_node.add_to_group("elite")
 	
 	# 体型增加30%
 	monster_node.scale *= ELITE_SCALE_MULTIPLIER
@@ -414,6 +430,9 @@ func show_game_over():
 	Global.stop_dps_counter()
 	
 	layer_ui.show_game_over()
+	var player = get_node("Player")
+	player.stop_all_skill_cooldowns()
+	layer_ui.stop_all_skill_cooldowns()
 	await get_tree().create_timer(2).timeout
 	Global.emit_signal("normal_bgm")
 	SceneChange.change_scene("res://Scenes/main_town.tscn", true)
@@ -430,12 +449,18 @@ func _on_boss_defeated(get_point: int):
 		Global.stop_dps_counter()
 		
 		$Victory.play()
-		layer_ui.show_victory()
+		var player = get_node("Player")
+		player.enter_victory_state()
+		player.stop_all_skill_cooldowns()
+		layer_ui.stop_all_skill_cooldowns()
+		var item_control = get_node("ItemControl")
+		item_control.start_victory_collect(player, 225.0)
 		get_tree().current_scene.point += get_point
 		Global.total_points += get_point
 		Global.save_game()
-		await get_tree().create_timer(5).timeout
-		
+
+		await layer_ui.play_victory_sequence()
+
 		Global.emit_signal("normal_bgm")
 		Global.in_menu = true
 		SceneChange.change_scene("res://Scenes/main_town.tscn", true)

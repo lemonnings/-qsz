@@ -28,6 +28,11 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 
 @export var total_points: int = 1000
 
+@export var unlock_moning: bool = true
+@export var unlock_yiqiu: bool = true
+@export var unlock_noam: bool = true
+@export var unlock_kansel: bool = true
+
 @export var exp_multi: float = 0
 @export var drop_multi: float = 0
 @export var body_size: float = 1
@@ -90,6 +95,11 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 		"study_level": 0, # 当前修习阶段
 		"learned_skills": [], # 已学习的技能列表
 		"skill_levels": {} # 技能等级
+	},
+	"moning": {
+		"study_level": 0, # 当前修习阶段
+		"learned_skills": [], # 已学习的技能列表
+		"skill_levels": {} # 技能等级
 	}
 }
 
@@ -138,6 +148,7 @@ signal setup_summons
 signal level_up_selection_complete
 signal monster_damage
 signal monster_mechanism_gained
+signal monster_killed
 signal boss_defeated
 signal skill_attack_speed_updated
 
@@ -187,7 +198,8 @@ signal skill_cooldown_complete_xuanwu
 signal skill_cooldown_complete_xunfeng
 signal skill_cooldown_complete_genshan
 signal skill_cooldown_complete_duize
-signal skill_cooldown_complete_holylight
+signal skill_cooldown_complete_holylight(skill_id)
+signal skill_cooldown_complete_qigong(skill_id)
 
 
 # 其他攻击方式相关
@@ -293,6 +305,7 @@ func save_game() -> void:
 	var config = ConfigFile.new()
 	var data = {
 		"total_points": total_points,
+		"player_name": PC.player_name,
 		"exp_multi": exp_multi,
 		"drop_multi": drop_multi,
 		"body_size": body_size,
@@ -370,6 +383,7 @@ func load_game() -> void:
 		return
 	
 	total_points = config.get_value("save", "total_points", total_points)
+	PC.player_name = config.get_value("save", "player_name", PC.player_name)
 	exp_multi = config.get_value("save", "exp_multi", exp_multi)
 	drop_multi = config.get_value("save", "drop_multi", drop_multi)
 	body_size = config.get_value("save", "body_size", body_size)

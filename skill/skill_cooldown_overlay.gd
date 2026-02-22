@@ -86,6 +86,15 @@ func _on_timer_timeout() -> void:
 		Global.emit_signal("skill_cooldown_complete_duize", skill_id)
 	elif skill_id == 18:
 		Global.emit_signal("skill_cooldown_complete_holylight", skill_id)
+	elif skill_id == 19:
+		Global.emit_signal("skill_cooldown_complete_qigong", skill_id)
+	elif skill_id == 20:
+		Global.emit_signal("skill_cooldown_complete_dragonwind", skill_id)
+
+func stop_cooldown() -> void:
+	$Timer.stop()
+	$Label.hide()
+	$TextureProgressBar.value = 0
 
 var remaining_time: float = 0
 

@@ -292,13 +292,13 @@ func set_summon_type(type: SummonType) -> void:
 		# --- 治疗类 ---
 		SummonType.HEAL_darkorchid:
 			heal_ratio = 0.015
-			fire_interval = 2.0
+			fire_interval = 4.0
 		SummonType.HEAL_GOLD:
 			heal_ratio = 0.02
-			fire_interval = 1.5
+			fire_interval = 3
 		SummonType.HEAL_RED:
 			heal_ratio = 0.015
-			fire_interval = 1.2
+			fire_interval = 2.4
 			applied_damage_reduction_bonus = 0.05
 			PC.damage_reduction_rate = min(PC.damage_reduction_rate + applied_damage_reduction_bonus, 0.9)
 		# --- 辅助类（提供攻击与移速，并增强其他召唤物伤害/治疗） ---

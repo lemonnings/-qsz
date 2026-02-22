@@ -68,6 +68,8 @@ static var debuff_configs: Dictionary = {
 	"corrosion2": DebuffData.new("corrosion2", 5.0, 1, false, "", true, Color(0.5, 0.9, 0.1), 0.0, 0.3, 0.0, false, 0.0, 1.0, false, 40.0) # 腐蚀2：受到的伤害增加30%
 }
 
+static var debuff_elite_boss_damage_bonus: Dictionary = {}
+
 var active_debuffs: Dictionary = {} # {debuff_id: {timer: Timer, stacks: int, config: DebuffData, effect_instance: Node2D, dot_elapsed: float}}
 var target_enemy: Node2D # 关联的敌人节点
 var base_modulate: Color = Color.WHITE
@@ -75,6 +77,22 @@ var base_modulate: Color = Color.WHITE
 func _init(enemy: Node2D):
 	target_enemy = enemy
 	base_modulate = target_enemy.modulate
+
+static func set_debuff_elite_boss_bonus(debuff_id: String, bonus: float) -> void:
+	debuff_elite_boss_damage_bonus[debuff_id] = bonus
+
+static func get_debuff_elite_boss_bonus(debuff_id: String) -> float:
+	if debuff_elite_boss_damage_bonus.has(debuff_id):
+		return debuff_elite_boss_damage_bonus[debuff_id]
+	return 0.0
+
+static func get_debuff_elite_boss_damage_multiplier(debuff_id: String, target: Node) -> float:
+	var bonus = get_debuff_elite_boss_bonus(debuff_id)
+	if bonus <= 0.0:
+		return 1.0
+	if target.is_in_group("elite") or target.is_in_group("boss"):
+		return 1.0 + bonus
+	return 1.0
 
 func add_debuff(debuff_id: String, extra_stacks_limit: int = 0):
 	var config: DebuffData = debuff_configs[debuff_id]
@@ -224,7 +242,11 @@ func _process(delta: float) -> void:
 func _apply_dot_damage(debuff_id: String, damage: float) -> void:
 	var debuff_entry = active_debuffs[debuff_id]
 	var config: DebuffData = debuff_entry["config"]
-	target_enemy.take_damage(int(damage), false, false, debuff_id)
+	var main_target_multiplier = EnemyDebuffManager.get_debuff_elite_boss_damage_multiplier(debuff_id, target_enemy)
+	var final_damage = damage * main_target_multiplier
+	target_enemy.take_damage(int(final_damage), false, false, debuff_id)
+	var damage_type_int = _get_dot_damage_type_int(debuff_id)
+	Global.emit_signal("monster_damage", damage_type_int, final_damage, target_enemy.global_position - Vector2(16, 6))
 	if not config.dot_affect_neighbors:
 		return
 	var space_state = target_enemy.get_world_2d().direct_space_state
@@ -243,4 +265,18 @@ func _apply_dot_damage(debuff_id: String, damage: float) -> void:
 		if area == target_enemy:
 			continue
 		if area.is_in_group("enemies"):
-			area.take_damage(int(damage), false, false, debuff_id)
+			var neighbor_multiplier = EnemyDebuffManager.get_debuff_elite_boss_damage_multiplier(debuff_id, area)
+			var neighbor_damage = damage * neighbor_multiplier
+			area.take_damage(int(neighbor_damage), false, false, debuff_id)
+			Global.emit_signal("monster_damage", damage_type_int, neighbor_damage, area.global_position)
+
+func _get_dot_damage_type_int(debuff_id: String) -> int:
+	if debuff_id == "shock":
+		return 5
+	if debuff_id == "burn":
+		return 6
+	if debuff_id == "bleed":
+		return 7
+	if debuff_id == "corrosion" or debuff_id == "corrosion2":
+		return 8
+	return 1

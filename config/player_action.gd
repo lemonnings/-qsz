@@ -27,6 +27,7 @@ var chenjing_effect: Node2D = null # 沉静纹章的脚底光圈效果
 @export var bloodwave_scene: PackedScene
 @export var bloodboardsword_scene: PackedScene
 @export var ice_flower_scene: PackedScene
+@export var qigong_scene: PackedScene
 @export var thunder_break_scene: PackedScene
 @export var light_bullet_scene: PackedScene
 @export var water_scene: PackedScene
@@ -46,6 +47,7 @@ var chenjing_effect: Node2D = null # 沉静纹章的脚底光圈效果
 @export var bloodwave_fire_speed: Timer
 @export var bloodboardsword_fire_speed: Timer
 @export var ice_flower_fire_speed: Timer
+@export var qigong_fire_speed: Timer
 @export var thunder_break_fire_speed: Timer
 @export var light_bullet_fire_speed: Timer
 @export var water_fire_speed: Timer
@@ -61,7 +63,11 @@ var chenjing_effect: Node2D = null # 沉静纹章的脚底光圈效果
 var active_summons: Array = [] # 当前活跃的召唤物列表
 
 
-@onready var sprite = $AnimatedSprite2D
+@onready var yiqiu_sprite: AnimatedSprite2D = $yiqiu
+@onready var moning_sprite: AnimatedSprite2D = $moning
+@onready var noam_sprite: AnimatedSprite2D = $noam
+@onready var kansel_sprite: AnimatedSprite2D = $kansel
+var sprite: AnimatedSprite2D
 @export var sprite_direction_right: bool
 
 
@@ -78,14 +84,21 @@ func _ready() -> void:
 	
 	# 创建脚底阴影
 	CharacterEffects.create_shadow(self, 22.0, 9.0, 7.5)
+	var faze_manager = Faze.new()
+	add_child(faze_manager)
+	faze_manager.setup(self)
 	
 	hp = PC.pc_hp
-	sprite_direction_right = not sprite.flip_h
+	maxHP = PC.pc_max_hp
 	Global.connect("player_hit", Callable(self, "_on_player_hit"))
 	Global.connect("zoom_camera", Callable(self, "_zoom_camera"))
 	Global.connect("reset_camera", Callable(self, "_reset_camera"))
 	# 初始化技能攻速
 	update_skill_attack_speeds()
+	
+	_set_active_hero(PC.player_name)
+	_update_active_skill_timers(PC.player_name)
+
 	Global.connect("_fire_ring_bullets", Callable(self, "_fire_ring_bullets"))
 	
 	Global.connect("skill_cooldown_complete", Callable(self, "_on_fire"))
@@ -106,6 +119,7 @@ func _ready() -> void:
 	Global.connect("skill_cooldown_complete_genshan", Callable(self, "_on_fire_genshan"))
 	Global.connect("skill_cooldown_complete_duize", Callable(self, "_on_fire_duize"))
 	Global.connect("skill_cooldown_complete_holylight", Callable(self, "_on_fire_holylight"))
+	Global.connect("skill_cooldown_complete_qigong", Callable(self, "_on_fire_qigong"))
 	
 	camera.zoom = Vector2(1.6, 1.6)
 	
@@ -115,7 +129,7 @@ func _ready() -> void:
 	# 初始化 last_move_time 为当前时间
 	last_move_time = Time.get_unix_time_from_system()
 	
-	if PC.has_riyan and PC.first_has_riyan_pc:
+	if PC.selected_rewards.has("Riyan") and PC.first_has_riyan_pc:
 	# 实例化日炎攻击
 		if riyan_scene:
 			var riyan_instance = riyan_scene.instantiate()
@@ -123,12 +137,70 @@ func _ready() -> void:
 			riyan_instance.global_position = global_position
 			PC.first_has_riyan_pc = false
 			
-	if PC.has_qiankun:
+	if PC.selected_rewards.has("Qiankun"):
 		init_qiankun()
 	
 	## 初始化虚拟摇杆
 	#joystick_center = joystick_position
 	#joystick_current = joystick_center
+
+func change_hero(hero_key: String) -> void:
+	_set_active_hero(hero_key)
+	_update_active_skill_timers(hero_key)
+
+func get_hero_sprite_frames(hero_key: String) -> SpriteFrames:
+	var hero_sprite = _get_hero_sprite(hero_key)
+	return hero_sprite.sprite_frames
+
+func _set_active_hero(hero_key: String) -> void:
+	var hero_sprite = _get_hero_sprite(hero_key)
+	yiqiu_sprite.visible = false
+	moning_sprite.visible = false
+	noam_sprite.visible = false
+	kansel_sprite.visible = false
+	hero_sprite.visible = true
+	animator = hero_sprite
+	sprite = hero_sprite
+	sprite_direction_right = not animator.flip_h
+
+func _get_hero_sprite(hero_key: String) -> AnimatedSprite2D:
+	if hero_key == "yiqiu":
+		return yiqiu_sprite
+	if hero_key == "moning":
+		return moning_sprite
+	if hero_key == "noam":
+		return noam_sprite
+	if hero_key == "kansel":
+		return kansel_sprite
+	assert(false, "未知角色: " + hero_key)
+	return yiqiu_sprite
+
+func _update_active_skill_timers(hero_key: String) -> void:
+	if hero_key == "moning":
+		if fire_speed: fire_speed.stop()
+		if light_bullet_fire_speed: light_bullet_fire_speed.stop()
+		if ice_flower_fire_speed: ice_flower_fire_speed.stop()
+		if qigong_fire_speed: qigong_fire_speed.start()
+		return
+	if hero_key == "yiqiu":
+		if fire_speed: fire_speed.start()
+		if light_bullet_fire_speed: light_bullet_fire_speed.stop()
+		if ice_flower_fire_speed: ice_flower_fire_speed.stop()
+		if qigong_fire_speed: qigong_fire_speed.stop()
+		return
+	if hero_key == "noam":
+		if fire_speed: fire_speed.stop()
+		if light_bullet_fire_speed: light_bullet_fire_speed.start()
+		if ice_flower_fire_speed: ice_flower_fire_speed.stop()
+		if qigong_fire_speed: qigong_fire_speed.stop()
+		return
+	if hero_key == "kansel":
+		if fire_speed: fire_speed.stop()
+		if light_bullet_fire_speed: light_bullet_fire_speed.stop()
+		if ice_flower_fire_speed: ice_flower_fire_speed.start()
+		if qigong_fire_speed: qigong_fire_speed.stop()
+		return
+	assert(false, "未知角色: " + hero_key)
 
 func setup_audio_buses() -> void:
 	# 设置所有音效使用SFX总线
@@ -236,7 +308,7 @@ func _zoom_camera(zoom_delta: float) -> void:
 
 func _physics_process(_delta: float) -> void:
 	var missing_hp_ratio = float(PC.pc_max_hp - PC.pc_hp) / float(PC.pc_max_hp)
-	var bloodwave_heal_bonus = missing_hp_ratio * PC.bloodwave_missing_hp_heal_bonus * 100.0
+	var bloodwave_heal_bonus = missing_hp_ratio * BloodWave.bloodwave_missing_hp_heal_bonus * 100.0
 	PC.heal_multi = Global.heal_multi + bloodwave_heal_bonus
 	if not PC.is_game_over and not PC.movement_disabled:
 		# 获取输入向量（键盘或虚拟摇杆）
@@ -295,6 +367,33 @@ func game_over():
 		get_tree().current_scene.show_game_over()
 		$RestartTimer.start()
 
+func enter_victory_state() -> void:
+	PC.movement_disabled = true
+	velocity = Vector2.ZERO
+	animator.play("idle")
+	$RunningSound.stop()
+
+func stop_all_skill_cooldowns() -> void:
+	fire_speed.stop()
+	branch_fire_speed.stop()
+	moyan_fire_speed.stop()
+	riyan_fire_speed.stop()
+	ringFire_fire_speed.stop()
+	thunder_fire_speed.stop()
+	bloodwave_fire_speed.stop()
+	bloodboardsword_fire_speed.stop()
+	ice_flower_fire_speed.stop()
+	qigong_fire_speed.stop()
+	thunder_break_fire_speed.stop()
+	light_bullet_fire_speed.stop()
+	water_fire_speed.stop()
+	qiankun_fire_speed.stop()
+	xuanwu_fire_speed.stop()
+	xunfeng_fire_speed.stop()
+	genshan_fire_speed.stop()
+	duize_fire_speed.stop()
+	holy_light_fire_speed.stop()
+
 
 func _on_fire_idle() -> void:
 	if Global.in_menu or Global.in_town:
@@ -351,7 +450,7 @@ func _on_fire_bloodwave(skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if not PC.has_bloodwave:
+	if not PC.selected_rewards.has("Bloodwave"):
 		return
 	_on_fire_detail_bloodwave()
 
@@ -360,7 +459,7 @@ func _on_fire_bloodboardsword(skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if not PC.has_bloodboardsword:
+	if not PC.selected_rewards.has("BloodBoardSword"):
 		return
 	_on_fire_detail_bloodboardsword()
 
@@ -369,7 +468,7 @@ func _on_fire_ice(skill_id: int = 9) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if not PC.has_ice:
+	if not PC.selected_rewards.has("Ice"):
 		return
 	_on_fire_detail_ice()
 
@@ -533,7 +632,7 @@ func _fire_light_bullet_ring(data: Dictionary) -> void:
 		await get_tree().create_timer(interval).timeout
 
 func _build_light_bullet_data() -> Dictionary:
-	var damage_multiplier = PC.main_skill_light_bullet_damage # Base 0.35
+	var damage_multiplier = PC.main_skill_light_bullet_damage # Base 0.45
 	var range_val = 300.0
 	var penetration_count = 0
 	
@@ -691,46 +790,15 @@ func _build_water_data() -> Dictionary:
 		"conditional_heal_bonus": conditional_heal_bonus
 	}
 
-var qian_instance: Node2D = null
-var kun_instance: Node2D = null
-
 func init_qiankun() -> void:
 	if Global.in_town:
 		return
 	if not qiankun_scene:
 		return
 		
-	# 检查是否已经存在，如果存在就不重复创建
-	if qian_instance and is_instance_valid(qian_instance):
-		qian_instance.queue_free()
-	if kun_instance and is_instance_valid(kun_instance):
-		kun_instance.queue_free()
-		
-	var stats = _get_qiankun_stats()
-	
-	# Spawn Qian
-	qian_instance = qiankun_scene.instantiate()
-	# 作为子节点添加到当前场景，或者直接添加到Player下？
-	# 为了跟随方便，如果不作为子节点，就需要手动在 _process 里跟随。
-	# qiankun.gd 已经实现了跟随逻辑（依赖 player_ref）。
-	get_tree().current_scene.add_child(qian_instance)
-	qian_instance.setup(global_position, true, stats)
-	
-	# Spawn Kun
-	kun_instance = qiankun_scene.instantiate()
-	get_tree().current_scene.add_child(kun_instance)
-	kun_instance.setup(global_position, false, stats)
-
-func _get_qiankun_stats() -> Dictionary:
-	return {
-		"damage": PC.pc_atk * PC.main_skill_qiankun_damage,
-		"speed": PC.qiankun_speed,
-		"range": PC.qiankun_range,
-		"speed_per_enemy": PC.qiankun_speed_per_enemy,
-		"damage_per_debuff": PC.qiankun_damage_per_debuff,
-		"damage_per_enemy": PC.qiankun_damage_per_enemy,
-		"crit_on_3_debuffs": PC.qiankun_crit_on_3_debuffs
-	}
+	var script = load("res://Script/skill/qiankun.gd")
+	if script:
+		script.init_instances(qiankun_scene, get_tree(), global_position)
 
 func _on_fire_qiankun(skill_id: int = 13) -> void:
 	if Global.in_menu or Global.in_town:
@@ -738,21 +806,12 @@ func _on_fire_qiankun(skill_id: int = 13) -> void:
 	if PC.is_game_over:
 		return
 	
-	# 确保剑已初始化
-	if not qian_instance or not is_instance_valid(qian_instance) or not kun_instance or not is_instance_valid(kun_instance):
-		init_qiankun()
+	if not qiankun_scene:
+		return
 		
-	# 更新属性（因为可能会升级）
-	var stats = _get_qiankun_stats()
-	if qian_instance and qian_instance.has_method("update_stats"):
-		qian_instance.update_stats(stats)
-		if qian_instance.has_method("launch"):
-			qian_instance.launch()
-			
-	if kun_instance and kun_instance.has_method("update_stats"):
-		kun_instance.update_stats(stats)
-		if kun_instance.has_method("launch"):
-			kun_instance.launch()
+	var script = load("res://Script/skill/qiankun.gd")
+	if script:
+		script.fire_skill(qiankun_scene, global_position, get_tree())
 
 func _on_fire_detail() -> void:
 	var bullet_node_size = PC.bullet_size
@@ -928,84 +987,24 @@ func _on_fire_detail_thunder() -> void:
 		thunder_instance.setup_thunder(start_position, end_positions[i], target_enemies[i], thunder_data.damage * thunder_data.shot_damage_multiplier, thunder_data.chain_left, thunder_data.damage_decay, thunder_data.chain_range, thunder_data.paralyze_duration, thunder_data.boss_extra_damage, self)
 
 func _on_fire_detail_bloodwave() -> void:
-	var bloodwave_data = _build_bloodwave_data()
-	var base_direction = Vector2.RIGHT
-	var nearest_enemy = find_nearest_enemy()
-	if nearest_enemy:
-		base_direction = (nearest_enemy.position - position).normalized()
-	else:
-		if not sprite_direction_right:
-			base_direction = Vector2.LEFT
-		else:
-			base_direction = Vector2.RIGHT
-	
-	if PC.pc_hp > 1:
-		var raw_cost = PC.pc_hp * 0.01 * PC.bloodwave_hp_cost_multi
-		var hp_cost = int(ceil(raw_cost))
-		if hp_cost < 1:
-			hp_cost = 1
-		PC.pc_hp -= hp_cost
-		if PC.pc_hp < 1:
-			PC.pc_hp = 1
-	
-	var bloodwave_instance = bloodwave_scene.instantiate()
-	get_tree().current_scene.add_child(bloodwave_instance)
-	bloodwave_instance.setup_blood_wave(global_position, base_direction, bloodwave_data.range, bloodwave_data.damage, bloodwave_data.apply_bleed, bloodwave_data.extra_crit_chance, bloodwave_data.extra_crit_damage)
+	if not bloodwave_scene:
+		return
+		
+	var script = load("res://Script/skill/blood_wave.gd")
+	if script:
+		script.fire_skill(bloodwave_scene, global_position, get_tree())
 
 func _on_fire_detail_bloodboardsword() -> void:
 	var bloodboardsword_instance = bloodboardsword_scene.instantiate()
 	get_tree().current_scene.add_child(bloodboardsword_instance)
 
 func _on_fire_detail_ice() -> void:
-	var ice_data = _build_ice_flower_data()
-	var spawn_position = global_position
-	var base_direction = Vector2.RIGHT
-	
-	var nearest_enemy = find_nearest_enemy()
-	if nearest_enemy:
-		base_direction = (nearest_enemy.position - position).normalized()
-	else:
-		if not sprite_direction_right:
-			base_direction = Vector2.LEFT
-		else:
-			base_direction = Vector2.RIGHT
-			
-	# 发射主冰刺
-	var main_ice = ice_flower_scene.instantiate()
-	get_tree().current_scene.add_child(main_ice)
-	main_ice.setup_ice_flower(
-		spawn_position, 
-		base_direction, 
-		ice_data.range, 
-		ice_data.damage, 
-		ice_data.penetration_count, 
-		ice_data.pierce_decay, 
-		ice_data.base_scale * PC.bullet_size
-	)
-	
-	# 发射小冰刺
-	var half_angle = ice_data.spread_angle / 2.0
-	for i in range(ice_data.small_count):
-		# 随机角度
-		var random_angle = randf_range(-half_angle, half_angle)
-		var small_direction = base_direction.rotated(deg_to_rad(random_angle))
+	if not ice_flower_scene:
+		return
 		
-		var small_ice = ice_flower_scene.instantiate()
-		get_tree().current_scene.add_child(small_ice)
-		
-		var small_damage = ice_data.damage * ice_data.small_damage_ratio
-		var small_scale = ice_data.base_scale * ice_data.small_scale_ratio * PC.bullet_size
-		
-		# 小冰刺也继承穿透和衰减
-		small_ice.setup_ice_flower(
-			spawn_position,
-			small_direction,
-			ice_data.range,
-			small_damage,
-			ice_data.penetration_count,
-			ice_data.pierce_decay,
-			small_scale
-		)
+	var script = load("res://Script/skill/ice_flower.gd")
+	if script:
+		script.fire_skill(ice_flower_scene, global_position, get_tree())
 
 
 func _on_fire_duize(skill_id: int = 14) -> void:
@@ -1019,16 +1018,9 @@ func _on_fire_detail_duize() -> void:
 	if not duize_scene:
 		return
 	
-	var damage = PC.pc_atk * PC.main_skill_duize_damage
-	var range_val = PC.duize_range
-	var slow_ratio = PC.duize_slow_ratio
-	
-	var spawn_pos = find_densest_enemy_position(range_val)
-	
-	var instance = duize_scene.instantiate()
-	get_tree().current_scene.add_child(instance)
-	
-	instance.setup(spawn_pos, damage)
+	var script = load("res://Script/skill/duize.gd")
+	if script:
+		script.fire_skill(duize_scene, global_position, get_tree())
 
 # ==========================================
 # 圣光术逻辑
@@ -1038,223 +1030,21 @@ func _on_fire_holylight(skill_id: int = 18) -> void:
 		return
 	if PC.is_game_over:
 		return
+	if not PC.selected_rewards.has("HolyLight"):
+		return
 	_on_fire_detail_holylight()
 
 func _on_fire_detail_holylight() -> void:
 	if not holy_light_scene:
 		return
 		
-	var data = _build_holylight_data()
-	var spawn_pos = find_densest_enemy_position(data.radius)
-	
-	var instance = holy_light_scene.instantiate()
-	get_tree().current_scene.add_child(instance)
-	
-	var options = {
-		"center_extra_damage": data.center_extra_damage,
-		"dot_damage": data.dot_damage
-	}
-	
-	instance.setup(spawn_pos, data.damage, data.heal_base, data.heal_ratio, data.duration, data.range_scale, options)
+	var script = load("res://Script/skill/holy_light.gd")
+	if script:
+		script.fire_skill(holy_light_scene, global_position, get_tree())
 
-func _build_holylight_data() -> Dictionary:
-	var damage_multiplier = PC.main_skill_holylight_damage # Base 0.7
-	var range_scale = PC.holylight_range_scale # Base 1.0
-	var duration = PC.holylight_duration # Base 3.0
-	var heal_base = PC.holylight_heal_base # Base 1
-	var heal_ratio = PC.holylight_heal_ratio # Base 1%
-	var center_extra_damage = PC.holylight_center_extra_damage # Base 0
-	var dot_damage_ratio = PC.holylight_dot_damage # Base 0
-	
-	# HolyLight1: 辉光
-	if PC.selected_rewards.has("HolyLight1"):
-		range_scale *= 1.35
-		
-	# HolyLight2: 炫光
-	if PC.selected_rewards.has("HolyLight2"):
-		range_scale *= 1.15
-		center_extra_damage += 1.0
-		
-	# HolyLight3: 愈光
-	if PC.selected_rewards.has("HolyLight3"):
-		heal_base = 2
-		heal_ratio = 0.015
-		
-	# HolyLight4: 耀光
-	if PC.selected_rewards.has("HolyLight4"):
-		duration += 1.0
-		dot_damage_ratio = 0.2
-		
-	# HolyLight11: 辉光-炫光
-	if PC.selected_rewards.has("HolyLight11"):
-		range_scale *= 1.25
-		center_extra_damage = 2.0
-		
-	# HolyLight22: 愈光-耀光
-	if PC.selected_rewards.has("HolyLight22"):
-		duration += 1.0
-		heal_ratio = 0.02
-		
-	# HolyLight33: 炫光-耀光
-	if PC.selected_rewards.has("HolyLight33"):
-		dot_damage_ratio = 0.4
-		
-	var damage = PC.pc_atk * damage_multiplier
-	var dot_damage = PC.pc_atk * dot_damage_ratio
-	
-	# 估算半径用于索敌 (假设基础半径100)
-	var radius = 100.0 * range_scale
-	
-	return {
-		"damage": damage,
-		"range_scale": range_scale,
-		"duration": duration,
-		"heal_base": heal_base,
-		"heal_ratio": heal_ratio,
-		"center_extra_damage": center_extra_damage,
-		"dot_damage": dot_damage,
-		"radius": radius
-	}
 
-func find_densest_enemy_position(radius: float) -> Vector2:
-	var enemies = get_tree().get_nodes_in_group("monster")
-	if enemies.is_empty():
-		# 没有敌人时，随机位置（或角色前方）
-		var angle = randf() * TAU
-		var dist = randf_range(100, 300)
-		return global_position + Vector2(cos(angle), sin(angle)) * dist
-		
-	# 采样
-	var candidates = []
-	var sample_count = min(enemies.size(), 15) # 最多采样15个
-	
-	if enemies.size() <= sample_count:
-		candidates = enemies
-	else:
-		# 随机采样
-		var indices = range(enemies.size())
-		indices.shuffle()
-		for i in range(sample_count):
-			candidates.append(enemies[indices[i]])
-	
-	var best_pos = Vector2.ZERO
-	var max_count = -1
-	
-	for center_enemy in candidates:
-		if not is_instance_valid(center_enemy):
-			continue
-			
-		var center_pos = center_enemy.global_position
-		var count = 0
-		
-		# 统计范围内的敌人数量
-		for enemy in enemies:
-			if not is_instance_valid(enemy):
-				continue
-			if center_pos.distance_to(enemy.global_position) <= radius:
-				count += 1
-		
-		if count > max_count:
-			max_count = count
-			best_pos = center_pos
-			
-	# 如果没有找到任何（max_count = -1），说明没有有效敌人
-	if max_count == -1:
-		return global_position
-		
-	return best_pos
 
-func _build_ice_flower_data() -> Dictionary:
-	# 基础属性
-	var damage_multiplier = PC.main_skill_ice_damage
-	var small_damage_ratio = PC.ice_flower_small_damage_ratio
-	var spread_angle = PC.ice_flower_spread_angle
-	var small_count = PC.ice_flower_extra_small_count
-	var penetration_count = PC.ice_flower_penetration_count
-	var pierce_decay = PC.ice_flower_pierce_decay
-	var base_scale = PC.ice_flower_base_scale
-	var small_scale_ratio = PC.ice_flower_small_scale_ratio
-	
-	# 根据升级修正属性
-	if PC.selected_rewards.has("Ice1"):
-		damage_multiplier += 0.3
-		spread_angle += 79.0
-		small_count += 5
-	
-	if PC.selected_rewards.has("Ice2"):
-		damage_multiplier += 0.3
-		small_damage_ratio = 0.75 # 提升至75%
-		
-	if PC.selected_rewards.has("Ice3"):
-		damage_multiplier += 0.2
-		small_count += 8
-		
-	if PC.selected_rewards.has("Ice4"):
-		damage_multiplier += 0.2
-		penetration_count += 1
-		pierce_decay = 0.4 # 衰减40%
-		
-	if PC.selected_rewards.has("Ice5"):
-		damage_multiplier += 0.4
-		base_scale += 0.3
-		small_scale_ratio += 0.1
-		
-	if PC.selected_rewards.has("Ice11"):
-		damage_multiplier += 0.2
-		spread_angle += 79.0
-		small_count += 8
-		
-	if PC.selected_rewards.has("Ice22"):
-		damage_multiplier += 0.2
-		small_damage_ratio = 1.0 # 等同于冰刺术伤害
-		
-	if PC.selected_rewards.has("Ice33"):
-		damage_multiplier += 0.3
-		small_damage_ratio = 1.0
-		pierce_decay = max(0.0, pierce_decay - 0.05) # 每次伤害衰减降低5% (这里假设是在原有衰减基础上降低，或者设置一个新的衰减值)
-		# 描述是“每次伤害衰减降低5%”，如果之前是40%衰减，现在是35%？
-		# 假设基础衰减是0，如果有Ice4变成0.4。这里如果有了Ice4和Ice33，就是0.35。
-		if penetration_count > 0:
-			pierce_decay = max(0.0, pierce_decay - 0.05)
-		
-	if PC.selected_rewards.has("Ice44"):
-		damage_multiplier += 0.7
-		spread_angle += 79.0
-		base_scale += 0.2
-		small_count += 5
-		
-	if PC.selected_rewards.has("Ice55"):
-		damage_multiplier += 0.6
-		penetration_count += 2 # 可以穿透2次，是在原有基础上增加？描述是“冰刺术和小冰刺术可以穿透2次”
-		# 假设是设置为2次，或者增加2次。如果有了Ice4 (1次) 和 Ice55 (2次)，应该是取最大或者叠加？
-		# 通常这种描述是“增加穿透次数”或者“穿透次数变为X”。这里假设是叠加。
-		# 但描述是“可以穿透2次”，可能意味着总共2次（如果之前没有）。如果之前有1次，变成3次？
-		# 结合语境，可能是总共2次，或者+2次。为了稳妥，假设是+2次或者设置为max(current, 2)。
-		# 这里我选择 += 2，因为通常高级技能是叠加的。
-		# 但描述是“可以穿透2次”，看起来像是一个定值设定。不过为了兼容Ice4，我假设是累加。
-		# 修正：Ice55描述是“冰刺术和小冰刺术可以穿透2次”，Ice4是“穿透1次”。如果同时拥有，应该是3次？
-		# 或者Ice55覆盖Ice4。考虑到这是 roguelike，通常是叠加。
-		# 但如果是“穿透2次”，也可能是指设定值为2。
-		# 让我们假设是叠加：penetration_count += 2
-		# 另外“穿透的伤害衰减降低5%”
-		pierce_decay = max(0.0, pierce_decay - 0.05)
 
-	# 伤害强化卡已在 setting_level_up.gd 中直接增加 damage_multiplier
-	# 移除此处的判断逻辑
-
-	var final_damage = PC.pc_atk * damage_multiplier
-	
-	return {
-		"damage": final_damage,
-		"range": PC.ice_flower_range,
-		"spread_angle": spread_angle,
-		"small_count": small_count,
-		"penetration_count": penetration_count,
-		"pierce_decay": pierce_decay,
-		"base_scale": base_scale,
-		"small_damage_ratio": small_damage_ratio,
-		"small_scale_ratio": small_scale_ratio
-	}
 
 func _on_fire_detail_thunder_break() -> void:
 	if not thunder_break_scene:
@@ -1427,32 +1217,7 @@ func _build_thunder_data() -> Dictionary:
 		"shot_damage_multiplier": shot_damage_multiplier
 	}
 
-func _build_bloodwave_data() -> Dictionary:
-	var base_damage = PC.pc_atk * PC.main_skill_bloodwave_damage
-	var base_range = PC.bloodwave_range
-	var missing_hp_ratio = 0.0
-	if PC.pc_max_hp > 0:
-		missing_hp_ratio = float(PC.pc_max_hp - PC.pc_hp) / float(PC.pc_max_hp)
-	
-	var damage_bonus_ratio = missing_hp_ratio * PC.bloodwave_missing_hp_damage_bonus
-	var range_bonus_ratio = missing_hp_ratio * PC.bloodwave_missing_hp_range_bonus
-	
-	if PC.pc_max_hp > 0:
-		var hp_ratio = float(PC.pc_hp) / float(PC.pc_max_hp)
-		if hp_ratio < 0.5:
-			damage_bonus_ratio += PC.bloodwave_low_hp_damage_bonus
-			range_bonus_ratio += PC.bloodwave_low_hp_range_bonus
-	
-	var final_damage = base_damage * (1.0 + damage_bonus_ratio)
-	var final_range = base_range * (1.0 + range_bonus_ratio)
-	
-	return {
-		"damage": final_damage,
-		"range": final_range,
-		"apply_bleed": PC.bloodwave_apply_bleed,
-		"extra_crit_chance": PC.bloodwave_extra_crit_chance,
-		"extra_crit_damage": PC.bloodwave_extra_crit_damage
-	}
+
 
 func find_nearest_enemies_for_thunder(from_position: Vector2, max_range: float, count: int) -> Array[Node2D]:
 	var candidates: Array[Dictionary] = []
@@ -1575,6 +1340,12 @@ func stop_invincible() -> void:
 	sprite.modulate = Color(1, 1, 1)
 	PC.invincible = false
 
+func heal(amount: int) -> void:
+	var new_hp = PC.pc_hp + amount
+	if new_hp > PC.pc_max_hp:
+		new_hp = PC.pc_max_hp
+	PC.pc_hp = new_hp
+
 func get_last_move_time() -> float:
 	return last_move_time
 
@@ -1660,10 +1431,10 @@ func update_chenjing_visual():
 		chenjing_effect.visible = false
 
 func _get_bloodwave_move_speed_bonus() -> float:
-	if PC.bloodwave_bleed_move_speed_bonus <= 0.0:
+	if BloodWave.bloodwave_bleed_move_speed_bonus <= 0.0:
 		return 0.0
 	var bleeding_count = _get_bleeding_enemy_count()
-	return float(bleeding_count) * PC.bloodwave_bleed_move_speed_bonus
+	return float(bleeding_count) * BloodWave.bloodwave_bleed_move_speed_bonus
 
 func _get_bleeding_enemy_count() -> int:
 	var enemies = get_tree().get_nodes_in_group("enemies")
@@ -1766,7 +1537,7 @@ func update_skill_attack_speeds() -> void:
 	update_timer_preserve_ratio(xuanwu_fire_speed, 4 / total_speed_multiplier)
 
 	# 巽风诀 (基础0.6秒/次)
-	update_timer_preserve_ratio(xunfeng_fire_speed, PC.xunfeng_cooldown / total_speed_multiplier)
+	update_timer_preserve_ratio(xunfeng_fire_speed, 0.6 / total_speed_multiplier)
 
 	# 艮山诀 (基础3.5秒/次)
 	update_timer_preserve_ratio(genshan_fire_speed, 3.5 / total_speed_multiplier)
@@ -1774,12 +1545,18 @@ func update_skill_attack_speeds() -> void:
 	# 兑泽诀 (基础4.0秒/次)
 	update_timer_preserve_ratio(duize_fire_speed, 4.0 / total_speed_multiplier)
 
+	# 圣光术 (基础3.2秒/次)
+	update_timer_preserve_ratio(holy_light_fire_speed, 3.2 / total_speed_multiplier)
+
+	# 气功波
+	update_timer_preserve_ratio(qigong_fire_speed, 1.5 / total_speed_multiplier)
+
 func _on_fire_xunfeng(skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
 		return
-	if not PC.has_xunfeng:
+	if not PC.selected_rewards.has("Xunfeng"):
 		return
 	_on_fire_detail_xunfeng()
 
@@ -1796,7 +1573,7 @@ func _on_fire_genshan(skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if not PC.has_genshan:
+	if not PC.selected_rewards.has("Genshan"):
 		return
 	_on_fire_detail_genshan()
 
@@ -1881,29 +1658,75 @@ func _on_fire_xuanwu(skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if not PC.has_xuanwu:
+	if not PC.selected_rewards.has("Xuanwu"):
+		return
+	_on_fire_detail_xuanwu()
+
+func _on_fire_detail_xuanwu() -> void:
+	if not xuanwu_scene:
 		return
 		
-	var enemies = get_tree().get_nodes_in_group("enemies")
-	var target = null
-	var min_dist = INF
-	
-	for enemy in enemies:
-		if is_instance_valid(enemy):
-			var dist = global_position.distance_to(enemy.global_position)
-			if dist < min_dist:
-				min_dist = dist
-				target = enemy
-	
-	var target_pos = Vector2.ZERO
-	if target:
-		target_pos = target.global_position
+	var script = load("res://Script/skill/xuanwu.gd")
+	if script:
+		script.fire_skill(xuanwu_scene, global_position, get_tree())
+
+func _on_fire_qigong(skill_id: int = 19) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	if not PC.selected_rewards.has("qigong"):
+		return
+	_on_fire_detail_qigong()
+
+func _on_fire_detail_qigong() -> void:
+	if not qigong_scene:
+		return
+		
+	Qigong.sync_reward_modifiers()
+		
+	var base_direction = Vector2.RIGHT
+	var nearest_enemy = find_nearest_enemy()
+	if nearest_enemy:
+		base_direction = (nearest_enemy.position - position).normalized()
 	else:
-		if sprite_direction_right:
-			target_pos = global_position + Vector2(100, 0)
+		if not sprite_direction_right:
+			base_direction = Vector2.LEFT
 		else:
-			target_pos = global_position + Vector2(-100, 0)
+			base_direction = Vector2.RIGHT
 			
-	var instance = xuanwu_scene.instantiate()
-	get_tree().current_scene.add_child(instance)
-	instance.setup(global_position, target_pos)
+	var other_weapon_count = 0
+	if PC.selected_rewards.has("Qigong5") or PC.selected_rewards.has("Qigong11"):
+		other_weapon_count = PC.now_main_skill_num - 1
+	Qigong.qigong_chakra_count = other_weapon_count
+			
+	# 计算连发
+	var double_hit = false
+	var triple_hit = false
+	if Qigong.qigong_double_hit_chance > 0 and randf() < Qigong.qigong_double_hit_chance:
+		double_hit = true
+		if Qigong.qigong_triple_hit_chance > 0 and randf() < Qigong.qigong_triple_hit_chance:
+			triple_hit = true
+			
+	var damage_multipliers: Array[float] = []
+	damage_multipliers.append(1.0)
+	if double_hit:
+		damage_multipliers.append(Qigong.qigong_double_hit_damage_multiplier)
+		if triple_hit:
+			damage_multipliers.append(Qigong.qigong_triple_hit_damage_multiplier)
+		
+	# 发射逻辑
+	for i in range(damage_multipliers.size()):
+		if not is_instance_valid(self) or PC.is_game_over:
+			break
+			
+		_spawn_qigong(base_direction, Vector2.ZERO, damage_multipliers[i])
+		
+		if i < damage_multipliers.size() - 1:
+			await get_tree().create_timer(0.1).timeout
+
+func _spawn_qigong(direction: Vector2, offset: Vector2 = Vector2.ZERO, damage_multiplier: float = 1.0) -> void:
+	var qigong_instance = qigong_scene.instantiate()
+	get_tree().current_scene.add_child(qigong_instance)
+	# setup(start_pos: Vector2, direction: Vector2, base_damage: int, damage_multiplier: float = 1.0)
+	qigong_instance.setup(global_position + offset, direction, PC.pc_atk, damage_multiplier)

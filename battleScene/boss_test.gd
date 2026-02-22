@@ -24,6 +24,7 @@ var pending_level_ups: int = 0
 # 主要是第一个场景的基本ui和出怪逻辑，包含了升级逻辑
 func _ready() -> void:
 	PC.player_instance = $Player
+	GU.reset_kill_count()
 	Global.connect("player_lv_up", Callable(self, "_on_level_up"))
 	Global.connect("level_up_selection_complete", Callable(self, "_check_and_process_pending_level_ups"))
 	var boss_node = boss_scene.instantiate()
