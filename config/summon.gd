@@ -3,15 +3,16 @@ extends Area2D
 # 召唤物类型枚举
 enum SummonType {
 	BLUE_RANDOM,     # 蓝色：随机方向射击
-	darkorchid_DIRECTED, # 紫色：定向射击（角色上下30px）
+	DARK_DIRECTED, # 紫色：定向射击（角色上下30px）
 	ORANGE_TRACKING, # 橙色：追踪射击
 	GOLD_ENHANCED,    # 金色：强化追踪射击
-	HEAL_darkorchid, # 治疗-紫色
+	HEAL_DARK, # 治疗-紫色
 	HEAL_GOLD, # 治疗-金色
 	HEAL_RED, # 治疗-红色
-	AUX_darkorchid, # 辅助-紫色
+	AUX_DARK, # 辅助-紫色
 	AUX_GOLD, # 辅助-金色
-	AUX_RED # 辅助-红色
+	AUX_RED, # 辅助-红色
+	SWORD_SPIRIT
 }
 
 @export var summon_type: SummonType
@@ -53,7 +54,7 @@ func setup_appearance() -> void:
 	match summon_type:
 		SummonType.BLUE_RANDOM:
 			sprite.modulate = Color.BLUE
-		SummonType.darkorchid_DIRECTED:
+		SummonType.DARK_DIRECTED:
 			sprite.modulate = Color.MEDIUM_PURPLE
 			#sprite.scale = Vector2(1.1, 1.1)
 		SummonType.ORANGE_TRACKING:
@@ -62,12 +63,14 @@ func setup_appearance() -> void:
 		SummonType.GOLD_ENHANCED:
 			sprite.modulate = Color.GOLD
 			#sprite.scale = Vector2(1.3, 1.3)
-		SummonType.HEAL_darkorchid, SummonType.AUX_darkorchid:
+		SummonType.HEAL_DARK, SummonType.AUX_DARK:
 			sprite.modulate = Color.MEDIUM_PURPLE
 		SummonType.HEAL_GOLD, SummonType.AUX_GOLD:
 			sprite.modulate = Color.GOLD
 		SummonType.HEAL_RED, SummonType.AUX_RED:
 			sprite.modulate = Color.RED
+		SummonType.SWORD_SPIRIT:
+			sprite.modulate = Color.CYAN
 
 func _process(delta: float) -> void:
 	move_timer += delta
@@ -99,24 +102,26 @@ func _on_fire_timer_timeout() -> void:
 	match summon_type:
 		SummonType.BLUE_RANDOM:
 			fire_random_bullet()
-		SummonType.darkorchid_DIRECTED:
+		SummonType.DARK_DIRECTED:
 			fire_directed_bullets()
 		SummonType.ORANGE_TRACKING:
 			fire_tracking_bullet()
 		SummonType.GOLD_ENHANCED:
 			fire_enhanced_tracking_bullets()
-		SummonType.HEAL_darkorchid:
+		SummonType.HEAL_DARK:
 			fire_heal_bullet(Color.DARK_ORCHID)
 		SummonType.HEAL_GOLD:
 			fire_heal_bullet(Color.GOLD)
 		SummonType.HEAL_RED:
 			fire_heal_bullet(Color.RED)
-		SummonType.AUX_darkorchid:
+		SummonType.AUX_DARK:
 			fire_aux_bullet(Color.DARK_ORCHID)
 		SummonType.AUX_GOLD:
 			fire_aux_bullet(Color.GOLD)
 		SummonType.AUX_RED:
 			fire_aux_bullet(Color.RED)
+		SummonType.SWORD_SPIRIT:
+			fire_sword_spirit_bullet()
 
 func fire_random_bullet() -> void:
 	# 蓝色召唤物：向左侧或右侧30度发射
@@ -169,6 +174,12 @@ func fire_enhanced_tracking_bullets() -> void:
 		create_bullet(direction1, 0.45, 1.5)
 		create_bullet(direction2, 0.45, 1.5)
 
+func fire_sword_spirit_bullet() -> void:
+	var target_enemy = find_nearest_enemy()
+	if target_enemy:
+		var direction = (target_enemy.position - position).normalized()
+		create_sword_spirit_bullet(direction)
+
 func find_nearest_enemy() -> Node2D:
 	# 寻找最近的敌人
 	var nearest_enemy = null
@@ -195,6 +206,9 @@ func fire_heal_bullet(color: Color) -> void:
 	# 上限处理，确保生命值不超过最大生命值
 	if PC.pc_hp > PC.pc_max_hp:
 		PC.pc_hp = PC.pc_max_hp
+	
+	if player_node:
+		Global.emit_signal("player_heal", heal_amount, player_node.global_position)
 
 # 辅助型召唤：主要提供持续增益，定时器触发时无需额外行为
 func fire_aux_bullet(color: Color) -> void:
@@ -236,6 +250,30 @@ func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1
 	# 添加到场景
 	get_tree().current_scene.add_child(bullet)
 
+func create_sword_spirit_bullet(direction: Vector2) -> void:
+	if PC.is_game_over:
+		return
+	if not bullet_scene:
+		bullet_scene = load("res://Scenes/bullet.tscn")
+	var bullet = bullet_scene.instantiate()
+	bullet.if_summon = true
+	bullet.is_summon_bullet = true
+	bullet.penetration_count = 9999
+	bullet.bullet_range = 3000.0
+	bullet.position = position
+	bullet.direction = direction
+	bullet.rotation = direction.angle()
+	var final_damage = PC.pc_atk * damage_multiplier * (1.0 + PC.summon_damage_multiplier)
+	print("最终伤害为，倍率为，召唤倍率为", final_damage, damage_multiplier, PC.summon_damage_multiplier)
+	bullet.summon_damage = final_damage
+	var bullet_size = PC.bullet_size * PC.summon_bullet_size_multiplier
+	bullet.set_bullet_scale(Vector2(bullet_size, bullet_size))
+	if bullet.has_method("set_speed"):
+		bullet.set_speed(bullet.bullet_speed * bullet_speed_multiplier)
+	elif "bullet_speed" in bullet:
+		bullet.bullet_speed *= bullet_speed_multiplier
+	get_tree().current_scene.add_child(bullet)
+
 
 # 更新发射间隔（当玩家获得相关升级时调用）
 func update_fire_interval() -> void:
@@ -275,7 +313,7 @@ func set_summon_type(type: SummonType) -> void:
 			damage_multiplier = 0.36
 			fire_interval = 0.85
 			bullets_per_shot = 1
-		SummonType.darkorchid_DIRECTED:
+		SummonType.DARK_DIRECTED:
 			damage_multiplier = 0.2
 			fire_interval = 0.8
 			bullets_per_shot = 2
@@ -290,7 +328,7 @@ func set_summon_type(type: SummonType) -> void:
 			bullets_per_shot = 2
 			bullet_speed_multiplier = 2.0
 		# --- 治疗类 ---
-		SummonType.HEAL_darkorchid:
+		SummonType.HEAL_DARK:
 			heal_ratio = 0.015
 			fire_interval = 4.0
 		SummonType.HEAL_GOLD:
@@ -302,7 +340,7 @@ func set_summon_type(type: SummonType) -> void:
 			applied_damage_reduction_bonus = 0.05
 			PC.damage_reduction_rate = min(PC.damage_reduction_rate + applied_damage_reduction_bonus, 0.9)
 		# --- 辅助类（提供攻击与移速，并增强其他召唤物伤害/治疗） ---
-		SummonType.AUX_darkorchid:
+		SummonType.AUX_DARK:
 			# SR22 谐灵：+5%攻击力与移速；其他召唤物提升10%
 			applied_speed_bonus = 0.05
 			PC.pc_speed += applied_speed_bonus
@@ -330,6 +368,11 @@ func set_summon_type(type: SummonType) -> void:
 			applied_summon_enhance_bonus = 0.20
 			PC.summon_damage_multiplier += applied_summon_enhance_bonus
 			fire_interval = 1.5
+		SummonType.SWORD_SPIRIT:
+			damage_multiplier = 2.0
+			fire_interval = 1.3
+			bullets_per_shot = 1
+			bullet_speed_multiplier = 1.0
 	
 	# 更新定时器
 	if fire_timer:

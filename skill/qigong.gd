@@ -13,17 +13,17 @@ static var qigong_speed: float = 300.0 # 飞行速度
 static var qigong_range: float = 150.0 # 射程（飞行距离）
 static var qigong_explore_range_scale: float = 1.0 # 爆炸范围缩放
 static var qigong_knockback: float = 0.0 # 击退力度
-static var qigong_shock_damage: float = 0.0 # 感电伤害倍率 (0表示无感电)
-static var qigong_shock_chance: float = 0.0 # 感电概率
+static var qigong_electrified_damage: float = 0.0 # 感电伤害倍率 (0表示无感电)
+static var qigong_electrified_chance: float = 0.0 # 感电概率
 static var qigong_double_hit_chance: float = 0.0 # 连发概率
 static var qigong_triple_hit_chance: float = 0.0 # 三连发概率
 static var qigong_double_hit_damage_multiplier: float = 0.7 # 第二发伤害倍率
 static var qigong_triple_hit_damage_multiplier: float = 0.56 # 第三发伤害倍率
 static var qigong_chakra_count: int = 0 # 脉轮数量（其他武器数量）
-static var qigong_shock_bonus_damage: float = 0.0 # 对感电目标的额外伤害倍率
+static var qigong_electrified_bonus_damage: float = 0.0 # 对感电目标的额外伤害倍率
 static var qigong_distance_bonus: bool = false # 是否启用距离伤害加成
 static var qigong_size_scale: float = 1.0 # 弹体大小缩放
-static var qigong_shock_splash_damage_ratio: float = 0.0 # 感电目标溅射伤害倍率
+static var qigong_electrified_splash_damage_ratio: float = 0.0 # 感电目标溅射伤害倍率
 
 var velocity: Vector2 = Vector2.ZERO
 var traveled_distance: float = 0.0
@@ -64,7 +64,7 @@ func setup(start_pos: Vector2, direction: Vector2, base_damage: int, damage_mult
 		chakra_size_bonus = qigong_chakra_count * Qigong.per_chakra_size_rate
 	
 	var final_damage_scale = main_skill_qigong_damage + chakra_dmg_bonus
-	damage = int(base_damage * final_damage_scale * damage_multiplier)
+	damage = int(base_damage * final_damage_scale * damage_multiplier * Faze.get_wind_weapon_damage_multiplier(PC.faze_wind_level))
 	
 	# 应用射程加成 (修改实例变量，不修改静态变量)
 	# 注意：qigong_range是静态的，我们在process里用。
@@ -80,7 +80,7 @@ static var per_chakra_damage_rate: float = 0.2
 static var per_chakra_range_rate: float = 0.1
 static var per_chakra_size_rate: float = 0.1
 static var per_chakra_splash_range_rate: float = 0.0
-static var qigong_shock_splash_range_bonus: bool = false # 是否启用感电目标溅射范围加成
+static var qigong_electrified_splash_range_bonus: bool = false # 是否启用感电目标溅射范围加成
 
 static func sync_reward_modifiers() -> void:
 	# 根据已选择的奖励同步气功波属性
@@ -88,27 +88,27 @@ static func sync_reward_modifiers() -> void:
 	qigong_splash_damage_ratio = 0.3
 	qigong_explore_range_scale = 1.0
 	qigong_knockback = 0.0
-	qigong_shock_chance = 0.0
+	qigong_electrified_chance = 0.0
 	qigong_double_hit_chance = 0.0
 	qigong_triple_hit_chance = 0.0
 	qigong_double_hit_damage_multiplier = 0.7
 	qigong_triple_hit_damage_multiplier = 0.56
 	qigong_chakra_count = 0
-	qigong_shock_bonus_damage = 0.0
+	qigong_electrified_bonus_damage = 0.0
 	qigong_distance_bonus = false
 	qigong_size_scale = 1.0
-	qigong_shock_splash_damage_ratio = 0.0
+	qigong_electrified_splash_damage_ratio = 0.0
 	per_chakra_damage_rate = 0.2
 	per_chakra_range_rate = 0.1
 	per_chakra_size_rate = 0.1
 	per_chakra_splash_range_rate = 0.0
-	qigong_shock_splash_range_bonus = false
+	qigong_electrified_splash_range_bonus = false
 	
 	var total_damage_bonus = 0.0
 		
 	if PC.selected_rewards.has("Qigong1"):
 		total_damage_bonus += 0.3
-		qigong_shock_chance = 1.0
+		qigong_electrified_chance = 1.0
 		
 	if PC.selected_rewards.has("Qigong2"):
 		total_damage_bonus += 0.7
@@ -129,7 +129,7 @@ static func sync_reward_modifiers() -> void:
 	var has_qigong11 = PC.selected_rewards.has("Qigong11")
 	if has_qigong5 or has_qigong11:
 		total_damage_bonus += 0.5
-		qigong_chakra_count = PC.now_main_skill_num - 1
+		qigong_chakra_count = PC.current_weapon_num - 1
 		per_chakra_damage_rate = 0.2
 		per_chakra_range_rate = 0.1
 		per_chakra_size_rate = 0.1
@@ -141,7 +141,7 @@ static func sync_reward_modifiers() -> void:
 		
 	if PC.selected_rewards.has("Qigong22"):
 		total_damage_bonus += 0.5
-		qigong_shock_bonus_damage = 0.8
+		qigong_electrified_bonus_damage = 0.8
 		
 	if PC.selected_rewards.has("Qigong33"):
 		total_damage_bonus += 0.7
@@ -150,8 +150,8 @@ static func sync_reward_modifiers() -> void:
 		
 	if PC.selected_rewards.has("Qigong44"):
 		total_damage_bonus += 0.5
-		qigong_shock_splash_range_bonus = true
-		qigong_shock_splash_damage_ratio = 0.5
+		qigong_electrified_splash_range_bonus = true
+		qigong_electrified_splash_damage_ratio = 0.5
 		
 	if PC.selected_rewards.has("Qigong55"):
 		total_damage_bonus += 0.6
@@ -188,10 +188,10 @@ func _trigger_explosion(direct_hit_target: Area2D) -> void:
 		collision.set_deferred("disabled", true)
 		
 	# 对直接命中的目标造成伤害
-	var hit_target_shocked = false
+	var hit_target_electrified = false
 	if direct_hit_target and is_instance_valid(direct_hit_target) and direct_hit_target.has_method("take_damage"):
-		if direct_hit_target.get("debuff_manager") and direct_hit_target.debuff_manager.has_debuff("shock"):
-			hit_target_shocked = true
+		if direct_hit_target.get("debuff_manager") and direct_hit_target.debuff_manager.has_debuff("electrified"):
+			hit_target_electrified = true
 		_apply_damage(direct_hit_target, damage, true)
 		
 		# 击退效果
@@ -213,7 +213,7 @@ func _trigger_explosion(direct_hit_target: Area2D) -> void:
 			current_explore_scale = current_explore_scale * chakra_splash_bonus
 		
 		# Qigong44: 击中感电目标，溅射范围+30%
-		if qigong_shock_splash_range_bonus and hit_target_shocked:
+		if qigong_electrified_splash_range_bonus and hit_target_electrified:
 			current_explore_scale *= 1.3
 		
 		explore_sprite.scale = explore_sprite.scale * current_explore_scale
@@ -229,7 +229,7 @@ func _trigger_explosion(direct_hit_target: Area2D) -> void:
 			explore_collision.set_deferred("disabled", false)
 			
 			# 延迟一帧检测范围内的敌人
-			call_deferred("_check_splash_damage", direct_hit_target, hit_target_shocked, direct_hit_target.global_position)
+			call_deferred("_check_splash_damage", direct_hit_target, hit_target_electrified, direct_hit_target.global_position)
 			
 	else:
 		# 如果没有爆炸动画节点，直接销毁
@@ -238,15 +238,15 @@ func _trigger_explosion(direct_hit_target: Area2D) -> void:
 func _on_explosion_finished() -> void:
 	queue_free()
 
-func _check_splash_damage(exclude_target: Area2D, is_shock_target: bool, main_target_position: Vector2) -> void:
+func _check_splash_damage(exclude_target: Area2D, is_electrified_target: bool, main_target_position: Vector2) -> void:
 	# 等待物理帧刷新重叠信息
 	await get_tree().physics_frame
 	# 获取当前Area2D重叠的所有区域（此时explore_collision已启用）
 	var overlapping_areas = get_overlapping_areas()
 	
 	var current_splash_ratio = qigong_splash_damage_ratio
-	if is_shock_target and qigong_shock_splash_damage_ratio > 0:
-		current_splash_ratio = qigong_shock_splash_damage_ratio
+	if is_electrified_target and qigong_electrified_splash_damage_ratio > 0:
+		current_splash_ratio = qigong_electrified_splash_damage_ratio	
 	
 	var splash_damage = int(damage * current_splash_ratio)
 	
@@ -276,18 +276,21 @@ func _apply_damage(target: Area2D, dmg: int, is_direct_hit: bool) -> void:
 		
 		final_dmg = int(final_dmg * (1.0 + bonus_ratio))
 	
-	# Qigong22: 对感电目标造成额外80%伤害
-	if qigong_shock_bonus_damage > 0:
-		if target.get("debuff_manager") and target.debuff_manager.has_debuff("shock"):
-			final_dmg = int(final_dmg * (1.0 + qigong_shock_bonus_damage))
+	# Qigong44: 对感电目标造成额外80%伤害
+	if qigong_electrified_bonus_damage > 0:
+		if target.get("debuff_manager") and target.debuff_manager.has_debuff("electrified"):
+			final_dmg = int(final_dmg * (1.0 + qigong_electrified_bonus_damage))
 	
+	if target.is_in_group("elite") or target.is_in_group("boss"):
+		final_dmg = int(final_dmg * Faze.get_wind_elite_boss_multiplier(PC.faze_wind_level, PC.wind_huanfeng_stacks))
 	target.take_damage(final_dmg, false, false, "")
+	Faze.on_wind_weapon_hit()
 	
 	# Qigong1: 获得感电效果 (攻击有15%几率使敌人感电)
-	if qigong_shock_chance > 0:
-		if randf() < qigong_shock_chance:
+	if qigong_electrified_chance > 0:
+		if randf() < qigong_electrified_chance:	
 			if target.get("debuff_manager"):
-				target.debuff_manager.add_debuff("shock")
+				target.debuff_manager.add_debuff("electrified")
 
 func _get_knockback_force(distance_to_player: float) -> float:
 	if distance_to_player < 20:

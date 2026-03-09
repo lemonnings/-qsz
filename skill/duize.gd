@@ -85,10 +85,23 @@ static func _spawn_duize(scene: PackedScene, tree: SceneTree, target_pos: Vector
 	tree.current_scene.add_child(instance)
 	
 	var damage = PC.pc_atk * main_skill_duize_damage * duize_final_damage_multi
-	
-	instance.setup(target_pos, damage)
 
-func setup(pos: Vector2, p_damage: float) -> void:
+	# 应用八卦法则伤害加成
+	damage *= Faze.get_bagua_damage_multiplier()
+
+	# 应用广域法则加成
+	var weapon_range_bonus = (duize_range / 60.0) - 1.0
+	if weapon_range_bonus < 0: weapon_range_bonus = 0
+
+	var wide_damage_mult = Faze.get_wide_damage_multiplier(weapon_range_bonus)
+	damage *= wide_damage_mult
+
+	var wide_range_mult = Faze.get_wide_range_multiplier()
+	var final_range = duize_range * wide_range_mult
+
+	instance.setup(target_pos, damage, final_range)
+
+func setup(pos: Vector2, p_damage: float, p_range: float) -> void:
 	# 确保节点引用存在
 	if not sprite:
 		print("no sprite")
@@ -96,28 +109,27 @@ func setup(pos: Vector2, p_damage: float) -> void:
 	if not collision:
 		print("no collision")
 		collision = get_node_or_null("CollisionShape2D")
-		
+
 	global_position = pos
 	damage_per_sec = p_damage
 	slow_ratio = duize_slow_ratio
-	
+
 	# 升级效果参数初始化
 	if PC.selected_rewards.has("Duize2"):
 		damage_per_debuff_ratio = 0.3
 	if PC.selected_rewards.has("Duize33"):
 		damage_per_debuff_ratio = 0.7 # 覆盖 Duize2
-		
+
 	if PC.selected_rewards.has("Duize4"):
 		apply_corrosion = true
-		
+
 	# 范围缩放
 	# 默认 scale x1.0 y1.285
 	# 默认 collision x3.155 y1.645
 	# 基础范围 60. 现在的 range 已经是计算过加成的 duize_range
-	# 需要计算 scale_multiplier = duize_range / 60.0
-	# 初始兑泽的大小改为现在的3倍
-	var scale_multiplier = (duize_range / 60.0) * 3.0
-	
+	# 使用传入的 p_range 计算缩放
+	var scale_multiplier = (p_range / 60.0) * 3.0
+
 	var target_sprite_scale = Vector2(1.0, 1.285) * scale_multiplier
 	var target_collision_scale = Vector2(3.155, 1.645) * scale_multiplier
 	
@@ -232,7 +244,23 @@ func _deal_single_damage(enemy: Area2D) -> void:
 		final_damage *= PC.crit_damage_multi
 		
 	if enemy.has_method("take_damage"):
-		enemy.take_damage(int(final_damage), is_crit, false, "duize")
+		var damage_dealt = enemy.take_damage(int(final_damage), is_crit, false, "duize")
+		
+		# 八卦法则推衍度
+		# 击中+1，击杀+5（击杀由take_damage返回值判断？通常take_damage返回实际伤害，或者是否有击杀）
+		# 假设 take_damage 返回实际伤害，无法直接知道是否击杀。
+		# 我们需要监听敌人死亡信号，或者在 take_damage 中处理。
+		# 但这是技能脚本，最好在这里处理"击中"。
+		# "击杀"通常在 enemy.die() 中处理，或者通过全局信号。
+		# 这里我们处理"击中"。
+		
+		Faze.add_bagua_progress(1, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
+		
+		# 如果击杀检测比较困难，先只做击中。
+		# 但题目要求击杀+5。
+		# 可以在 take_damage 后检查 enemy.hp <= 0 ? 
+		if not is_instance_valid(enemy) or enemy.hp <= 0:
+			Faze.add_bagua_progress(5, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
 
 func _exit_tree() -> void:
 	# 销毁时，移除所有敌人的缓速效果

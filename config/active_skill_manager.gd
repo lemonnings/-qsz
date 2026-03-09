@@ -94,6 +94,42 @@ class RandomStrikeSkill extends ActiveSkill:
 				cd_reduction += 1.0
 		cooldown_time = max(5.0, base_cooldown_time - cd_reduction)
 
+# 趋桀变身技能数据
+class BeastifySkill extends ActiveSkill:
+	var base_duration: float = 11.0
+	var duration: float = 21.0
+	var base_buff_ratio: float = 0.2
+	var atk_bonus_ratio: float = 0.2
+	var atk_speed_bonus_ratio: float = 0.2
+	var move_bonus_ratio: float = 0.2
+	var base_claw_damage_ratio: float = 0.4
+	var claw_damage_ratio: float = 0.4
+	
+	func _init():
+		super ("beastify", "魔化·趋桀", "短时间提升属性并将剑气改为爪击", 40.0)
+		is_unlocked = true
+	
+	func update_from_level(level: int):
+		var claw_bonus = 0.0
+		for lv in [2, 5, 8, 11, 14]:
+			if level >= lv:
+				claw_bonus += 0.04
+		claw_damage_ratio = base_claw_damage_ratio + claw_bonus
+		
+		var attr_bonus = 0.0
+		for lv in [3, 6, 9, 12, 15]:
+			if level >= lv:
+				attr_bonus += 0.03
+		atk_bonus_ratio = base_buff_ratio + attr_bonus
+		atk_speed_bonus_ratio = base_buff_ratio + attr_bonus
+		move_bonus_ratio = base_buff_ratio + attr_bonus
+		
+		var extra_duration = 0.0
+		for lv in [4, 7, 10, 13]:
+			if level >= lv:
+				extra_duration += 1.0
+		duration = base_duration + extra_duration
+
 # 已掌握的技能列表
 var mastered_skills: Dictionary = {}
 
@@ -151,6 +187,13 @@ func init_skills():
 	var rs_level = Global.player_active_skill_data.get("random_strike", {}).get("level", 1)
 	random_strike_skill.update_from_level(rs_level)
 	mastered_skills["random_strike"] = random_strike_skill
+	
+	# 初始化趋桀变身
+	var beast_skill = BeastifySkill.new()
+	var b_level = Global.player_active_skill_data.get("beastify", {}).get("level", 1)
+	beast_skill.update_from_level(b_level)
+	mastered_skills["beastify"] = beast_skill
+	Global.player_now_active_skill["e"] = {"name": "beastify"}
 
 func refresh_skill_levels():
 	"""刷新技能等级（当技能升级时调用）"""
@@ -238,6 +281,8 @@ func execute_skill(skill: ActiveSkill):
 			execute_dodge_skill(skill as DodgeSkill)
 		"random_strike":
 			execute_random_strike_skill(skill as RandomStrikeSkill)
+		"beastify":
+			execute_beastify_skill(skill as BeastifySkill)
 		_:
 			push_error("未知技能: " + skill.id)
 
@@ -258,10 +303,6 @@ func execute_dodge_skill(dodge_skill: DodgeSkill):
 
 func execute_random_strike_skill(rs_skill: RandomStrikeSkill):
 	"""执行乱击技能 - 向随机方向射出剑气"""
-	if not player:
-		push_error("玩家节点未初始化")
-		return
-	
 	if random_strike_active:
 		return # 已经在执行中
 	
@@ -322,6 +363,23 @@ func _spawn_random_strike_bullet(direction: Vector2, damage_ratio: float):
 	
 	# 为乱击子弹添加金色滤镜
 	bullet.modulate = Color(1.0, 0.85, 0.4, 1.0) # 金色
+
+func execute_beastify_skill(skill: BeastifySkill) -> void:
+	if not player:
+		push_error("玩家节点未初始化")
+		return
+	var scene = get_tree().current_scene
+	if scene and scene is CanvasItem:
+		var t = create_tween()
+		t.tween_property(scene, "modulate", Color(1, 0, 0, 0.6), 0.35)
+		t.tween_property(scene, "modulate", Color(1, 1, 1, 1), 0.1)
+		t.tween_property(scene, "modulate", Color(1, 0, 0, 0.6), 0.1)
+		t.tween_property(scene, "modulate", Color(1, 1, 1, 1), 0.1)
+		t.tween_property(scene, "modulate", Color(1, 0, 0, 0.6), 0.1)
+		t.tween_property(scene, "modulate", Color(1, 1, 1, 1), 0.1)
+	await get_tree().create_timer(0.05).timeout
+	if is_instance_valid(player) and player.has_method("start_beastify"):
+		player.start_beastify(skill.duration, skill.atk_bonus_ratio, skill.atk_speed_bonus_ratio, skill.move_bonus_ratio, skill.claw_damage_ratio)
 
 func get_dash_direction() -> Vector2:
 	"""获取冲刺方向"""

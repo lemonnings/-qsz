@@ -5,9 +5,6 @@ const CONFIG_PATH = "user://game_config.cfg"
 # 合成界面状态 - 用于禁用缩放等操作
 var in_synthesis: bool = false
 
-# Buff配置管理器
-var SettingBuff = preload("res://Script/config/setting_buff.gd").new()
-
 # 纹章配置管理器
 var SettingEmblem = preload("res://Script/config/setting_emblem.gd").new()
 
@@ -44,6 +41,7 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 @export var active_skill_multi: float = 0
 
 @export var max_main_skill_num: int = 3
+@export var max_weapon_num: int = 5
 
 # 纹章相关字段
 @export var emblem_slots_max: int = 4 # 纹章数量上限
@@ -55,7 +53,7 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 # lunky概率
 @export var lunky_level: int = 1
 @export var red_p: float = 3.5
-@export var gold_p: float = 10
+@export var gold_p: float = 50
 @export var darkorchid_p: float = 18
 @export var blue_p: float = 25
 @export var green_p: float = 30
@@ -111,6 +109,10 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 	"random_strike": {
 		"level": 1, # 习得等级；乱击：等级1，向随机方向每0.1秒射出1发剑气，造成50%攻击的伤害，共10发，冷却20秒；等级2,5,8,11,14，伤害比率+5%；等级3，6，9，12，15，射出子弹+1，等级4，7，10，13，冷却时间-1秒秒
 		"learned": [] # 特殊效果
+	},
+	"beastify": {
+		"level": 1,
+		"learned": []
 	}
 }
 
@@ -123,7 +125,7 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 		"name": "random_strike"
 	},
 	"e": {
-		"name": ""
+		"name": "beastify"
 	}
 }
 
@@ -147,6 +149,8 @@ signal lucky_level_up
 signal setup_summons
 signal level_up_selection_complete
 signal monster_damage
+signal player_heal(heal_value, world_position)
+signal player_take_damage(damage_val, shield_val, world_position)
 signal monster_mechanism_gained
 signal monster_killed
 signal boss_defeated
@@ -200,6 +204,7 @@ signal skill_cooldown_complete_genshan
 signal skill_cooldown_complete_duize
 signal skill_cooldown_complete_holylight(skill_id)
 signal skill_cooldown_complete_qigong(skill_id)
+signal skill_cooldown_complete_dragonwind(skill_id)
 
 
 # 其他攻击方式相关
@@ -238,10 +243,9 @@ var dps_timer: Timer # DPS计算定时器
 
 
 func _ready() -> void:
-	Global.monster_damage.connect(_on_monster_damage)
-	
-	# 初始化buff配置管理器
-	add_child(SettingBuff)
+	monster_damage.connect(_on_monster_damage)
+	player_heal.connect(_on_player_heal)
+	player_take_damage.connect(_on_player_take_damage)
 	
 	# 初始化纹章配置管理器
 	add_child(SettingEmblem)
@@ -326,6 +330,7 @@ func save_game() -> void:
 		"green_p": green_p,
 		"player_inventory": player_inventory,
 		"max_main_skill_num": max_main_skill_num,
+		"max_weapon_num": max_weapon_num,
 		"refresh_max_num": refresh_max_num,
 		"recipe_unlock_progress": recipe_unlock_progress,
 		"cultivation_unlock_progress": cultivation_unlock_progress,
@@ -404,6 +409,7 @@ func load_game() -> void:
 	green_p = config.get_value("save", "green_p", green_p)
 	player_inventory = config.get_value("save", "player_inventory", player_inventory)
 	max_main_skill_num = config.get_value("save", "max_main_skill_num", max_main_skill_num)
+	max_weapon_num = config.get_value("save", "max_weapon_num", max_weapon_num)
 	refresh_max_num = config.get_value("save", "refresh_max_num", refresh_max_num)
 	recipe_unlock_progress = config.get_value("save", "recipe_unlock_progress", recipe_unlock_progress)
 	cultivation_unlock_progress = config.get_value("save", "cultivation_unlock_progress", cultivation_unlock_progress)
@@ -456,6 +462,9 @@ func load_game() -> void:
 	
 var hit_scene = null
 
+signal player_healed(amount: float)
+signal player_shield_damaged(amount: float)
+
 func play_hit_anime(position: Vector2, is_crit: bool = false, anime: int = 1):
 	if anime == 0:
 		return
@@ -489,10 +498,38 @@ func _on_monster_damage(damage_type_int: int, damage_value: float, world_positio
 	add_child(damage_label_instance)
 	damage_label_instance.z_index = 100
 	damage_label_instance.show_damage_number(damage_type_int, damage_value, world_position)
-	damage_label_instance.global_position = world_position
 	
 	# 记录伤害到DPS计数器
 	record_damage_for_dps(damage_value)
+
+func _on_player_heal(heal_value: float, world_position: Vector2):
+	emit_signal("player_healed", heal_value)
+	var damage_label_scene = preload("res://Scenes/global/damage.tscn")
+	var damage_label_instance = damage_label_scene.instantiate()
+	add_child(damage_label_instance)
+	damage_label_instance.z_index = 100
+	# 9 is DamageType.HEAL
+	damage_label_instance.show_damage_number(9, heal_value, world_position)
+
+func _on_player_take_damage(damage_val: float, shield_val: float, world_position: Vector2):
+	# 护盾吸收伤害（灰色）
+	if shield_val > 0:
+		emit_signal("player_shield_damaged", shield_val)
+		var damage_label_scene = preload("res://Scenes/global/damage.tscn")
+		var damage_label_instance = damage_label_scene.instantiate()
+		add_child(damage_label_instance)
+		damage_label_instance.z_index = 100
+		# 10 is DamageType.SHIELD_ABSORB
+		damage_label_instance.show_damage_number(10, shield_val, world_position)
+
+	# 玩家承受伤害（红色）
+	if damage_val > 0:
+		var damage_label_scene = preload("res://Scenes/global/damage.tscn")
+		var damage_label_instance = damage_label_scene.instantiate()
+		add_child(damage_label_instance)
+		damage_label_instance.z_index = 100
+		# 11 is DamageType.PLAYER_HURT
+		damage_label_instance.show_damage_number(11, damage_val, world_position)
 
 # 记录伤害用于DPS计算
 func record_damage_for_dps(damage: float) -> void:

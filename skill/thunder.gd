@@ -75,9 +75,25 @@ func _apply_damage_and_chain() -> void:
 func _apply_damage_to_enemy(enemy: Node) -> void:
 	var is_boss = enemy.is_in_group("boss")
 	var final_damage = thunder_damage
+	
+	# 鸣雷法则加成
+	var thunder_level = PC.faze_thunder_level
+	final_damage *= Faze.get_thunder_weapon_damage_multiplier(thunder_level)
+	
+	# 八卦法则伤害加成
+	final_damage *= Faze.get_bagua_damage_multiplier()
+	
+	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("has_debuff"):		if enemy.debuff_manager.has_debuff("electrified"):
+			final_damage *= (1.0 + Faze.get_thunder_damage_vs_electrified_bonus(thunder_level))
+	
 	if is_boss and boss_extra_damage > 0.0:
 		final_damage *= (1.0 + boss_extra_damage)
-	enemy.take_damage(final_damage, false, false, "thunder")
+	enemy.take_damage(int(final_damage), false, false, "thunder")
+	
+	# 八卦法则推衍度
+	Faze.add_bagua_progress(1, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
+	if not is_instance_valid(enemy) or enemy.hp <= 0:
+		Faze.add_bagua_progress(5, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
 	
 	if not is_boss and paralyze_duration > 0.0:
 		enemy.set_physics_process(false)

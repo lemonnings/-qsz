@@ -19,10 +19,14 @@ func _process(delta: float) -> void:
 func _on_damage_timer_timeout() -> void:
 	if player_node:
 		var damage_amount: float = (PC.pc_atk * PC.riyan_atk_damage) + (PC.pc_max_hp * PC.riyan_hp_max_damage)
+		damage_amount = damage_amount * Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level)
 		
 		for area in get_overlapping_areas():
 			if area.is_in_group("enemies") and area.has_method("take_damage"):
-				area.take_damage(damage_amount, false, false, "riyan")
+				var final_damage = damage_amount
+				if area.is_in_group("elite") or area.is_in_group("boss"):
+					final_damage = final_damage * Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
+				area.take_damage(final_damage, false, false, "riyan")
 
 func _exit_tree() -> void:
 	if damage_timer and is_instance_valid(damage_timer):

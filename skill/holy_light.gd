@@ -102,8 +102,10 @@ static func _find_best_target_pos(origin: Vector2, tree: SceneTree, search_range
 	return best_pos
 
 static func _build_data() -> Dictionary:
-	var damage_multiplier = main_skill_holylight_damage * holylight_final_damage_multi
-	var range_scale = holylight_range_scale * holylight_size_multiplier
+	var life_damage_multiplier = Faze.get_life_damage_multiplier(PC.faze_life_level)
+	var life_range_multiplier = Faze.get_life_range_multiplier(PC.faze_life_level)
+	var damage_multiplier = main_skill_holylight_damage * holylight_final_damage_multi * life_damage_multiplier
+	var range_scale = holylight_range_scale * holylight_size_multiplier * life_range_multiplier
 	var duration = holylight_duration
 	var heal_base = holylight_heal_base
 	var heal_ratio = holylight_heal_ratio
@@ -227,3 +229,5 @@ func _apply_end_damage_and_heal() -> void:
 			var heal_multiplier = 1.0 + PC.heal_multi
 			heal_val = int(ceil(float(heal_val) * heal_multiplier))
 			body.heal(heal_val)
+			if heal_val > 0:
+				Global.emit_signal("player_heal", heal_val, body.global_position)

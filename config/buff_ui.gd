@@ -133,7 +133,7 @@ func setup_buff(buff_data, duration: float = 0.0, stack: int = 1):
 	buff_id = buff_data.id
 	remaining_time = duration
 	stack_count = stack
-	is_permanent = (buff_data.type == Global.SettingBuff.BuffType.PERMANENT)
+	is_permanent = (buff_data.type == BuffManager.BuffType.PERMANENT)
 	
 	# 设置图标
 	print("=== Buff图标加载调试 ===")
@@ -162,7 +162,7 @@ func setup_buff(buff_data, duration: float = 0.0, stack: int = 1):
 
 func _update_display():
 	# 更新层数显示
-	if stack_count > 1:
+	if stack_count > 1 or buff_id == "faze_bullet" or buff_id == "barrage_charge":
 		stack_label.text = str(stack_count)
 		stack_label.visible = true
 	else:
@@ -220,9 +220,6 @@ func _process(delta: float):
 			remaining_time = 0
 			# 发送buff过期信号
 			buff_expired.emit()
-			# 父节点应该连接到buff_expired信号，并在收到信号时调用 queue_free() 来移除此buff实例。
-			# 例如: buff_ui_instance.buff_expired.connect(func(): buff_ui_instance.queue_free())
-			# 或者，如果父节点管理一个buff列表/字典，则可以在信号处理函数中移除它并queue_free。
 		_update_display()
 		_update_flash_state()
 
@@ -308,7 +305,7 @@ func _on_mouse_exited():
 	_hide_tooltip()
 
 func _show_tooltip():
-	var buff_data = Global.SettingBuff.get_buff_data(buff_id)
+	var buff_data = BuffManager.get_buff_data(buff_id)
 	if buff_data == null:
 		return
 	
@@ -319,9 +316,8 @@ func _show_tooltip():
 	# 更新类型和最大层数信息
 	var type_label = tooltip_panel.get_node("VBoxContainer/HeaderHBox/TypeLabel")
 	var type_text = ""
-	if buff_data.type == Global.SettingBuff.BuffType.PERMANENT:
+	if buff_data.type == BuffManager.BuffType.PERMANENT:
 		type_text = "永久"
-	#type_text += "最大层数：" + str(buff_data.max_stack)
 	type_label.text = type_text
 	
 	# 更新描述

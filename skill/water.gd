@@ -48,8 +48,10 @@ func _ready() -> void:
 
 func setup_water(pos: Vector2, p_damage: float, p_range: float, p_heal: int, options: Dictionary = {}) -> void:
 	global_position = pos
-	damage = p_damage
-	range_val = p_range
+	var life_damage_multiplier = Faze.get_life_damage_multiplier(PC.faze_life_level)
+	var life_range_multiplier = Faze.get_life_range_multiplier(PC.faze_life_level)
+	damage = p_damage * life_damage_multiplier
+	range_val = p_range * life_range_multiplier
 	heal_amount = p_heal
 	player_ref = get_tree().get_first_node_in_group("player")
 	
@@ -290,3 +292,4 @@ func _perform_heal(amount: int) -> void:
 		return
 	if amount > 0:
 		player_ref.heal(amount)
+		Global.emit_signal("player_heal", amount, player_ref.global_position)

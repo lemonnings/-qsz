@@ -30,6 +30,7 @@ var grandson_bullet: bool = false # 标记是否为孙级子弹
 func _ready() -> void:
 	# 记录子弹起始位置
 	start_position = global_position
+	bullet_range = bullet_range * Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
 	
 	# 初始化子弹伤害和暴击状态
 	initialize_bullet_damage()
@@ -143,6 +144,8 @@ func set_direction(new_direction: Vector2) -> void:
 func initialize_bullet_damage() -> void:
 	var base_damage: float
 	base_damage = PC.pc_atk * PC.main_skill_branch_damage
+	base_damage = base_damage * Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
+	base_damage = base_damage * Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.lucky)
 	bullet_fisson = 1
 
 	var crit_chance_bonus = 0.0
@@ -158,7 +161,10 @@ func initialize_bullet_damage() -> void:
 
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary: # Returns {"damage": float, "is_crit": bool}
-	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": false}
+	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": false, "weapon_tag": "treasure"}
+
+func is_faze_bullet_weapon() -> bool:
+	return true
 
 # 用于防止同一帧内多次处理碰撞
 var collision_processed_this_frame: bool = false

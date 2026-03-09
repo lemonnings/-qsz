@@ -43,8 +43,12 @@ func setup_light_bullet(pos: Vector2, dir: Vector2, p_damage: float, p_range: fl
 	rotation = dir.angle()
 	velocity = dir.normalized() * speed
 	
-	damage = p_damage
-	range_val = p_range
+	var life_damage_multiplier = Faze.get_life_damage_multiplier(PC.faze_life_level)
+	var life_range_multiplier = Faze.get_life_range_multiplier(PC.faze_life_level)
+	var bullet_damage_multiplier = Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
+	var bullet_range_multiplier = Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
+	damage = p_damage * life_damage_multiplier * bullet_damage_multiplier
+	range_val = p_range * life_range_multiplier * bullet_range_multiplier
 	penetration_count = p_penetration
 	
 	# 读取特殊选项
@@ -81,6 +85,7 @@ func _on_area_entered(area: Area2D) -> void:
 		hit_targets[enemy_id] = true
 		
 		_deal_damage(area)
+		Faze.on_bullet_hit()
 		
 		if penetration_count > 0:
 			penetration_count -= 1

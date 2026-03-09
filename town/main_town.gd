@@ -51,6 +51,10 @@ func _ready() -> void:
 	setup_audio_buses()
 	player = $Player
 	Global.load_game()
+	
+	# 重置玩家属性
+	PC.reset_player_attr()
+	
 	Global.in_town = true
 	player.change_hero(PC.player_name)
 	

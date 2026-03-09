@@ -9,10 +9,13 @@ enum DamageType {
 	PLAYER_BULLET_CRIT,  # 玩家子弹暴击伤害
 	SUMMON_DAMAGE,       # 召唤物伤害
 	PLAYER_SKILL,        # 玩家技能伤害
-	DOT_SHOCK,           # 感电持续伤害
+	DOT_ELECTRIFIED,           # 感电持续伤害
 	DOT_BURN,            # 燃烧持续伤害
 	DOT_BLEED,           # 流血持续伤害
-	DOT_POISON           # 中毒持续伤害
+	DOT_POISON,          # 中毒持续伤害
+	HEAL,                # 治疗
+	SHIELD_ABSORB,       # 护盾吸收
+	PLAYER_HURT          # 玩家受伤
 }
 
 # 伤害类型对应的颜色
@@ -21,10 +24,13 @@ const DAMAGE_COLORS = {
 	DamageType.PLAYER_BULLET_CRIT: Color.ORANGE, # 橙红色
 	DamageType.SUMMON_DAMAGE: Color.SKY_BLUE,    # 浅蓝色
 	DamageType.PLAYER_SKILL: Color.YELLOW,
-	DamageType.DOT_SHOCK: Color8(160, 210, 255),
+	DamageType.DOT_ELECTRIFIED: Color8(160, 210, 255),
 	DamageType.DOT_BURN: Color8(255, 205, 160),
 	DamageType.DOT_BLEED: Color8(255, 160, 160),
-	DamageType.DOT_POISON: Color8(160, 230, 160)
+	DamageType.DOT_POISON: Color8(160, 230, 160),
+	DamageType.HEAL: Color8(144, 238, 144), # 浅绿色
+	DamageType.SHIELD_ABSORB: Color.GRAY,   # 灰色
+	DamageType.PLAYER_HURT: Color.RED       # 红色
 }
 
 var base_font_size: int = 0
@@ -60,13 +66,19 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	if damage_type_int == 4:
 		damage_type = DamageType.SUMMON_DAMAGE
 	if damage_type_int == 5:
-		damage_type = DamageType.DOT_SHOCK
+		damage_type = DamageType.DOT_ELECTRIFIED
 	if damage_type_int == 6:
 		damage_type = DamageType.DOT_BURN
 	if damage_type_int == 7:
 		damage_type = DamageType.DOT_BLEED
 	if damage_type_int == 8:
 		damage_type = DamageType.DOT_POISON
+	if damage_type_int == 9:
+		damage_type = DamageType.HEAL
+	if damage_type_int == 10:
+		damage_type = DamageType.SHIELD_ABSORB
+	if damage_type_int == 11:
+		damage_type = DamageType.PLAYER_HURT
 		
 	# 设置显示位置
 	global_position = display_position
@@ -80,14 +92,27 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 
 	var text_to_display = str(int(round(damage_value))) # 四舍五入并转为整数显示
 	damage_label.scale = damage_label.scale * 0.8
-	if damage_type == DamageType.DOT_SHOCK or damage_type == DamageType.DOT_BURN or damage_type == DamageType.DOT_BLEED or damage_type == DamageType.DOT_POISON:
+	if damage_type == DamageType.DOT_ELECTRIFIED or damage_type == DamageType.DOT_BURN or damage_type == DamageType.DOT_BLEED or damage_type == DamageType.DOT_POISON or damage_type == DamageType.SHIELD_ABSORB:
 		damage_label.add_theme_font_size_override("font_size", base_font_size - 2)
 	else:
 		damage_label.add_theme_font_size_override("font_size", base_font_size)
 	if damage_type == DamageType.PLAYER_BULLET_CRIT:
 		text_to_display += " !"
 		damage_label.scale = damage_label.scale * 1.15
-
+	
+	if damage_type == DamageType.SHIELD_ABSORB:
+		# 护盾损失：向右偏移25，向上偏移10
+		global_position.x -= 5.0
+		global_position.y -= 25.0
+	elif damage_type == DamageType.PLAYER_HURT or damage_type == DamageType.HEAL:
+		# 玩家受伤：向上偏移10
+		global_position.x -= 25.0
+		global_position.y -= 25.0
+	else:
+		pass
+	global_position.x += randf_range(-3.0, 3.0)
+	global_position.y += randf_range(-3.0, 3.0)
+	
 	damage_label.text = text_to_display
 	# 初始透明度为0，用于渐入
 	damage_label.modulate.a = 0.0 
@@ -112,21 +137,6 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	# 3. 向上飘动并渐隐
 	# 获取当前damage_label的相对位置
 	var current_label_pos = damage_label.position
-	
-	# 下面的并行通过 set_parallel(true) 来开启并行执行
-	# 但由于之前是 false (串行)，我们需要显式地开启并行
-	# 或者使用 parallel() 链式调用，但这只对当前步骤有效？
-	# 实际上，tween.parallel() 会使该步骤与前一个步骤并行。
-	# 但这里我们需要的是步骤3的两个属性变化并行，而步骤3整体要在步骤2之后。
-	
-	# 正确的做法是：
-	# 串行等到 interval 结束 -> 开启并行 -> 两个属性变化
-	
-	# 这里创建一个新的并行步骤
-	# 注意：在 Godot 4 中，tween.parallel() 是指"这一步与上一步并行"。
-	# 如果我们想让步骤3的两个动作并行，但都在步骤2之后：
-	# tween.tween_property(...)
-	# tween.parallel().tween_property(...)
 	
 	tween.tween_property(damage_label, "position:y", current_label_pos.y - 20.0, 0.5)
 	tween.parallel().tween_property(damage_label, "modulate:a", 0.0, 0.5)

@@ -214,7 +214,7 @@ func _apply_damage(attack_data: Dictionary) -> Dictionary:
 		var crit_roll = randf()
 		if crit_roll < PC.crit_chance:
 			is_crit = true
-			damage = damage * PC.crit_damage_multi
+			damage = damage * Faze.get_sword_crit_damage_multiplier(PC.faze_sword_level)
 		
 		var has_bleed = area.debuff_manager.has_debuff("bleed")
 		if has_bleed:
@@ -222,6 +222,7 @@ func _apply_damage(attack_data: Dictionary) -> Dictionary:
 			hit_bleed = true
 		
 		area.take_damage(int(damage), is_crit, false, "blood_broadsword")
+		Faze.on_sword_weapon_hit(area)
 	
 	return {"hit_count": hit_count, "hit_bleed": hit_bleed}
 
@@ -243,6 +244,9 @@ func _apply_heal(attack_data: Dictionary, hit_result: Dictionary) -> void:
 	PC.pc_hp += heal_amount
 	if PC.pc_hp > PC.pc_max_hp:
 		PC.pc_hp = PC.pc_max_hp
+	
+	if heal_amount > 0:
+		Global.emit_signal("player_heal", heal_amount, PC.player_instance.global_position)
 
 func _apply_shield(attack_data: Dictionary, hit_result: Dictionary) -> void:
 	if attack_data.shield_hit_count <= 0:

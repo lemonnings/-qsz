@@ -17,11 +17,11 @@ extends Node
 @export var crit_chance: float = 0.0 # 局内暴击率
 @export var crit_damage_multi: float = 0.5 # 局内暴击伤害倍率 (例如0.5代表150%伤害)
 @export var damage_reduction_rate: float = 0.0 # 局内减伤率 (例如0.1代表10%减伤)
-@export var bullet_size: float = 0 # 攻击范围
 @export var point_multi: float = 0 # 额外真气获取率
 @export var exp_multi: float = 0 # 额外exp获取率
 @export var drop_multi: float = 0 # 额外掉落率
 @export var body_size: float = 1 # 体型大小
+@export var bullet_size: float = 0 # 攻击范围
 @export var heal_multi: float = 0 # 额外治疗加成
 @export var sheild_multi: float = 0 # 额外护盾加成
 @export var normal_monster_multi: float = 0 # 对小怪额外伤害
@@ -45,21 +45,63 @@ extends Node
 @export var faze_chaos_level: int = 0
 @export var faze_skill_level: int = 0
 @export var faze_sixsense_level: int = 0
+@export var sixsense_bonus_multiplier: float = 1.0
+@export var sixsense_base_crit_chance: float = 0.0
+@export var sixsense_base_crit_damage_multi: float = 0.0
+@export var sixsense_base_final_damage: float = 0.0
+@export var sixsense_base_atk_speed: float = 0.0
+@export var sixsense_base_damage_reduction: float = 0.0
+@export var sixsense_base_atk: float = 0.0
+@export var sixsense_applied_crit_chance: float = 0.0
+@export var sixsense_applied_crit_damage_multi: float = 0.0
+@export var sixsense_applied_final_damage: float = 0.0
+@export var sixsense_applied_atk_speed: float = 0.0
+@export var sixsense_applied_damage_reduction: float = 0.0
+@export var sixsense_applied_atk: float = 0.0
 @export var faze_bagua_progress: int = 0
 @export var faze_bagua_complete_layers: int = 0
 @export var faze_bagua_next_threshold: int = 100
 @export var faze_sword_coldlight_stack: int = 0
+@export var faze_wind_level: int = 0
+@export var wind_huanfeng_stacks: int = 0
+@export var wind_huanfeng_max_stacks: int = 0
+@export var wind_huanfeng_duration: float = 5.0
+@export var faze_heal_shield_bonus: float = 0.0
 
+# 御灵法则 (Summon Law)
+@export var faze_summon_extra_capacity: int = 0
+@export var faze_summon_bullet_size_bonus: float = 0.0
+@export var faze_summon_damage_bonus: float = 0.0
+@export var faze_summon_interval_reduction: float = 0.0
+@export var has_summoned_bipolar_sword: bool = false
+@export var has_summoned_sword_spirit: bool = false
+
+# 护佑法则 (Shield Law)
+@export var faze_shield_hp_bonus: float = 0.0
+@export var faze_shield_gain_bonus: float = 0.0
+@export var faze_shield_heal_conversion_ratio: float = 0.0
+@export var faze_shield_damage_reduction_bonus: float = 0.0
+
+# 广域法则 (Wide Law)
+@export var faze_wide_range_bonus: float = 0.0
+@export var faze_wide_damage_bonus: float = 0.0
+@export var faze_wide_range_to_damage_ratio: float = 0.0
+
+# 八卦法则 (Bagua Law)
+@export var faze_bagua_damage_bonus: float = 0.0
+@export var faze_bagua_gain_multiplier: float = 1.0
+@export var faze_bagua_completed_layers: int = 0
 
 @export var invincible: bool = false
 
 @export var current_time: float = 0
 @export var real_time: float = 0
 
-@export var now_main_skill_num: int = 1
 @export var last_lunky_level: int = 1
 @export var last_speed: float = 0
 @export var last_atk_speed: float = 0
+
+@export var current_weapon_num: int = 0
 
 # 魔焰相关变量
 @export var main_skill_moyan = 0
@@ -70,8 +112,9 @@ extends Node
 
 # 跟升级抽卡有关系的
 @export var now_lunky_level: int = 1
+@export var lucky: int = 1
 @export var now_red_p: float = 2
-@export var now_gold_p: float = 5
+@export var now_gold_p: float = 50
 @export var now_darkorchid_p: float = 15
 @export var now_blue_p: float = 35
 @export var now_green_p: float = 43
@@ -175,6 +218,9 @@ extends Node
 @export var main_skill_xunfeng = 0
 @export var main_skill_xunfeng_advance = 0
 @export var first_has_xunfeng: bool = true
+@export var main_skill_dragonwind = 0
+@export var main_skill_dragonwind_advance = 0
+@export var first_has_dragonwind: bool = true
 
 
 # 艮山诀相关变量
@@ -252,6 +298,7 @@ func _on_lucky_level_up(lunky_up: float) -> void:
 	now_gold_p = now_gold_p + lunky_up * 0.4
 	now_darkorchid_p = now_darkorchid_p + lunky_up * 0.6
 	now_blue_p = now_blue_p + lunky_up * 1
+	lucky = now_lunky_level
 
 func get_reward_acquisition_count(fallback_reward_id: String):
 	return selected_rewards.count(fallback_reward_id)
@@ -266,17 +313,6 @@ func reset_player_attr() -> void:
 	Global.in_menu = false
 	PC.is_game_over = false
 	
-	# todo 测试武器升级
-	PC.selected_rewards = ["LightBullet1","LightBullet2","LightBullet3","LightBullet4","LightBullet5","LightBullet11","LightBullet22","LightBullet33","LightBullet44","LightBullet55","Ice1","Ice2","Ice3","Ice4","Ice5","Ice11","Ice22","Ice33","Ice44","Ice55","Xunfeng1","Xunfeng2","Xunfeng3","Xunfeng4","Xunfeng5","Xunfeng11","Xunfeng22","Xunfeng33","Xunfeng44","Xunfeng55"]
-	if PC.player_name == "moning":
-		PC.selected_rewards.append("qigong")
-	if PC.player_name == "yiqiu":
-		PC.selected_rewards.append("swordQi")
-	if PC.player_name == "noam":
-		PC.selected_rewards.append("LightBullet")
-	if PC.player_name == "kansel":
-		PC.selected_rewards.append("Ice")
-	
 	Global.reset_battle_modifiers()
 	
 	exec_pc_atk()
@@ -286,10 +322,7 @@ func reset_player_attr() -> void:
 	
 	# 根据已学习的技能初始化剑气等级和伤害
 	exec_swordqi_skills()
-	
-	# 应用装备属性加成
-	apply_equipment_bonuses()
-	
+
 	PC.real_time = 0
 	PC.current_time = 0
 	
@@ -298,7 +331,9 @@ func reset_player_attr() -> void:
 	PC.pc_speed = 0 + (Global.cultivation_zhuifeng_level * 0.02)
 	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.02)
 	PC.pc_sheild = []
-	
+
+	PC.current_weapon_num - 0
+
 	PC.invincible = false
 	
 	PC.ring_bullet_enabled = false
@@ -330,6 +365,23 @@ func reset_player_attr() -> void:
 	PC.crit_damage_multi = 1.5 + (Global.cultivation_liejin_level * 0.01) # 基础暴击伤害倍率 + 局外成长
 	
 	PC.damage_reduction_rate = min(0.0 + (Global.cultivation_huti_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
+	PC.pc_final_atk = 0.0
+	PC.wind_huanfeng_stacks = 0
+	PC.wind_huanfeng_max_stacks = 0
+	PC.wind_huanfeng_duration = 5.0
+	PC.sixsense_bonus_multiplier = 1.0
+	PC.sixsense_base_crit_chance = 0.0
+	PC.sixsense_base_crit_damage_multi = 0.0
+	PC.sixsense_base_final_damage = 0.0
+	PC.sixsense_base_atk_speed = 0.0
+	PC.sixsense_base_damage_reduction = 0.0
+	PC.sixsense_base_atk = 0.0
+	PC.sixsense_applied_crit_chance = 0.0
+	PC.sixsense_applied_crit_damage_multi = 0.0
+	PC.sixsense_applied_final_damage = 0.0
+	PC.sixsense_applied_atk_speed = 0.0
+	PC.sixsense_applied_damage_reduction = 0.0
+	PC.sixsense_applied_atk = 0.0
 	PC.exp_multi = Global.exp_multi
 	PC.drop_multi = Global.drop_multi
 	PC.body_size = Global.body_size
@@ -342,7 +394,7 @@ func reset_player_attr() -> void:
 	PC.last_atk_speed = 0
 	PC.last_speed = 0
 	PC.last_lunky_level = 1
-
+	
 	PC.faze_blood_level = 0
 	PC.faze_sword_level = 0
 	PC.faze_thunder_level = 0
@@ -359,11 +411,34 @@ func reset_player_attr() -> void:
 	PC.faze_chaos_level = 0
 	PC.faze_skill_level = 0
 	PC.faze_sixsense_level = 0
+	PC.sixsense_bonus_multiplier = 1.0
+	PC.sixsense_base_crit_chance = 0.0
+	PC.sixsense_base_crit_damage_multi = 0.0
+	PC.sixsense_base_final_damage = 0.0
+	PC.sixsense_base_atk_speed = 0.0
+	PC.sixsense_base_damage_reduction = 0.0
+	PC.sixsense_base_atk = 0.0
+	PC.sixsense_applied_crit_chance = 0.0
+	PC.sixsense_applied_crit_damage_multi = 0.0
+	PC.sixsense_applied_final_damage = 0.0
+	PC.sixsense_applied_atk_speed = 0.0
+	PC.sixsense_applied_damage_reduction = 0.0
+	PC.sixsense_applied_atk = 0.0
 	PC.faze_bagua_progress = 0
-	PC.faze_bagua_complete_layers = 0
+	PC.faze_bagua_completed_layers = 0
 	PC.faze_bagua_next_threshold = 100
+	PC.faze_bagua_damage_bonus = 0.0
+	PC.faze_bagua_gain_multiplier = 1.0
+	
+	PC.faze_wide_range_bonus = 0.0
+	PC.faze_wide_damage_bonus = 0.0
+	PC.faze_wide_range_to_damage_ratio = 0.0
+	
 	PC.faze_sword_coldlight_stack = 0
 	
+	PC.faze_heal_shield_bonus = 0.0
+	PC.has_summoned_bipolar_sword = false
+	PC.has_summoned_sword_spirit = false
 	# 重置主要技能等级
 	PC.main_skill_swordQi = 0
 	PC.main_skill_swordQi_advance = 0
@@ -462,6 +537,11 @@ func reset_player_attr() -> void:
 	PC.main_skill_xunfeng_advance = 0
 	PC.first_has_xunfeng = true
 	
+	# 重置风龙杖相关属性
+	PC.main_skill_dragonwind = 0
+	PC.main_skill_dragonwind_advance = 0
+	PC.first_has_dragonwind = true
+	
 	# 重置艮山诀相关属性
 	PC.main_skill_genshan = 0
 	PC.main_skill_genshan_advance = 0
@@ -482,6 +562,27 @@ func reset_player_attr() -> void:
 	# 重置纹章系统
 	PC.current_emblems.clear()
 	EmblemManager.clear_all_emblems()
+	
+	# todo 测试武器升级
+	PC.selected_rewards = ["DragonWind1","DragonWind2","DragonWind3","DragonWind4","DragonWind5","DragonWind11","DragonWind22","DragonWind33","DragonWind44","DragonWind55","Ice1","Ice2","Ice3","Ice4","Ice5","Ice11","Ice22","Ice33","Ice44","Ice55","Xunfeng1","Xunfeng2","Xunfeng3","Xunfeng4","Xunfeng5","Xunfeng11","Xunfeng22","Xunfeng33","Xunfeng44","Xunfeng55"]
+
+	if PC.player_name == "moning":
+		PC.selected_rewards.append("Qigong")
+		PC.faze_wind_level +=2
+		PC.faze_wide_level +=2
+	if PC.player_name == "yiqiu":
+		PC.selected_rewards.append("swordQi")
+		PC.faze_sword_level +=2
+		PC.faze_bullet_level +=2
+	if PC.player_name == "noam":
+		PC.selected_rewards.append("LightBullet")
+		PC.faze_life_level +=2
+		PC.faze_bullet_level +=2
+	if PC.player_name == "kansel":
+		PC.selected_rewards.append("Ice")
+		PC.faze_destroy_level +=2
+		PC.faze_bullet_level +=2
+	
 
 func add_shield(amount: int, duration: float) -> void:
 	if is_game_over:
@@ -505,7 +606,11 @@ func get_total_shield() -> int:
 	return total
 
 func apply_damage(damage: int) -> int:
+	if is_game_over:
+		return 0
 	var remaining_damage = damage
+	var absorbed_damage = 0
+	
 	if pc_sheild.size() > 0:
 		pc_sheild.sort_custom(func(a, b): return a["time_left"] < b["time_left"])
 		for i in range(pc_sheild.size()):
@@ -515,15 +620,21 @@ func apply_damage(damage: int) -> int:
 			var shield_value = int(shield["value"])
 			if shield_value > remaining_damage:
 				shield["value"] = shield_value - remaining_damage
+				absorbed_damage += remaining_damage
 				remaining_damage = 0
 				pc_sheild[i] = shield
 			else:
+				absorbed_damage += shield_value
 				remaining_damage -= shield_value
 				shield["value"] = 0
 				pc_sheild[i] = shield
 		_remove_empty_shields()
 	if remaining_damage > 0:
 		pc_hp -= remaining_damage
+		
+	if player_instance:
+		Global.emit_signal("player_take_damage", float(remaining_damage), float(absorbed_damage), player_instance.global_position)
+		
 	return remaining_damage
 
 func _remove_empty_shields() -> void:
@@ -531,37 +642,18 @@ func _remove_empty_shields() -> void:
 	for shield in pc_sheild:
 		if int(shield["value"]) > 0 and float(shield["time_left"]) > 0:
 			remain.append(shield)
+		elif float(shield["time_left"]) <= 0 and int(shield["value"]) > 0:
+			# Shield expired, check for heal conversion (Shield Law)
+			if faze_shield_heal_conversion_ratio > 0.0:
+				var heal_amount = int(int(shield["value"]) * faze_shield_heal_conversion_ratio)
+				if heal_amount > 0:
+					pc_hp += heal_amount
+					if pc_hp > pc_max_hp:
+						pc_hp = pc_max_hp
+					if player_instance:
+						Global.emit_signal("player_healed", heal_amount)
 	pc_sheild = remain
 
-# 应用装备属性加成
-func apply_equipment_bonuses() -> void:
-	# 获取所有装备提供的属性加成
-	var equipment_stats = Global.EquipmentManager.calculate_total_equipment_stats()
-	
-	# 应用装备属性到玩家属性
-	PC.pc_atk += equipment_stats["pc_atk"]
-	PC.pc_start_atk += equipment_stats["pc_atk"]
-	PC.pc_max_hp += equipment_stats["pc_hp"]
-	PC.pc_start_max_hp += equipment_stats["pc_hp"]
-	PC.pc_hp += equipment_stats["pc_hp"]
-	PC.pc_speed += equipment_stats["pc_speed"]
-	PC.pc_atk_speed += equipment_stats["pc_atk_speed"]
-	PC.crit_chance += equipment_stats["crit_chance"]
-	PC.crit_damage_multi += equipment_stats["crit_damage_multi"]
-	PC.pc_final_atk += equipment_stats["pc_final_atk"]
-	PC.point_multi += equipment_stats["point_multi"]
-	PC.exp_multi += equipment_stats["exp_multi"]
-	PC.drop_multi += equipment_stats["drop_multi"]
-	PC.bullet_size += equipment_stats["bullet_size"]
-	PC.damage_reduction_rate += equipment_stats["damage_reduction_rate"]
-	
-	# 确保减伤率不超过上限
-	PC.damage_reduction_rate = min(PC.damage_reduction_rate, 0.9)
-	
-	print("装备属性加成已应用")
-	print("装备提供的攻击力: ", equipment_stats["pc_atk"])
-	print("装备提供的生命值: ", equipment_stats["pc_hp"])
-	print("装备提供的暴击率: ", equipment_stats["crit_chance"])
 	
 
 func exec_pc_atk() -> void:
@@ -578,6 +670,7 @@ func exec_pc_bullet_size() -> void:
 
 func exec_lucky_level() -> void:
 	PC.now_lunky_level = Global.lunky_level
+	PC.lucky = PC.now_lunky_level
 	PC.now_red_p = Global.red_p + Global.lunky_level * 0.25
 	PC.now_gold_p = Global.gold_p + Global.lunky_level * 0.5
 	PC.now_darkorchid_p = Global.darkorchid_p + Global.lunky_level * 0.8

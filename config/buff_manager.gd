@@ -1,6 +1,32 @@
 extends Node
 class_name BuffManager
 
+# Buff类型枚举
+enum BuffType {
+	PERMANENT,  # 永久buff
+	TEMPORARY   # 临时buff
+}
+
+# Buff数据结构
+class BuffData:
+	var id: String
+	var name: String
+	var icon_path: String
+	var type: BuffType
+	var max_stack: int = 1
+	var description: String = ""
+	
+	func _init(buff_id: String, buff_name: String, buff_icon_path: String, buff_type: BuffType, buff_max_stack: int = 1, buff_description: String = ""):
+		id = buff_id
+		name = buff_name
+		icon_path = buff_icon_path
+		type = buff_type
+		max_stack = buff_max_stack
+		description = buff_description
+
+# Buff配置字典
+static var buff_configs: Dictionary = {}
+
 # Buff容器引用
 var buff_container: HBoxContainer
 
@@ -11,13 +37,93 @@ static var active_buffs: Dictionary = {}
 static var buff_data: Dictionary = {}
 
 func _ready():
+	# 初始化buff配置
+	_init_buff_configs()
+	
 	# 连接全局信号
 	Global.connect("buff_added", Callable(self, "_on_buff_added"))
 	Global.connect("buff_removed", Callable(self, "_on_buff_removed"))
 	Global.connect("buff_updated", Callable(self, "_on_buff_updated"))
 	Global.connect("buff_stack_changed", Callable(self, "_on_buff_stack_changed"))
 
-func setup_buff_container(container: HBoxContainer):
+static func _init_buff_configs():
+	buff_configs["faze_bullet"] = BuffData.new(
+		"faze_bullet",
+		"弹雨法则",
+		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		BuffType.PERMANENT,
+		99,
+		"弹雨法则层数"
+	)
+	
+	buff_configs["barrage_charge"] = BuffData.new(
+		"barrage_charge",
+		"弹幕积累",
+		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		BuffType.PERMANENT,
+		9999,
+		"弹幕积累层数"
+	)
+	
+	buff_configs["bagua_progress"] = BuffData.new(
+		"bagua_progress",
+		"推衍度",
+		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		BuffType.PERMANENT,
+		9999,
+		"推衍度，下一层需要" + str(PC.faze_bagua_next_threshold) + "推衍度"
+	)
+	
+	buff_configs["bagua_completed"] = BuffData.new(
+		"bagua_completed",
+		"推衍完成",
+		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		BuffType.PERMANENT,
+		9999,
+		"已完成推衍的层数，每层提升4%的八卦类武器伤害加成与经验获取"
+	)
+	
+	buff_configs["huanfeng"] = BuffData.new(
+		"huanfeng",
+		"唤风",
+		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		BuffType.TEMPORARY,
+		500,
+		"唤风层数，每层提升0.1%攻击速度与移动速度，持续5秒"
+	)
+
+static func get_buff_data(buff_id: String) -> BuffData:
+	if buff_configs.is_empty():
+		_init_buff_configs()
+		
+	if buff_configs.has(buff_id):
+		return buff_configs[buff_id]
+	else:
+		print("Warning: Buff ID '" + buff_id + "' not found in configs")
+		return null
+
+static func get_all_buff_ids() -> Array:
+	if buff_configs.is_empty():
+		_init_buff_configs()
+	return buff_configs.keys()
+
+static func update_buff_description(buff_id: String, new_description: String) -> void:
+	if buff_configs.is_empty():
+		_init_buff_configs()
+		
+	if buff_configs.has(buff_id):
+		buff_configs[buff_id].description = new_description
+		# 如果buff当前是活跃的，也更新其数据中的config引用（虽然引用应该指向同一个对象，但为了保险起见）
+		if buff_data.has(buff_id):
+			buff_data[buff_id]["buff_config"] = buff_configs[buff_id]
+	else:
+		print("Warning: Cannot update description, Buff ID '" + buff_id + "' not found")
+
+static func update_bagua_progress_description() -> void:
+	var new_desc = "推衍度，下一层需要" + str(PC.faze_bagua_next_threshold) + "推衍度"
+	update_buff_description("bagua_progress", new_desc)
+
+func setup_buff_container(container: HBoxContainer) -> void:
 	buff_container = container
 	if buff_container:
 		# 设置容器属性
@@ -28,7 +134,7 @@ func _on_buff_added(buff_id: String, duration: float, stack: int):
 	print("Adding buff: ", buff_id, " Duration: ", duration, " Stack: ", stack)
 	
 	# 获取buff配置数据
-	var buff_config = Global.SettingBuff.get_buff_data(buff_id)
+	var buff_config = get_buff_data(buff_id)
 	if not buff_config:
 		print("Error: Buff config not found for ID: ", buff_id)
 		return  # 添加这行，如果配置不存在就直接返回
@@ -44,12 +150,6 @@ func _create_new_buff(buff_id: String, duration: float, stack: int, buff_config)
 	var buff_ui = preload("res://Script/config/buff_ui.gd").new()
 	buff_ui.name = "Buff_" + buff_id
 	
-	# 设置图标
-	print("=== Buff图标加载调试 ===")
-	print("Buff ID: ", buff_data.id)
-	print("图标路径: ", buff_data.icon_path)
-	print("路径是否为空: ", buff_data.icon_path == "")
-	print("文件是否存在: ", ResourceLoader.exists(buff_data.icon_path))
 	# 添加到容器
 	if buff_container:
 		buff_container.add_child(buff_ui)
@@ -77,7 +177,7 @@ func _update_existing_buff(buff_id: String, duration: float, stack: int, buff_co
 	var current_data = buff_data[buff_id]
 	
 	# 根据buff类型决定如何更新
-	if buff_config.type == Global.SettingBuff.BuffType.PERMANENT:
+	if buff_config.type == BuffType.PERMANENT:
 		# 永久buff只更新层数
 		current_data["stack"] = min(stack, buff_config.max_stack)
 	else:

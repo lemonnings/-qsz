@@ -82,6 +82,9 @@ static func _spawn_genshan(scene: PackedScene, tree: SceneTree, origin_pos: Vect
 	
 	var damage = PC.pc_atk * main_skill_genshan_damage * genshan_final_damage_multi
 	
+	# 八卦法则伤害加成
+	damage *= Faze.get_bagua_damage_multiplier()
+	
 	# 从 PC.bullet_size 获取基础 scale
 	var base_scale = 1.0 + PC.bullet_size
 	
@@ -314,6 +317,11 @@ func _deal_damage(enemy: Area2D) -> void:
 	# 应用伤害
 	if enemy.has_method("take_damage"):
 		enemy.take_damage(int(final_damage), is_crit, false, "genshan")
+		
+		# 八卦法则推衍度
+		Faze.add_bagua_progress(1, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
+		if not is_instance_valid(enemy) or enemy.hp <= 0:
+			Faze.add_bagua_progress(5, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
 		
 	# Genshan2 (震山): 施加脆弱
 	if PC.selected_rewards.has("Genshan2"):

@@ -53,6 +53,8 @@ class DebuffData:
 		dot_neighbor_radius = p_dot_neighbor_radius
 
 
+var burn_scene = preload("res://Scenes/player/debuff_burn.tscn")
+
 static var debuff_configs: Dictionary = {
 	"slow": DebuffData.new("slow", 5.0, 1, false, "", true, Color.SKY_BLUE, 0.0, 0.0, -0.25, false, 0.0, 1.0, false, 40.0),
 	"vulnerable": DebuffData.new("vulnerable", 5.0, 1, false, "", true, Color(1.0, 0.5, 0.5), -0.25, 0.0, 0.0, false, 0.0, 1.0, false, 40.0),
@@ -60,7 +62,6 @@ static var debuff_configs: Dictionary = {
 	"paralyze": DebuffData.new("paralyze", 3.0, 1, false, "", true, Color(0.7, 0.7, 1.0), 0.0, 0.0, 0.0, true, 0.0, 1.0, false, 40.0),
 	"stun": DebuffData.new("stun", 3.0, 1, false, "", true, Color(0.9, 0.9, 0.9), 0.0, 0.0, 0.0, true, 0.0, 1.0, false, 40.0),
 	"bleed": DebuffData.new("bleed", 5.0, 5, false, "", true, Color(0.9, 0.3, 0.3), 0.0, 0.0, 0.0, false, 0.1, 1.0, false, 40.0),
-	"shock": DebuffData.new("shock", 5.0, 1, false, "", true, Color(1.0, 0.9, 0.4), 0.0, 0.0, 0.0, false, 0.3, 1.0, false, 40.0),
 	"burn": DebuffData.new("burn", 5.0, 1, false, "", true, Color(1.0, 0.6, 0.2), 0.0, 0.0, 0.0, false, 0.1, 1.0, true, 60.0),
 	"electrified": DebuffData.new("electrified", 3.0, 1, false, "", true, Color(0.8, 0.8, 0.0), 0.0, 0.0, 0.0, false, 0.3, 1.0, false, 40.0),
 	"light_accumulation": DebuffData.new("light_accumulation", 5.0, 20, false, "", true, Color(1.0, 1.0, 0.8), 0.0, 0.05, 0.0, false, 0.0, 1.0, false, 40.0),
@@ -73,6 +74,7 @@ static var debuff_elite_boss_damage_bonus: Dictionary = {}
 var active_debuffs: Dictionary = {} # {debuff_id: {timer: Timer, stacks: int, config: DebuffData, effect_instance: Node2D, dot_elapsed: float}}
 var target_enemy: Node2D # 关联的敌人节点
 var base_modulate: Color = Color.WHITE
+var death_fade_started: bool = false
 
 func _init(enemy: Node2D):
 	target_enemy = enemy
@@ -189,6 +191,7 @@ func get_damage_multiplier() -> float:
 		var config: DebuffData = active_debuffs[debuff_id]["config"]
 		if config.damage_taken_multiplier != 0.0:
 			multiplier += config.damage_taken_multiplier
+	multiplier = multiplier * Faze.get_final_damage_multiplier()
 	return multiplier
 
 func get_speed_multiplier() -> float:
@@ -220,6 +223,8 @@ func _notification(what):
 		clear_all_debuffs()
 
 func _process(delta: float) -> void:
+	if target_enemy.is_dead and not death_fade_started:
+		_start_death_fade()
 	if active_debuffs.is_empty():
 		return
 	var debuff_ids = active_debuffs.keys()
@@ -237,15 +242,70 @@ func _process(delta: float) -> void:
 		debuff_entry["dot_elapsed"] = dot_elapsed
 		active_debuffs[debuff_id] = debuff_entry
 		var damage = PC.pc_atk * config.dot_damage_ratio * debuff_entry["stacks"]
+		if debuff_id == "electrified":
+			damage *= Faze.get_thunder_electrified_damage_multiplier(PC.faze_thunder_level)
 		_apply_dot_damage(debuff_id, damage)
+
+func _start_death_fade() -> void:
+	death_fade_started = true
+	var debuff_ids = active_debuffs.keys()
+	for debuff_id in debuff_ids:
+		var debuff_entry = active_debuffs[debuff_id]
+		debuff_entry["timer"].stop()
+		debuff_entry["timer"].queue_free()
+		if debuff_entry["effect_instance"]:
+			var effect_node = debuff_entry["effect_instance"]
+			var tween = effect_node.create_tween()
+			tween.tween_property(effect_node, "modulate:a", 0.0, 0.1)
+			tween.tween_callback(Callable(effect_node, "queue_free"))
+	active_debuffs.clear()
+	var modulate_tween = target_enemy.create_tween()
+	modulate_tween.tween_property(target_enemy, "modulate", base_modulate, 0.1)
 
 func _apply_dot_damage(debuff_id: String, damage: float) -> void:
 	var debuff_entry = active_debuffs[debuff_id]
 	var config: DebuffData = debuff_entry["config"]
+	var damage_type_int = _get_dot_damage_type_int(debuff_id)
+	if debuff_id == "burn":
+		var burn_instance = burn_scene.instantiate()
+		get_tree().current_scene.add_child(burn_instance)
+		burn_instance.global_position = target_enemy.global_position
+		burn_instance.scale = Vector2.ONE * Faze.get_burn_range_multiplier(PC.faze_fire_level)
+		
+		var burn_damage = damage * Faze.get_burn_damage_multiplier(PC.faze_fire_level)
+		var main_target_multiplier = 1.0
+		if target_enemy.is_in_group("elite") or target_enemy.is_in_group("boss"):
+			main_target_multiplier = Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
+		var final_damage = burn_damage * main_target_multiplier
+		target_enemy.take_damage(int(final_damage), false, false, debuff_id)
+		Global.emit_signal("monster_damage", damage_type_int, final_damage, target_enemy.global_position - Vector2(16, 6))
+		
+		var burn_radius = burn_instance.collision.shape.radius * burn_instance.collision.global_scale.x
+		var space_state = target_enemy.get_world_2d().direct_space_state
+		var query = PhysicsShapeQueryParameters2D.new()
+		var circle_shape = CircleShape2D.new()
+		circle_shape.radius = burn_radius
+		query.set_shape(circle_shape)
+		query.transform = Transform2D(0, target_enemy.global_position)
+		query.collide_with_areas = true
+		query.collide_with_bodies = false
+		query.collision_mask = target_enemy.collision_mask
+		var results = space_state.intersect_shape(query)
+		for hit in results:
+			var area = hit.collider
+			if area == target_enemy:
+				continue
+			if area.is_in_group("enemies"):
+				var neighbor_multiplier = 1.0
+				if area.is_in_group("elite") or area.is_in_group("boss"):
+					neighbor_multiplier = Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
+				var neighbor_damage = burn_damage * 0.5 * neighbor_multiplier
+				area.take_damage(int(neighbor_damage), false, false, debuff_id)
+				Global.emit_signal("monster_damage", damage_type_int, neighbor_damage, area.global_position)
+		return
 	var main_target_multiplier = EnemyDebuffManager.get_debuff_elite_boss_damage_multiplier(debuff_id, target_enemy)
 	var final_damage = damage * main_target_multiplier
 	target_enemy.take_damage(int(final_damage), false, false, debuff_id)
-	var damage_type_int = _get_dot_damage_type_int(debuff_id)
 	Global.emit_signal("monster_damage", damage_type_int, final_damage, target_enemy.global_position - Vector2(16, 6))
 	if not config.dot_affect_neighbors:
 		return
@@ -271,7 +331,7 @@ func _apply_dot_damage(debuff_id: String, damage: float) -> void:
 			Global.emit_signal("monster_damage", damage_type_int, neighbor_damage, area.global_position)
 
 func _get_dot_damage_type_int(debuff_id: String) -> int:
-	if debuff_id == "shock":
+	if debuff_id == "electrified":
 		return 5
 	if debuff_id == "burn":
 		return 6
@@ -279,4 +339,4 @@ func _get_dot_damage_type_int(debuff_id: String) -> int:
 		return 7
 	if debuff_id == "corrosion" or debuff_id == "corrosion2":
 		return 8
-	return 1
+	return 0

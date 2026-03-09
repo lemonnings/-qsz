@@ -12,7 +12,7 @@ func _calc_hp(base_hp: float) -> float:
 func taohua_yao(query: String): # 桃花妖
 	var data = {
 		"atk": _calc_atk(25),
-		"hp": _calc_hp(55),
+		"hp": _calc_hp(36),
 		"speed": 36,
 		"exp": 500 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 15 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.05)),
@@ -24,7 +24,7 @@ func taohua_yao(query: String): # 桃花妖
 func slime(query: String):
 	var data = {
 		"atk": _calc_atk(15),
-		"hp": _calc_hp(40),
+		"hp": _calc_hp(28),
 		"speed": 42,
 		"exp": 300 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 10 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.05)),
@@ -35,8 +35,8 @@ func slime(query: String):
 
 func frog(query: String): # 幼体树精
 	var data = {
-		"atk": _calc_atk(15),
-		"hp": _calc_hp(50),
+		"atk": _calc_atk(12),
+		"hp": _calc_hp(36),
 		"speed": 35,
 		"exp": 500 * (1 + ((Global.world_level_reward_multiple - 1) / 10)) * min((1 + (PC.current_time) / 10), 12.5),
 		"point": 20 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.05)),

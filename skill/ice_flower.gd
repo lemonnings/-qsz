@@ -110,6 +110,9 @@ static func _build_data() -> Dictionary:
 	var base_scale = ice_flower_base_scale
 	var small_scale_ratio = ice_flower_small_scale_ratio
 	var range_val = ice_flower_range
+	var destroy_damage_multiplier = Faze.get_destroy_damage_multiplier(PC.faze_destroy_level)
+	var bullet_damage_multiplier = Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
+	var bullet_range_multiplier = Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
 	
 	# 根据升级修正属性
 	if PC.selected_rewards.has("Ice1"):
@@ -159,7 +162,10 @@ static func _build_data() -> Dictionary:
 		damage_multiplier += 0.6
 		penetration_count += 2
 		pierce_decay = max(0.0, pierce_decay - 0.05)
-
+	
+	damage_multiplier = damage_multiplier * destroy_damage_multiplier * bullet_damage_multiplier
+	range_val = range_val * bullet_range_multiplier
+	
 	var final_damage = PC.pc_atk * damage_multiplier
 	
 	return {
@@ -244,18 +250,23 @@ func _on_area_entered(area: Area2D) -> void:
 			return
 		hit_targets[body_id] = true
 		
-		# 造成伤害
-		var is_crit = false
-		var final_damage = ice_damage
-		if randf() < PC.crit_chance:
-			is_crit = true
-			final_damage *= PC.crit_damage_multi
+	# 造成伤害
+	var is_crit = false
+	var final_damage = ice_damage
+	var crit_data = Faze.apply_destroy_crit_overflow(PC.crit_chance, PC.crit_damage_multi, PC.faze_destroy_level)
+	var crit_chance = crit_data["crit_chance"]
+	var crit_multiplier = crit_data["crit_multi"]
+	if randf() < crit_chance:
+		is_crit = true
+		crit_multiplier *= Faze.get_destroy_crit_fluctuation_multiplier(PC.faze_destroy_level)
+		final_damage *= crit_multiplier
 		
 		# 处理穿透衰减
 		# 注意：这里是瞬时伤害，对于穿透，通常需要减少 damage 或者 penetration_count
 		# 但因为是 Area2D 移动，碰到一个敌人算一次
-		if area.has_method("take_damage"):
-			area.take_damage(int(final_damage), is_crit, false, "ice_flower")
+	if area.has_method("take_damage"):
+		area.take_damage(int(final_damage), is_crit, false, "ice_flower")
+		Faze.on_bullet_hit()
 		
 		if penetration_count > 0:
 			penetration_count -= 1

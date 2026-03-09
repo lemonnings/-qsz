@@ -62,6 +62,7 @@ const SECTOR_RADIUS: float = 2000.0 # 扇形半径(超出场地画幅)
 const MULTI_SECTOR_ROUNDS: int = 4 # 连续扇形轮数
 
 func _ready():
+	add_to_group("boss")
 	# 防止boss升级期间打人（但没生效，子弹会在暂停期间积累到一起全射出来）
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	hp = hpMax # 初始化当前血量
@@ -799,6 +800,15 @@ func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: Strin
 	if not _is_monster_in_damage_range():
 		return
 	var final_damage_val = int(damage)
+	
+	# DoT伤害由EnemyDebuffManager负责显示跳字，避免重复显示白字
+	if damage_type in ["bleed", "burn", "electrified", "corrosion", "corrosion2", "posion"]:
+		Global.emit_signal("boss_hp_bar_take_damage", final_damage_val)
+		hp -= final_damage_val
+		if hp <= 0:
+			_die()
+		return
+
 	var damage_offset = Vector2(randf_range(-15, 15), randf_range(-15, 15))
 	if is_summon:
 		Global.emit_signal("monster_damage", 4, final_damage_val, global_position - Vector2(35, 20) + damage_offset)
@@ -809,23 +819,26 @@ func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: Strin
 	Global.emit_signal("boss_hp_bar_take_damage", final_damage_val)
 	hp -= final_damage_val
 	if hp <= 0:
-		if not is_dead:
-			Global.emit_signal("boss_defeated", get_point)
-			Global.emit_signal("monster_killed")
-		is_dead = true
-		var collision_shape = get_node("CollisionShape2D")
-		collision_shape.disabled = true
-		collision_layer = 0
-		collision_mask = 0
-		monitoring = false
-		monitorable = false
-		var shadow = get_node_or_null("Shadow")
-		if shadow:
-			shadow.visible = false
-		attack_timer.stop()
-		queue_free()
+		_die()
 	else:
 		Global.play_hit_anime(position, is_crit)
+
+func _die():
+	if not is_dead:
+		Global.emit_signal("boss_defeated", get_point)
+		Global.emit_signal("monster_killed")
+	is_dead = true
+	var collision_shape = get_node("CollisionShape2D")
+	collision_shape.disabled = true
+	collision_layer = 0
+	collision_mask = 0
+	monitoring = false
+	monitorable = false
+	var shadow = get_node_or_null("Shadow")
+	if shadow:
+		shadow.visible = false
+	attack_timer.stop()
+	queue_free()
 
 # 计算点到直线的距离的辅助函数
 func _point_to_line_distance(point: Vector2, line_start: Vector2, line_end: Vector2) -> float:

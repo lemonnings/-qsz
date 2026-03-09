@@ -49,6 +49,10 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	PC.last_atk_speed = PC.pc_atk_speed
 	PC.last_lunky_level = PC.now_lunky_level
 	
+	var extra_refresh = Faze.get_treasure_extra_refresh_count(PC.faze_treasure_level, PC.lucky)
+	print("因宝器法则获取了",extra_refresh)
+	PC.refresh_num += extra_refresh
+	
 	# 确定刷出来的三个升级奖励的等级
 	var r1_rand = randf_range(0, 100)
 	var r2_rand = randf_range(0, 100)
@@ -89,6 +93,22 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 				PC.refresh_num += 1
 			print("特殊技能抽取池已空")
 	
+	# 设置刷新按钮可见性
+	var refresh_b1 = lv_up_change_b1.get_node_or_null("RefreshButton1")
+	var refresh_b2 = lv_up_change_b2.get_node_or_null("RefreshButton2")
+	var refresh_b3 = lv_up_change_b3.get_node_or_null("RefreshButton3")
+	
+	if main_skill_name != "":
+		# 主技能进阶时隐藏刷新按钮
+		if refresh_b1: refresh_b1.visible = false
+		if refresh_b2: refresh_b2.visible = false
+		if refresh_b3: refresh_b3.visible = false
+	else:
+		# 普通升级时显示刷新按钮
+		if refresh_b1: refresh_b1.visible = true
+		if refresh_b2: refresh_b2.visible = true
+		if refresh_b3: refresh_b3.visible = true
+
 	# 创建背景变暗效果
 	if refresh_id == 0:
 		var dark_overlayOld = null
@@ -262,6 +282,60 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 		PC.main_skill_swordQi_advance += 1
 		handle_level_up("swordQi", 0, scene_tree, viewport)
 		# 主技能进阶完成后清空now_main_skill_name
+	elif PC.main_skill_branch != 0 and PC.main_skill_branch_advance < int(PC.main_skill_branch / 5):
+		PC.main_skill_branch_advance += 1
+		handle_level_up("branch", 0, scene_tree, viewport)
+	elif PC.main_skill_moyan != 0 and PC.main_skill_moyan_advance < int(PC.main_skill_moyan / 5):
+		PC.main_skill_moyan_advance += 1
+		handle_level_up("moyan", 0, scene_tree, viewport)
+	elif PC.main_skill_riyan != 0 and PC.main_skill_riyan_advance < int(PC.main_skill_riyan / 5):
+		PC.main_skill_riyan_advance += 1
+		handle_level_up("riyan", 0, scene_tree, viewport)
+	elif PC.main_skill_ringFire != 0 and PC.main_skill_ringFire_advance < int(PC.main_skill_ringFire / 5):
+		PC.main_skill_ringFire_advance += 1
+		handle_level_up("ringFire", 0, scene_tree, viewport)
+	elif PC.main_skill_thunder != 0 and PC.main_skill_thunder_advance < int(PC.main_skill_thunder / 5):
+		PC.main_skill_thunder_advance += 1
+		handle_level_up("thunder", 0, scene_tree, viewport)
+	elif PC.main_skill_bloodwave != 0 and PC.main_skill_bloodwave_advance < int(PC.main_skill_bloodwave / 5):
+		PC.main_skill_bloodwave_advance += 1
+		handle_level_up("bloodwave", 0, scene_tree, viewport)
+	elif PC.main_skill_bloodboardsword != 0 and PC.main_skill_bloodboardsword_advance < int(PC.main_skill_bloodboardsword / 5):
+		PC.main_skill_bloodboardsword_advance += 1
+		handle_level_up("bloodboardsword", 0, scene_tree, viewport)
+	elif PC.main_skill_ice != 0 and PC.main_skill_ice_advance < int(PC.main_skill_ice / 5):
+		PC.main_skill_ice_advance += 1
+		handle_level_up("ice", 0, scene_tree, viewport)
+	elif PC.main_skill_thunder_break != 0 and PC.main_skill_thunder_break_advance < int(PC.main_skill_thunder_break / 5):
+		PC.main_skill_thunder_break_advance += 1
+		handle_level_up("thunderbreak", 0, scene_tree, viewport)
+	elif PC.main_skill_light_bullet != 0 and PC.main_skill_light_bullet_advance < int(PC.main_skill_light_bullet / 5):
+		PC.main_skill_light_bullet_advance += 1
+		handle_level_up("lightbullet", 0, scene_tree, viewport)
+	elif PC.main_skill_qigong != 0 and PC.main_skill_qigong_advance < int(PC.main_skill_qigong / 5):
+		PC.main_skill_qigong_advance += 1
+		handle_level_up("qigong", 0, scene_tree, viewport)
+	elif PC.main_skill_water != 0 and PC.main_skill_water_advance < int(PC.main_skill_water / 5):
+		PC.main_skill_water_advance += 1
+		handle_level_up("water", 0, scene_tree, viewport)
+	elif PC.main_skill_qiankun != 0 and PC.main_skill_qiankun_advance < int(PC.main_skill_qiankun / 5):
+		PC.main_skill_qiankun_advance += 1
+		handle_level_up("qiankun", 0, scene_tree, viewport)
+	elif PC.main_skill_xuanwu != 0 and PC.main_skill_xuanwu_advance < int(PC.main_skill_xuanwu / 5):
+		PC.main_skill_xuanwu_advance += 1
+		handle_level_up("xuanwu", 0, scene_tree, viewport)
+	elif PC.main_skill_xunfeng != 0 and PC.main_skill_xunfeng_advance < int(PC.main_skill_xunfeng / 5):
+		PC.main_skill_xunfeng_advance += 1
+		handle_level_up("xunfeng", 0, scene_tree, viewport)
+	elif PC.main_skill_genshan != 0 and PC.main_skill_genshan_advance < int(PC.main_skill_genshan / 5):
+		PC.main_skill_genshan_advance += 1
+		handle_level_up("genshan", 0, scene_tree, viewport)
+	elif PC.main_skill_duize != 0 and PC.main_skill_duize_advance < int(PC.main_skill_duize / 5):
+		PC.main_skill_duize_advance += 1
+		handle_level_up("duize", 0, scene_tree, viewport)
+	elif PC.main_skill_holylight != 0 and PC.main_skill_holylight_advance < int(PC.main_skill_holylight / 5):
+		PC.main_skill_holylight_advance += 1
+		handle_level_up("holylight", 0, scene_tree, viewport)
 	# 如果没有主技能进阶，或者主技能进阶处理完毕后，再处理普通待升级
 	elif pending_level_ups > 0:
 		handle_level_up("", 0, scene_tree, viewport)
@@ -314,7 +388,7 @@ func set_now_main_skill_name(value: String) -> void:
 # 获取升级所需经验值
 func get_required_lv_up_value(level: int) -> float:
 	# todo 测试期间/10
-	var value: float = 100
+	var value: float = 1000
 	for i in range(level):
 		value = (value + 300) * 1.035
 	return value

@@ -19,6 +19,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	damage = PC.pc_atk * 0.3 * PC.main_skill_ringFire_damage
+	damage = damage * Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level)
 	if(PC.selected_rewards.has("ringFire3")):
 		damage = damage * 1.25
 	if(PC.selected_rewards.has("ringFire13")):
@@ -45,6 +46,9 @@ func _on_area_entered(area: Area2D) -> void:
 		if not hit_cooldowns.has(area) or hit_cooldowns[area] <= 0:
 			# 造成伤害
 			if area.has_method("take_damage"):
-				area.take_damage(damage, false, false, "")
+				var final_damage = damage
+				if area.is_in_group("elite") or area.is_in_group("boss"):
+					final_damage = final_damage * Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
+				area.take_damage(final_damage, false, false, "")
 				# 设置该火焰实例对这个敌人的冷却时间
 				hit_cooldowns[area] = hit_cooldown

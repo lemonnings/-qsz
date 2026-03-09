@@ -30,6 +30,9 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 	var damage = bullet_data["damage"]
 	var is_crit = bullet_data["is_crit"]
 	var is_summon_bullet = bullet_data["is_summon_bullet"]
+	var weapon_tag = ""
+	if bullet_data.has("weapon_tag"):
+		weapon_tag = bullet_data["weapon_tag"]
 
 	# 计算最终伤害值
 	var final_damage_val = damage
@@ -52,6 +55,10 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 	
 	# 应用全局buff效果
 	final_damage_val = apply_global_buff_effects(final_damage_val)
+	
+	if weapon_tag == "treasure":
+		if enemy.is_in_group("elite") or enemy.is_in_group("boss"):
+			final_damage_val = final_damage_val * Faze.get_treasure_elite_boss_multiplier(PC.faze_treasure_level, PC.lucky)
 	
 	result["final_damage"] = final_damage_val
 	result["is_crit"] = is_crit
@@ -102,6 +109,11 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 				Global.emit_signal("monster_damage", 2, final_damage_val, enemy.global_position - damage_offset)
 			else:
 				Global.emit_signal("monster_damage", 1, final_damage_val, enemy.global_position - damage_offset)
+	
+	if area.has_method("is_faze_bullet_weapon") and area.is_faze_bullet_weapon():
+		Faze.on_bullet_hit()
+	if area.has_method("is_sword_weapon") and area.is_sword_weapon():
+		Faze.on_sword_weapon_hit(enemy)
 	
 	return result
 

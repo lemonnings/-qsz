@@ -256,6 +256,10 @@ func update_stats() -> void:
 	# Qiankun33: 搜寻-乘虚
 	if PC.selected_rewards.has("Qiankun33"):
 		crit_on_3_debuffs = true
+	
+	# 八卦法则伤害加成
+	var bagua_mult = Faze.get_bagua_damage_multiplier()
+	damage_multiplier *= bagua_mult
 		
 	damage = PC.pc_atk * damage_multiplier * final_damage_multi
 
@@ -364,7 +368,7 @@ func _on_area_entered(area: Area2D) -> void:
 					is_crit = true # Force crit
 					
 		if is_crit:
-			final_damage *= PC.crit_damage_multi
+			final_damage *= Faze.get_sword_crit_damage_multiplier(PC.faze_sword_level)
 			
 		# Apply final total damage multiplier
 		if qiankun_final_damage_multi > 1.0:
@@ -372,3 +376,9 @@ func _on_area_entered(area: Area2D) -> void:
 			
 		if area.has_method("take_damage"):
 			area.take_damage(int(final_damage), is_crit, false, "qiankun")
+			Faze.on_sword_weapon_hit(area)
+			
+			# 八卦法则推衍度
+			Faze.add_bagua_progress(1, area.is_in_group("elite") or area.is_in_group("boss"))
+			if not is_instance_valid(area) or area.hp <= 0:
+				Faze.add_bagua_progress(5, area.is_in_group("elite") or area.is_in_group("boss"))

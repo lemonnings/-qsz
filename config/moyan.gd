@@ -180,7 +180,10 @@ func _play_explosion_and_die_deferred() -> void:
 	for hit in result:
 		var area = hit.collider
 		if area is Area2D and area.is_in_group("enemies") and area.has_method("take_damage"):
-			area.take_damage(bullet_damage * 0.8, false, false, "")
+			var final_damage = bullet_damage * 0.8
+			if area.is_in_group("elite") or area.is_in_group("boss"):
+				final_damage = final_damage * Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
+			area.take_damage(final_damage, false, false, "")
 			print("Damage dealt to: ", area.name)
 			
 	# 直接销毁子弹
@@ -209,17 +212,22 @@ func set_direction(new_direction: Vector2) -> void:
 # 初始化子弹的伤害和暴击状态
 func initialize_bullet_damage() -> void:
 	var base_damage: float = PC.pc_atk * PC.main_skill_moyan_damage
+	base_damage = base_damage * Faze.get_destroy_damage_multiplier(PC.faze_destroy_level)
+	base_damage = base_damage * Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level)
 
 	is_crit_hit = false
 	bullet_damage = base_damage
 	$CollisionShape2D.shape.radius = 5.7
 
-	if randf() < PC.crit_chance:
+	var crit_data = Faze.apply_destroy_crit_overflow(PC.crit_chance, PC.crit_damage_multi, PC.faze_destroy_level)
+	var crit_chance = crit_data["crit_chance"]
+	var crit_multiplier = crit_data["crit_multi"]
+	if randf() < crit_chance:
 		is_crit_hit = true
-		var crit_multiplier = PC.crit_damage_multi
 		# 魔焰13: 巨大魔焰暴击伤害翻倍
 		if is_giant_moyan and PC.selected_rewards.has("moyan13"):
 			crit_multiplier *= 2
+		crit_multiplier *= Faze.get_destroy_crit_fluctuation_multiplier(PC.faze_destroy_level)
 		bullet_damage *= crit_multiplier
 
 # 获取子弹的实际伤害，并返回是否暴击

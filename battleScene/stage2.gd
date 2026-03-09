@@ -455,8 +455,6 @@ func _on_boss_defeated(get_point: int):
 		layer_ui.stop_all_skill_cooldowns()
 		var item_control = get_node("ItemControl")
 		item_control.start_victory_collect(player, 225.0)
-		get_tree().current_scene.point += get_point
-		Global.total_points += get_point
 		Global.save_game()
 
 		await layer_ui.play_victory_sequence()

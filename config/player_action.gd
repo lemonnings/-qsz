@@ -28,6 +28,7 @@ var chenjing_effect: Node2D = null # 沉静纹章的脚底光圈效果
 @export var bloodboardsword_scene: PackedScene
 @export var ice_flower_scene: PackedScene
 @export var qigong_scene: PackedScene
+@export var dragonwind_scene: PackedScene
 @export var thunder_break_scene: PackedScene
 @export var light_bullet_scene: PackedScene
 @export var water_scene: PackedScene
@@ -48,6 +49,7 @@ var chenjing_effect: Node2D = null # 沉静纹章的脚底光圈效果
 @export var bloodboardsword_fire_speed: Timer
 @export var ice_flower_fire_speed: Timer
 @export var qigong_fire_speed: Timer
+@export var dragonwind_fire_speed: Timer
 @export var thunder_break_fire_speed: Timer
 @export var light_bullet_fire_speed: Timer
 @export var water_fire_speed: Timer
@@ -67,8 +69,21 @@ var active_summons: Array = [] # 当前活跃的召唤物列表
 @onready var moning_sprite: AnimatedSprite2D = $moning
 @onready var noam_sprite: AnimatedSprite2D = $noam
 @onready var kansel_sprite: AnimatedSprite2D = $kansel
+@onready var qujie_sprite: AnimatedSprite2D = $qujie
 var sprite: AnimatedSprite2D
 @export var sprite_direction_right: bool
+
+var beastify_active: bool = false
+var beastify_prev_atk: int = 0
+var beastify_prev_atk_speed: float = 0.0
+var beastify_prev_move_speed: float = 0.0
+var beastify_prev_sprite: AnimatedSprite2D = null
+var beastify_claw_ratio: float = 0.4
+var beastify_effect_scene: PackedScene = preload("res://Scenes/player/beastification.tscn")
+var beastify_hit_shape: Shape2D = null
+var beastify_hit_offset: Vector2 = Vector2.ZERO
+var beastify_forward_offset: float = 15.0
+var beastify_lock_range: float = 75.0
 
 
 # 摄像头缩放相关变量
@@ -98,6 +113,7 @@ func _ready() -> void:
 	
 	_set_active_hero(PC.player_name)
 	_update_active_skill_timers(PC.player_name)
+	_cache_beastify_hitbox()
 
 	Global.connect("_fire_ring_bullets", Callable(self, "_fire_ring_bullets"))
 	
@@ -120,6 +136,7 @@ func _ready() -> void:
 	Global.connect("skill_cooldown_complete_duize", Callable(self, "_on_fire_duize"))
 	Global.connect("skill_cooldown_complete_holylight", Callable(self, "_on_fire_holylight"))
 	Global.connect("skill_cooldown_complete_qigong", Callable(self, "_on_fire_qigong"))
+	Global.connect("skill_cooldown_complete_dragonwind", Callable(self, "_on_fire_dragonwind"))
 	
 	camera.zoom = Vector2(1.6, 1.6)
 	
@@ -158,10 +175,18 @@ func _set_active_hero(hero_key: String) -> void:
 	moning_sprite.visible = false
 	noam_sprite.visible = false
 	kansel_sprite.visible = false
+	qujie_sprite.visible = false
 	hero_sprite.visible = true
 	animator = hero_sprite
 	sprite = hero_sprite
 	sprite_direction_right = not animator.flip_h
+
+func _cache_beastify_hitbox() -> void:
+	var temp = beastify_effect_scene.instantiate()
+	var col: CollisionShape2D = temp.get_node("CollisionShape2D")
+	beastify_hit_shape = col.shape.duplicate()
+	beastify_hit_offset = col.position
+	temp.queue_free()
 
 func _get_hero_sprite(hero_key: String) -> AnimatedSprite2D:
 	if hero_key == "yiqiu":
@@ -393,6 +418,7 @@ func stop_all_skill_cooldowns() -> void:
 	genshan_fire_speed.stop()
 	duize_fire_speed.stop()
 	holy_light_fire_speed.stop()
+	dragonwind_fire_speed.stop()
 
 
 func _on_fire_idle() -> void:
@@ -814,6 +840,9 @@ func _on_fire_qiankun(skill_id: int = 13) -> void:
 		script.fire_skill(qiankun_scene, global_position, get_tree())
 
 func _on_fire_detail() -> void:
+	if beastify_active:
+		_beast_claw_attack()
+		return
 	var bullet_node_size = PC.bullet_size
 	var base_direction = Vector2.RIGHT # Default direction
 	var spawn_position = position
@@ -900,6 +929,124 @@ func fire_extra_attack(damage_multiplier: float) -> void:
 	if PC.selected_rewards.has("rebound"): main_bullet.is_rebound = false
 	get_tree().current_scene.add_child(main_bullet)
 	
+func start_beastify(duration: float, atk_bonus: float, atk_speed_bonus: float, move_bonus: float, claw_ratio: float) -> void:
+	if beastify_active:
+		return
+	beastify_active = true
+	beastify_prev_atk = PC.pc_atk
+	beastify_prev_atk_speed = PC.pc_atk_speed
+	beastify_prev_move_speed = PC.pc_speed
+	PC.pc_atk = int(round(float(PC.pc_atk) * (1.0 + atk_bonus)))
+	PC.pc_atk_speed = PC.pc_atk_speed + atk_speed_bonus
+	PC.pc_speed = PC.pc_speed + move_bonus
+	beastify_claw_ratio = claw_ratio
+	beastify_prev_sprite = sprite
+	if beastify_prev_sprite:
+		beastify_prev_sprite.visible = false
+	qujie_sprite.visible = true
+	qujie_sprite.flip_h = sprite_direction_right
+	animator = qujie_sprite
+	sprite = qujie_sprite
+	await get_tree().create_timer(duration).timeout
+	end_beastify()
+
+func end_beastify() -> void:
+	if not beastify_active:
+		return
+	beastify_active = false
+	PC.pc_atk = beastify_prev_atk
+	PC.pc_atk_speed = beastify_prev_atk_speed
+	PC.pc_speed = beastify_prev_move_speed
+	var scene = get_tree().current_scene
+	if scene and scene is CanvasItem:
+		var t = create_tween()
+		t.tween_property(scene, "modulate", Color(1, 0, 0, 1), 0.5)
+		t.tween_property(scene, "modulate", Color(1, 1, 1, 1), 0.1)
+		await t.finished
+	if qujie_sprite:
+		qujie_sprite.visible = false
+	if beastify_prev_sprite:
+		beastify_prev_sprite.visible = true
+		animator = beastify_prev_sprite
+		sprite = beastify_prev_sprite
+
+func _beast_claw_attack() -> void:
+	if PC.is_game_over:
+		return
+	var angle = _get_beast_best_attack_angle()
+	sprite_direction_right = cos(angle) >= 0.0
+	if sprite:
+		sprite.flip_h = sprite_direction_right
+	var hits = _collect_beast_hits_at_angle(angle)
+	var base = float(PC.pc_atk) * PC.main_skill_swordQi_damage * beastify_claw_ratio
+	base *= Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
+	if hits.size() < 3:
+		base *= 1.5
+	for e in hits:
+		if is_instance_valid(e) and e.has_method("take_damage"):
+			var is_crit = randf() < PC.crit_chance
+			var final_damage = base
+			if is_crit:
+				final_damage *= Faze.get_sword_crit_damage_multiplier(PC.faze_sword_level)
+			e.take_damage(int(round(final_damage)), is_crit, false, "claw")
+			Faze.on_bullet_hit()
+			Faze.on_sword_weapon_hit(e)
+	var inst = beastify_effect_scene.instantiate()
+	get_tree().current_scene.add_child(inst)
+	inst.rotation = angle
+	inst.global_position = global_position + Vector2.RIGHT.rotated(angle) * beastify_forward_offset
+
+func _get_beast_best_attack_angle() -> float:
+	var default_angle = 0.0
+	if not sprite_direction_right:
+		default_angle = PI
+	var best_enemy: Node2D = null
+	var best_dist_sq = beastify_lock_range * beastify_lock_range
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		if not is_instance_valid(enemy):
+			continue
+		var to_enemy = enemy.global_position - global_position
+		var dist_sq = to_enemy.length_squared()
+		if dist_sq <= 0.0001:
+			continue
+		if dist_sq > best_dist_sq:
+			continue
+		best_dist_sq = dist_sq
+		best_enemy = enemy
+	if best_enemy == null:
+		return default_angle
+	return (best_enemy.global_position - global_position).angle()
+
+func _collect_beast_hits_at_angle(angle: float) -> Array:
+	if beastify_hit_shape == null:
+		return []
+	var offset = beastify_hit_offset.rotated(angle) + Vector2.RIGHT.rotated(angle) * beastify_forward_offset
+	var world_state = get_world_2d().direct_space_state
+	var query = PhysicsShapeQueryParameters2D.new()
+	query.shape = beastify_hit_shape
+	query.transform = Transform2D(angle, global_position + offset)
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	query.collision_mask = 0x7fffffff
+	var results = world_state.intersect_shape(query)
+	var hits: Array = []
+	for item in results:
+		if not item.has("collider"):
+			continue
+		var e = item.collider
+		if not is_instance_valid(e):
+			continue
+		if e.get_parent() and e.get_parent().is_in_group("enemies"):
+			e = e.get_parent()
+		if not e.is_in_group("enemies"):
+			continue
+		if not e.has_method("take_damage"):
+			continue
+		if hits.has(e):
+			continue
+		hits.append(e)
+	return hits
+
 func _on_fire_detail_branch() -> void:
 	var bullet_node_size = PC.bullet_size
 	var base_direction = Vector2.RIGHT # Default direction
@@ -1043,9 +1190,6 @@ func _on_fire_detail_holylight() -> void:
 		script.fire_skill(holy_light_scene, global_position, get_tree())
 
 
-
-
-
 func _on_fire_detail_thunder_break() -> void:
 	if not thunder_break_scene:
 		return
@@ -1089,16 +1233,6 @@ func _build_thunder_break_data() -> Dictionary:
 	var damage_distance_bonus = false
 	var apply_vulnerable = false
 	
-	# R/SR/SSR/UR
-	if PC.selected_rewards.has("RThunderBreak"):
-		damage_multiplier += 0.2
-	if PC.selected_rewards.has("SRThunderBreak"):
-		damage_multiplier += 0.25
-	if PC.selected_rewards.has("SSRThunderBreak"):
-		damage_multiplier += 0.3
-	if PC.selected_rewards.has("URThunderBreak"):
-		damage_multiplier += 0.4
-		
 	# ThunderBreak1: 引雷
 	if PC.selected_rewards.has("ThunderBreak1"):
 		damage_multiplier += 0.4
@@ -1248,6 +1382,8 @@ func reload_scene() -> void:
 
 
 func _on_player_hit(attacker: Node2D = null) -> void:
+	if PC.is_game_over:
+		return
 	# 处理铁骨纹章的反弹效果
 	if EmblemManager.has_emblem("tiegu"):
 		var tiegu_stack = EmblemManager.get_emblem_stack("tiegu")
@@ -1266,22 +1402,6 @@ func _on_player_hit(attacker: Node2D = null) -> void:
 	if PC.pc_hp > 0:
 		$HitSound.play()
 		sprite.modulate = Color(1, 0.5, 0.5)
-
-
-# 确定召唤物类型
-func determine_summon_type() -> int:
-	if PC.new_summon == "gold":
-		PC.new_summon = ""
-		return 3 # 金色强化追踪召唤物
-	elif PC.new_summon == "orange":
-		PC.new_summon = ""
-		return 2 # 橙色追踪召唤物
-	elif PC.new_summon == "darkorchid":
-		PC.new_summon = ""
-		return 1 # 紫色定向召唤物
-	else:
-		PC.new_summon = ""
-		return 0 # 蓝色随机召唤物
 
 
 # 添加新召唤物（当获得召唤物奖励时调用）
@@ -1486,9 +1606,11 @@ func update_skill_attack_speeds() -> void:
 	
 	# 基础攻速公式：初始攻速 / (1 + PC.pc_atk_speed + 冷却缩减)
 	var total_speed_multiplier = 1 + PC.pc_atk_speed + cooldown_reduction
+	var life_interval_multiplier = Faze.get_life_attack_interval_multiplier(PC.faze_life_level)
 	
 	# 主攻击
-	update_timer_preserve_ratio(fire_speed, 0.66 / total_speed_multiplier)
+	var sword_speed_multiplier = Faze.get_sword_attack_speed_multiplier(PC.faze_sword_level)
+	update_timer_preserve_ratio(fire_speed, 0.66 / total_speed_multiplier / sword_speed_multiplier)
 	
 	# 分支攻击
 	update_timer_preserve_ratio(branch_fire_speed, 1.5 / total_speed_multiplier)
@@ -1508,7 +1630,7 @@ func update_skill_attack_speeds() -> void:
 	# 血气波攻击
 	update_timer_preserve_ratio(bloodwave_fire_speed, 2.0 / total_speed_multiplier)
 	
-	update_timer_preserve_ratio(bloodboardsword_fire_speed, 2.0 / total_speed_multiplier)
+	update_timer_preserve_ratio(bloodboardsword_fire_speed, 2.0 / total_speed_multiplier / sword_speed_multiplier)
 	
 	# 冰刺术
 	update_timer_preserve_ratio(ice_flower_fire_speed, 1 / total_speed_multiplier)
@@ -1525,13 +1647,14 @@ func update_skill_attack_speeds() -> void:
 	if PC.selected_rewards.has("LightBullet22"):
 		light_bullet_interval *= 0.8
 		
+	light_bullet_interval = light_bullet_interval * life_interval_multiplier
 	update_timer_preserve_ratio(light_bullet_fire_speed, light_bullet_interval / total_speed_multiplier)
 	
 	# 坎水诀 (基础2.2秒/次)
-	update_timer_preserve_ratio(water_fire_speed, 2.2 / total_speed_multiplier)
+	update_timer_preserve_ratio(water_fire_speed, 2.2 * life_interval_multiplier / total_speed_multiplier)
 	
 	# 乾坤双剑 (基础3.5秒/次)
-	update_timer_preserve_ratio(qiankun_fire_speed, 3.5 / total_speed_multiplier)
+	update_timer_preserve_ratio(qiankun_fire_speed, 3.5 / total_speed_multiplier / sword_speed_multiplier)
 
 	# 玄武盾 (基础4秒/次)
 	update_timer_preserve_ratio(xuanwu_fire_speed, 4 / total_speed_multiplier)
@@ -1546,10 +1669,13 @@ func update_skill_attack_speeds() -> void:
 	update_timer_preserve_ratio(duize_fire_speed, 4.0 / total_speed_multiplier)
 
 	# 圣光术 (基础3.2秒/次)
-	update_timer_preserve_ratio(holy_light_fire_speed, 3.2 / total_speed_multiplier)
+	update_timer_preserve_ratio(holy_light_fire_speed, 3.2 * life_interval_multiplier / total_speed_multiplier)
 
 	# 气功波
-	update_timer_preserve_ratio(qigong_fire_speed, 1.5 / total_speed_multiplier)
+	update_timer_preserve_ratio(qigong_fire_speed, 1.2 / total_speed_multiplier)
+	
+	# 风龙杖
+	update_timer_preserve_ratio(dragonwind_fire_speed, 2.5 / total_speed_multiplier)
 
 func _on_fire_xunfeng(skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
@@ -1675,7 +1801,7 @@ func _on_fire_qigong(skill_id: int = 19) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if not PC.selected_rewards.has("qigong"):
+	if not PC.selected_rewards.has("Qigong"):
 		return
 	_on_fire_detail_qigong()
 
@@ -1697,7 +1823,7 @@ func _on_fire_detail_qigong() -> void:
 			
 	var other_weapon_count = 0
 	if PC.selected_rewards.has("Qigong5") or PC.selected_rewards.has("Qigong11"):
-		other_weapon_count = PC.now_main_skill_num - 1
+		other_weapon_count = PC.current_weapon_num - 1
 	Qigong.qigong_chakra_count = other_weapon_count
 			
 	# 计算连发
@@ -1724,6 +1850,22 @@ func _on_fire_detail_qigong() -> void:
 		
 		if i < damage_multipliers.size() - 1:
 			await get_tree().create_timer(0.1).timeout
+
+func _on_fire_dragonwind(skill_id: int = 20) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	if not PC.selected_rewards.has("DragonWind"):
+		return
+	_on_fire_detail_dragonwind()
+
+func _on_fire_detail_dragonwind() -> void:
+	if not dragonwind_scene:
+		return
+	var script = load("res://Script/skill/dragon_wind.gd")
+	if script and script.has_method("fire_skill"):
+		script.fire_skill(dragonwind_scene, global_position, get_tree())
 
 func _spawn_qigong(direction: Vector2, offset: Vector2 = Vector2.ZERO, damage_multiplier: float = 1.0) -> void:
 	var qigong_instance = qigong_scene.instantiate()

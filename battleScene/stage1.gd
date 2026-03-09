@@ -20,8 +20,6 @@ var SLIME_MAX_SPAWN_INCREASE_THRESHOLD: int = 8
 var SLIME_MIN_SPAWN_INCREASE_THRESHOLD: int = 10
 var BAT_MAX_SPAWN_INCREASE_THRESHOLD: int = 10
 var BAT_MIN_SPAWN_INCREASE_THRESHOLD: int = 15
-var FROG_MIN_SPAWN_INCREASE_THRESHOLD: int = 15
-var FROG_MAX_SPAWN_INCREASE_THRESHOLD: int = 20
 
 # 怪物生成数量
 var slime_min_spawn: int = 3
@@ -30,9 +28,6 @@ var slime_upper_limit: int = 36
 var bat_min_spawn: int = 2
 var bat_max_spawn: int = 8
 var bat_upper_limit: int = 24
-var frog_min_spawn: int = 0
-var frog_max_spawn: int = 2
-var frog_upper_limit: int = 4
 
 @export var monster_spawn_timer: Timer
 
@@ -72,7 +67,7 @@ func _ready() -> void:
 	$Player.min_zoom = 2.2
 	
 	map_mechanism_num = 0
-	map_mechanism_num_max = 180
+	map_mechanism_num_max = 14000
 	# map_mechanism_num_max = 14000
 	
 	Global.reset_dps_counter()
@@ -211,10 +206,6 @@ func _on_monster_spawn_timer_timeout() -> void:
 		bat_max_spawn = min(bat_max_spawn + 1, bat_upper_limit)
 	if spawn_count % BAT_MIN_SPAWN_INCREASE_THRESHOLD == 0:
 		bat_min_spawn = min(bat_min_spawn + 1, bat_max_spawn)
-	if spawn_count % FROG_MIN_SPAWN_INCREASE_THRESHOLD == 0:
-		frog_min_spawn = min(frog_min_spawn + 1, frog_max_spawn)
-	if spawn_count % FROG_MAX_SPAWN_INCREASE_THRESHOLD == 0:
-		frog_max_spawn = min(frog_max_spawn + 1, frog_upper_limit)
 		
 	# 检查是否还有空间生成怪物，如果没有则跳过本次生成
 	if current_monster_count >= max_monster_limit:
@@ -224,7 +215,11 @@ func _on_monster_spawn_timer_timeout() -> void:
 	var spawn_tasks = []
 	
 	# 添加青蛙生成任务
-	var num_frogs_to_spawn = randi_range(frog_min_spawn, frog_max_spawn)
+	var num_frogs_to_spawn = 0
+	if spawn_count >= 20:
+		num_frogs_to_spawn = 2
+	elif spawn_count >= 10:
+		num_frogs_to_spawn = 1
 	spawn_tasks.append({"type": "frog", "count": num_frogs_to_spawn})
 	
 	# 添加蝙蝠生成任务
@@ -449,8 +444,6 @@ func _on_boss_defeated(get_point: int):
 		layer_ui.stop_all_skill_cooldowns()
 		var item_control = get_node("ItemControl")
 		item_control.start_victory_collect(player, 225.0)
-		get_tree().current_scene.point += get_point
-		Global.total_points += get_point
 		Global.save_game()
 		
 		await layer_ui.play_victory_sequence()

@@ -99,9 +99,13 @@ static func _build_data() -> Dictionary:
 		if hp_ratio < 0.5:
 			damage_bonus_ratio += bloodwave_low_hp_damage_bonus
 			range_bonus_ratio += bloodwave_low_hp_range_bonus
+			
+	# 应用广域法则加成
+	var wide_range_mult = Faze.get_wide_range_multiplier()
+	var wide_damage_mult = Faze.get_wide_damage_multiplier(range_bonus_ratio) # 这里range_bonus_ratio是血气波自身的范围加成
 	
-	var final_damage = (PC.pc_atk * damage_multiplier) * (1.0 + damage_bonus_ratio)
-	var final_range = base_range * (1.0 + range_bonus_ratio)
+	var final_damage = (PC.pc_atk * damage_multiplier) * (1.0 + damage_bonus_ratio) * wide_damage_mult
+	var final_range = base_range * (1.0 + range_bonus_ratio) * wide_range_mult
 	
 	return {
 		"damage": final_damage,

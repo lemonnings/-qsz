@@ -171,16 +171,28 @@ func _on_area_entered(area: Area2D) -> void:
 func _deal_damage(enemy: Area2D) -> void:
 	var dist = global_position.distance_to(enemy.global_position)
 	
-	var final_damage = damage
+	var final_damage = damage * Faze.get_destroy_damage_multiplier(PC.faze_destroy_level)
+	
+	# 鸣雷法则加成
+	var thunder_level = PC.faze_thunder_level
+	final_damage *= Faze.get_thunder_weapon_damage_multiplier(thunder_level)
+	
+	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("has_debuff"):
+		if enemy.debuff_manager.has_debuff("electrified"):
+			final_damage *= (1.0 + Faze.get_thunder_damage_vs_electrified_bonus(thunder_level))
+	
 	var is_crit = false
 	
 	# 计算暴击
-	if randf() < PC.crit_chance:
+	var crit_data = Faze.apply_destroy_crit_overflow(PC.crit_chance, PC.crit_damage_multi, PC.faze_destroy_level)
+	var crit_chance = crit_data["crit_chance"]
+	var crit_multiplier = crit_data["crit_multi"]
+	if randf() < crit_chance:
 		is_crit = true
 	
 	# 特殊效果处理
 	
-	# ThunderBreak4: 距离每10伤害+2%
+	# ThunderBreak4: 距离每100伤害+2%	
 	if damage_distance_bonus:
 		var bonus_stacks = floor(dist / 10.0)
 		final_damage *= (1.0 + bonus_stacks * 0.02)
@@ -194,7 +206,8 @@ func _deal_damage(enemy: Area2D) -> void:
 		is_crit = true
 	
 	if is_crit:
-		final_damage *= PC.crit_damage_multi
+		crit_multiplier *= Faze.get_destroy_crit_fluctuation_multiplier(PC.faze_destroy_level)
+		final_damage *= crit_multiplier
 		
 	# Apply final total damage multiplier
 	if PC.thunder_break_final_damage_multi > 1.0:

@@ -119,6 +119,8 @@ static func _build_data() -> Dictionary:
 	var atk_dmg = PC.pc_atk * damage_multiplier
 	var hp_dmg = PC.pc_max_hp * hp_damage_ratio
 	var total_damage = atk_dmg + hp_dmg
+	total_damage = total_damage * Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.lucky)
+	
 	
 	if shield_bonus_damage > 0:
 		var shield_total = PC.get_total_shield()
@@ -223,6 +225,8 @@ func _handle_hit(target: Node):
 			if randf() < PC.crit_chance:
 				is_crit = true
 				final_damage *= PC.crit_damage_multi
+			if target.is_in_group("elite") or target.is_in_group("boss"):
+				final_damage = final_damage * Faze.get_treasure_elite_boss_multiplier(PC.faze_treasure_level, PC.lucky)
 				
 			target.take_damage(int(final_damage), is_crit, false, "xuanwu")
 			

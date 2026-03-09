@@ -61,6 +61,7 @@ var has_hit_target: bool = false # 是否已击中目标
 func _ready() -> void:
 	# 记录子弹起始位置
 	start_position = global_position
+	bullet_range = bullet_range * Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
 	
 	# 检查是否启用剑波痕迹
 	if PC.selected_rewards.has("SplitSwordQi2"):
@@ -178,13 +179,17 @@ func initialize_bullet_damage() -> void:
 		base_damage = summon_damage * PC.main_skill_swordQi_damage
 	elif is_ring_bullet:
 		base_damage = PC.pc_atk * ring_bullet_damage_multiplier * PC.main_skill_swordQi_damage
+		base_damage = base_damage * Faze.get_skill_damage_multiplier(PC.faze_skill_level)
 	elif is_wave_bullet:
 		# 新增：浪形子弹伤害为角色攻击的指定倍数（此处由调用处设置倍数，如0.5）
 		base_damage = PC.pc_atk * wave_bullet_damage_multiplier * PC.main_skill_swordQi_damage
+		base_damage = base_damage * Faze.get_skill_damage_multiplier(PC.faze_skill_level)
 	elif is_other_sword_wave:
 		base_damage = PC.pc_atk * PC.swordQi_other_sword_wave_damage * PC.main_skill_swordQi_damage
 	else:
 		base_damage = PC.pc_atk * PC.main_skill_swordQi_damage
+	if not is_summon_bullet:
+		base_damage = base_damage * Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
 	
 	is_crit_hit = false
 	bullet_damage = base_damage
@@ -192,7 +197,7 @@ func initialize_bullet_damage() -> void:
 	if can_crit:
 		if randf() < PC.crit_chance:
 			is_crit_hit = true
-			bullet_damage *= PC.crit_damage_multi
+			bullet_damage *= Faze.get_sword_crit_damage_multiplier(PC.faze_sword_level)
 	
 	# 应用buff效果到基础伤害
 	bullet_damage = apply_buff_effects_to_damage(bullet_damage, is_summon_bullet)
@@ -240,6 +245,12 @@ func apply_buff_effects_to_damage(base_damage: float, is_summon_bullet: bool) ->
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary: # Returns {"damage": float, "is_crit": bool}
 	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": is_summon_bullet}
+
+func is_sword_weapon() -> bool:
+	return true
+
+func is_faze_bullet_weapon() -> bool:
+	return true
 
 # 用于防止同一帧内多次处理碰撞
 var collision_processed_this_frame: bool = false

@@ -33,6 +33,8 @@ func _ready():
 	debuff_manager = EnemyDebuffManager.new(self)
 	add_child(debuff_manager)
 	debuff_applied.connect(debuff_manager.add_debuff)
+	if is_elite:
+		add_to_group("elite")
 	speed = base_speed # Initialize speed
 	
 	# 创建地面阴影（飞行单位阴影在更下方，表示地面投影）
@@ -120,9 +122,11 @@ func _physics_process(delta: float) -> void:
 		if not is_dead: # Add this check
 			$AnimatedSprite2D.stop()
 			$AnimatedSprite2D.play("death")
-			get_tree().current_scene.point += get_point
-			Global.total_points += get_point
-			PC.pc_exp += get_exp
+			var point_gain = int(get_point * Faze.get_point_multiplier())
+			get_tree().current_scene.point += point_gain
+			Global.total_points += point_gain
+			var exp_gain = int(get_exp * Faze.get_exp_multiplier())
+			PC.pc_exp += exp_gain
 			Global.emit_signal("monster_mechanism_gained", get_mechanism)
 			var change = randf()
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
@@ -175,6 +179,9 @@ func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: Strin
 			last_sword_wave_damage_time = current_time
 	else:
 		hp -= final_damage
+		# DoT伤害由EnemyDebuffManager负责显示跳字，避免重复显示白字
+		if damage_type in ["bleed", "burn", "electrified", "corrosion", "corrosion2", "posion"]:
+			return
 		var damage_type_int = 1
 		if is_summon:
 			damage_type_int = 4
@@ -216,7 +223,7 @@ func apply_debuff_effect(debuff_id: String):
 
 func apply_knockback(direction: Vector2, force: float):
 	var tween = create_tween()
-	tween.tween_property(self, "position", global_position + direction * force, 0.2).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 # Release a round of sword Qi in (90°)(270°) and other all directions
 func release_round_sword_qi():
