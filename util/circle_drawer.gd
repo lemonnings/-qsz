@@ -30,4 +30,4 @@ func _draw():
 	for i in range(segments):
 		var start_point = points[i]
 		var end_point = points[i + 1]
-		draw_line(start_point, end_point, Color.WHITE, 2.0)
+		draw_line(start_point, end_point, Color.WHITE, 1.5)

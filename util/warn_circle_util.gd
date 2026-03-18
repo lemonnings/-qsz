@@ -117,20 +117,20 @@ func update_warning_visual(progress: float):
 		var expand_progress = progress / 0.1
 		var current_scale = expand_progress
 		warning_shape.scale = Vector2(current_scale, current_scale)
-		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35) # 红色，透明度0.35
+		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.2) # 红色，透明度
 	
 	elif progress <= 0.65:
 		# 中间时间：保持稳定
 		warning_shape.scale = Vector2(1.0, 1.0)
-		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35)
+		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.2)
 	
 	elif progress <= 0.8:
 		# 开始闪烁阶段：缩短闪烁时间
 		var blink_progress = (progress - 0.65) / 0.15
 		var blink_speed = 3.0 + blink_progress * 6.0 # 逐渐加快闪烁
 		var blink_alpha = (sin(current_time * blink_speed) + 1.0) * 0.5 # 0到1的范围
-		# 修正透明度计算：在0.2到0.35之间闪烁，避免过暗
-		var final_alpha = 0.2 + blink_alpha * 0.15
+		# 修正透明度计算：在0.2间闪烁，避免过暗
+		var final_alpha = 0.1 + blink_alpha * 0.1
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, final_alpha)
 	
 	else:

@@ -3,6 +3,7 @@ extends CanvasLayer
 @onready var setting: Panel = $Panel
 @onready var setting_button: Button = $Setting
 @onready var bag_button: Button = $Bag
+@onready var skill_button: Button = $Skill
 @onready var main_volume: HSlider = $Panel/MainVolume
 @onready var bgm_volume: HSlider = $Panel/BGMVolume
 @onready var se_volume: HSlider = $Panel/SEVolume
@@ -13,10 +14,12 @@ extends CanvasLayer
 @onready var exit_button: Button = $Panel/Exit2
 @onready var dark_overlay: Control = get_node("../CanvasLayer/DarkOverlay")
 @onready var bag_layer: CanvasLayer = get_node("../BagLayer")
+@onready var skill_setting_layer: CanvasLayer = get_node("../SkillSettingLayer")
 
 var setting_tween: Tween
 var dark_overlay_tween: Tween
 var bag_tween: Tween
+var skill_tween: Tween
 
 func _ready() -> void:
 	setting.visible = false
@@ -24,6 +27,7 @@ func _ready() -> void:
 	setting_button.pressed.connect(_on_setting_pressed)
 	exit_button.pressed.connect(_on_exit_pressed)
 	bag_button.pressed.connect(_on_bag_pressed)
+	skill_button.pressed.connect(_on_skill_pressed)
 
 func lock_setting_button() -> void:
 	setting_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -114,6 +118,13 @@ func _on_bag_pressed() -> void:
 	show_dark_overlay()
 	show_bag_layer()
 
+func _on_skill_pressed() -> void:
+	if skill_setting_layer.visible:
+		return
+	PC.movement_disabled = true
+	show_dark_overlay()
+	show_skill_layer()
+
 func show_dark_overlay() -> void:
 	dark_overlay_tween = reset_tween(dark_overlay_tween)
 	dark_overlay.visible = true
@@ -159,6 +170,27 @@ func show_bag_layer() -> void:
 	for child in bag_layer.get_children():
 		child.modulate.a = 0.0
 		bag_tween.tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
+
+func show_skill_layer() -> void:
+	skill_tween = reset_tween(skill_tween)
+	skill_tween.set_parallel(true)
+	skill_setting_layer.visible = true
+	if skill_setting_layer.has_method("open_layer"):
+		skill_setting_layer.open_layer()
+	for child in skill_setting_layer.get_children():
+		child.modulate.a = 0.0
+		skill_tween.tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
+
+func hide_skill_layer() -> void:
+	skill_tween = reset_tween(skill_tween)
+	skill_tween.set_parallel(true)
+	for child in skill_setting_layer.get_children():
+		skill_tween.tween_property(child, "modulate:a", 0.0, 0.2)
+	skill_tween.tween_callback(func():
+		skill_setting_layer.visible = false
+		for child in skill_setting_layer.get_children():
+			child.modulate.a = 1.0
+	).set_delay(0.2)
 
 func reset_tween(tween: Tween) -> Tween:
 	if tween and tween.is_running():

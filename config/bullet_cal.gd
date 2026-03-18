@@ -171,7 +171,7 @@ static func apply_global_buff_effects(damage: float) -> float:
 	if EmblemManager.has_emblem("ronghui"):
 		var ronghui_stack = EmblemManager.get_emblem_stack("ronghui")
 		var active_emblem_count = EmblemManager.get_emblem_count()
-		var damage_bonus = active_emblem_count * 0.008 * ronghui_stack
+		var damage_bonus = active_emblem_count * 0.01 * ronghui_stack
 		final_damage *= (1.0 + damage_bonus)
 	
 	return final_damage

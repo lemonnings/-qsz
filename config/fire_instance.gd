@@ -8,9 +8,9 @@ func _ready() -> void:
 	# 设置碰撞检测
 	var collision_shape = CollisionShape2D.new()
 	var circle_shape = CircleShape2D.new()
-	circle_shape.radius = 12.0  # 火焰的碰撞范围
-	if(PC.selected_rewards.has("ringFire13")):
-		circle_shape.radius = 18.0
+	circle_shape.radius = 12.0 # 火焰的碰撞范围
+	if (PC.selected_rewards.has("RingFire3")):
+		circle_shape.radius = 16.2 # +35%
 	collision_shape.shape = circle_shape
 	add_child(collision_shape)
 
@@ -20,14 +20,9 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	damage = PC.pc_atk * 0.3 * PC.main_skill_ringFire_damage
 	damage = damage * Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level)
-	if(PC.selected_rewards.has("ringFire3")):
+	
+	if (PC.selected_rewards.has("RingFire22")):
 		damage = damage * 1.25
-	if(PC.selected_rewards.has("ringFire13")):
-		damage = damage * 1.1
-	if(PC.selected_rewards.has("ringFire23")):
-		damage = damage * 1.1
-		if randf() < PC.crit_chance:
-			damage *= PC.crit_damage_multi
 		
 	# 更新冷却时间
 	var to_remove = []
@@ -47,8 +42,23 @@ func _on_area_entered(area: Area2D) -> void:
 			# 造成伤害
 			if area.has_method("take_damage"):
 				var final_damage = damage
-				if area.is_in_group("elite") or area.is_in_group("boss"):
-					final_damage = final_damage * Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
 				area.take_damage(final_damage, false, false, "")
+				
+				if PC.selected_rewards.has("RingFire4"):
+					if area.has_signal("debuff_applied"):
+						area.emit_signal("debuff_applied", "burn")
+						
+				if PC.selected_rewards.has("RingFire33"):
+					if area.get("debuff_manager") and area.debuff_manager.has_method("has_debuff"):
+						if area.debuff_manager.has_debuff("burn"):
+							# 触发一次燃烧判定
+							# 假设 deubff_manager 有 _apply_dot_damage 方法，但它是私有的
+							# 我们可能需要手动触发伤害
+							# 或者给 deubff_manager 加一个 public 方法
+							# 这里先简单处理：造成一次燃烧伤害
+							# 燃烧伤害 = 40% atk (from new config)
+							var burn_damage = PC.pc_atk * 0.4
+							area.take_damage(burn_damage, false, false, "burn")
+							
 				# 设置该火焰实例对这个敌人的冷却时间
 				hit_cooldowns[area] = hit_cooldown

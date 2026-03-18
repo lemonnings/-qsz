@@ -8,26 +8,20 @@ extends Node2D
 
 @export var warning_scene: Control
 
-# 出怪间隔配置
-var MIN_SPAWN_INTERVAL: float = 0.5
-# var MIN_SPAWN_INTERVAL: float = 2.25
-# var next_spawn_interval: float = 4
-var next_spawn_interval: float = 1
-var SPAWN_INTERVAL_DECREMENT: float = 0.05
+const SPAWN_INTERVAL_SECONDS: float = 5.0
+const INITIAL_MONSTER_LIMIT: int = 30
+const MONSTER_LIMIT_INCREASE_WAVE_STEP: int = 2
+const MAX_MONSTER_CAP: int = 80
+const INITIAL_WAVE_SPAWN_COUNT: int = 4
+const WAVE_SPAWN_INCREASE_STEP: int = 5
+const MAX_WAVE_SPAWN_COUNT: int = 15
+const EARLY_WAVE_LIMIT: int = 10
 
-# 怪物生成阈值
-var SLIME_MAX_SPAWN_INCREASE_THRESHOLD: int = 8
-var SLIME_MIN_SPAWN_INCREASE_THRESHOLD: int = 10
-var BAT_MAX_SPAWN_INCREASE_THRESHOLD: int = 10
-var BAT_MIN_SPAWN_INCREASE_THRESHOLD: int = 15
-
-# 怪物生成数量
-var slime_min_spawn: int = 3
-var slime_max_spawn: int = 12
-var slime_upper_limit: int = 36
-var bat_min_spawn: int = 2
-var bat_max_spawn: int = 8
-var bat_upper_limit: int = 24
+var stage_spawn_pool: Array[Dictionary] = [
+	{"type": "slime", "weight": 4, "blocked_early": false},
+	{"type": "bat", "weight": 3, "blocked_early": false},
+	{"type": "frog", "weight": 1, "blocked_early": true}
+]
 
 @export var monster_spawn_timer: Timer
 
@@ -38,12 +32,16 @@ var map_mechanism_num_max: float
 
 var spawn_count: int = 0
 var current_monster_count: int = 0
-var max_monster_limit: int = 24
-const MAX_MONSTER_CAP: int = 120
-const MONSTER_LIMIT_INCREASE_INTERVAL: float = 6.0
-var monster_limit_increase_timer: float = 0.0
+var max_monster_limit: int = INITIAL_MONSTER_LIMIT
+var last_wave_spawn_frame: int = -1
 
 var boss_event_triggered: bool = false
+
+# 非基础怪物类型限制
+const BASIC_TYPES = ["slime", "bat"]
+const OTHER_TYPE_PER_WAVE_MAX: int = 2 # 非基础类型每波每种最多2个
+const OTHER_TYPE_TOTAL_MAX: int = 5 # 非基础类型总上限5个
+var other_type_alive: int = 0 # 非基础类型怪物当前存活数（上限5个，死亡后递减）
 
 # 精英怪配置
 const ELITE_SPAWN_CHANCE: float = 0.05 # 5%概率生成精英怪
@@ -67,14 +65,14 @@ func _ready() -> void:
 	$Player.min_zoom = 2.2
 	
 	map_mechanism_num = 0
-	map_mechanism_num_max = 14000
-	# map_mechanism_num_max = 14000
+	map_mechanism_num_max = 21000
+	# map_mechanism_num_max = 18000
 	
 	Global.reset_dps_counter()
 	
 	# 连接关卡特定信号
-	Global.connect("monster_mechanism_gained", Callable(self, "_on_monster_mechanism_gained"))
-	Global.connect("boss_defeated", Callable(self, "_on_boss_defeated"))
+	Global.connect("monster_mechanism_gained", Callable(self , "_on_monster_mechanism_gained"))
+	Global.connect("boss_defeated", Callable(self , "_on_boss_defeated"))
 	
 	# 初始化主技能图标
 	layer_ui.init_main_skill($Player.fire_speed.wait_time)
@@ -82,13 +80,14 @@ func _ready() -> void:
 	# 初始化怪物生成计时器
 	monster_spawn_timer = Timer.new()
 	add_child(monster_spawn_timer)
-	monster_spawn_timer.wait_time = 0.1
+	monster_spawn_timer.wait_time = SPAWN_INTERVAL_SECONDS
 	monster_spawn_timer.one_shot = false
-	monster_spawn_timer.connect("timeout", Callable(self, "_on_monster_spawn_timer_timeout"))
+	monster_spawn_timer.connect("timeout", Callable(self , "_on_monster_spawn_timer_timeout"))
 	monster_spawn_timer.start()
 	
 	# 初始化技能冷却显示
 	layer_ui.update_skill_cooldowns($Player)
+	_spawn_wave()
 
 # ============== 每帧更新 ==============
 func _process(_delta: float) -> void:
@@ -102,13 +101,6 @@ func _process(_delta: float) -> void:
 	layer_ui.update_dps_display()
 
 func _physics_process(_delta: float) -> void:
-	# 怪物上限递增
-	monster_limit_increase_timer += _delta
-	if monster_limit_increase_timer >= MONSTER_LIMIT_INCREASE_INTERVAL:
-		monster_limit_increase_timer = 0.0
-		if max_monster_limit < MAX_MONSTER_CAP:
-			max_monster_limit += 1
-
 	# 机关进度更新
 	if not boss_event_triggered:
 		map_mechanism_num += _delta * 30
@@ -189,189 +181,170 @@ func _clear_non_boss_enemies() -> void:
 
 
 func _on_monster_spawn_timer_timeout() -> void:
-	# Boss出现后不再生成怪物
+	_spawn_wave()
+
+func _spawn_wave() -> void:
 	if boss_event_triggered:
 		return
-		
+
+	var current_frame = Engine.get_process_frames()
+	if current_frame == last_wave_spawn_frame:
+		return
+	last_wave_spawn_frame = current_frame
+
 	spawn_count += 1
-
-	next_spawn_interval = max(MIN_SPAWN_INTERVAL, next_spawn_interval - SPAWN_INTERVAL_DECREMENT)
-	monster_spawn_timer.wait_time = next_spawn_interval
-
-	if spawn_count % SLIME_MAX_SPAWN_INCREASE_THRESHOLD == 0:
-		slime_max_spawn = min(slime_max_spawn + 1, slime_upper_limit)
-	if spawn_count % SLIME_MIN_SPAWN_INCREASE_THRESHOLD == 0:
-		slime_min_spawn = min(slime_min_spawn + 1, slime_max_spawn)
-	if spawn_count % BAT_MAX_SPAWN_INCREASE_THRESHOLD == 0:
-		bat_max_spawn = min(bat_max_spawn + 1, bat_upper_limit)
-	if spawn_count % BAT_MIN_SPAWN_INCREASE_THRESHOLD == 0:
-		bat_min_spawn = min(bat_min_spawn + 1, bat_max_spawn)
-		
-	# 检查是否还有空间生成怪物，如果没有则跳过本次生成
+	_update_wave_monster_limit()
 	if current_monster_count >= max_monster_limit:
+		monster_spawn_timer.start()
 		return
 
-	# 创建怪物生成任务数组
-	var spawn_tasks = []
-	
-	# 添加青蛙生成任务
-	var num_frogs_to_spawn = 0
-	if spawn_count >= 20:
-		num_frogs_to_spawn = 2
-	elif spawn_count >= 10:
-		num_frogs_to_spawn = 1
-	spawn_tasks.append({"type": "frog", "count": num_frogs_to_spawn})
-	
-	# 添加蝙蝠生成任务
-	var num_bats_to_spawn = randi_range(bat_min_spawn, bat_max_spawn)
-	spawn_tasks.append({"type": "bat", "count": num_bats_to_spawn})
-	
-	# 添加史莱姆生成任务
-	var num_slimes_to_spawn = randi_range(slime_min_spawn, slime_max_spawn)
-	spawn_tasks.append({"type": "slime", "count": num_slimes_to_spawn})
-	
-	# 随机打乱生成顺序
-	spawn_tasks.shuffle()
-	
-	# 按随机顺序执行生成任务
-	for task in spawn_tasks:
+	var wave_spawn_count = _get_wave_spawn_count()
+	var available_slots = max_monster_limit - current_monster_count
+	var spawn_target_count = min(wave_spawn_count, available_slots)
+	if spawn_target_count <= 0:
+		monster_spawn_timer.start()
+		return
+
+	# 每个怪物单独按权重判断类型
+	var wave_other_type_counts: Dictionary = {}
+	var spawn_list: Array[String] = []
+	for i in range(spawn_target_count):
+		var chosen_type = _choose_individual_type(wave_other_type_counts)
+		if not BASIC_TYPES.has(chosen_type):
+			if not wave_other_type_counts.has(chosen_type):
+				wave_other_type_counts[chosen_type] = 0
+			wave_other_type_counts[chosen_type] += 1
+			other_type_alive += 1
+		spawn_list.append(chosen_type)
+
+	# 逐个生成，间隔0.1秒
+	for i in range(spawn_list.size()):
 		if current_monster_count >= max_monster_limit:
 			break
-			
-		match task.type:
-			"frog":
-				_spawn_frog(task.count)
-			"bat":
-				_spawn_bat(task.count)
+		match spawn_list[i]:
 			"slime":
-				_spawn_slime(task.count)
-
-
-func _spawn_slime(count: int) -> void:
-	for _i in range(count):
-		if current_monster_count >= max_monster_limit:
-			return
-		var slime_node = slime_scene.instantiate()
-		
-		# Determine spawn edge (0: top, 1: bottom, 2: left, 3: right)
-		var spawn_edge = randi_range(0, 3)
-		var spawn_position = Vector2.ZERO
-		
-		# 所有slime都使用追踪玩家模式（取消左右平移）
-		slime_node.move_direction = randi_range(2, 8)
-		
-		match spawn_edge:
-			0: # Top - 基于Camera2D limit_top=-18
-				spawn_position = Vector2(randf_range(-590, 590), -25)
-			1: # Bottom - 基于Camera2D limit_bottom=485
-				spawn_position = Vector2(randf_range(-590, 590), 480)
-			2: # Left - 基于Camera2D limit_left=-600
-				spawn_position = Vector2(-590, randf_range(0, 480))
-			3: # Right - 基于Camera2D limit_right=595
-				spawn_position = Vector2(590, randf_range(0, 480))
-
-		slime_node.position = spawn_position
-		get_tree().current_scene.add_child(slime_node)
-		
-		# 精英怪判定（5%概率）
-		_try_make_elite(slime_node)
-		
-		# 渐显效果 0.7秒
-		slime_node.modulate.a = 0
-		var tween = create_tween()
-		tween.tween_property(slime_node, "modulate:a", 1.0, 0.7)
-		
-		current_monster_count += 1
-		slime_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
-		
-		# 同一波次每个怪物生成间隔0.1秒
-		if _i < count - 1:
+				_spawn_single_slime()
+			"bat":
+				_spawn_single_bat()
+			"frog":
+				_spawn_single_frog()
+		if i < spawn_list.size() - 1:
 			await get_tree().create_timer(0.1).timeout
 
-func _spawn_frog(count: int) -> void:
-	for _i in range(count):
-		if current_monster_count >= max_monster_limit:
-			return
-		var frog_node = frog_scene.instantiate()
-		
-		# Determine spawn edge (0: top, 1: bottom, 2: left, 3: right)
-		var spawn_edge = randi_range(0, 3)
-		var spawn_position = Vector2.ZERO
-		
-		match spawn_edge:
-			0: # Top - 基于Camera2D limit_top=-18
-				spawn_position = Vector2(randf_range(-590, 590), -25)
-			1: # Bottom - 基于Camera2D limit_bottom=485
-				spawn_position = Vector2(randf_range(-590, 590), 480)
-			2: # Left - 基于Camera2D limit_left=-600
-				spawn_position = Vector2(-590, randf_range(0, 480))
-			3: # Right - 基于Camera2D limit_right=595
-				spawn_position = Vector2(590, randf_range(0, 480))
+	monster_spawn_timer.start()
 
-		frog_node.position = spawn_position
-		# Frog move_direction is handled within its own script, typically towards player
+func _choose_individual_type(wave_other_type_counts: Dictionary) -> String:
+	var available_entries: Array[Dictionary] = []
+	var total_weight = 0
+	for entry in stage_spawn_pool:
+		var entry_type = entry["type"]
+		if spawn_count <= EARLY_WAVE_LIMIT and entry["blocked_early"]:
+			continue
+		if not BASIC_TYPES.has(entry_type):
+			if other_type_alive >= OTHER_TYPE_TOTAL_MAX:
+				continue
+			if wave_other_type_counts.has(entry_type) and wave_other_type_counts[entry_type] >= OTHER_TYPE_PER_WAVE_MAX:
+				continue
+		available_entries.append(entry)
+		total_weight += int(entry["weight"])
 
-		get_tree().current_scene.add_child(frog_node)
-		
-		# 精英怪判定（5%概率）
-		_try_make_elite(frog_node)
-		
-		# 渐显效果 0.7秒
-		frog_node.modulate.a = 0
-		var tween = create_tween()
-		tween.tween_property(frog_node, "modulate:a", 1.0, 0.7)
-		
-		current_monster_count += 1
-		frog_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
-		
-		# 同一波次每个怪物生成间隔0.1秒
-		if _i < count - 1:
-			await get_tree().create_timer(0.1).timeout
+	if available_entries.is_empty() or total_weight <= 0:
+		return "slime"
 
-func _spawn_bat(count: int) -> void:
-	for _i in range(count):
-		if current_monster_count >= max_monster_limit:
-			return
-		var bat_node = bat_scene.instantiate()
+	var random_weight = randi_range(1, total_weight)
+	var accumulated_weight = 0
+	for entry in available_entries:
+		accumulated_weight += int(entry["weight"])
+		if random_weight <= accumulated_weight:
+			return entry["type"]
 
-		var spawn_edge = randi_range(0, 3)
-		var spawn_position = Vector2.ZERO
+	return available_entries[available_entries.size() - 1]["type"]
 
-		# 所有bat都使用追踪玩家模式（取消左右平移）
-		bat_node.move_direction = randi_range(2, 8)
+func _get_wave_spawn_count() -> int:
+	var growth_steps = int(float(spawn_count - 1) / float(WAVE_SPAWN_INCREASE_STEP))
+	var wave_spawn_count = INITIAL_WAVE_SPAWN_COUNT + growth_steps
+	return min(wave_spawn_count, MAX_WAVE_SPAWN_COUNT)
 
-		match spawn_edge:
-			0: # Top - 基于Camera2D limit_top=-18
-				spawn_position = Vector2(randf_range(-590, 590), -25)
-			1: # Bottom - 基于Camera2D limit_bottom=485
-				spawn_position = Vector2(randf_range(-590, 590), 480)
-			2: # Left - 基于Camera2D limit_left=-600
-				spawn_position = Vector2(-590, randf_range(0, 480))
-			3: # Right - 基于Camera2D limit_right=595
-				spawn_position = Vector2(590, randf_range(0, 480))
+func _update_wave_monster_limit() -> void:
+	var limit_growth = int(float(spawn_count - 1) / float(MONSTER_LIMIT_INCREASE_WAVE_STEP))
+	max_monster_limit = min(INITIAL_MONSTER_LIMIT + limit_growth, MAX_MONSTER_CAP)
 
-		bat_node.position = spawn_position
-		get_tree().current_scene.add_child(bat_node)
-		
-		# 精英怪判定（5%概率）
-		_try_make_elite(bat_node)
-		
-		# 渐显效果 0.7秒
-		bat_node.modulate.a = 0
-		var tween = create_tween()
-		tween.tween_property(bat_node, "modulate:a", 1.0, 0.7)
-		
-		current_monster_count += 1
-		bat_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
-		
-		# 同一波次每个怪物生成间隔0.1秒
-		if _i < count - 1:
-			await get_tree().create_timer(0.1).timeout
+
+func _spawn_single_slime() -> void:
+	var slime_node = slime_scene.instantiate()
+	var spawn_edge = randi_range(0, 3)
+	var spawn_position = Vector2.ZERO
+	slime_node.move_direction = randi_range(2, 8)
+	match spawn_edge:
+		0: # Top
+			spawn_position = Vector2(randf_range(-590, 590), -25)
+		1: # Bottom
+			spawn_position = Vector2(randf_range(-590, 590), 480)
+		2: # Left
+			spawn_position = Vector2(-590, randf_range(0, 480))
+		3: # Right
+			spawn_position = Vector2(590, randf_range(0, 480))
+	slime_node.position = spawn_position
+	get_tree().current_scene.add_child(slime_node)
+	_try_make_elite(slime_node)
+	slime_node.modulate.a = 0
+	var tween = create_tween()
+	tween.tween_property(slime_node, "modulate:a", 1.0, 0.7)
+	current_monster_count += 1
+	slime_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
+
+func _spawn_single_frog() -> void:
+	var frog_node = frog_scene.instantiate()
+	var spawn_edge = randi_range(0, 3)
+	var spawn_position = Vector2.ZERO
+	match spawn_edge:
+		0: # Top
+			spawn_position = Vector2(randf_range(-590, 590), -25)
+		1: # Bottom
+			spawn_position = Vector2(randf_range(-590, 590), 480)
+		2: # Left
+			spawn_position = Vector2(-590, randf_range(0, 480))
+		3: # Right
+			spawn_position = Vector2(590, randf_range(0, 480))
+	frog_node.position = spawn_position
+	get_tree().current_scene.add_child(frog_node)
+	_try_make_elite(frog_node)
+	frog_node.modulate.a = 0
+	var tween = create_tween()
+	tween.tween_property(frog_node, "modulate:a", 1.0, 0.7)
+	current_monster_count += 1
+	frog_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
+	frog_node.connect("tree_exiting", func(): other_type_alive = max(0, other_type_alive - 1))
+
+func _spawn_single_bat() -> void:
+	var bat_node = bat_scene.instantiate()
+	var spawn_edge = randi_range(0, 3)
+	var spawn_position = Vector2.ZERO
+	bat_node.move_direction = randi_range(2, 8)
+	match spawn_edge:
+		0: # Top
+			spawn_position = Vector2(randf_range(-590, 590), -25)
+		1: # Bottom
+			spawn_position = Vector2(randf_range(-590, 590), 480)
+		2: # Left
+			spawn_position = Vector2(-590, randf_range(0, 480))
+		3: # Right
+			spawn_position = Vector2(590, randf_range(0, 480))
+	bat_node.position = spawn_position
+	get_tree().current_scene.add_child(bat_node)
+	_try_make_elite(bat_node)
+	bat_node.modulate.a = 0
+	var tween = create_tween()
+	tween.tween_property(bat_node, "modulate:a", 1.0, 0.7)
+	current_monster_count += 1
+	bat_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
 
 func _on_monster_defeated():
 	current_monster_count -= 1
 	# 确保计数器不会变为负数
 	current_monster_count = max(0, current_monster_count)
+	if current_monster_count == 0 and not boss_event_triggered:
+		_spawn_wave()
 
 ## 尝试将怪物升级为精英怪（5%概率）
 func _try_make_elite(monster_node: Node) -> void:
@@ -404,16 +377,45 @@ func _try_make_elite(monster_node: Node) -> void:
 	# 添加金色滤镜（透明度0.2）
 	_apply_elite_visual(monster_node)
 
-## 应用精英怪视觉效果（金色滤镜）
+## 应用精英怪视觉效果（红色滤镜+描边）
 func _apply_elite_visual(monster_node: Node) -> void:
-	# 获取精灵节点并添加金色色调
+	# 获取精灵节点并添加红色色调
 	var sprite = monster_node.get_node_or_null("AnimatedSprite2D")
 	if sprite:
-		# 使用金色色调修改精灵颜色（保留原始颜色但添加金色叠加）
-		# RGB(255, 215, 0) 是金色，混合后能让怪物带有金色光泽
-		sprite.modulate = Color(1.0, 0.9, 0.5, 1.0) # 金色色调
+		# 修改滤镜颜色为红色，透明度0.3
+		sprite.modulate = Color(1.0, 0.92, 0.92, 1)
+		
+		# 添加4像素红色描边
+		var shader_code = """
+shader_type canvas_item;
+uniform vec4 line_color : source_color = vec4(1, 0, 0, 1);
+uniform float line_thickness : hint_range(0, 10) = 0.75;
+
+void fragment() {
+	vec2 size = TEXTURE_PIXEL_SIZE * line_thickness;
 	
-	# 给怪物添加金色光晕效果（可选）
+	float outline = texture(TEXTURE, UV + vec2(-size.x, 0)).a;
+	outline += texture(TEXTURE, UV + vec2(0, size.y)).a;
+	outline += texture(TEXTURE, UV + vec2(size.x, 0)).a;
+	outline += texture(TEXTURE, UV + vec2(0, -size.y)).a;
+	outline += texture(TEXTURE, UV + vec2(-size.x, size.y)).a;
+	outline += texture(TEXTURE, UV + vec2(size.x, size.y)).a;
+	outline += texture(TEXTURE, UV + vec2(-size.x, -size.y)).a;
+	outline += texture(TEXTURE, UV + vec2(size.x, -size.y)).a;
+	outline = min(outline, 1.0);
+	
+	vec4 tex_color = texture(TEXTURE, UV);
+	vec4 body_color = tex_color * COLOR;
+	COLOR = mix(body_color, line_color, outline - tex_color.a);
+}
+"""
+		var material = ShaderMaterial.new()
+		var shader = Shader.new()
+		shader.code = shader_code
+		material.shader = shader
+		sprite.material = material
+	
+	# 给怪物添加精英怪标记
 	monster_node.set_meta("is_elite_monster", true)
 	
 # ============== 游戏结果 ==============

@@ -32,9 +32,9 @@ var wind_huanfeng_expiries: Array[float] = []
 
 func setup(p_player: Node2D) -> void:
 	player = p_player
-	Global.connect("player_hit", Callable(self, "_on_player_hit"))
-	Global.connect("player_healed", Callable(self, "_on_player_healed"))
-	Global.connect("player_shield_damaged", Callable(self, "_on_player_shield_damaged"))
+	Global.connect("player_hit", Callable(self , "_on_player_hit"))
+	Global.connect("player_healed", Callable(self , "_on_player_healed"))
+	Global.connect("player_shield_damaged", Callable(self , "_on_player_shield_damaged"))
 	manager_instance = self
 	
 	# 初始化时检查一次法则加成，确保初始等级（如调试时）能生效
@@ -697,9 +697,9 @@ static func get_fire_weapon_damage_multiplier(level: int) -> float:
 	if level >= 4:
 		bonus += 0.3
 	if level >= 7:
-		bonus += 0.3
-	if level >= 10:
 		bonus += 0.4
+	if level >= 10:
+		bonus += 0.6
 	if level >= 14:
 		bonus += 1.0
 	return 1.0 + bonus
@@ -707,35 +707,39 @@ static func get_fire_weapon_damage_multiplier(level: int) -> float:
 static func get_burn_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
-		bonus += 0.2
+		bonus += 0.5
 	if level >= 7:
-		bonus += 0.3
-	if level >= 10:
 		bonus += 0.4
+	if level >= 10:
+		bonus += 0.6
 	if level >= 14:
 		bonus += 1.0
 	return 1.0 + bonus
 
 static func get_burn_range_multiplier(level: int) -> float:
 	var bonus = 0.0
-	if level >= 4:
-		bonus += 0.2
 	if level >= 7:
-		bonus += 0.3
-	if level >= 10:
 		bonus += 0.4
+	if level >= 10:
+		bonus += 0.6
 	if level >= 14:
 		bonus += 1.0
 	return 1.0 + bonus
 
 static func get_fire_elite_boss_multiplier(level: int) -> float:
+	# 10阶：对精英、首领造成5倍伤害
+	# 14阶：对精英、首领造成15倍伤害
 	if level >= 14:
-		return 20.0
+		return 15.0
 	if level >= 10:
-		return 6.0
-	if level >= 7:
-		return 3.0
+		return 5.0
 	return 1.0
+
+static func get_burn_duration_bonus(level: int) -> float:
+	# 7阶：燃烧伤害持续时间+1秒
+	if level >= 7:
+		return 1.0
+	return 0.0
 
 static func get_treasure_lucky_bonus(level: int) -> int:
 	var bonus = 0

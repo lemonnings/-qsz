@@ -28,7 +28,8 @@ func example_boss_sector_skill():
 		90.0,               # 扇形角度90度
 		3.0,                # 预警时间3秒
 		100.0,              # 伤害值
-		flame_breath_anim   # 动画播放器
+		flame_breath_anim,  # 动画播放器
+		0.5
 	)
 
 func example_player_targeted_cone():
@@ -54,7 +55,8 @@ func example_player_targeted_cone():
 		60.0,               # 锥形角度60度
 		2.5,                # 预警时间
 		120.0,              # 高伤害
-		cone_attack_anim
+		cone_attack_anim,
+		0.5
 	)
 
 func example_wide_sweep_attack():
@@ -73,7 +75,8 @@ func example_wide_sweep_attack():
 		120.0,              # 大角度扫击
 		4.0,                # 较长预警时间
 		150.0,              # 高伤害
-		sweep_anim
+		sweep_anim,
+		0.5
 	)
 
 func example_multi_direction_blast():
@@ -108,7 +111,8 @@ func example_multi_direction_blast():
 			80.0,               # 扇形角度
 			2.0,                # 预警时间
 			90.0,               # 伤害
-			blast_anim
+			blast_anim,
+			0.5
 		)
 
 func example_rotating_beam():
@@ -138,7 +142,8 @@ func example_rotating_beam():
 			45.0,               # 较窄的光束
 			1.5,                # 快速预警
 			70.0,               # 伤害
-			rotating_beam_anim
+			rotating_beam_anim,
+			0.5
 		)
 
 func example_breath_attack_combo():
@@ -166,7 +171,8 @@ func example_breath_attack_combo():
 			angle,              # 逐渐增大的角度
 			2.0,                # 预警时间
 			80.0 + i * 20.0,    # 逐渐增大的伤害
-			breath_combo_anim
+			breath_combo_anim,
+			0.5
 		)
 
 func example_narrow_precision_strike():
@@ -185,7 +191,8 @@ func example_narrow_precision_strike():
 		20.0,               # 很窄的角度
 		2.0,                # 预警时间
 		200.0,              # 高伤害
-		precision_anim
+		precision_anim,
+		0.5
 	)
 
 func _on_warning_finished():

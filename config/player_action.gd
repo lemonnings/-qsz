@@ -78,12 +78,17 @@ var beastify_prev_atk: int = 0
 var beastify_prev_atk_speed: float = 0.0
 var beastify_prev_move_speed: float = 0.0
 var beastify_prev_sprite: AnimatedSprite2D = null
-var beastify_claw_ratio: float = 0.4
+var beastify_claw_ratio: float = 0.0
 var beastify_effect_scene: PackedScene = preload("res://Scenes/player/beastification.tscn")
 var beastify_hit_shape: Shape2D = null
 var beastify_hit_offset: Vector2 = Vector2.ZERO
 var beastify_forward_offset: float = 15.0
 var beastify_lock_range: float = 75.0
+var mizongbu_active: bool = false
+var mizongbu_applied_speed_bonus: float = 0.0
+var mizongbu_applied_dr_bonus: float = 0.0
+var mizongbu_outgoing_factor: float = 1.0
+var mizongbu_visual_tween: Tween = null
 
 
 # 摄像头缩放相关变量
@@ -485,7 +490,7 @@ func _on_fire_bloodboardsword(skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if not PC.selected_rewards.has("BloodBoardSword"):
+	if not PC.selected_rewards.has("Bloodboardsword"):
 		return
 	_on_fire_detail_bloodboardsword()
 
@@ -929,7 +934,7 @@ func fire_extra_attack(damage_multiplier: float) -> void:
 	if PC.selected_rewards.has("rebound"): main_bullet.is_rebound = false
 	get_tree().current_scene.add_child(main_bullet)
 	
-func start_beastify(duration: float, atk_bonus: float, atk_speed_bonus: float, move_bonus: float, claw_ratio: float) -> void:
+func start_beastify(duration: float, atk_bonus: float, atk_speed_bonus: float, move_bonus: float, claw_damage_ratio: float) -> void:
 	if beastify_active:
 		return
 	beastify_active = true
@@ -939,14 +944,13 @@ func start_beastify(duration: float, atk_bonus: float, atk_speed_bonus: float, m
 	PC.pc_atk = int(round(float(PC.pc_atk) * (1.0 + atk_bonus)))
 	PC.pc_atk_speed = PC.pc_atk_speed + atk_speed_bonus
 	PC.pc_speed = PC.pc_speed + move_bonus
-	beastify_claw_ratio = claw_ratio
+	beastify_claw_ratio = max(0.0, claw_damage_ratio)
 	beastify_prev_sprite = sprite
-	if beastify_prev_sprite:
-		beastify_prev_sprite.visible = false
-	qujie_sprite.visible = true
-	qujie_sprite.flip_h = sprite_direction_right
-	animator = qujie_sprite
-	sprite = qujie_sprite
+	if qujie_sprite:
+		qujie_sprite.flip_h = sprite_direction_right
+		await _fade_swap_sprite(beastify_prev_sprite, qujie_sprite, 0.5)
+		animator = qujie_sprite
+		sprite = qujie_sprite
 	await get_tree().create_timer(duration).timeout
 	end_beastify()
 
@@ -963,20 +967,92 @@ func end_beastify() -> void:
 		t.tween_property(scene, "modulate", Color(1, 0, 0, 1), 0.5)
 		t.tween_property(scene, "modulate", Color(1, 1, 1, 1), 0.1)
 		await t.finished
-	if qujie_sprite:
-		qujie_sprite.visible = false
 	if beastify_prev_sprite:
-		beastify_prev_sprite.visible = true
+		await _fade_swap_sprite(qujie_sprite, beastify_prev_sprite, 0.5)
 		animator = beastify_prev_sprite
 		sprite = beastify_prev_sprite
+	elif qujie_sprite:
+		qujie_sprite.visible = false
+	beastify_claw_ratio = 0.0
+
+func _fade_swap_sprite(from_sprite: AnimatedSprite2D, to_sprite: AnimatedSprite2D, duration: float) -> void:
+	if to_sprite == null:
+		if from_sprite:
+			from_sprite.visible = false
+		return
+	var half = max(0.01, duration * 0.5)
+	to_sprite.visible = true
+	to_sprite.modulate.a = 0.0
+	if from_sprite:
+		from_sprite.visible = true
+		from_sprite.modulate.a = 1.0
+		var t1 = create_tween()
+		t1.tween_property(from_sprite, "modulate:a", 0.0, half)
+		await t1.finished
+		from_sprite.visible = false
+		from_sprite.modulate.a = 1.0
+	var t2 = create_tween()
+	t2.tween_property(to_sprite, "modulate:a", 1.0, half)
+	await t2.finished
+	to_sprite.modulate.a = 1.0
+
+func start_mizongbu(duration: float, move_speed_bonus_ratio: float, damage_reduction_ratio: float, outgoing_damage_reduction_ratio: float) -> void:
+	if mizongbu_active:
+		return
+	mizongbu_active = true
+	mizongbu_applied_speed_bonus = move_speed_bonus_ratio
+	PC.pc_speed += mizongbu_applied_speed_bonus
+	var before_dr = PC.damage_reduction_rate
+	var after_dr = min(before_dr + damage_reduction_ratio, 0.9)
+	mizongbu_applied_dr_bonus = after_dr - before_dr
+	PC.damage_reduction_rate = after_dr
+	mizongbu_outgoing_factor = max(0.01, 1.0 - outgoing_damage_reduction_ratio)
+	PC.pc_atk = max(1, int(round(float(PC.pc_atk) * mizongbu_outgoing_factor)))
+	_start_mizongbu_visual()
+	Global.emit_signal("buff_added", "mizongbu", duration, 1)
+	var remaining = duration
+	while remaining > 0.0 and mizongbu_active:
+		await get_tree().create_timer(0.1).timeout
+		remaining = max(0.0, remaining - 0.1)
+		if remaining > 0.0:
+			Global.emit_signal("buff_updated", "mizongbu", remaining, 1)
+	if mizongbu_active:
+		end_mizongbu()
+
+func end_mizongbu() -> void:
+	if not mizongbu_active:
+		return
+	mizongbu_active = false
+	PC.pc_speed -= mizongbu_applied_speed_bonus
+	PC.damage_reduction_rate = max(0.0, PC.damage_reduction_rate - mizongbu_applied_dr_bonus)
+	if mizongbu_outgoing_factor > 0.0:
+		PC.pc_atk = max(1, int(round(float(PC.pc_atk) / mizongbu_outgoing_factor)))
+	mizongbu_applied_speed_bonus = 0.0
+	mizongbu_applied_dr_bonus = 0.0
+	mizongbu_outgoing_factor = 1.0
+	_stop_mizongbu_visual()
+	if BuffManager.has_buff("mizongbu"):
+		BuffManager.remove_buff("mizongbu")
+
+func _start_mizongbu_visual() -> void:
+	_stop_mizongbu_visual()
+	modulate = Color(1, 1, 1, 1)
+	mizongbu_visual_tween = create_tween()
+	mizongbu_visual_tween.set_loops()
+	mizongbu_visual_tween.tween_property(self, "modulate", Color(1, 1, 1, 0.45), 0.15)
+	mizongbu_visual_tween.tween_property(self, "modulate", Color(1, 1, 1, 0.9), 0.15)
+
+func _stop_mizongbu_visual() -> void:
+	if mizongbu_visual_tween:
+		mizongbu_visual_tween.kill()
+		mizongbu_visual_tween = null
+	modulate = Color(1, 1, 1, 1)
 
 func _beast_claw_attack() -> void:
-	if PC.is_game_over:
+	if PC.is_game_over or not beastify_active:
 		return
 	var angle = _get_beast_best_attack_angle()
 	sprite_direction_right = cos(angle) >= 0.0
-	if sprite:
-		sprite.flip_h = sprite_direction_right
 	var hits = _collect_beast_hits_at_angle(angle)
 	var base = float(PC.pc_atk) * PC.main_skill_swordQi_damage * beastify_claw_ratio
 	base *= Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
@@ -1856,7 +1932,7 @@ func _on_fire_dragonwind(skill_id: int = 20) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if not PC.selected_rewards.has("DragonWind"):
+	if not PC.selected_rewards.has("Dragonwind"):
 		return
 	_on_fire_detail_dragonwind()
 

@@ -41,7 +41,7 @@ var is_direction_locked: bool = false # 是否锁定方向（用于禁止翻转�
 signal debuff_applied(debuff_id: String)
 
 func _ready() -> void:
-	debuff_manager = EnemyDebuffManager.new(self)
+	debuff_manager = EnemyDebuffManager.new(self )
 	add_child(debuff_manager)
 	debuff_applied.connect(debuff_manager.add_debuff)
 	if is_elite:
@@ -49,7 +49,7 @@ func _ready() -> void:
 	speed = base_speed # Initialize speed
 	
 	# 创建脚底阴影
-	CharacterEffects.create_shadow(self, 20.0, 7.0, 13.0)
+	CharacterEffects.create_shadow(self , 20.0, 7.0, 13.0)
 
 	# 初始化移动相关
 	action_timer = Timer.new()
@@ -200,7 +200,7 @@ func _physics_process(delta: float) -> void:
 
 	# 处理推挤效果（攻击和发射状态不推挤，避免打断攻击动作）
 	if current_state != State.ATTACKING and current_state != State.FIRING:
-		CharacterEffects.apply_separation(self, 13.0, 13.0)
+		CharacterEffects.apply_separation(self , 13.0, 13.0)
 
 	if hp <= 0:
 		free_health_bar()
@@ -219,6 +219,9 @@ func _physics_process(delta: float) -> void:
 			$death.play()
 			Global.emit_signal("monster_killed")
 			is_dead = true
+			# 死亡时去除滤镜和描边
+			$AnimatedSprite2D.modulate = Color(1, 1, 1, 1)
+			$AnimatedSprite2D.material = null
 			var collision_shape = get_node("CollisionShape2D")
 			collision_shape.disabled = true
 			collision_layer = 0
@@ -277,7 +280,7 @@ func _on_body_entered(body: Node2D) -> void:
 	if debuff_manager.is_action_disabled():
 		return
 	if (body is CharacterBody2D and not is_dead and not PC.invincible):
-		Global.emit_signal("player_hit", self)
+		Global.emit_signal("player_hit", self )
 		var damage_before_debuff = atk * (1.0 - PC.damage_reduction_rate)
 		var actual_damage = int(damage_before_debuff * debuff_manager.get_take_damage_multiplier())
 		PC.apply_damage(actual_damage)
@@ -309,7 +312,7 @@ func _on_area_entered(area: Area2D) -> void:
 	if is_dead:
 		return
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
-		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self, false)
+		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self , false)
 		# 根据穿透逻辑决定是否销毁子弹
 		if collision_result["should_delete_bullet"]:
 			area.queue_free()
@@ -334,7 +337,7 @@ func _on_area_entered(area: Area2D) -> void:
 
 func apply_knockback(direction: Vector2, force: float):
 	var tween = create_tween()
-	tween.tween_property(self, "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self , "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func apply_debuff_effect(debuff_id: String):
 	emit_signal("debuff_applied", debuff_id)

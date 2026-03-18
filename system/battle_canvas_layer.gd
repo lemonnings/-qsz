@@ -56,6 +56,14 @@ extends CanvasLayer
 @export var lv_up_change_b2: Button
 @export var lv_up_change_b3: Button
 
+# 战斗内Tips节点（用于显示刷新次数不足等提示）
+@export var lv_up_tip: Panel
+
+@export var refreshOrLockNum: RichTextLabel
+# 刷新次数配置（每达REFRESH_LEVEL_STEP级，额外获得REFRESH_BONUS_PER_STEP次刷新）
+const REFRESH_LEVEL_STEP: int = 5
+const REFRESH_BONUS_PER_STEP: int = 2
+
 # 纹章相关
 @export var emblem1: TextureRect
 @export var emblem1_panel: Panel
@@ -138,11 +146,13 @@ extends CanvasLayer
 	"wind": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_wind.png",
 	"liushi": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_liushi.png",
 	"treasure": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_treasure.png",
+	"fire": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_fire.png",
 	"bagua": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_bagua.png"
 }
 
 # 技能标签
 @export var skill_label1: RichTextLabel
+@export var active_skill_label: RichTextLabel
 
 # ============== 管理器引用 ==============
 var level_up_manager: LevelUpManager
@@ -174,7 +184,7 @@ func _init_managers() -> void:
 	add_child(level_up_manager)
 	# todo
 	var skill_nodes_array: Array[TextureButton] = [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9, skill10, skill11, skill12, skill13, skill14, skill15, skill16, skill17, skill18, skill19, skill20]
-	level_up_manager.initialize(self, lv_up_change, lv_up_change_b1, lv_up_change_b2, lv_up_change_b3, self, skill_nodes_array)
+	level_up_manager.initialize(self , lv_up_change, lv_up_change_b1, lv_up_change_b2, lv_up_change_b3, self , skill_nodes_array)
 	
 	# 连接刷新按钮信号
 	_connect_refresh_buttons()
@@ -301,7 +311,7 @@ func _get_faze_laws() -> Array:
 		laws.append({"id": "shield", "name": "护佑法则", "level": shield_level, "detail": shield_detail})
 	var fire_level = PC.faze_fire_level
 	if fire_level > 0:
-		var fire_detail = _build_simple_faze_detail("炽焰法则", fire_level)
+		var fire_detail = _build_fire_faze_detail(fire_level)
 		laws.append({"id": "fire", "name": "炽焰法则", "level": fire_level, "detail": fire_detail})
 	var destroy_level = PC.faze_destroy_level
 	if destroy_level > 0:
@@ -347,11 +357,31 @@ func _build_sixsense_faze_detail(level: int) -> String:
 	var lines: Array = []
 	lines.append(_build_law_title("六识法则"))
 	lines.append("当前倍率：" + str(Faze.get_sixsense_multiplier(level)) + "x")
-	lines.append(_format_faze_line(level, current_tier, 2, "2阶：全属性提升至1.2倍"))
-	lines.append(_format_faze_line(level, current_tier, 3, "3阶：全属性提升至1.6倍"))
-	lines.append(_format_faze_line(level, current_tier, 4, "4阶：全属性提升至2.4倍"))
-	lines.append(_format_faze_line(level, current_tier, 5, "5阶：全属性提升至4倍"))
-	lines.append(_format_faze_line(level, current_tier, 6, "6阶：全属性提升至8倍"))
+	lines.append(_format_faze_line(level, current_tier, 2, "2阶：六识系开悟加成的属性提升至1.2倍"))
+	lines.append(_format_faze_line(level, current_tier, 3, "3阶：六识系开悟加成的属性提升至1.6倍"))
+	lines.append(_format_faze_line(level, current_tier, 4, "4阶：六识系开悟加成的属性提升至2.4倍"))
+	lines.append(_format_faze_line(level, current_tier, 5, "5阶：六识系开悟加成的属性提升至4倍"))
+	lines.append(_format_faze_line(level, current_tier, 6, "6阶：六识系开悟加成的属性提升至8倍"))
+	var text = ""
+	for i in range(lines.size()):
+		text += lines[i]
+		if i < lines.size() - 1:
+			text += "\n"
+	return text
+
+func _build_fire_faze_detail(level: int) -> String:
+	var tiers = [4, 7, 10, 14]
+	var current_tier = 0
+	for tier in tiers:
+		if level >= tier:
+			current_tier = tier
+	var lines: Array = []
+	lines.append(_build_law_title("炽焰法则"))
+	lines.append("炽焰系武器：赤曜，离火诀，爆炎诀")
+	lines.append(_format_faze_line(level, current_tier, 4, "4阶：炽焰系武器伤害提升 30%，燃烧伤害提升 50%"))
+	lines.append(_format_faze_line(level, current_tier, 7, "7阶：炽焰系武器伤害、燃烧伤害与范围再次提升 40%，燃烧持续时间 +1 秒"))
+	lines.append(_format_faze_line(level, current_tier, 10, "10阶：炽焰系武器伤害、燃烧伤害与范围再次提升 60%，对精英、首领造成5倍伤害"))
+	lines.append(_format_faze_line(level, current_tier, 14, "14阶：炽焰系武器伤害、燃烧伤害与范围再次提升 100%，对精英、首领造成15倍伤害"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -389,7 +419,7 @@ func _format_faze_line(level: int, current_tier: int, tier: int, content: String
 		line = "[color=green]" + content + "[/color]"
 	else:
 		line = "[color=LEMONCHIFFON]" + content + "[/color]"
-	return line 
+	return line
 
 func _build_sword_faze_detail(level: int) -> String:
 	var tiers = [4, 7, 10, 13]
@@ -638,9 +668,9 @@ func _update_faze_panel_size(panel: Panel, detail: RichTextLabel) -> void:
 	panel.position = Vector2(72, 18)
 
 func _connect_signals() -> void:
-	Global.connect("skill_attack_speed_updated", Callable(self, "_on_skill_attack_speed_updated"))
-	Global.connect("player_lv_up", Callable(self, "_on_level_up"))
-	Global.connect("level_up_selection_complete", Callable(self, "_check_and_process_pending_level_ups"))
+	Global.connect("skill_attack_speed_updated", Callable(self , "_on_skill_attack_speed_updated"))
+	Global.connect("player_lv_up", Callable(self , "_on_level_up"))
+	Global.connect("level_up_selection_complete", Callable(self , "_check_and_process_pending_level_ups"))
 	
 	# 连接主动技能信号
 	# if Global.ActiveSkillManager:
@@ -749,15 +779,126 @@ func show_active_skill_label(slot_key: String) -> void:
 			text = _build_dodge_skill_text(level)
 		"random_strike":
 			text = _build_random_strike_skill_text(level)
+		"mizongbu":
+			text = _build_mizongbu_skill_text(level)
+		"huanling":
+			text = _build_huanling_skill_text(level)
+		"beastify":
+			text = _build_beastify_skill_text(level)
+		"heal_hot":
+			text = _build_heal_hot_skill_text(level)
+		"water_sheild":
+			text = _build_water_shield_skill_text(level)
+		"holy_fire":
+			text = _build_holy_fire_skill_text(level)
 		_:
 			text = "[未知技能]"
 	
-	skill_label1.text = text
-	skill_label1.visible = true
+	active_skill_label.text = text
+	active_skill_label.visible = true
 
 ## 隐藏主动技能详情
 func hide_active_skill_label() -> void:
-	skill_label1.visible = false
+	active_skill_label.visible = false
+
+## 构建疗愈技能详情文本
+func _build_heal_hot_skill_text(level: int) -> String:
+	var text = "[font_size=24]疗愈  LV. " + str(level) + "[/font_size]\n"
+	text += "持续恢复自身体力\n\n"
+	
+	# 计算持续时间
+	var duration = 12.0
+	for lv in [4, 7, 10, 13]:
+		if level >= lv:
+			duration += 1.0
+	text += "持续时间：" + ("%.1f" % duration) + "秒\n"
+	
+	# 计算回复量
+	var heal_base = 3.0
+	for lv in [2, 5, 8, 11, 14]:
+		if level >= lv:
+			heal_base += 1.0
+	text += "基础回复：" + ("%.0f" % heal_base) + "点\n"
+	
+	# 计算冷却时间
+	var cooldown = 30.0
+	for lv in [3, 6, 9, 12, 15]:
+		if level >= lv:
+			cooldown -= 1.0
+	cooldown = max(5.0, cooldown)
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	text += "冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	return text
+
+## 构建水幕护体技能详情文本
+func _build_water_shield_skill_text(level: int) -> String:
+	var text = "[font_size=24]水幕护体  LV. " + str(level) + "[/font_size]\n"
+	text += "释放水幕，获得护盾并提升减伤\n\n"
+	
+	# 计算护盾比例
+	var shield_percent = 10.0
+	for lv in [2, 5, 8, 11, 14]:
+		if level >= lv:
+			shield_percent += 1.0
+	text += "护盾量：" + ("%.0f" % shield_percent) + "%最大体力\n"
+	
+	# 计算减伤
+	var dr = 20.0
+	for lv in [3, 6, 9, 12, 15]:
+		if level >= lv:
+			dr += 3.0
+	text += "减伤率：" + ("%.0f" % dr) + "%\n"
+	
+	# 计算冷却时间
+	var cooldown = 15.0
+	for lv in [4, 7, 10, 13]:
+		if level >= lv:
+			cooldown -= 0.5
+	cooldown = max(3.0, cooldown)
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	text += "冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	return text
+
+## 构建神圣灼烧技能详情文本
+func _build_holy_fire_skill_text(level: int) -> String:
+	var text = "[font_size=24]神圣灼烧  LV. " + str(level) + "[/font_size]\n"
+	text += "持续对自身周围造成伤害并回血\n\n"
+	
+	# 计算伤害比率
+	var damage_ratio = 30.0
+	for lv in [2, 5, 8, 11, 14]:
+		if level >= lv:
+			damage_ratio += 4.0
+	text += "伤害：" + ("%.0f" % damage_ratio) + "%攻击力/0.5秒\n"
+	
+	# 计算持续时间
+	var duration = 5.0
+	for lv in [3, 6, 9, 12, 15]:
+		if level >= lv:
+			duration += 0.5
+	text += "持续时间：" + ("%.1f" % duration) + "秒\n"
+	
+	# 计算冷却时间
+	var cooldown = 24.0
+	for lv in [4, 7, 10, 13]:
+		if level >= lv:
+			cooldown -= 1.0
+	cooldown = max(4.0, cooldown)
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	text += "冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	return text
+
+## 构建迷踪步技能详情文本
+func _build_mizongbu_skill_text(level: int) -> String:
+	return "[font_size=24]迷踪步  LV. " + str(level) + "[/font_size]\n短时间提升移速并减伤，期间伤害降低"
+
+## 构建唤灵技能详情文本
+func _build_huanling_skill_text(level: int) -> String:
+	return "[font_size=24]唤灵  LV. " + str(level) + "[/font_size]\n召唤陨灭剑灵协助作战"
+
+## 构建魔化技能详情文本
+func _build_beastify_skill_text(level: int) -> String:
+	return "[font_size=24]魔化·趋桀  LV. " + str(level) + "[/font_size]\n短时间提升属性并将剑气改为爪击"
 
 ## 构建闪避技能详情文本
 func _build_dodge_skill_text(level: int) -> String:
@@ -944,7 +1085,7 @@ func update_lv_up_visibility() -> void:
 
 ## 初始化主技能图标
 func init_main_skill(fire_speed_wait_time: float) -> void:
-	if not PC.selected_rewards.has("swordQi"):
+	if not PC.selected_rewards.has("SwordQi"):
 		skill1.visible = false
 		skill1.get_node("Timer").stop()
 		return
@@ -953,7 +1094,7 @@ func init_main_skill(fire_speed_wait_time: float) -> void:
 
 ## 检查并更新技能图标可见性
 func check_and_update_skill_icons(player_node: Node) -> void:
-	if PC.selected_rewards.has("SwordQi") and PC.first_has_swordqi:
+	if PC.selected_rewards.has("Swordqi") and PC.first_has_swordqi:
 		skill1.visible = true
 		skill1.update_skill(1, player_node.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
 		PC.first_has_swordqi = false
@@ -973,7 +1114,7 @@ func check_and_update_skill_icons(player_node: Node) -> void:
 		skill4.update_skill(4, player_node.riyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/riyan.png")
 		PC.first_has_riyan = false
 
-	if PC.selected_rewards.has("RingFire") and PC.first_has_ringFire:
+	if PC.selected_rewards.has("Ringfire") and PC.first_has_ringFire:
 		skill5.visible = true
 		skill5.update_skill(5, player_node.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/ringFire.png")
 		PC.first_has_ringFire = false
@@ -987,7 +1128,7 @@ func check_and_update_skill_icons(player_node: Node) -> void:
 		skill7.visible = true
 		skill7.update_skill(7, player_node.bloodwave_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 	
-	if PC.selected_rewards.has("BloodBoardSword") and PC.first_has_bloodboardsword:
+	if PC.selected_rewards.has("Bloodboardsword") and PC.first_has_bloodboardsword:
 		skill8.visible = true
 		skill8.update_skill(8, player_node.bloodboardsword_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		PC.first_has_bloodboardsword = false
@@ -996,12 +1137,12 @@ func check_and_update_skill_icons(player_node: Node) -> void:
 		skill9.visible = true
 		skill9.update_skill(9, player_node.ice_flower_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 	
-	if PC.selected_rewards.has("ThunderBreak") and PC.first_has_thunder_break:
+	if PC.selected_rewards.has("Thunderbreak") and PC.first_has_thunder_break:
 		skill10.visible = true
 		skill10.update_skill(10, player_node.thunder_break_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 		PC.first_has_thunder_break = false
 	
-	if PC.selected_rewards.has("LightBullet") and PC.first_has_light_bullet:
+	if PC.selected_rewards.has("Lightbullet") and PC.first_has_light_bullet:
 		skill11.visible = true
 		skill11.update_skill(11, player_node.light_bullet_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 		PC.first_has_light_bullet = false
@@ -1033,7 +1174,7 @@ func check_and_update_skill_icons(player_node: Node) -> void:
 		skill17.update_skill(17, player_node.duize_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 		PC.first_has_duize = false
 	
-	if PC.selected_rewards.has("HolyLight") and PC.first_has_holylight:
+	if PC.selected_rewards.has("Holylight") and PC.first_has_holylight:
 		skill18.visible = true
 		skill18.update_skill(18, player_node.holy_light_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 		PC.first_has_holylight = false
@@ -1043,7 +1184,7 @@ func check_and_update_skill_icons(player_node: Node) -> void:
 		skill19.update_skill(19, player_node.qigong_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
 		PC.first_has_qigong = false
 
-	if PC.selected_rewards.has("DragonWind") and PC.first_has_dragonwind:
+	if PC.selected_rewards.has("Dragonwind") and PC.first_has_dragonwind:
 		skill20.visible = true
 		skill20.update_skill(20, player_node.dragonwind_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		PC.first_has_dragonwind = false
@@ -1051,7 +1192,7 @@ func check_and_update_skill_icons(player_node: Node) -> void:
 
 ## 更新技能冷却时间显示
 func update_skill_cooldowns(player_node: Node) -> void:
-	if skill1.visible:
+	if PC.selected_rewards.has("Swordqi") and skill1.visible:
 		skill1.update_skill(1, player_node.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
 	
 	if PC.selected_rewards.has("Branch") and skill2.visible:
@@ -1063,7 +1204,7 @@ func update_skill_cooldowns(player_node: Node) -> void:
 	if PC.selected_rewards.has("Riyan") and skill4.visible:
 		skill4.update_skill(4, player_node.riyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/riyan.png")
 	
-	if PC.selected_rewards.has("RingFire") and skill5.visible:
+	if PC.selected_rewards.has("Ringfire") and skill5.visible:
 		skill5.update_skill(5, player_node.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/ringFire.png")
 	
 	if PC.selected_rewards.has("Thunder") and skill6.visible:
@@ -1072,16 +1213,16 @@ func update_skill_cooldowns(player_node: Node) -> void:
 	if PC.selected_rewards.has("Bloodwave") and skill7.visible:
 		skill7.update_skill(7, player_node.bloodwave_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 	
-	if PC.selected_rewards.has("bloodboardsword") and skill8.visible:
+	if PC.selected_rewards.has("Bloodboardsword") and skill8.visible:
 		skill8.update_skill(8, player_node.bloodboardsword_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 
 	if PC.selected_rewards.has("Ice") and skill9.visible:
 		skill9.update_skill(9, player_node.ice_flower_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		
-	if PC.selected_rewards.has("ThunderBreak") and skill10.visible:
+	if PC.selected_rewards.has("Thunderbreak") and skill10.visible:
 		skill10.update_skill(10, player_node.thunder_break_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		
-	if PC.selected_rewards.has("LightBullet") and skill11.visible:
+	if PC.selected_rewards.has("Lightbullet") and skill11.visible:
 		skill11.update_skill(11, player_node.light_bullet_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 		
 	if PC.selected_rewards.has("Water") and skill12.visible:
@@ -1102,13 +1243,13 @@ func update_skill_cooldowns(player_node: Node) -> void:
 	if PC.selected_rewards.has("Duize") and skill17.visible:
 		skill17.update_skill(17, player_node.duize_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 
-	if PC.selected_rewards.has("HolyLight") and skill18.visible:
+	if PC.selected_rewards.has("Holylight") and skill18.visible:
 		skill18.update_skill(18, player_node.holy_light_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 
 	if PC.selected_rewards.has("Qigong") and skill19.visible:
 		skill19.update_skill(19, player_node.qigong_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 
-	if PC.selected_rewards.has("DragonWind") and skill20.visible:
+	if PC.selected_rewards.has("Dragonwind") and skill20.visible:
 		skill20.update_skill(20, player_node.dragonwind_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
 
 func stop_all_skill_cooldowns() -> void:
@@ -1480,9 +1621,9 @@ func _get_score_value_from_text(score_text: String) -> int:
 	return int(value)
 
 func _get_time_grade_name(seconds: int) -> String:
-	if seconds <= 360:
+	if seconds <= 450:
 		return "神"
-	if seconds <= 480:
+	if seconds <= 540:
 		return "极"
 	if seconds <= 600:
 		return "优"
@@ -1491,24 +1632,24 @@ func _get_time_grade_name(seconds: int) -> String:
 	return "可"
 
 func _get_score_grade_name(score_value: int) -> String:
-	if score_value > 10000:
+	if score_value > 40000:
 		return "神"
-	if score_value >= 8000:
+	if score_value >= 25000:
 		return "极"
-	if score_value >= 6000:
+	if score_value >= 15000:
 		return "优"
-	if score_value >= 4000:
+	if score_value >= 5000:
 		return "良"
 	return "可"
 
 func _get_kill_grade_name(kill_count: int) -> String:
-	if kill_count > 1000:
+	if kill_count > 1250:
 		return "神"
-	if kill_count >= 800:
+	if kill_count >= 1150:
 		return "极"
-	if kill_count >= 600:
+	if kill_count >= 1000:
 		return "优"
-	if kill_count >= 400:
+	if kill_count >= 800:
 		return "良"
 	return "可"
 
@@ -1548,6 +1689,11 @@ func _get_grade_info(grade_name: String) -> Dictionary:
 # ============== 升级管理 ==============
 
 func _on_level_up(main_skill_name: String = '', refresh_id: int = 0) -> void:
+	# 每达REFRESH_LEVEL_STEP级，额外获得REFRESH_BONUS_PER_STEP次刷新次数
+	if main_skill_name == '' and refresh_id == 0 and PC.pc_lv % REFRESH_LEVEL_STEP == 0:
+		PC.refresh_num += REFRESH_BONUS_PER_STEP
+		print_debug("[Refresh] 第", PC.pc_lv, "级奖励刷新+", REFRESH_BONUS_PER_STEP, "，当前刷新次数：", PC.refresh_num)
+	_update_refresh_lock_display()
 	level_up_manager.handle_level_up(main_skill_name, refresh_id, get_tree(), get_viewport())
 
 func _check_and_process_pending_level_ups() -> void:
@@ -1555,7 +1701,23 @@ func _check_and_process_pending_level_ups() -> void:
 	_refresh_faze_ui()
 
 func handle_refresh_button(button_id: int) -> void:
-	level_up_manager.handle_refresh_button(button_id, get_tree(), get_viewport())
+	if PC.refresh_num <= 0:
+		# 刷新次数不足，显示Tip提示
+		var tip = lv_up_tip if lv_up_tip else get_node_or_null("TipsLayer/Tip")
+		if tip and tip.has_method("start_animation"):
+			tip.start_animation("刷新次数不足", 0.5)
+		return
+	# 找对应的大按钮
+	var target_btn: Button
+	match button_id:
+		1: target_btn = lv_up_change_b1
+		2: target_btn = lv_up_change_b2
+		3: target_btn = lv_up_change_b3
+	if is_instance_valid(target_btn):
+		_do_refresh_with_transition(target_btn, button_id)
+	else:
+		level_up_manager.handle_refresh_button(button_id, get_tree(), get_viewport())
+		_update_refresh_lock_display()
 
 func get_required_lv_up_value(level: int) -> int:
 	return level_up_manager.get_required_lv_up_value(level)
@@ -1563,9 +1725,50 @@ func get_required_lv_up_value(level: int) -> int:
 func add_pending_level_up() -> void:
 	level_up_manager.add_pending_level_up()
 
+## 刷新/锁定次数显示（0.2s过渡动画）
+func _update_refresh_lock_display() -> void:
+	if not refreshOrLockNum:
+		return
+	var new_text = "刷新\n次数\n" + str(PC.refresh_num) + "\n\n锁定\n次数\n" + str(PC.lock_num)
+	var tween = create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_property(refreshOrLockNum, "modulate:a", 0.0, 0.1)
+	tween.tween_callback(func():
+		refreshOrLockNum.text = new_text
+	)
+	tween.tween_property(refreshOrLockNum, "modulate:a", 1.0, 0.1)
+
+## 刷新按钮完整过渡：淡出→更新内容→闪白淡入
+func _do_refresh_with_transition(button: Button, button_id: int) -> void:
+	var tween = button.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	# 第一段：淡出（0.15s），子节点一起消失
+	tween.tween_property(button, "modulate", Color(1, 1, 1, 0), 0.15)
+	# 淡出完成后立即更新内容（level_up.gd刚刚去掉了refresh的延迟）
+	tween.tween_callback(func():
+		level_up_manager.handle_refresh_button(button_id, get_tree(), get_viewport())
+		_update_refresh_lock_display()
+	)
+	# 第二段：等待一帧确保新内容已渲染（0.03s）
+	tween.tween_interval(0.03)
+	# 第三段：闪白淡入（0.08s冲到亮白 + 0.22s回正常）
+	tween.tween_property(button, "modulate", Color(3, 3, 3, 1), 0.08)
+	tween.tween_property(button, "modulate", Color(1, 1, 1, 1), 0.22)
+
+## 按钮点击闪白效果（0.3s）
+func _flash_button_white(button: Button) -> void:
+	if not is_instance_valid(button):
+		return
+	# 确保按钮 modulate 从正常状态开始
+	button.modulate = Color(1, 1, 1, 1)
+	var tween = button.create_tween()
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_property(button, "modulate", Color(3, 3, 3, 1), 0.08)
+	tween.tween_property(button, "modulate", Color(1, 1, 1, 1), 0.22)
+
 # ============== Warning动画 ==============
 
-func play_warning_animation() -> void:	
+func play_warning_animation() -> void:
 	warning_node.process_mode = Node.PROCESS_MODE_ALWAYS
 	warning_node.visible = false
 	warning_node.modulate = Color(1, 1, 1, 0)

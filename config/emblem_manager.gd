@@ -234,6 +234,5 @@ func _build_emblem_detail_text(name: String, description: String, current_stack:
 	lines.append("[font_size=30]" + name + "[/font_size]")
 	lines.append("效果：" + description)
 	lines.append("")
-	lines.append("层数：" + str(current_stack))
-	lines.append("最大层数：" + str(max_stack))
+	lines.append("层数：" + str(current_stack) + " / "+ str(max_stack))
 	return "\n".join(lines)

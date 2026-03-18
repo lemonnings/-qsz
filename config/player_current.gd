@@ -65,7 +65,7 @@ extends Node
 @export var faze_wind_level: int = 0
 @export var wind_huanfeng_stacks: int = 0
 @export var wind_huanfeng_max_stacks: int = 0
-@export var wind_huanfeng_duration: float = 5.0
+@export var wind_huanfeng_duration: float = 30.0
 @export var faze_heal_shield_bonus: float = 0.0
 
 # 御灵法则 (Summon Law)
@@ -172,6 +172,7 @@ extends Node
 
 @export var main_skill_bloodboardsword = 0
 @export var main_skill_bloodboardsword_advance = 0
+@export var main_skill_bloodboardsword_damage: float = 0.55
 @export var first_has_bloodboardsword: bool = true
 
 # 冰刺术相关变量
@@ -276,6 +277,8 @@ extends Node
 
 # 刷新次数
 @export var refresh_num: int = 3
+# 锁定次数
+@export var lock_num: int = 0
 
 # 纹章相关字段
 @export var emblem_slots_max: int = 4
@@ -291,7 +294,7 @@ extends Node
 @export var movement_disabled: bool = false # 控制玩家移动是否被禁用
 
 func _ready():
-	Global.connect("lucky_level_up", Callable(self, "_on_lucky_level_up"))
+	Global.connect("lucky_level_up", Callable(self , "_on_lucky_level_up"))
 
 func _on_lucky_level_up(lunky_up: float) -> void:
 	now_red_p = now_red_p + lunky_up * 0.2
@@ -332,7 +335,7 @@ func reset_player_attr() -> void:
 	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.02)
 	PC.pc_sheild = []
 
-	PC.current_weapon_num - 0
+	PC.current_weapon_num = 0
 
 	PC.invincible = false
 	
@@ -368,7 +371,7 @@ func reset_player_attr() -> void:
 	PC.pc_final_atk = 0.0
 	PC.wind_huanfeng_stacks = 0
 	PC.wind_huanfeng_max_stacks = 0
-	PC.wind_huanfeng_duration = 5.0
+	PC.wind_huanfeng_duration = 30.0
 	PC.sixsense_bonus_multiplier = 1.0
 	PC.sixsense_base_crit_chance = 0.0
 	PC.sixsense_base_crit_damage_multi = 0.0
@@ -401,7 +404,7 @@ func reset_player_attr() -> void:
 	PC.faze_heal_level = 0
 	PC.faze_summon_level = 0
 	PC.faze_shield_level = 0
-	PC.faze_fire_level = 0
+	PC.faze_fire_level = 13
 	PC.faze_destroy_level = 0
 	PC.faze_life_level = 0
 	PC.faze_bullet_level = 0
@@ -411,6 +414,7 @@ func reset_player_attr() -> void:
 	PC.faze_chaos_level = 0
 	PC.faze_skill_level = 0
 	PC.faze_sixsense_level = 0
+	PC.faze_wind_level = 0
 	PC.sixsense_bonus_multiplier = 1.0
 	PC.sixsense_base_crit_chance = 0.0
 	PC.sixsense_base_crit_damage_multi = 0.0
@@ -470,9 +474,9 @@ func reset_player_attr() -> void:
 	PC.first_has_riyan = true
 	PC.first_has_riyan_pc = true
 	PC.riyan_range = 70.0
-	PC.riyan_cooldown = 0.5
-	PC.riyan_hp_max_damage = 0.12
-	PC.riyan_atk_damage = 0.08
+	PC.riyan_cooldown = 1.0
+	PC.riyan_hp_max_damage = 0.06
+	PC.riyan_atk_damage = 0.06
 	
 	# 重置环火相关属性
 	PC.main_skill_ringFire = 0
@@ -494,6 +498,7 @@ func reset_player_attr() -> void:
 	
 	PC.main_skill_bloodboardsword = 0
 	PC.main_skill_bloodboardsword_advance = 0
+	PC.main_skill_bloodboardsword_damage = 0.55
 	PC.first_has_bloodboardsword = true
 	
 	# 重置冰刺术相关属性
@@ -557,31 +562,42 @@ func reset_player_attr() -> void:
 	PC.main_skill_holylight_advance = 0
 	PC.first_has_holylight = true
 	
+	# 重置气功波相关属性
+	PC.main_skill_qigong = 0
+	PC.main_skill_qigong_advance = 0
+	PC.first_has_qigong = true
+	PC.main_skill_qigong_damage = 1.0
+	
 	PC.refresh_num = Global.refresh_max_num
+	PC.lock_num = 0
 	
 	# 重置纹章系统
 	PC.current_emblems.clear()
 	EmblemManager.clear_all_emblems()
 	
 	# todo 测试武器升级
-	PC.selected_rewards = ["DragonWind1","DragonWind2","DragonWind3","DragonWind4","DragonWind5","DragonWind11","DragonWind22","DragonWind33","DragonWind44","DragonWind55","Ice1","Ice2","Ice3","Ice4","Ice5","Ice11","Ice22","Ice33","Ice44","Ice55","Xunfeng1","Xunfeng2","Xunfeng3","Xunfeng4","Xunfeng5","Xunfeng11","Xunfeng22","Xunfeng33","Xunfeng44","Xunfeng55"]
+	PC.selected_rewards = []
 
 	if PC.player_name == "moning":
 		PC.selected_rewards.append("Qigong")
-		PC.faze_wind_level +=2
-		PC.faze_wide_level +=2
+		PC.current_weapon_num += 1
+		PC.faze_wind_level += 2
+		PC.faze_wide_level += 2
 	if PC.player_name == "yiqiu":
-		PC.selected_rewards.append("swordQi")
-		PC.faze_sword_level +=2
-		PC.faze_bullet_level +=2
+		PC.selected_rewards.append("Swordqi")
+		PC.current_weapon_num += 1
+		PC.faze_sword_level += 2
+		PC.faze_bullet_level += 2
 	if PC.player_name == "noam":
-		PC.selected_rewards.append("LightBullet")
-		PC.faze_life_level +=2
-		PC.faze_bullet_level +=2
+		PC.selected_rewards.append("Lightbullet")
+		PC.current_weapon_num += 1
+		PC.faze_life_level += 2
+		PC.faze_bullet_level += 2
 	if PC.player_name == "kansel":
 		PC.selected_rewards.append("Ice")
-		PC.faze_destroy_level +=2
-		PC.faze_bullet_level +=2
+		PC.current_weapon_num += 1
+		PC.faze_destroy_level += 2
+		PC.faze_bullet_level += 2
 	
 
 func add_shield(amount: int, duration: float) -> void:
@@ -655,7 +671,6 @@ func _remove_empty_shields() -> void:
 	pc_sheild = remain
 
 	
-
 func exec_pc_atk() -> void:
 	PC.pc_atk = int(25 + int(Global.cultivation_poxu_level * 1))
 	PC.pc_start_atk = PC.pc_atk
@@ -860,7 +875,7 @@ func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: floa
 func _get_cultivation_bbcode(cultivation_power: int) -> String:
 	# 将修为值转换为字符串
 	var power_str = str(cultivation_power)
-	var result = "[font_size=36][color=#FFD700]修为   [/color]"
+	var result = "[font_size=33][color=#FFD700]修为 [/color]"
 	
 	# 为每个字符应用金红渐变色
 	# 金色(FFD700)

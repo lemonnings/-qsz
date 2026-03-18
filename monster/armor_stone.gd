@@ -19,10 +19,23 @@ var health_bar: Node2D
 var progress_bar: ProgressBar
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
+const CHARGE_TRIGGER_DISTANCE: float = 100.0
+const CHARGE_DISTANCE: float = 110.0
+const CHARGE_SPEED_MULTIPLIER: float = 5.0
+const CHARGE_WARNING_TIME: float = 1.2
+const CHARGE_WARNING_WIDTH: float = 16.0
+const CHARGE_COOLDOWN: float = 5.0
 
 # 精英怪相关
 var is_elite: bool = false
 var drop_rate_multiplier: float = 1.0
+var is_charge_warning: bool = false
+var is_charging: bool = false
+var charge_direction: Vector2 = Vector2.ZERO
+var charge_start_position: Vector2 = Vector2.ZERO
+var charge_target_point: Vector2 = Vector2.ZERO
+var charge_warning_node: WarnRectUtil
+var last_charge_start_time: float = -100.0
 
 signal debuff_applied(debuff_id: String)
 
@@ -57,6 +70,9 @@ func free_health_bar():
 
 func _physics_process(delta: float) -> void:
 	if hp <= 0:
+		clear_charge_warning()
+		is_charge_warning = false
+		is_charging = false
 		free_health_bar()
 		if not is_dead: # Add this check
 			$AnimatedSprite2D.stop()
@@ -105,32 +121,39 @@ func _physics_process(delta: float) -> void:
 		return
 	
 	# 处理推挤效果（防止怪物重叠）
-	if not is_dead:
+	if not is_dead and not is_charge_warning and not is_charging:
 		CharacterEffects.apply_separation(self , 10.0, 12.0)
 		
 	if not is_dead:
-		if move_direction == 0:
-			position += Vector2(speed, 0) * delta
-			sprite.flip_h = true;
-		if move_direction == 1:
-			position -= Vector2(speed, 0) * delta
-			sprite.flip_h = false;
-		if move_direction >= 2:
-			# 靠近角色的移动方式
-			if PC.player_instance != null:
-				var player_pos = PC.player_instance.global_position
-				var direction_to_player = (player_pos - global_position).normalized()
-				speed = base_speed * debuff_manager.get_speed_multiplier()
-				position += direction_to_player * speed * delta
-				# 根据移动方向设置精灵翻转
-				if direction_to_player.x > 0:
-					sprite.flip_h = true
-				else:
-					sprite.flip_h = false
+		if is_charging:
+			update_charge_movement(delta)
+		elif is_charge_warning:
+			pass
+		else:
+			try_start_charge_skill()
+			if not is_charge_warning and not is_charging:
+				if move_direction == 0:
+					position += Vector2(speed, 0) * delta
+					sprite.flip_h = true;
+				if move_direction == 1:
+					position -= Vector2(speed, 0) * delta
+					sprite.flip_h = false;
+				if move_direction >= 2:
+					# 靠近角色的移动方式
+					if PC.player_instance != null:
+						var player_pos = PC.player_instance.global_position
+						var direction_to_player = (player_pos - global_position).normalized()
+						speed = base_speed * debuff_manager.get_speed_multiplier()
+						position += direction_to_player * speed * delta
+						# 根据移动方向设置精灵翻转
+						if direction_to_player.x > 0:
+							sprite.flip_h = true
+						else:
+							sprite.flip_h = false
 	
 	
 	# 处理敌人之间的碰撞 - 直接防止重叠
-	if monitoring:
+	if monitoring and not is_charge_warning and not is_charging:
 		var overlapping_bodies = get_overlapping_areas()
 		
 		for body in overlapping_bodies:
@@ -146,10 +169,12 @@ func _physics_process(delta: float) -> void:
 					position += direction_away * (overlap * 0.5)
 	
 	if move_direction == 0 and position.x <= -534:
+		clear_charge_warning()
 		free_health_bar()
 		queue_free()
 		
 	if move_direction == 1 and position.x >= 534:
+		clear_charge_warning()
 		free_health_bar()
 		queue_free()
 
@@ -217,6 +242,65 @@ func _on_area_entered(area: Area2D) -> void:
 				$AnimatedSprite2D.play("death")
 		else:
 			Global.play_hit_anime(position, is_crit)
+
+func try_start_charge_skill():
+	if PC.player_instance == null:
+		return
+	var current_time = Time.get_ticks_msec() / 1000.0
+	var cooldown_elapsed = current_time - last_charge_start_time
+	if cooldown_elapsed < CHARGE_COOLDOWN:
+		return
+	var player_pos = PC.player_instance.global_position
+	var distance_to_player = global_position.distance_to(player_pos)
+	if distance_to_player > CHARGE_TRIGGER_DISTANCE:
+		return
+	charge_direction = (player_pos - global_position).normalized()
+	if charge_direction == Vector2.ZERO:
+		return
+	charge_start_position = global_position
+	charge_target_point = charge_start_position + charge_direction * CHARGE_DISTANCE
+	is_charge_warning = true
+	is_charging = false
+	last_charge_start_time = current_time
+	sprite.flip_h = charge_direction.x > 0
+	clear_charge_warning()
+	charge_warning_node = WarnRectUtil.new()
+	get_tree().current_scene.add_child(charge_warning_node)
+	charge_warning_node.warning_finished.connect(_on_charge_warning_finished)
+	charge_warning_node.start_warning(charge_start_position, charge_target_point, CHARGE_WARNING_WIDTH, CHARGE_WARNING_TIME, 0.0, null, 0.25)
+
+func _on_charge_warning_finished():
+	clear_charge_warning()
+	if is_dead:
+		is_charge_warning = false
+		is_charging = false
+		return
+	is_charge_warning = false
+	is_charging = true
+	charge_start_position = global_position
+
+func update_charge_movement(delta: float):
+	var charge_speed = base_speed * debuff_manager.get_speed_multiplier() * CHARGE_SPEED_MULTIPLIER
+	var moved_distance = global_position.distance_to(charge_start_position)
+	var remain_distance = CHARGE_DISTANCE - moved_distance
+	if remain_distance <= 0.0:
+		is_charging = false
+		return
+	var step_distance = charge_speed * delta
+	if step_distance > remain_distance:
+		step_distance = remain_distance
+	position += charge_direction * step_distance
+	sprite.flip_h = charge_direction.x > 0
+	if step_distance == remain_distance:
+		is_charging = false
+
+func clear_charge_warning():
+	if charge_warning_node != null and is_instance_valid(charge_warning_node):
+		charge_warning_node.cleanup()
+	charge_warning_node = null
+
+func _exit_tree():
+	clear_charge_warning()
 
 func apply_debuff_effect(debuff_id: String):
 	emit_signal("debuff_applied", debuff_id)

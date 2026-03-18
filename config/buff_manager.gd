@@ -37,6 +37,10 @@ static var active_buffs: Dictionary = {}
 static var buff_data: Dictionary = {}
 
 func _ready():
+	# 清理静态数据，防止跨局残留
+	active_buffs.clear()
+	buff_data.clear()
+
 	# 初始化buff配置
 	_init_buff_configs()
 	
@@ -91,6 +95,51 @@ static func _init_buff_configs():
 		500,
 		"唤风层数，每层提升0.1%攻击速度与移动速度，持续5秒"
 	)
+	
+	buff_configs["mizongbu"] = BuffData.new(
+		"mizongbu",
+		"迷踪步",
+		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		BuffType.TEMPORARY,
+		1,
+		"移动速度提升50%，减伤40%，造成伤害降低50%"
+	)
+
+	buff_configs["heal_hot"] = BuffData.new(
+		"heal_hot",
+		"疗愈",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.TEMPORARY,
+		1,
+		"持续恢复体力"
+	)
+
+	buff_configs["water_sheild"] = BuffData.new(
+		"water_sheild",
+		"水幕护体",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.TEMPORARY,
+		1,
+		"获得护盾并提升减伤率"
+	)
+
+	buff_configs["holy_fire"] = BuffData.new(
+		"holy_fire",
+		"神圣灼烧",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.TEMPORARY,
+		1,
+		"对周围造成伤害并恢复体力"
+	)
+
+	buff_configs["beastify"] = BuffData.new(
+		"beastify",
+		"魔化·趋桀",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.TEMPORARY,
+		1,
+		"大幅提升各项属性，并将攻击变为爪击"
+	)
 
 static func get_buff_data(buff_id: String) -> BuffData:
 	if buff_configs.is_empty():
@@ -141,7 +190,14 @@ func _on_buff_added(buff_id: String, duration: float, stack: int):
 	
 	# 如果buff已存在，更新它
 	if active_buffs.has(buff_id):
-		_update_existing_buff(buff_id, duration, stack, buff_config)
+		var buff_ui = active_buffs[buff_id]
+		if is_instance_valid(buff_ui):
+			_update_existing_buff(buff_id, duration, stack, buff_config)
+		else:
+			# 如果引用无效（可能是跨场景残留），清理并重新创建
+			active_buffs.erase(buff_id)
+			buff_data.erase(buff_id)
+			_create_new_buff(buff_id, duration, stack, buff_config)
 	else:
 		_create_new_buff(buff_id, duration, stack, buff_config)
 

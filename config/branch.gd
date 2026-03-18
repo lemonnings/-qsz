@@ -53,24 +53,24 @@ func _physics_process(delta: float) -> void:
 	# 更新已飞行距
 	traveled_distance = start_position.distance_to(global_position)
 	# 树枝22: 每飞行0.2米，伤害提升2%
-	if PC.selected_rewards.has("branch22"):
+	if PC.selected_rewards.has("Branch22"):
 		var distance_meters = traveled_distance * 0.04
 		var damage_increase_multiplier = 1.0 + floor(distance_meters / 0.2) * 0.02
 		bullet_damage *= damage_increase_multiplier
 
 	# 树枝1: 行进至射程一半时分裂(视觉上提前一点分裂)
-	if PC.selected_rewards.has("branch1") and not is_fading and traveled_distance >= bullet_range / 2.25 and not is_half_split:
+	if PC.selected_rewards.has("Branch1") and not is_fading and traveled_distance >= bullet_range / 2.25 and not is_half_split:
 		is_half_split = true
 		_create_sword_wave_instance(global_position)
 		# 防止重复分裂
-		#PC.selected_rewards.erase("branch1")
+		#PC.selected_rewards.erase("Branch1")
 
 	# 检查是否超出射程
 	if not is_fading and traveled_distance >= bullet_range:
 		if parent_bullet: # 只有父级子弹才会在射程终点分裂
 			_create_sword_wave_instance(global_position)
 		# 树枝11: 到达最大射程后返回
-		if PC.selected_rewards.has("branch11") and not is_rebound:
+		if PC.selected_rewards.has("Branch11") and not is_rebound:
 			is_rebound = true
 			var player = get_tree().get_first_node_in_group("player")
 			if player:
@@ -82,7 +82,7 @@ func _physics_process(delta: float) -> void:
 			else:
 				start_fade_out()
 		# 树枝12: 分裂的子枝在达到最大射程后，会向随机方向再射出一个孙枝，造成同等伤害但不会触发分裂与多重分裂-返
-		elif PC.selected_rewards.has("branch12") and not parent_bullet and not grandson_bullet:
+		elif PC.selected_rewards.has("Branch12") and not parent_bullet and not grandson_bullet:
 			# 创建孙枝
 			var grandson_bullet = BranchScene.instantiate()
 			grandson_bullet.direction = Vector2.from_angle(randf() * 2 * PI) # 随机方向
@@ -149,7 +149,7 @@ func initialize_bullet_damage() -> void:
 	bullet_fisson = 1
 
 	var crit_chance_bonus = 0.0
-	if PC.selected_rewards.has("branch4"):
+	if PC.selected_rewards.has("Branch4"):
 		crit_chance_bonus += 0.20
 
 	is_crit_hit = false
@@ -188,14 +188,14 @@ func handle_penetration() -> bool:
 	collision_processed_this_frame = true
 
 	# 树枝2 & 12: 穿透伤害提升
-	if PC.selected_rewards.has("branch2"): # 意味着至少穿透了一次
+	if PC.selected_rewards.has("Branch2"): # 意味着至少穿透了一次
 		var damage_increase = 0.3
-		if PC.selected_rewards.has("branch21"):
+		if PC.selected_rewards.has("Branch21"):
 			damage_increase = 0.4
 		bullet_damage *= (1 + damage_increase)
 
 	# 树枝4: 击退效果
-	if PC.selected_rewards.has("branch4") and not is_rebound:
+	if PC.selected_rewards.has("Branch4") and not is_rebound:
 		var bodies = get_overlapping_bodies()
 		for body in bodies:
 			if body.is_in_group("enemies"):
@@ -221,9 +221,9 @@ func update_collision_shape_size() -> void:
 func _create_sword_wave_instance(position: Vector2) -> void:
 	if parent_bullet:
 		var split_count = PC.branch_split_count
-		if PC.selected_rewards.has("branch3"):
+		if PC.selected_rewards.has("Branch3"):
 			split_count += 1
-		if PC.selected_rewards.has("branch33"):
+		if PC.selected_rewards.has("Branch33"):	
 			split_count += 1
 		
 		var base_angle = direction.angle()
@@ -237,7 +237,7 @@ func _create_sword_wave_instance(position: Vector2) -> void:
 			new_bullet.parent_bullet = false # 子弹不再分裂
 			
 			# 树枝12: 分裂出的子树枝也会继承这个加成
-			if PC.selected_rewards.has("branch21"):
+			if PC.selected_rewards.has("Branch21"):
 				new_bullet.bullet_damage = bullet_damage # 继承当前伤害
 			
 			get_parent().add_child(new_bullet)
@@ -283,7 +283,7 @@ func find_nearest_enemy() -> void:
 
 # 当与其他区域进入碰撞时
 func _on_area_entered(area: Area2D) -> void:
-	if area.is_in_group("enemies") and PC.selected_rewards.has("branch4") and parent_bullet and not is_rebound:
+	if area.is_in_group("enemies") and PC.selected_rewards.has("Branch4") and parent_bullet and not is_rebound:
 		# 应用击退效果（只对父级子弹生效）
 		if area.has_method("apply_knockback"):
 			area.apply_knockback(direction, 30)

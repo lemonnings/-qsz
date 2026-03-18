@@ -24,6 +24,7 @@ var player_ref: Node2D
 var center_direction: float = 0.0 # 扇形中心方向角度
 var current_alpha: float = 0.0
 var initial_scale: Vector2 = Vector2(0.1, 0.1)
+var grow_time: float = 0.0
 
 func _ready():
 	# 设置为可暂停模式，升级等暂停期间动画也会暂停
@@ -41,7 +42,7 @@ func create_warning_shape():
 	add_child(warning_shape)
 	warning_shape.z_index = 10 # 确保在其他元素之上
 
-func start_warning(pos: Vector2, p_target_point: Vector2, p_sector_angle: float, p_warning_time: float, p_damage: float, p_animation_player: AnimationPlayer = null):
+func start_warning(pos: Vector2, p_target_point: Vector2, p_sector_angle: float, p_warning_time: float, p_damage: float, p_animation_player: AnimationPlayer = null, p_grow_time: float = -1.0):
 	"""开始预警
 	pos: 生成位置（扇形顶点）
 	p_target_point: 目标点，决定扇形方向
@@ -56,6 +57,10 @@ func start_warning(pos: Vector2, p_target_point: Vector2, p_sector_angle: float,
 	self.warning_time = p_warning_time
 	self.damage = p_damage
 	self.animation_player = p_animation_player
+	if p_grow_time < 0.0:
+		self.grow_time = p_warning_time
+	else:
+		self.grow_time = min(p_grow_time, p_warning_time)
 	self.current_time = 0.0
 	self.current_alpha = 0.0
 
@@ -69,9 +74,9 @@ func start_warning(pos: Vector2, p_target_point: Vector2, p_sector_angle: float,
 	self.radius = direction_vector.length()
 	self.center_direction = direction_vector.angle()
 
-	warning_shape.setup(radius, sector_angle, center_direction)
+	warning_shape.setup(0.0, sector_angle, center_direction)
 	warning_shape.modulate.a = 0.0 # 初始透明度为0
-	warning_shape.scale = initial_scale # 初始缩放
+	warning_shape.scale = Vector2.ONE
 	warning_shape.show()
 
 	is_warning_active = true
@@ -94,17 +99,15 @@ func update_warning_visual(progress: float):
 	"""更新预警视觉效果"""
 	if not warning_shape:
 		return
+	var current_radius = radius
+	if current_time < grow_time:
+		current_radius = radius * (current_time / grow_time)
+	warning_shape.setup(current_radius, sector_angle, center_direction)
 	
 	if progress <= 0.25:
-		# 前四分之一时间：从中心向外扩散
-		var expand_progress = progress / 0.25
-		var current_scale = expand_progress
-		warning_shape.scale = Vector2(current_scale, current_scale)
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35) # 红色，透明度0.35
 	
 	elif progress <= 0.75:
-		# 中间时间：保持稳定
-		warning_shape.scale = Vector2(1.0, 1.0)
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35)
 	
 	elif progress <= 0.9:

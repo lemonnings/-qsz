@@ -94,16 +94,179 @@ class RandomStrikeSkill extends ActiveSkill:
 				cd_reduction += 1.0
 		cooldown_time = max(5.0, base_cooldown_time - cd_reduction)
 
+class MizongbuSkill extends ActiveSkill:
+	var base_duration: float = 1.8
+	var duration: float = 1.8
+	var move_speed_bonus_ratio: float = 0.5
+	var base_damage_reduction_ratio: float = 0.4
+	var damage_reduction_ratio: float = 0.4
+	var outgoing_damage_reduction_ratio: float = 0.5
+	
+	func _init():
+		super ("mizongbu", "迷踪步", "短时间提升移速并减伤，期间伤害降低", 9.5)
+		is_unlocked = true
+	
+	func update_from_level(level: int):
+		var dr_bonus = 0.0
+		for lv in [2, 5, 8, 11, 14]:
+			if level >= lv:
+				dr_bonus += 0.04
+		damage_reduction_ratio = base_damage_reduction_ratio + dr_bonus
+		
+		var cd_reduction = 0.0
+		for lv in [3, 6, 9, 12, 15]:
+			if level >= lv:
+				cd_reduction += 0.5
+		cooldown_time = max(2.0, base_cooldown_time - cd_reduction)
+		
+		var duration_bonus = 0.0
+		for lv in [4, 7, 10, 13]:
+			if level >= lv:
+				duration_bonus += 0.3
+		duration = base_duration + duration_bonus
+
+class HuanlingSkill extends ActiveSkill:
+	var base_duration: float = 10.0
+	var duration: float = 10.0
+	var base_attr_ratio: float = 0.8
+	var attr_ratio: float = 0.8
+	
+	func _init():
+		super ("huanling", "唤灵", "召唤陨灭剑灵协助作战", 20.0)
+		is_unlocked = true
+	
+	func update_from_level(level: int):
+		var attr_bonus = 0.0
+		for lv in [2, 5, 8, 11, 14]:
+			if level >= lv:
+				attr_bonus += 0.04
+		attr_ratio = base_attr_ratio + attr_bonus
+		
+		var extra_duration = 0.0
+		for lv in [3, 6, 9, 12, 15]:
+			if level >= lv:
+				extra_duration += 1.0
+		duration = base_duration + extra_duration
+		
+		var cd_reduction = 0.0
+		for lv in [4, 7, 10, 13]:
+			if level >= lv:
+				cd_reduction += 1.0
+		cooldown_time = max(4.0, base_cooldown_time - cd_reduction)
+
+# 疗愈技能数据
+class HealHotSkill extends ActiveSkill:
+	var base_duration: float = 12.0
+	var duration: float = 12.0
+	var base_heal_percent: float = 0.01
+	var heal_percent: float = 0.01
+	var base_heal_amount: float = 3.0
+	var heal_amount: float = 3.0
+	
+	func _init():
+		super ("heal_hot", "疗愈", "持续恢复自身体力", 30.0)
+		is_unlocked = true
+	
+	func update_from_level(level: int):
+		# 等级2,5,8,11,14，回复体力基数+1
+		var heal_bonus = 0.0
+		for lv in [2, 5, 8, 11, 14]:
+			if level >= lv:
+				heal_bonus += 1.0
+		heal_amount = base_heal_amount + heal_bonus
+		
+		# 等级3，6，9，12，15，冷却时间-1秒
+		var cd_reduction = 0.0
+		for lv in [3, 6, 9, 12, 15]:
+			if level >= lv:
+				cd_reduction += 1.0
+		cooldown_time = max(5.0, base_cooldown_time - cd_reduction)
+		
+		# 等级4，7，10，13，持续时间+1秒
+		var duration_bonus = 0.0
+		for lv in [4, 7, 10, 13]:
+			if level >= lv:
+				duration_bonus += 1.0
+		duration = base_duration + duration_bonus
+
+# 水幕护体技能数据
+class WaterShieldSkill extends ActiveSkill:
+	var base_duration: float = 7.0
+	var duration: float = 7.0
+	var base_shield_percent: float = 0.1
+	var shield_percent: float = 0.1
+	var base_damage_reduction: float = 0.2
+	var damage_reduction: float = 0.2
+	
+	func _init():
+		super ("water_sheild", "水幕护体", "释放水幕，获得护盾并提升减伤", 15.0)
+		is_unlocked = true
+	
+	func update_from_level(level: int):
+		# 等级2,5,8,11,14，护盾最大体力比例+1%
+		var shield_bonus = 0.0
+		for lv in [2, 5, 8, 11, 14]:
+			if level >= lv:
+				shield_bonus += 0.01
+		shield_percent = base_shield_percent + shield_bonus
+		
+		# 等级3，6，9，12，15，减伤率+3%
+		var dr_bonus = 0.0
+		for lv in [3, 6, 9, 12, 15]:
+			if level >= lv:
+				dr_bonus += 0.03
+		damage_reduction = base_damage_reduction + dr_bonus
+		
+		# 等级4，7，10，13，冷却时间-0.5秒
+		var cd_reduction = 0.0
+		for lv in [4, 7, 10, 13]:
+			if level >= lv:
+				cd_reduction += 0.5
+		cooldown_time = max(3.0, base_cooldown_time - cd_reduction)
+
+# 神圣灼烧技能数据
+class HolyFireSkill extends ActiveSkill:
+	var base_duration: float = 5.0
+	var duration: float = 5.0
+	var base_damage_ratio: float = 0.3
+	var damage_ratio: float = 0.3
+	
+	func _init():
+		super ("holy_fire", "神圣灼烧", "持续对自身周围造成伤害并回血", 24.0)
+		is_unlocked = true
+	
+	func update_from_level(level: int):
+		# 等级2,5,8,11,14，伤害+4%
+		var damage_bonus = 0.0
+		for lv in [2, 5, 8, 11, 14]:
+			if level >= lv:
+				damage_bonus += 0.04
+		damage_ratio = base_damage_ratio + damage_bonus
+		
+		# 等级3，6，9，12，15，持续时间+0.5秒
+		var duration_bonus = 0.0
+		for lv in [3, 6, 9, 12, 15]:
+			if level >= lv:
+				duration_bonus += 0.5
+		duration = base_duration + duration_bonus
+		
+		# 等级4，7，10，13，冷却时间-1秒
+		var cd_reduction = 0.0
+		for lv in [4, 7, 10, 13]:
+			if level >= lv:
+				cd_reduction += 1.0
+		cooldown_time = max(4.0, base_cooldown_time - cd_reduction)
+
 # 趋桀变身技能数据
 class BeastifySkill extends ActiveSkill:
-	var base_duration: float = 11.0
+	var base_duration: float = 15.0
 	var duration: float = 21.0
 	var base_buff_ratio: float = 0.2
 	var atk_bonus_ratio: float = 0.2
 	var atk_speed_bonus_ratio: float = 0.2
 	var move_bonus_ratio: float = 0.2
-	var base_claw_damage_ratio: float = 0.4
-	var claw_damage_ratio: float = 0.4
+	var base_claw_damage_ratio: float = 0.55
+	var claw_damage_ratio: float = 0.55
 	
 	func _init():
 		super ("beastify", "魔化·趋桀", "短时间提升属性并将剑气改为爪击", 40.0)
@@ -182,6 +345,18 @@ func init_skills():
 	dodge_skill.update_from_level(dodge_level)
 	mastered_skills["dodge"] = dodge_skill
 	
+	var mizongbu_skill = MizongbuSkill.new()
+	var mz_level = Global.player_active_skill_data.get("mizongbu", {}).get("level", 1)
+	mizongbu_skill.update_from_level(mz_level)
+	mastered_skills["mizongbu"] = mizongbu_skill
+	# Global.player_now_active_skill["space"] = {"name": "mizongbu"}
+	
+	var huanling_skill = HuanlingSkill.new()
+	var hl_level = Global.player_active_skill_data.get("huanling", {}).get("level", 1)
+	huanling_skill.update_from_level(hl_level)
+	mastered_skills["huanling"] = huanling_skill
+	# Global.player_now_active_skill["q"] = {"name": "huanling"}
+	
 	# 初始化乱击技能
 	var random_strike_skill = RandomStrikeSkill.new()
 	var rs_level = Global.player_active_skill_data.get("random_strike", {}).get("level", 1)
@@ -193,7 +368,23 @@ func init_skills():
 	var b_level = Global.player_active_skill_data.get("beastify", {}).get("level", 1)
 	beast_skill.update_from_level(b_level)
 	mastered_skills["beastify"] = beast_skill
-	Global.player_now_active_skill["e"] = {"name": "beastify"}
+	# Global.player_now_active_skill["e"] = {"name": "beastify"}
+	
+	# 初始化新技能
+	var heal_hot_skill = HealHotSkill.new()
+	var hh_level = Global.player_active_skill_data.get("heal_hot", {}).get("level", 1)
+	heal_hot_skill.update_from_level(hh_level)
+	mastered_skills["heal_hot"] = heal_hot_skill
+
+	var water_shield_skill = WaterShieldSkill.new()
+	var ws_level = Global.player_active_skill_data.get("water_sheild", {}).get("level", 1)
+	water_shield_skill.update_from_level(ws_level)
+	mastered_skills["water_sheild"] = water_shield_skill
+
+	var holy_fire_skill = HolyFireSkill.new()
+	var hf_level = Global.player_active_skill_data.get("holy_fire", {}).get("level", 1)
+	holy_fire_skill.update_from_level(hf_level)
+	mastered_skills["holy_fire"] = holy_fire_skill
 
 func refresh_skill_levels():
 	"""刷新技能等级（当技能升级时调用）"""
@@ -248,6 +439,8 @@ func use_skill(skill_id: String):
 	if not skill_id:
 		push_error("技能ID不能为空")
 		return
+	if Global.in_town or Global.in_menu or Global.is_level_up:
+		return
 	
 	if not mastered_skills.has(skill_id):
 		push_error("未找到技能: " + skill_id)
@@ -279,12 +472,52 @@ func execute_skill(skill: ActiveSkill):
 	match skill.id:
 		"dodge":
 			execute_dodge_skill(skill as DodgeSkill)
+		"mizongbu":
+			execute_mizongbu_skill(skill as MizongbuSkill)
+		"huanling":
+			execute_huanling_skill(skill as HuanlingSkill)
 		"random_strike":
 			execute_random_strike_skill(skill as RandomStrikeSkill)
 		"beastify":
 			execute_beastify_skill(skill as BeastifySkill)
+		"heal_hot":
+			execute_heal_hot_skill(skill as HealHotSkill)
+		"water_sheild":
+			execute_water_shield_skill(skill as WaterShieldSkill)
+		"holy_fire":
+			execute_holy_fire_skill(skill as HolyFireSkill)
 		_:
 			push_error("未知技能: " + skill.id)
+
+func execute_heal_hot_skill(skill: HealHotSkill):
+	"""执行疗愈技能"""
+	var scene = load("res://Scenes/player/heal_hot.tscn")
+	if scene:
+		var instance = scene.instantiate()
+		player.add_child(instance)
+		instance.position = Vector2.ZERO
+		if instance.has_method("start"):
+			instance.start(skill.duration, skill.heal_amount, skill.heal_percent)
+
+func execute_water_shield_skill(skill: WaterShieldSkill):
+	"""执行水幕护体技能"""
+	var scene = load("res://Scenes/player/water_sheild.tscn")
+	if scene:
+		var instance = scene.instantiate()
+		player.add_child(instance)
+		instance.position = Vector2.ZERO
+		if instance.has_method("start"):
+			instance.start(skill.duration, skill.shield_percent, skill.damage_reduction)
+
+func execute_holy_fire_skill(skill: HolyFireSkill):
+	"""执行神圣灼烧技能"""
+	var scene = load("res://Scenes/player/holy_fire.tscn")
+	if scene:
+		var instance = scene.instantiate()
+		player.add_child(instance)
+		instance.position = Vector2.ZERO
+		if instance.has_method("start"):
+			instance.start(skill.duration, skill.damage_ratio)
 
 func execute_dodge_skill(dodge_skill: DodgeSkill):
 	"""执行闪避技能"""
@@ -380,6 +613,40 @@ func execute_beastify_skill(skill: BeastifySkill) -> void:
 	await get_tree().create_timer(0.05).timeout
 	if is_instance_valid(player) and player.has_method("start_beastify"):
 		player.start_beastify(skill.duration, skill.atk_bonus_ratio, skill.atk_speed_bonus_ratio, skill.move_bonus_ratio, skill.claw_damage_ratio)
+		Global.emit_signal("buff_added", "beastify", skill.duration, 1)
+
+func execute_mizongbu_skill(skill: MizongbuSkill) -> void:
+	if is_instance_valid(player) and player.has_method("start_mizongbu"):
+		player.start_mizongbu(skill.duration, skill.move_speed_bonus_ratio, skill.damage_reduction_ratio, skill.outgoing_damage_reduction_ratio)
+
+func execute_huanling_skill(skill: HuanlingSkill) -> void:
+	var summon_scene = preload("res://Scenes/summon.tscn")
+	var summon = summon_scene.instantiate()
+	summon.summon_type = 10
+	player.get_parent().add_child(summon)
+	summon.global_position = player.global_position + Vector2(randf_range(-40, 40), randf_range(-40, 40))
+	summon.set_summon_type(10)
+	summon.damage_multiplier = summon.damage_multiplier * skill.attr_ratio
+	summon.fire_interval = summon.fire_interval / max(skill.attr_ratio, 0.1)
+	if summon.fire_timer:
+		summon.fire_timer.wait_time = summon.fire_interval * PC.summon_interval_multiplier
+	call_deferred("_handle_huanling_lifecycle", summon, skill.duration)
+
+func _handle_huanling_lifecycle(summon: Node, duration: float) -> void:
+	if not is_instance_valid(summon):
+		return
+	var stable_time = max(0.0, duration - 4.0)
+	if stable_time > 0.0:
+		await get_tree().create_timer(stable_time).timeout
+	if not is_instance_valid(summon):
+		return
+	var tw = create_tween()
+	for i in range(5):
+		tw.tween_property(summon, "modulate:a", 0.2, 0.12)
+		tw.tween_property(summon, "modulate:a", 1.0, 0.12)
+	await tw.finished
+	if is_instance_valid(summon):
+		summon.queue_free()
 
 func get_dash_direction() -> Vector2:
 	"""获取冲刺方向"""
@@ -477,7 +744,6 @@ func _create_afterimage(source_sprite: AnimatedSprite2D):
 	afterimage.texture = source_sprite.sprite_frames.get_frame_texture(source_sprite.animation, source_sprite.frame)
 	afterimage.global_position = player.global_position
 	afterimage.scale = source_sprite.scale
-	afterimage.flip_h = source_sprite.flip_h
 	afterimage.z_index = player.z_index - 1
 	
 	# 设置残影颜色（淡红色半透明）

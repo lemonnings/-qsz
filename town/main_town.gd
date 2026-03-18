@@ -13,6 +13,7 @@ extends Node2D
 
 @export var battle_scene: String
 @export var battle_scene_stage2: String
+@export var battle_scene_stage3: String
 
 @export var cystal: AnimatedSprite2D
 @export var levelUpMan: AnimatedSprite2D
@@ -442,6 +443,12 @@ func _on_stage_2_pressed() -> void:
 	PC.reset_player_attr()
 	SceneChange.change_scene(battle_scene_stage2, true)
 	
+func _on_stage_3_pressed() -> void:
+	Global.in_town = false
+	PC.movement_disabled = false
+	PC.reset_player_attr()
+	SceneChange.change_scene(battle_scene_stage3, true)
+	
 func refresh_point() -> void:
 	point_label.text = "真气 " + str(Global.total_points)
 
@@ -472,9 +479,9 @@ func _on_cme(cultivation_key: String) -> void:
 	
 	# 判断是否已达到最高等级
 	if current_level >= max_level:
-		cultivation_msg.text = "[font_size=50]" + config["name"] + "  LV " + str(current_level) + " / " + str(max_level) + "[/font_size]\n\n当前  " + current_bonus + "\n\n[color=gold]已达到最高等级[/color]"
+		cultivation_msg.text = "[font_size=40]" + config["name"] + "  LV " + str(current_level) + " / " + str(max_level) + "[/font_size]\n\n当前  " + current_bonus + "\n\n[color=gold]已达到最高等级[/color]"
 	else:
-		cultivation_msg.text = "[font_size=50]" + config["name"] + "  LV " + str(current_level) + " / " + str(max_level) + "[/font_size]\n\n当前  " + current_bonus + "\n下一级  " + next_bonus + "\n修炼消耗  " + str(next_level_exp) + " 真气\n\n再次点击即可修炼"
+		cultivation_msg.text = "[font_size=40]" + config["name"] + "  LV " + str(current_level) + " / " + str(max_level) + "[/font_size]\n\n当前  " + current_bonus + "\n下一级  " + next_bonus + "\n修炼消耗  " + str(next_level_exp) + " 真气\n\n再次点击即可修炼"
 	cultivation_msg.visible = true
 
 func _on_cmex(_cultivation_key: String) -> void:

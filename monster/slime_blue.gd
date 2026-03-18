@@ -29,7 +29,7 @@ signal debuff_applied(debuff_id: String)
 func _ready():
 	if is_elite:
 		add_to_group("elite")
-	debuff_manager = EnemyDebuffManager.new(self)
+	debuff_manager = EnemyDebuffManager.new(self )
 	add_child(debuff_manager)
 	debuff_applied.connect(debuff_manager.add_debuff)
 	speed = base_speed # Initialize speed
@@ -73,6 +73,9 @@ func _physics_process(delta: float) -> void:
 			$death.play()
 			Global.emit_signal("monster_killed")
 			is_dead = true
+			# 死亡时去除滤镜和描边
+			$AnimatedSprite2D.modulate = Color(1, 1, 1, 1)
+			$AnimatedSprite2D.material = null
 			var collision_shape = get_node("CollisionShape2D")
 			collision_shape.disabled = true
 			collision_layer = 0
@@ -102,7 +105,7 @@ func _physics_process(delta: float) -> void:
 	
 	# 处理推挤效果（防止怪物重叠）
 	if not is_dead:
-		CharacterEffects.apply_separation(self, 10.0, 12.0)
+		CharacterEffects.apply_separation(self , 10.0, 12.0)
 		
 	if not is_dead:
 		if move_direction == 0:
@@ -191,7 +194,7 @@ func _on_area_entered(area: Area2D) -> void:
 	if is_dead:
 		return
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
-		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self, false)
+		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self , false)
 		
 		# 根据穿透逻辑决定是否销毁子弹
 		if collision_result["should_delete_bullet"]:
@@ -219,4 +222,4 @@ func apply_debuff_effect(debuff_id: String):
 
 func apply_knockback(direction: Vector2, force: float):
 	var tween = create_tween()
-	tween.tween_property(self, "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self , "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

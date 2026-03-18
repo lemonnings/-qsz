@@ -186,6 +186,8 @@ func initialize_bullet_damage() -> void:
 		base_damage = base_damage * Faze.get_skill_damage_multiplier(PC.faze_skill_level)
 	elif is_other_sword_wave:
 		base_damage = PC.pc_atk * PC.swordQi_other_sword_wave_damage * PC.main_skill_swordQi_damage
+		if PC.selected_rewards.has("SplitSwordQi11"):
+			base_damage *= (1.0 + 0.05 * _get_extra_sword_wave_count())
 	else:
 		base_damage = PC.pc_atk * PC.main_skill_swordQi_damage
 	if not is_summon_bullet:
@@ -260,7 +262,7 @@ var current_frame: int = -1
 # 如果返回false，表示这一帧已经处理过碰撞，应该忽略当前碰撞
 func handle_penetration() -> bool:
 	var frame = Engine.get_process_frames()
-	if PC.swordQi_penetration_count > 1 and !PC.selected_rewards.has("SplitSwordQi32"):
+	if PC.swordQi_penetration_count > 1 and !PC.selected_rewards.has("SplitSwordQi31"):
 		var now_penetration_count = PC.swordQi_penetration_count - penetration_count + 1
 		bullet_damage = bullet_damage * (1 - (0.15 * now_penetration_count))
 	# 如果是新的一帧，重置处理标志
@@ -346,6 +348,13 @@ func update_collision_shape_size() -> void:
 func _create_sword_wave_instance(position: Vector2) -> void:
 	if PC.swordQi_penetration_count == 1 or (PC.swordQi_penetration_count > 1 and penetration_count == PC.swordQi_penetration_count):
 		if SwordWaveScene:
+			# todo，剑痕*2的改动
+			# if PC.selected_rewards.has("SplitSwordQi22"):
+			# 	var existing_waves = get_tree().get_nodes_in_group("sword_wave_trace")
+			# 	while existing_waves.size() >= 2:
+			# 		var oldest_wave = existing_waves.pop_front()
+			# 		if is_instance_valid(oldest_wave):
+			# 			oldest_wave.queue_free()
 			var sword_wave_instance = SwordWaveScene.instantiate()
 			# 将剑痕实例添加到与子弹相同的父节点下，或者一个专门管理特效的节点下
 			if get_parent():
@@ -374,6 +383,14 @@ func _create_sword_wave_instance(position: Vector2) -> void:
 				if PC.selected_rewards.has("SplitSwordQi21"):
 					original_radius = 25.0
 				circle_shape.radius = original_radius * ((scale.x + scale.y) / 2.0)
+
+func _get_extra_sword_wave_count() -> int:
+	var count = 0
+	if PC.selected_rewards.has("SplitSwordQi1"):
+		count += 2
+	if PC.selected_rewards.has("SplitSwordQi11"):
+		count += 1
+	return max(count, 1)
 
 # 设置子弹缩放并同步更新碰撞形状
 func set_bullet_scale(new_scale: Vector2) -> void:

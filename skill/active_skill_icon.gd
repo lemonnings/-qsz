@@ -102,6 +102,10 @@ func _get_skill_icon_path(skill_id: String) -> String:
 	match skill_id:
 		"dodge":
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/dodge.png"
+		"mizongbu":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/dodge.png"
+		"huanling":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/random_strike.png"
 		"random_strike":
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/random_strike.png"
 		_:
@@ -122,6 +126,22 @@ func _get_skill_cooldown(skill_id: String) -> float:
 					cd_reduction += 0.5
 			cd_reduction = cd_reduction * PC.cooldown_multi * PC.dodge_multi
 			return max(1.0, base_cd - cd_reduction)
+		"mizongbu":
+			var base_cd = 9.5
+			var cd_reduction = 0.0
+			for lv in [3, 6, 9, 12, 15]:
+				if level >= lv:
+					cd_reduction += 0.5
+			cd_reduction = cd_reduction * PC.cooldown_multi
+			return max(2.0, base_cd - cd_reduction)
+		"huanling":
+			var base_cd = 20.0
+			var cd_reduction = 0.0
+			for lv in [4, 7, 10, 13]:
+				if level >= lv:
+					cd_reduction += 1.0
+			cd_reduction = cd_reduction * PC.cooldown_multi
+			return max(4.0, base_cd - cd_reduction)
 		"random_strike":
 			# 乱击：基础冷却20秒，等级4，7，10，13时冷却-1秒
 			var base_cd = 20.0

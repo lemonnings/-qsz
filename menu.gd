@@ -69,92 +69,15 @@ func _on_start_pressed() -> void:
 	
 func _on_stage_1_pressed() -> void:
 	Global.in_town = false
-	reset_player_attr()
+	PC.reset_player_attr()
 	SceneChange.change_scene(battle_scene, true)
 	
 func _on_stage_2_pressed() -> void:
 	Global.in_town = true
-	reset_player_attr()
+	PC.reset_player_attr()
 	get_tree().change_scene_to_file(town_test_scene)
 
-func reset_player_attr() -> void:
-	PC.reset_player_attr()
-	PC.wave_bullet_last_shot_time = 0.0
-	
-	# 重置反弹子弹相关属性
-	PC.rebound_size_multiplier = 0.9
-	PC.rebound_damage_multiplier = 0.35
-	
-	PC.summon_count = 0
-	PC.summon_count_max = 3
-	PC.summon_damage_multiplier = 0.0
-	PC.summon_interval_multiplier = 1.0
-	PC.summon_bullet_size_multiplier = 1.0
-	
-	# 重置暴击相关属性
-	PC.crit_chance = 0.1 + (Global.crit_chance_level * 0.005) # 基础暴击率 + 局外成长
-	PC.crit_damage_multi = 1.5 + (Global.crit_damage_level * 0.01) # 基础暴击伤害倍率 + 局外成长
-	
-	PC.damage_reduction_rate = min(0.0 + (Global.damage_reduction_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
-	PC.exp_multi = Global.exp_multi
-	PC.drop_multi = Global.drop_multi
-	PC.body_size = Global.body_size
-	PC.heal_multi = Global.heal_multi
-	PC.sheild_multi = Global.sheild_multi
-	PC.normal_monster_multi = Global.normal_monster_multi
-	PC.boss_multi = Global.boss_multi
-	PC.cooldown = Global.cooldown
-	PC.active_skill_multi = Global.active_skill_multi
-	PC.last_atk_speed = 0
-	PC.last_speed = 0
-	PC.last_lunky_level = 1
-	
-	# 重置主要技能等级
-	PC.main_skill_swordQi = 0
-	PC.main_skill_swordQi_advance = 0
-	PC.main_skill_swordQi_damage = 1
-	PC.swordQi_penetration_count = 1
-	PC.swordQi_other_sword_wave_damage = 0.5
-	PC.swordQi_range = 132
-	PC.first_has_swordqi = true
-	
-	# 重置魔焰相关属性
-	PC.main_skill_moyan = 0
-	PC.main_skill_moyan_advance = 0
-	PC.first_has_moyan = true
-	PC.main_skill_moyan_damage = 1.0
-	PC.moyan_range = 220.0
-	
-	# 重置树枝相关属性
-	PC.main_skill_branch = 0
-	PC.main_skill_branch_advance = 0
-	PC.first_has_branch = true
-	PC.main_skill_branch_damage = 1
-	PC.branch_split_count = 3
-	PC.branch_range = 90
-	
-	# 重置日炎相关属性
-	PC.main_skill_riyan = 0
-	PC.main_skill_riyan_advance = 0
-	PC.main_skill_riyan_damage = 1
-	PC.first_has_riyan = true
-	PC.first_has_riyan_pc = true
-	PC.riyan_range = 70.0
-	PC.riyan_cooldown = 0.5
-	PC.riyan_hp_max_damage = 0.03
-	PC.riyan_atk_damage = 0.03
-	
-	# 重置环火相关属性
-	PC.main_skill_ringFire = 0
-	PC.main_skill_ringFire_advance = 0
-	PC.main_skill_ringFire_damage = 1
-	PC.first_has_ringFire = true
-	
-	# 重置冰刺术相关属性 (IceFlower 静态变量已移至 IceFlower.reset_data())
-	
-	PC.refresh_num = Global.refresh_max_num
-	EmblemManager.clear_all_emblems()
-	
+
 func exec_pc_atk() -> void:
 	PC.pc_atk = int(15 + int(get_total_increase(Global.atk_level)))
 	
@@ -453,7 +376,7 @@ func _on_bgm_change_pressed() -> void:
 func _on_audio_settings_pressed() -> void:
 	# 显示音频设置UI
 	if audio_settings_ui == null:
-		audio_settings_ui = AudioSettingsUI.show_audio_settings(self)
+		audio_settings_ui = AudioSettingsUI.show_audio_settings(self )
 	else:
 		# 如果已经存在，就关闭它
 		audio_settings_ui.queue_free()

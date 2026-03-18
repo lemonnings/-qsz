@@ -30,7 +30,7 @@ var is_elite: bool = false
 var drop_rate_multiplier: float = 1.0
 
 func _ready():
-	debuff_manager = EnemyDebuffManager.new(self)
+	debuff_manager = EnemyDebuffManager.new(self )
 	add_child(debuff_manager)
 	debuff_applied.connect(debuff_manager.add_debuff)
 	if is_elite:
@@ -38,7 +38,7 @@ func _ready():
 	speed = base_speed # Initialize speed
 	
 	# 创建地面阴影（飞行单位阴影在更下方，表示地面投影）
-	CharacterEffects.create_shadow(self, 16.0, 5.0, 13.0)
+	CharacterEffects.create_shadow(self , 16.0, 5.0, 13.0)
 
 func show_health_bar():
 	if not health_bar_shown:
@@ -69,7 +69,7 @@ func _physics_process(delta: float) -> void:
 
 	# 处理推挤效果（防止怪物重叠）
 	if not is_dead:
-		CharacterEffects.apply_separation(self, 10.0, 12.0)
+		CharacterEffects.apply_separation(self , 10.0, 12.0)
 	
 	# 处理敌人之间的碰撞 - 直接防止重叠
 	if monitoring:
@@ -135,6 +135,9 @@ func _physics_process(delta: float) -> void:
 			$death.play()
 			Global.emit_signal("monster_killed")
 			is_dead = true
+			# 死亡时去除滤镜和描边
+			$AnimatedSprite2D.modulate = Color(1, 1, 1, 1)
+			$AnimatedSprite2D.material = null
 			var collision_shape = get_node("CollisionShape2D")
 			collision_shape.disabled = true
 			collision_layer = 0
@@ -159,7 +162,7 @@ func _on_body_entered(body: Node2D) -> void:
 	if debuff_manager.is_action_disabled():
 		return
 	if (body is CharacterBody2D and not is_dead and not PC.invincible):
-		Global.emit_signal("player_hit", self)
+		Global.emit_signal("player_hit", self )
 		var damage_before_debuff = atk * (1.0 - PC.damage_reduction_rate)
 		var actual_damage = int(damage_before_debuff * debuff_manager.get_take_damage_multiplier())
 		PC.apply_damage(actual_damage)
@@ -196,7 +199,7 @@ func _on_area_entered(area: Area2D) -> void:
 
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
 		# 使用BulletCalculator处理完整的子弹碰撞逻辑
-		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self, false)
+		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self , false)
 		
 		# 根据穿透逻辑决定是否销毁子弹
 		if collision_result["should_delete_bullet"]:
@@ -223,7 +226,7 @@ func apply_debuff_effect(debuff_id: String):
 
 func apply_knockback(direction: Vector2, force: float):
 	var tween = create_tween()
-	tween.tween_property(self, "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self , "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 # Release a round of sword Qi in (90°)(270°) and other all directions
 func release_round_sword_qi():

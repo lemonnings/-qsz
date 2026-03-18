@@ -104,28 +104,56 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 @export var player_active_skill_data: Dictionary = {
 	"dodge": {
 		"level": 1, # 习得等级；闪避：等级1，向移动方向位移一小段距离并无敌0.3秒，冷却6秒；等级2,4,6,8,10,12,14，无敌时间+0.1秒；等级3，5，7，9，11，13，15，冷却时间-0.5秒秒
-		"learned": [] # 特殊效果
+		"learned": [], # 特殊效果
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/dodge.png"
+	},
+	"mizongbu": {
+		"level": 1,
+		"learned": [],
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/dodge.png"
+	},
+	"huanling": {
+		"level": 1,
+		"learned": [],
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/random_strike.png"
 	},
 	"random_strike": {
 		"level": 1, # 习得等级；乱击：等级1，向随机方向每0.1秒射出1发剑气，造成50%攻击的伤害，共10发，冷却20秒；等级2,5,8,11,14，伤害比率+5%；等级3，6，9，12，15，射出子弹+1，等级4，7，10，13，冷却时间-1秒秒
-		"learned": [] # 特殊效果
+		"learned": [], # 特殊效果
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/random_strike.png"
 	},
 	"beastify": {
 		"level": 1,
-		"learned": []
+		"learned": [],
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/moyan.png"
+	},
+	"heal_hot": {
+		"level": 1,
+		"learned": [],
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_heal.png"
+	},
+	"water_sheild": {
+		"level": 1,
+		"learned": [],
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_sheild.png"
+	},
+	"holy_fire": {
+		"level": 1,
+		"learned": [],
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_fire.png"
 	}
 }
 
 
 @export var player_now_active_skill: Dictionary = {
 	"space": {
-		"name": "dodge"
+		"name": "holy_fire"
 	},
 	"q": {
-		"name": "random_strike"
+		"name": "water_sheild"
 	},
 	"e": {
-		"name": "beastify"
+		"name": "heal_hot"
 	}
 }
 
@@ -241,6 +269,11 @@ var dps_damage_records = [] # 存储过去30秒的伤害记录
 @export var current_dps: float = 0.0 # 当前DPS值
 var dps_timer: Timer # DPS计算定时器
 
+# 伤害标签限制
+const MAX_DAMAGE_LABELS: int = 500
+var _active_damage_label_count: int = 0
+var _damage_label_scene = preload("res://Scenes/global/damage.tscn")
+
 
 func _ready() -> void:
 	monster_damage.connect(_on_monster_damage)
@@ -355,6 +388,8 @@ func save_game() -> void:
 		"cultivation_liejin_level_max": cultivation_liejin_level_max,
 		# 玩家修习技能数据
 		"player_study_data": player_study_data,
+		"player_active_skill_data": player_active_skill_data,
+		"player_now_active_skill": player_now_active_skill,
 		# 纹章系统
 		"emblem_slots_max": emblem_slots_max,
 		# 装备系统
@@ -442,6 +477,8 @@ func load_game() -> void:
 		if not loaded_study_data[player_name].has("zhenqi_points"):
 			loaded_study_data[player_name]["zhenqi_points"] = 100 # 默认真气点数
 	player_study_data = loaded_study_data
+	player_active_skill_data = config.get_value("save", "player_active_skill_data", player_active_skill_data)
+	player_now_active_skill = config.get_value("save", "player_now_active_skill", player_now_active_skill)
 	
 	# 加载装备系统数据
 	max_carry_equipment_slots = config.get_value("save", "max_carry_equipment_slots", 2)
@@ -493,10 +530,11 @@ func play_hit_anime(position: Vector2, is_crit: bool = false, anime: int = 1):
 
 
 func _on_monster_damage(damage_type_int: int, damage_value: float, world_position: Vector2):
-	var damage_label_scene = preload("res://Scenes/global/damage.tscn")
-	var damage_label_instance = damage_label_scene.instantiate()
-	add_child(damage_label_instance)
-	damage_label_instance.z_index = 100
+	var damage_label_instance = _create_damage_label()
+	if damage_label_instance == null:
+		# 仍然记录DPS，只是不显示标签
+		record_damage_for_dps(damage_value)
+		return
 	damage_label_instance.show_damage_number(damage_type_int, damage_value, world_position)
 	
 	# 记录伤害到DPS计数器
@@ -504,32 +542,38 @@ func _on_monster_damage(damage_type_int: int, damage_value: float, world_positio
 
 func _on_player_heal(heal_value: float, world_position: Vector2):
 	emit_signal("player_healed", heal_value)
-	var damage_label_scene = preload("res://Scenes/global/damage.tscn")
-	var damage_label_instance = damage_label_scene.instantiate()
-	add_child(damage_label_instance)
-	damage_label_instance.z_index = 100
-	# 9 is DamageType.HEAL
+	var damage_label_instance = _create_damage_label()
+	if damage_label_instance == null:
+		return
 	damage_label_instance.show_damage_number(9, heal_value, world_position)
 
 func _on_player_take_damage(damage_val: float, shield_val: float, world_position: Vector2):
 	# 护盾吸收伤害（灰色）
 	if shield_val > 0:
 		emit_signal("player_shield_damaged", shield_val)
-		var damage_label_scene = preload("res://Scenes/global/damage.tscn")
-		var damage_label_instance = damage_label_scene.instantiate()
-		add_child(damage_label_instance)
-		damage_label_instance.z_index = 100
-		# 10 is DamageType.SHIELD_ABSORB
-		damage_label_instance.show_damage_number(10, shield_val, world_position)
+		var damage_label_instance = _create_damage_label()
+		if damage_label_instance != null:
+			damage_label_instance.show_damage_number(10, shield_val, world_position)
 
 	# 玩家承受伤害（红色）
 	if damage_val > 0:
-		var damage_label_scene = preload("res://Scenes/global/damage.tscn")
-		var damage_label_instance = damage_label_scene.instantiate()
-		add_child(damage_label_instance)
-		damage_label_instance.z_index = 100
-		# 11 is DamageType.PLAYER_HURT
-		damage_label_instance.show_damage_number(11, damage_val, world_position)
+		var damage_label_instance = _create_damage_label()
+		if damage_label_instance != null:
+			damage_label_instance.show_damage_number(11, damage_val, world_position)
+
+# 创建伤害标签实例（统一管理，限制数量不超过MAX_DAMAGE_LABELS）
+func _create_damage_label() -> Node2D:
+	if _active_damage_label_count >= MAX_DAMAGE_LABELS:
+		return null
+	var instance = _damage_label_scene.instantiate()
+	add_child(instance)
+	instance.z_index = 100
+	_active_damage_label_count += 1
+	instance.tree_exiting.connect(_on_damage_label_freed)
+	return instance
+
+func _on_damage_label_freed() -> void:
+	_active_damage_label_count -= 1
 
 # 记录伤害用于DPS计算
 func record_damage_for_dps(damage: float) -> void:

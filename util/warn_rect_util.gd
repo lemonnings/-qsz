@@ -21,6 +21,8 @@ var is_warning_active: bool = false
 var player_ref: Node2D
 var rect_length: float = 0.0  # 矩形长度（从起始点到目标点的距离）
 var rect_angle: float = 0.0   # 矩形角度
+var start_position: Vector2 = Vector2.ZERO
+var grow_time: float = 0.0
 
 func _ready():
 	# 获取玩家引用
@@ -36,13 +38,16 @@ func create_warning_shape():
 	add_child(warning_shape)
 	
 	# 设置初始参数
-	warning_shape.setup(rect_length, width, rect_angle)
+	warning_shape.setup(0.0, width, rect_angle)
+	warning_shape.position = Vector2.ZERO
 	
 	# 初始时不可见
+	warning_shape.visible = false
 	warning_shape.modulate.a = 0.0
 
 func start_warning(pos: Vector2, _target_point: Vector2, _width: float = 100.0, 
-				  _warning_time: float = 2.0, _damage: float = 50.0, _animation_player: AnimationPlayer = null):
+				  _warning_time: float = 2.0, _damage: float = 50.0, _animation_player: AnimationPlayer = null,
+				  _grow_time: float = -1.0):
 	"""开始预警
 	pos: 生成位置（起始点）
 	_target_point: 目标点
@@ -51,27 +56,30 @@ func start_warning(pos: Vector2, _target_point: Vector2, _width: float = 100.0,
 	_damage: 伤害值
 	_animation_player: 预警结束后播放的动画播放器
 	"""
+	start_position = pos
 	target_point = _target_point
 	width = _width
 	warning_time = _warning_time
 	damage = _damage
 	animation_player = _animation_player
+	if _grow_time < 0.0:
+		grow_time = warning_time
+	else:
+		grow_time = min(_grow_time, warning_time)
 	
 	# 计算矩形长度和角度
-	rect_length = pos.distance_to(target_point)
-	rect_angle = pos.angle_to_point(target_point)
+	rect_length = start_position.distance_to(target_point)
+	rect_angle = start_position.angle_to_point(target_point)
 	
-	# 设置位置（矩形中心点）
-	var center_pos = (pos + target_point) / 2.0
-	global_position = center_pos
+	global_position = start_position
 	
 	# 重置状态
 	current_time = 0.0
 	is_warning_active = true
 	
-	# 更新形状圆形的
 	if warning_shape:
-		warning_shape.setup(rect_length, width, rect_angle)
+		warning_shape.visible = true
+		update_warning_shape(0.0)
 
 func _process(delta):
 	if not is_warning_active:
@@ -90,25 +98,23 @@ func update_warning_visual(progress: float):
 	"""更新预警视觉效果"""
 	if not warning_shape:
 		return
+	var current_length = rect_length
+	if current_time < grow_time:
+		current_length = rect_length * (current_time / grow_time)
+	update_warning_shape(current_length)
 	
 	if progress <= 0.25:
-		# 前四分之一时间：从中心向外扩散
-		var expand_progress = progress / 0.25
-		var current_scale = expand_progress
-		warning_shape.scale = Vector2(current_scale, current_scale)
-		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35)  # 红色，透明度0.35
+		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.175)  # 红色，透明度0.35
 	
 	elif progress <= 0.75:
-		# 中间时间：保持稳定
-		warning_shape.scale = Vector2(1.0, 1.0)
-		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.35)
+		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.175)
 	
 	elif progress <= 0.9:
 		# 最后四分之一时间的前部分：开始闪烁
 		var blink_progress = (progress - 0.75) / 0.15
 		var blink_speed = 5.0 + blink_progress * 10.0  # 逐渐加快闪烁
 		var blink_alpha = (sin(current_time * blink_speed) + 1.0) * 0.5  # 0到1的范围
-		var final_alpha = 0.35 * (0.35 + blink_alpha * 0.65)  # 0.35*0.35到0.35的范围
+		var final_alpha = 0.175 * (0.175 + blink_alpha * 0.65)  # 0.35*0.35到0.35的范围
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, final_alpha)
 	
 	else:
@@ -116,6 +122,10 @@ func update_warning_visual(progress: float):
 		var fade_progress = (progress - 0.9) / 0.1
 		var alpha = 0.35 * (1.0 - fade_progress)
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, alpha)
+
+func update_warning_shape(current_length: float):
+	warning_shape.setup(current_length, width, rect_angle)
+	warning_shape.position = Vector2(current_length / 2.0, 0.0).rotated(rect_angle)
 
 func finish_warning():
 	"""结束预警，检查伤害"""
@@ -142,18 +152,14 @@ func is_player_in_range() -> bool:
 	if not player_ref:
 		return false
 	
-	# 将玩家位置转换到矩形的本地坐标系
 	var player_pos = player_ref.global_position
-	var relative_pos = player_pos - global_position
+	var relative_pos = player_pos - start_position
 	
-	# 旋转坐标系，使矩形对齐到水平方向
 	var rotated_pos = relative_pos.rotated(-rect_angle)
 	
-	# 检查是否在矩形范围内
-	var half_length = rect_length / 2.0
 	var half_width = width / 2.0
 	
-	return abs(rotated_pos.x) <= half_length and abs(rotated_pos.y) <= half_width
+	return rotated_pos.x >= 0.0 and rotated_pos.x <= rect_length and abs(rotated_pos.y) <= half_width
 
 func deal_damage_to_player():
 	"""对玩家造成伤害"""

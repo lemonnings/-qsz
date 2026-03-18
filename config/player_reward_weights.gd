@@ -6,33 +6,32 @@ var rarity_faction_weights: Dictionary = {}
 
 # 默认的初始权重，根据新的分类体系
 var INITIAL_FACTION_WEIGHTS: Dictionary = {
-	"normal": 4.0, # 通用，通用型、基础属性提升
-	"branch": 2.0, # 树枝
-	"moyan": 2.0, # 魔焰
-	"riyan": 2.0, # 日炎
-	"ringFire": 4.0, # 环火
-	"thunderbreak": 99.0, # 雷破
-	"swordQi": 2.0, # 剑气
-	"thunder": 2.0,
-	"bloodwave": 2.0,
-	"bloodboardsword": 2.0,
-	"lightbullet": 2.0,
-	"water": 2.0,
-	"qiankun": 2.0,
-	"xuanwu": 2.0,
-	"xunfeng": 4.0,
-	"genshan": 2.0,
-	"duize": 4.0,
-	"qigong": 2.0,
-	"holylight": 2.0,
-	"ice": 4.0,
-	"six": 999999.0,
-	"summon": 999999.0, # 召唤，召唤物数量、召唤物属性提升等
-	"dragonwind": 999999.0, # 召唤，召唤物数量、召唤物属性提升等
-	#"bullet": 1.0,           # 剑气，弹体大小、反弹、分裂（三向、五向）等
-	"lucky": 2.0, # 天命，与幸运值、特殊几率触发等相关的
-	"craft": 2.0, # 技艺，与主动技能，环形伤害等特殊攻击方式相关的
-	#"live": 1.0,           # 炼体，与生存能力，反击相关的	
+	"Normal": 4.0, # 通用，通用型、基础属性提升
+	"Branch": 2.0, # 树枝
+	"Moyan": 999.0, # 魔焰
+	"Riyan": 2.0, # 日炎
+	"Ringfire": 9999.0, # 环火
+	"Thunderbreak": 2.0, # 雷破
+	"Swordqi": 2.0, # 剑气
+	"Thunder": 2.0,
+	"Bloodwave": 2.0,
+	"Bloodboardsword": 2.0,
+	"Lightbullet": 2.0,
+	"Water": 2.0,
+	"Qiankun": 2.0,
+	"Xuanwu": 2.0,
+	"Xunfeng": 4.0,
+	"Genshan": 2.0,
+	"Duize": 4.0,
+	"Qigong": 2.0,
+	"Holylight": 2.0,
+	"Ice": 4.0,
+	"Six": 2.0,
+	"Summon": 2.0,
+	"Dragonwind": 2.0,
+	"Lucky": 2.0,
+	"Craft": 2.0,
+	"Live": 1.0
 }
 
 # 定义游戏中存在的稀有度等级

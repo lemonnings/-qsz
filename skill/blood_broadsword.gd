@@ -2,7 +2,7 @@ extends Area2D
 
 @export var sprite: AnimatedSprite2D
 @export var collision_shape: CollisionShape2D
-@export var rotation_offset: float = -PI / 2.0
+@export var rotation_offset: float = - PI / 2.0
 @export var search_radius: float = 100.0
 
 var broadsword_scene: PackedScene = preload("res://Scenes/player/blood_broadsword.tscn")
@@ -53,29 +53,20 @@ func _ready() -> void:
 	queue_free()
 
 func _build_attack_data() -> Dictionary:
-	var damage_ratio = 0.55
+	var damage_ratio = PC.main_skill_bloodboardsword_damage
 	var heal_ratio = 0.01
 	var min_heal = 1
 	var range_multiplier = 1.0
 	var bleed_damage_bonus = 0.0
 	var heal_on_bleed_bonus = 0.0
 	var repeat_chance = 0.0
-	var repeat_delay = 0.3
+	var repeat_delay = 0.5
 	var repeat_range_multiplier = 1.0
 	var shield_hit_count = 0
 	var shield_ratio = 0.0
 	var shield_min = 0
 	var shield_duration = 0.0
 	var life_time = 0.6
-	
-	if PC.selected_rewards.has("RBloodBoardSword"):
-		damage_ratio += 0.2
-	if PC.selected_rewards.has("SRBloodBoardSword"):
-		damage_ratio += 0.25
-	if PC.selected_rewards.has("SSRBloodBoardSword"):
-		damage_ratio += 0.3
-	if PC.selected_rewards.has("URBloodBoardSword"):
-		damage_ratio += 0.4
 	
 	if PC.selected_rewards.has("BloodBoardSword1"):
 		damage_ratio += 0.3
@@ -221,6 +212,10 @@ func _apply_damage(attack_data: Dictionary) -> Dictionary:
 			damage = damage * (1.0 + attack_data.bleed_damage_bonus)
 			hit_bleed = true
 		
+		# 添加流血效果
+		if area.has_signal("debuff_applied"):
+			area.emit_signal("debuff_applied", "bleed")
+		
 		area.take_damage(int(damage), is_crit, false, "blood_broadsword")
 		Faze.on_sword_weapon_hit(area)
 	
@@ -264,4 +259,6 @@ func _spawn_repeat_attack(attack_data: Dictionary) -> void:
 	var repeat_instance = broadsword_scene.instantiate()
 	repeat_instance.set_custom_range_multiplier(attack_data.repeat_range_multiplier)
 	repeat_instance.disable_repeat()
+	# 第二刀动画水平镜像
+	repeat_instance.sprite.flip_h = true
 	get_tree().current_scene.add_child(repeat_instance)

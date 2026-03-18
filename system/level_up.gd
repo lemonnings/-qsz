@@ -37,7 +37,8 @@ func initialize(p_canvas_layer: CanvasLayer, p_lv_up_change: Node2D,
 # 主要升级处理函数
 func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 					 scene_tree: SceneTree = null, viewport: Viewport = null) -> void:
-	if scene_tree:
+	# 初始展示升级界面时才需要延迟（刷新按键点击时不延迟，由调用方管理过渡）
+	if scene_tree and refresh_id == 0:
 		await scene_tree.create_timer(0.25).timeout
 	
 	now_main_skill_name = main_skill_name # Always update now_main_skill_name from the parameter
@@ -50,7 +51,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	PC.last_lunky_level = PC.now_lunky_level
 	
 	var extra_refresh = Faze.get_treasure_extra_refresh_count(PC.faze_treasure_level, PC.lucky)
-	print("因宝器法则获取了",extra_refresh)
+	print("因宝器法则获取了", extra_refresh)
 	PC.refresh_num += extra_refresh
 	
 	# 确定刷出来的三个升级奖励的等级
@@ -257,7 +258,6 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 	
 	lvcb.region_rect = GU.parse_rect_from_func_string(reward.icon)
 	lvTitle.text = "[color=" + reward.rarity + "]" + reward.reward_name + "[/color]"
-	print(reward.chinese_faction)
 	lvLabel.text = reward.chinese_faction
 	lvcbd.text = reward.detail
 	var callback: Callable = Callable(LvUp, reward.on_selected)
@@ -280,62 +280,62 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 	var advance_change = int(PC.main_skill_swordQi / 5)
 	if PC.main_skill_swordQi != 0 and PC.main_skill_swordQi_advance < advance_change:
 		PC.main_skill_swordQi_advance += 1
-		handle_level_up("swordQi", 0, scene_tree, viewport)
+		handle_level_up("Swordqi", 0, scene_tree, viewport)
 		# 主技能进阶完成后清空now_main_skill_name
 	elif PC.main_skill_branch != 0 and PC.main_skill_branch_advance < int(PC.main_skill_branch / 5):
 		PC.main_skill_branch_advance += 1
-		handle_level_up("branch", 0, scene_tree, viewport)
+		handle_level_up("Branch", 0, scene_tree, viewport)
 	elif PC.main_skill_moyan != 0 and PC.main_skill_moyan_advance < int(PC.main_skill_moyan / 5):
 		PC.main_skill_moyan_advance += 1
-		handle_level_up("moyan", 0, scene_tree, viewport)
+		handle_level_up("Moyan", 0, scene_tree, viewport)
 	elif PC.main_skill_riyan != 0 and PC.main_skill_riyan_advance < int(PC.main_skill_riyan / 5):
 		PC.main_skill_riyan_advance += 1
-		handle_level_up("riyan", 0, scene_tree, viewport)
+		handle_level_up("Riyan", 0, scene_tree, viewport)
 	elif PC.main_skill_ringFire != 0 and PC.main_skill_ringFire_advance < int(PC.main_skill_ringFire / 5):
 		PC.main_skill_ringFire_advance += 1
-		handle_level_up("ringFire", 0, scene_tree, viewport)
+		handle_level_up("Ringfire", 0, scene_tree, viewport)
 	elif PC.main_skill_thunder != 0 and PC.main_skill_thunder_advance < int(PC.main_skill_thunder / 5):
 		PC.main_skill_thunder_advance += 1
-		handle_level_up("thunder", 0, scene_tree, viewport)
+		handle_level_up("Thunder", 0, scene_tree, viewport)
 	elif PC.main_skill_bloodwave != 0 and PC.main_skill_bloodwave_advance < int(PC.main_skill_bloodwave / 5):
 		PC.main_skill_bloodwave_advance += 1
-		handle_level_up("bloodwave", 0, scene_tree, viewport)
+		handle_level_up("Bloodwave", 0, scene_tree, viewport)
 	elif PC.main_skill_bloodboardsword != 0 and PC.main_skill_bloodboardsword_advance < int(PC.main_skill_bloodboardsword / 5):
 		PC.main_skill_bloodboardsword_advance += 1
-		handle_level_up("bloodboardsword", 0, scene_tree, viewport)
+		handle_level_up("Bloodboardsword", 0, scene_tree, viewport)
 	elif PC.main_skill_ice != 0 and PC.main_skill_ice_advance < int(PC.main_skill_ice / 5):
 		PC.main_skill_ice_advance += 1
-		handle_level_up("ice", 0, scene_tree, viewport)
+		handle_level_up("Ice", 0, scene_tree, viewport)
 	elif PC.main_skill_thunder_break != 0 and PC.main_skill_thunder_break_advance < int(PC.main_skill_thunder_break / 5):
 		PC.main_skill_thunder_break_advance += 1
-		handle_level_up("thunderbreak", 0, scene_tree, viewport)
+		handle_level_up("Thunderbreak", 0, scene_tree, viewport)
 	elif PC.main_skill_light_bullet != 0 and PC.main_skill_light_bullet_advance < int(PC.main_skill_light_bullet / 5):
 		PC.main_skill_light_bullet_advance += 1
-		handle_level_up("lightbullet", 0, scene_tree, viewport)
+		handle_level_up("Lightbullet", 0, scene_tree, viewport)
 	elif PC.main_skill_qigong != 0 and PC.main_skill_qigong_advance < int(PC.main_skill_qigong / 5):
 		PC.main_skill_qigong_advance += 1
-		handle_level_up("qigong", 0, scene_tree, viewport)
+		handle_level_up("Qigong", 0, scene_tree, viewport)
 	elif PC.main_skill_water != 0 and PC.main_skill_water_advance < int(PC.main_skill_water / 5):
 		PC.main_skill_water_advance += 1
-		handle_level_up("water", 0, scene_tree, viewport)
+		handle_level_up("Water", 0, scene_tree, viewport)
 	elif PC.main_skill_qiankun != 0 and PC.main_skill_qiankun_advance < int(PC.main_skill_qiankun / 5):
 		PC.main_skill_qiankun_advance += 1
-		handle_level_up("qiankun", 0, scene_tree, viewport)
+		handle_level_up("Qiankun", 0, scene_tree, viewport)
 	elif PC.main_skill_xuanwu != 0 and PC.main_skill_xuanwu_advance < int(PC.main_skill_xuanwu / 5):
 		PC.main_skill_xuanwu_advance += 1
-		handle_level_up("xuanwu", 0, scene_tree, viewport)
+		handle_level_up("Xuanwu", 0, scene_tree, viewport)
 	elif PC.main_skill_xunfeng != 0 and PC.main_skill_xunfeng_advance < int(PC.main_skill_xunfeng / 5):
 		PC.main_skill_xunfeng_advance += 1
-		handle_level_up("xunfeng", 0, scene_tree, viewport)
+		handle_level_up("Xunfeng", 0, scene_tree, viewport)
 	elif PC.main_skill_genshan != 0 and PC.main_skill_genshan_advance < int(PC.main_skill_genshan / 5):
 		PC.main_skill_genshan_advance += 1
-		handle_level_up("genshan", 0, scene_tree, viewport)
+		handle_level_up("Genshan", 0, scene_tree, viewport)
 	elif PC.main_skill_duize != 0 and PC.main_skill_duize_advance < int(PC.main_skill_duize / 5):
 		PC.main_skill_duize_advance += 1
-		handle_level_up("duize", 0, scene_tree, viewport)
+		handle_level_up("Duize", 0, scene_tree, viewport)
 	elif PC.main_skill_holylight != 0 and PC.main_skill_holylight_advance < int(PC.main_skill_holylight / 5):
 		PC.main_skill_holylight_advance += 1
-		handle_level_up("holylight", 0, scene_tree, viewport)
+		handle_level_up("Holylight", 0, scene_tree, viewport)
 	# 如果没有主技能进阶，或者主技能进阶处理完毕后，再处理普通待升级
 	elif pending_level_ups > 0:
 		handle_level_up("", 0, scene_tree, viewport)

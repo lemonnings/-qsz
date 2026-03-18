@@ -17,6 +17,8 @@ func change_scene(path, isLoading: bool = false):
 	self.set_layer(999)
 	animation.play("new_animation")
 	await animation.animation_finished
+	# 在场景切换之前重置玩家属性，包括Faze层数
+	PC.reset_player_attr() # 调用重置函数
 	if isLoading:
 		loading_path = path
 		get_tree().change_scene_to_file("res://Scenes/global/loading.tscn")

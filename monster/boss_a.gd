@@ -1030,7 +1030,8 @@ func _attack_sector_aoe():
 		SECTOR_ANGLE, # 扇形角度
 		SECTOR_WARNING_TIME, # 预警时间
 		atk * 2.0, # 伤害
-		null # 动画播放器
+		null, # 动画播放器
+		0.5
 	)
 	
 	# 等待预警完成
@@ -1072,7 +1073,8 @@ func _attack_multi_sector_aoe():
 			SECTOR_ANGLE * 0.8, # 连续攻击用稍小的角度
 			quick_warning_time, # 更短的预警时间
 			atk * 1.2, # 伤害
-			null # 动画播放器
+			null, # 动画播放器
+			quick_warning_time * 0.5
 		)
 		
 		print("第 ", i + 1, " 轮扇形AOE，瞄准位置: ", current_player_pos)

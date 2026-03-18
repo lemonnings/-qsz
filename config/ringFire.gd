@@ -6,10 +6,11 @@ extends Node2D
 @export var hit_cooldown: float = 0.3
 
 @onready var player = get_tree().get_first_node_in_group("player")
+
 var current_angle: float = 0.0
 
 func _ready() -> void:
-	Global.connect("ringFire_damage_triggered", Callable(self, "_on_ringFire_damage_triggered"))
+	Global.connect("ringFire_damage_triggered", Callable(self , "_on_ringFire_damage_triggered"))
 
 
 func _physics_process(delta: float) -> void:
@@ -28,26 +29,25 @@ func _physics_process(delta: float) -> void:
 
 func _on_ringFire_damage_triggered():
 	var current_fire_count = fire_count
-	var current_rotation_speed = rotation_speed
+	var current_rotation_speed = PI * 1 # 始终从基础值出发，避免累乘
 
-	if PC.selected_rewards.has("ringFire1"):
+	if PC.selected_rewards.has("RingFire1"):
 		current_fire_count += 1
-		var fire_instance = preload("res://Scenes/player/ring_fire.tscn").instantiate()
-		remove_child(fire_instance)
-	if PC.selected_rewards.has("ringFire11"):
+	if PC.selected_rewards.has("RingFire11"):
 		current_fire_count += 1
-		var fire_instance = preload("res://Scenes/player/ring_fire.tscn").instantiate()
-		remove_child(fire_instance)
-	if PC.selected_rewards.has("ringFire2"):
+		current_rotation_speed *= 1.1
+	if PC.selected_rewards.has("RingFire2"):
 		current_rotation_speed *= 1.25
-		var fire_instance = preload("res://Scenes/player/ring_fire.tscn").instantiate()
-		remove_child(fire_instance)
+
+	rotation_speed = current_rotation_speed
+	
+	for child in get_children():
+		child.queue_free()
 
 	# 确保只实例化一次
-	if get_child_count() == 0:
-		for i in range(current_fire_count):
-			var fire_instance = preload("res://Scenes/player/ring_fire.tscn").instantiate()
-			add_child(fire_instance)
-			var angle = (2 * PI * i) / current_fire_count
-			fire_instance.position = Vector2(cos(angle), sin(angle)) * radius
-			fire_instance.hit_cooldown = hit_cooldown
+	for i in range(current_fire_count):
+		var fire_instance = preload("res://Scenes/player/ring_fire.tscn").instantiate()
+		add_child(fire_instance)
+		var angle = (2 * PI * i) / current_fire_count
+		fire_instance.position = Vector2(cos(angle), sin(angle)) * radius
+		fire_instance.hit_cooldown = hit_cooldown

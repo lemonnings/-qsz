@@ -73,7 +73,16 @@ func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
 		BuffType.TEMPORARY,
 		500,
-		"唤风层数，每层提升0.1%攻击速度与移动速度，持续5秒"
+		"唤风层数，每层提升0.1%攻击速度与移动速度，持续30秒"
+	)
+	
+	buff_configs["mizongbu"] = BuffData.new(
+		"mizongbu",
+		"迷踪步",
+		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		BuffType.TEMPORARY,
+		1,
+		"移动速度提升50%，减伤40%，造成伤害降低50%"
 	)
 
 

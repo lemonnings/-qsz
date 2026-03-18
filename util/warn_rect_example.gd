@@ -28,7 +28,8 @@ func example_boss_rect_skill():
 		80.0,               # 宽度
 		2.5,                # 预警时间2.5秒
 		90.0,               # 伤害值
-		laser_anim          # 动画播放器
+		laser_anim,         # 动画播放器
+		0.5
 	)
 
 func example_diagonal_laser():
@@ -47,7 +48,8 @@ func example_diagonal_laser():
 		60.0,               # 较窄的激光
 		3.0,                # 预警时间3秒
 		120.0,              # 高伤害
-		diagonal_anim
+		diagonal_anim,
+		0.5
 	)
 
 func example_player_targeted_beam():
@@ -73,7 +75,8 @@ func example_player_targeted_beam():
 		100.0,              # 光束宽度
 		2.0,                # 快速预警
 		150.0,              # 高伤害
-		beam_anim
+		beam_anim,
+		0.5
 	)
 
 func example_multiple_laser_pattern():
@@ -109,7 +112,8 @@ func example_multiple_laser_pattern():
 			50.0,               # 较细的激光
 			1.8,                # 快速预警
 			80.0,               # 中等伤害
-			cross_laser_anim
+			cross_laser_anim,
+			0.5
 		)
 
 func example_sweeping_laser():
@@ -141,7 +145,8 @@ func example_sweeping_laser():
 			40.0,                   # 细激光
 			1.0,                    # 快速预警
 			60.0,                   # 伤害
-			sweep_anim
+			sweep_anim,
+			0.5
 		)
 
 func _on_warning_finished():

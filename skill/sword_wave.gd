@@ -11,6 +11,7 @@ var damage_timer: Timer
 var SWORD_WAVE_WIDTH = 0.9 * PC.bullet_size # 剑痕的宽度，可能作为Y轴的缩放值或绝对像素值
 
 func _ready():
+	add_to_group("sword_wave_trace")
 	# 获取子节点引用，请确保 swordWave.tscn 场景中包含名为 Sprite2D 和 CollisionShape2D 的子节点
 	sword_wave_sprite = get_node_or_null("Sprite2D")
 	collision_shape = get_node_or_null("CollisionShape2D")
@@ -32,7 +33,7 @@ func _ready():
 
 	# 初始化伤害判定定时器
 	damage_timer = Timer.new()
-	damage_timer.wait_time = 0.25 # 每0.5秒检测一次伤害
+	damage_timer.wait_time = 0.5 # 每0.5秒检测一次伤害
 	# damage_timer.one_shot = false # 默认就是 false，会重复触发
 	damage_timer.timeout.connect(_on_damage_timer_timeout)
 	add_child(damage_timer)
@@ -63,7 +64,7 @@ func setup_wave(wave_target_position: Vector2):
 		# 如果Sprite2D的原始高度不是1，SWORD_WAVE_WIDTH可能需要调整或用作像素尺寸
 		sword_wave_sprite.scale.x = (distance / 37.5) + 0.8
 		if PC.selected_rewards.has("SplitSwordQi21"):
-			sword_wave_sprite.scale.y = SWORD_WAVE_WIDTH * 1.25
+			sword_wave_sprite.scale.y = SWORD_WAVE_WIDTH * 1.2
 		else:
 			sword_wave_sprite.scale.y = SWORD_WAVE_WIDTH
 	else:
@@ -71,7 +72,10 @@ func setup_wave(wave_target_position: Vector2):
 
 	# 配置碰撞形状的大小
 	if collision_shape and collision_shape.shape is RectangleShape2D:
-		collision_shape.shape.size = Vector2(distance, SWORD_WAVE_WIDTH * 3.8)
+		var width_multiplier = 1.0
+		if PC.selected_rewards.has("SplitSwordQi21"):
+			width_multiplier = 1.2
+		collision_shape.shape.size = Vector2(distance, SWORD_WAVE_WIDTH * 3.8 * width_multiplier)
 	elif collision_shape:
 		printerr("SwordWave Warning: collision_shape is not a RectangleShape2D or is null during setup_wave.")
 	else:
@@ -102,12 +106,13 @@ func _on_damage_timer_timeout():
 
 	var bodies = get_overlapping_areas()
 	for body in bodies:	
-		if PC.selected_rewards.has("SplitSwordQi23") and body.has_signal("debuff_applied"):
+		if PC.selected_rewards.has("SplitSwordQi21") and body.has_signal("debuff_applied"):
 			body.emit_signal("debuff_applied", "slow")
 		# 确保body也有效，并且是敌人且有受伤方法
 		if body.is_in_group("enemies") and body.has_method("take_damage"):
-			# 确保 PC.pc_atk 是有效的攻击力数值
-			var damage = 0.1 * PC.pc_atk 
+			var tick_ratio = 0.2
+			var damage = PC.pc_atk * PC.main_skill_swordQi_damage * tick_ratio
+			damage *= Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
 			body.take_damage(damage, false, false, "sword_wave") # 参数: 伤害值, 是否暴击, 是否召唤物伤害, 伤害类型
 
 # _physics_process 通常用于每帧更新，如果剑痕创建后是静态的，则此函数可以为空或移除
