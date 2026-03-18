@@ -1,0 +1,111 @@
+Date : 2026-03-04 15:29:46
+Directory : d:\IdeaProjects\-qsz
+Total : 77 files,  3916 codes, 534 comments, 816 blanks, all 5266 lines
+
+Languages
++-----------------------------+------------+------------+------------+------------+------------+
+| language                    | files      | code       | comment    | blank      | total      |
++-----------------------------+------------+------------+------------+------------+------------+
+| GDScript                    |         60 |      4,081 |        534 |        865 |      5,480 |
+| Asset Properties Definition |         14 |         11 |          0 |         12 |         23 |
+| Markdown                    |          3 |       -176 |          0 |        -61 |       -237 |
++-----------------------------+------------+------------+------------+------------+------------+
+
+Directories
++--------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                   | files      | code       | comment    | blank      | total      |
++--------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                      |         77 |      3,916 |        534 |        816 |      5,266 |
+| . (Files)                                              |          5 |       -173 |          8 |        -80 |       -245 |
+| battleScene                                            |          4 |        217 |         58 |        116 |        391 |
+| config                                                 |         21 |      1,535 |        229 |        258 |      2,022 |
+| monster                                                |         12 |         63 |        -65 |        -19 |        -21 |
+| skill                                                  |         12 |        618 |         35 |        142 |        795 |
+| system                                                 |         13 |      1,292 |        223 |        284 |      1,799 |
+| town                                                   |          3 |        125 |         14 |         34 |        173 |
+| util                                                   |          7 |        239 |         32 |         81 |        352 |
++--------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++--------------------------------------------------------+-----------------------------+------------+------------+------------+------------+
+| filename                                               | language                    | code       | comment    | blank      | total      |
++--------------------------------------------------------+-----------------------------+------------+------------+------------+------------+
+| d:\IdeaProjects\-qsz\ACTIVE_SKILL_SYSTEM_README.md     | Markdown                    |       -207 |          0 |        -64 |       -271 |
+| d:\IdeaProjects\-qsz\AUDIO_SYSTEM_README.md            | Markdown                    |        -85 |          0 |        -31 |       -116 |
+| d:\IdeaProjects\-qsz\battleScene\boss_test.gd          | GDScript                    |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\battleScene\stage1.gd             | GDScript                    |        -93 |         -9 |         -3 |       -105 |
+| d:\IdeaProjects\-qsz\battleScene\stage2.gd             | GDScript                    |        308 |         67 |        117 |        492 |
+| d:\IdeaProjects\-qsz\battleScene\stage2.gd.uid         | Asset Properties Definition |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\config\active_skill_manager.gd    | GDScript                    |        126 |         29 |         38 |        193 |
+| d:\IdeaProjects\-qsz\config\active_skill_test.gd       | GDScript                    |          0 |          0 |          1 |          1 |
+| d:\IdeaProjects\-qsz\config\base_bullet.gd             | GDScript                    |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\config\branch.gd                  | GDScript                    |         15 |          5 |          0 |         20 |
+| d:\IdeaProjects\-qsz\config\buff_manager.gd            | GDScript                    |          5 |          1 |          0 |          6 |
+| d:\IdeaProjects\-qsz\config\buff_ui.gd                 | GDScript                    |          8 |          0 |          1 |          9 |
+| d:\IdeaProjects\-qsz\config\bullet.gd                  | GDScript                    |         47 |          9 |         11 |         67 |
+| d:\IdeaProjects\-qsz\config\bullet_cal.gd              | GDScript                    |          0 |         -3 |          0 |         -3 |
+| d:\IdeaProjects\-qsz\config\emblem_manager.gd          | GDScript                    |         63 |         16 |          7 |         86 |
+| d:\IdeaProjects\-qsz\config\enemy_debuff_manager.gd    | GDScript                    |         83 |         -4 |          0 |         79 |
+| d:\IdeaProjects\-qsz\config\equipment_manager.gd.uid   | Asset Properties Definition |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\config\fire_instance.gd           | GDScript                    |          1 |         -1 |          1 |          1 |
+| d:\IdeaProjects\-qsz\config\item_manager.gd            | GDScript                    |        127 |          4 |         -1 |        130 |
+| d:\IdeaProjects\-qsz\config\moyan.gd                   | GDScript                    |          9 |          0 |          0 |          9 |
+| d:\IdeaProjects\-qsz\config\player_action.gd           | GDScript                    |        397 |         52 |         84 |        533 |
+| d:\IdeaProjects\-qsz\config\player_current.gd          | GDScript                    |        258 |         56 |         39 |        353 |
+| d:\IdeaProjects\-qsz\config\player_reward_weights.gd   | GDScript                    |          9 |         -6 |          0 |          3 |
+| d:\IdeaProjects\-qsz\config\setting_buff.gd            | GDScript                    |        -79 |         79 |          1 |          1 |
+| d:\IdeaProjects\-qsz\config\setting_level_up.gd        | GDScript                    |        332 |        -25 |         62 |        369 |
+| d:\IdeaProjects\-qsz\config\setting_moster.gd          | GDScript                    |         28 |          2 |          3 |         33 |
+| d:\IdeaProjects\-qsz\config\summon.gd                  | GDScript                    |        104 |         15 |          9 |        128 |
+| d:\IdeaProjects\-qsz\global.gd                         | GDScript                    |         94 |          6 |         10 |        110 |
+| d:\IdeaProjects\-qsz\menu.gd                           | GDScript                    |         32 |          2 |          6 |         40 |
+| d:\IdeaProjects\-qsz\monster\bat.gd                    | GDScript                    |         32 |          8 |          8 |         48 |
+| d:\IdeaProjects\-qsz\monster\bigSlime.gd               | GDScript                    |          1 |         -1 |         -1 |         -1 |
+| d:\IdeaProjects\-qsz\monster\boss_a copy.gd            | GDScript                    |       -267 |        -61 |        -78 |       -406 |
+| d:\IdeaProjects\-qsz\monster\boss_a copy.gd.uid        | Asset Properties Definition |         -1 |          0 |         -1 |         -2 |
+| d:\IdeaProjects\-qsz\monster\boss_a.gd                 | GDScript                    |        190 |         24 |         45 |        259 |
+| d:\IdeaProjects\-qsz\monster\frog.gd                   | GDScript                    |         16 |        -15 |          2 |          3 |
+| d:\IdeaProjects\-qsz\monster\peach_yao.gd              | GDScript                    |        154 |         14 |         38 |        206 |
+| d:\IdeaProjects\-qsz\monster\peach_yao.gd.uid          | Asset Properties Definition |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\monster\slime.gd                  | GDScript                    |         31 |          7 |          5 |         43 |
+| d:\IdeaProjects\-qsz\monster\slime_blue.gd             | GDScript                    |        153 |         15 |         33 |        201 |
+| d:\IdeaProjects\-qsz\monster\slime_blue.gd.uid         | Asset Properties Definition |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\monster\smile_king.gd             | GDScript                    |       -248 |        -56 |        -72 |       -376 |
+| d:\IdeaProjects\-qsz\skill\active_skill_icon.gd        | GDScript                    |        139 |         25 |         32 |        196 |
+| d:\IdeaProjects\-qsz\skill\active_skill_icon.gd.uid    | Asset Properties Definition |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\skill\blood_broadsword.gd         | GDScript                    |        211 |          0 |         51 |        262 |
+| d:\IdeaProjects\-qsz\skill\blood_broadsword.gd.uid     | Asset Properties Definition |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\skill\blood_wave.gd               | GDScript                    |         74 |          0 |         13 |         87 |
+| d:\IdeaProjects\-qsz\skill\blood_wave.gd.uid           | Asset Properties Definition |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\skill\frog_attack.gd              | GDScript                    |          0 |         -1 |          0 |         -1 |
+| d:\IdeaProjects\-qsz\skill\ice_flower.gd               | GDScript                    |         82 |          7 |         21 |        110 |
+| d:\IdeaProjects\-qsz\skill\ice_flower.gd.uid           | Asset Properties Definition |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\skill\skill_cooldown_overlay.gd   | GDScript                    |         20 |          4 |          4 |         28 |
+| d:\IdeaProjects\-qsz\skill\thunder.gd                  | GDScript                    |         87 |          0 |         16 |        103 |
+| d:\IdeaProjects\-qsz\skill\thunder.gd.uid              | Asset Properties Definition |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\system\audio_manager.gd           | GDScript                    |         -2 |          0 |          0 |         -2 |
+| d:\IdeaProjects\-qsz\system\bag_layer.gd               | GDScript                    |        535 |        125 |        135 |        795 |
+| d:\IdeaProjects\-qsz\system\bag_layer.gd.uid           | Asset Properties Definition |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\system\battle_canvas_layer.gd     | GDScript                    |        597 |         80 |        132 |        809 |
+| d:\IdeaProjects\-qsz\system\battle_canvas_layer.gd.uid | Asset Properties Definition |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\system\boss_hp_bar.gd             | GDScript                    |          0 |         -3 |          0 |         -3 |
+| d:\IdeaProjects\-qsz\system\item_drop_system.gd        | GDScript                    |         20 |          5 |          7 |         32 |
+| d:\IdeaProjects\-qsz\system\level_up.gd                | GDScript                    |         35 |          7 |          7 |         49 |
+| d:\IdeaProjects\-qsz\system\pinch_zoom.gd              | GDScript                    |          2 |          1 |          0 |          3 |
+| d:\IdeaProjects\-qsz\system\settings_manager.gd        | GDScript                    |         -1 |          0 |          0 |         -1 |
+| d:\IdeaProjects\-qsz\system\study_layer.gd             | GDScript                    |          3 |          0 |          0 |          3 |
+| d:\IdeaProjects\-qsz\system\synthesis_layer.gd         | GDScript                    |        107 |          6 |         -1 |        112 |
+| d:\IdeaProjects\-qsz\system\tips.gd                    | GDScript                    |         -6 |          2 |          2 |         -2 |
+| d:\IdeaProjects\-qsz\test_synthesis.gd                 | GDScript                    |         -7 |          0 |         -1 |         -8 |
+| d:\IdeaProjects\-qsz\town\level_change_layer.gd        | GDScript                    |         90 |          7 |         27 |        124 |
+| d:\IdeaProjects\-qsz\town\level_change_layer.gd.uid    | Asset Properties Definition |          1 |          0 |          1 |          2 |
+| d:\IdeaProjects\-qsz\town\main_town.gd                 | GDScript                    |         34 |          7 |          6 |         47 |
+| d:\IdeaProjects\-qsz\util\README_warn_circle.md        | Markdown                    |        116 |          0 |         34 |        150 |
+| d:\IdeaProjects\-qsz\util\character_effects.gd         | GDScript                    |         92 |         22 |         27 |        141 |
+| d:\IdeaProjects\-qsz\util\character_effects.gd.uid     | Asset Properties Definition |          0 |          0 |          1 |          1 |
+| d:\IdeaProjects\-qsz\util\sector_drawer.gd             | GDScript                    |          4 |          0 |          0 |          4 |
+| d:\IdeaProjects\-qsz\util\warn_circle_util.gd          | GDScript                    |          9 |          5 |          8 |         22 |
+| d:\IdeaProjects\-qsz\util\warn_rect_util.gd            | GDScript                    |          0 |          0 |          1 |          1 |
+| d:\IdeaProjects\-qsz\util\warn_sector_util.gd          | GDScript                    |         18 |          5 |         10 |         33 |
+| Total                                                  |                             |      3,916 |        534 |        816 |      5,266 |
++--------------------------------------------------------+-----------------------------+------------+------------+------------+------------+
