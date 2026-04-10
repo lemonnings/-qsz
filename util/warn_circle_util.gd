@@ -4,10 +4,15 @@ class_name WarnCircleUtil
 # 预警圆形/椭圆形AOE工具类
 # 用于创建boss技能的范围预警效果
 
+@warning_ignore("unused_signal")
 signal warning_finished
+@warning_ignore("unused_signal")
 signal damage_dealt(damage_amount)
+@warning_ignore("unused_signal")
 signal area_entered(player_node) # 玩家进入持续区域时触发
+@warning_ignore("unused_signal")
 signal area_exited(player_node) # 玩家离开持续区域时触发
+@warning_ignore("unused_signal")
 signal area_effect_triggered(player_node, effect_type) # 玩家接触区域时触发特定效果
 
 # 释放模式枚举

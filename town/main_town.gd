@@ -112,9 +112,9 @@ func setup_audio_buses() -> void:
 		heroLayer.visible = false
 
 	Global.emit_signal("reset_camera")
-	Global.connect("press_f", Callable(self, "press_interact"))
-	Global.connect("press_g", Callable(self, "press_interact2"))
-	Global.connect("press_h", Callable(self, "press_interact3"))
+	Global.connect("press_f", Callable(self , "press_interact"))
+	Global.connect("press_g", Callable(self , "press_interact2"))
+	Global.connect("press_h", Callable(self , "press_interact3"))
 	heroLayer.exit_button.pressed.connect(_on_exit_pressed)
 
 # UI动画处理函数

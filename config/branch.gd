@@ -142,10 +142,12 @@ func set_direction(new_direction: Vector2) -> void:
 
 # 初始化子弹的伤害和暴击状态
 func initialize_bullet_damage() -> void:
+	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
+	var damage_multiplier = PC.main_skill_branch_damage
+	damage_multiplier += (Faze.get_bullet_damage_multiplier(PC.faze_bullet_level) - 1.0) # 弹体法则
+	damage_multiplier += (Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.lucky) - 1.0) # 宝藏法则
 	var base_damage: float
-	base_damage = PC.pc_atk * PC.main_skill_branch_damage
-	base_damage = base_damage * Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
-	base_damage = base_damage * Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.lucky)
+	base_damage = PC.pc_atk * damage_multiplier
 	bullet_fisson = 1
 
 	var crit_chance_bonus = 0.0
@@ -153,7 +155,7 @@ func initialize_bullet_damage() -> void:
 		crit_chance_bonus += 0.20
 
 	is_crit_hit = false
-	bullet_damage = base_damage * 0.5
+	bullet_damage = base_damage * 0.9
 
 	if randf() < (PC.crit_chance + crit_chance_bonus):
 		is_crit_hit = true
@@ -161,7 +163,7 @@ func initialize_bullet_damage() -> void:
 
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary: # Returns {"damage": float, "is_crit": bool}
-	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": false, "weapon_tag": "treasure"}
+	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": false, "weapon_tag": "branch"}
 
 func is_faze_bullet_weapon() -> bool:
 	return true
@@ -223,7 +225,7 @@ func _create_sword_wave_instance(position: Vector2) -> void:
 		var split_count = PC.branch_split_count
 		if PC.selected_rewards.has("Branch3"):
 			split_count += 1
-		if PC.selected_rewards.has("Branch33"):	
+		if PC.selected_rewards.has("Branch33"):
 			split_count += 1
 		
 		var base_angle = direction.angle()

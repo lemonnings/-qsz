@@ -1,8 +1,8 @@
 extends Area2D
 class_name Genshan
 
-@export var sprite : AnimatedSprite2D
-@export var collision : CollisionShape2D
+@export var sprite: AnimatedSprite2D
+@export var collision: CollisionShape2D
 
 static var main_skill_genshan_damage: float = 1.2
 static var genshan_final_damage_multi: float = 1.0
@@ -116,7 +116,7 @@ func setup(pos: Vector2, dir: Vector2, p_damage: float, p_range: float, p_multip
 func _ready() -> void:
 	if sprite:
 		sprite.visible = false # 隐藏模板sprite
-	connect("area_entered", Callable(self, "_on_area_entered"))
+	connect("area_entered", Callable(self , "_on_area_entered"))
 
 func _process(delta: float) -> void:
 	elapsed += delta
@@ -175,11 +175,10 @@ func _process(delta: float) -> void:
 
 func _add_next_sprite() -> void:
 	# 下一个位置：上一个位置 + (sprite宽度 * scale) + 3 (间隔) ?
-	
 	# 硬编码的原始比例
 	var hardcoded_scale = Vector2(3.265, 1.44)
 	# 原始宽度 43 (假设是 texture 宽度，或者 base_sprite_size.x)
-	var base_width = 43.0 
+	var base_width = 43.0
 	
 	# 如果是第一次生成
 	if created_sprites.is_empty():
@@ -317,6 +316,8 @@ func _deal_damage(enemy: Area2D) -> void:
 	# 应用伤害
 	if enemy.has_method("take_damage"):
 		enemy.take_damage(int(final_damage), is_crit, false, "genshan")
+		# 击中粒子崩散特效
+		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "genshan")
 		
 		# 八卦法则推衍度
 		Faze.add_bagua_progress(1, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
@@ -339,7 +340,7 @@ func _apply_shield() -> void:
 		return
 	has_applied_shield = true
 	
-	var base_shield = 6
+	var base_shield = 60
 	var hp_ratio = 0.03
 	var duration = 7.0
 	

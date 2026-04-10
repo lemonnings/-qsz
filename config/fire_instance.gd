@@ -18,8 +18,10 @@ func _ready() -> void:
 		area_entered.connect(_on_area_entered)
 
 func _physics_process(delta: float) -> void:
-	damage = PC.pc_atk * 0.3 * PC.main_skill_ringFire_damage
-	damage = damage * Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level)
+	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
+	var damage_multiplier = 0.3 * PC.main_skill_ringFire_damage
+	damage_multiplier += (Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level) - 1.0) # 火焰法则
+	damage = PC.pc_atk * damage_multiplier
 	
 	if (PC.selected_rewards.has("RingFire22")):
 		damage = damage * 1.25

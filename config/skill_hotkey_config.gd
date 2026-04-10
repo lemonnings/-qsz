@@ -31,7 +31,7 @@ signal config_cancelled
 
 func _ready():
 	# 获取技能管理器引用
-	active_skill_manager = Global.ActiveSkillManager
+	active_skill_manager = Global.active_skill_manager
 	if not active_skill_manager:
 		print("警告: 未找到ActiveSkillManager")
 	

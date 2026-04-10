@@ -96,11 +96,12 @@ static func get_debuff_elite_boss_damage_multiplier(debuff_id: String, target: N
 		return 1.0 + bonus
 	return 1.0
 
-func add_debuff(debuff_id: String, extra_stacks_limit: int = 0):
+func add_debuff(debuff_id: String, extra_stacks_limit: int = 0, duration_override: float = -1.0):
 	var config: DebuffData = debuff_configs[debuff_id]
-	# 炽焰法则 7阶+：燃烧持续时间额外增加
-	var effective_duration = config.duration
-	if debuff_id == "burn":
+	# 若提供了 duration_override（>0），则直接使用；否则使用配置默认时长
+	var effective_duration = duration_override if duration_override > 0.0 else config.duration
+	# 炽焰法则 7阶+：燃烧持续时间额外增加（仅在未使用自定义时长时应用）
+	if debuff_id == "burn" and duration_override <= 0.0:
 		effective_duration += Faze.get_burn_duration_bonus(PC.faze_fire_level)
 
 	if active_debuffs.has(debuff_id):
@@ -339,13 +340,12 @@ func _start_death_fade() -> void:
 		debuff_entry["timer"].stop()
 		debuff_entry["timer"].queue_free()
 		if debuff_entry["effect_instance"]:
-			var effect_node = debuff_entry["effect_instance"]
-			var tween = effect_node.create_tween()
-			tween.tween_property(effect_node, "modulate:a", 0.0, 0.1)
-			tween.tween_callback(Callable(effect_node, "queue_free"))
+			debuff_entry["effect_instance"].queue_free()
 	active_debuffs.clear()
-	var modulate_tween = target_enemy.create_tween()
-	modulate_tween.tween_property(target_enemy, "modulate", base_modulate, 0.1)
+	# 立即恢复颜色（不再渐变）
+	target_enemy.modulate = base_modulate
+	# 清除刀剑法则冷光图像效果
+	Faze.clear_sword_faze_effects(target_enemy)
 
 func _apply_dot_damage(debuff_id: String, damage: float) -> void:
 	var debuff_entry = active_debuffs[debuff_id]
@@ -357,36 +357,36 @@ func _apply_dot_damage(debuff_id: String, damage: float) -> void:
 		burn_instance.global_position = target_enemy.global_position
 		burn_instance.scale = Vector2.ONE * Faze.get_burn_range_multiplier(PC.faze_fire_level)
 		
-		var burn_damage = damage * Faze.get_burn_damage_multiplier(PC.faze_fire_level)
-		var main_target_multiplier = 1.0
+		var burn_dmg_val = damage * Faze.get_burn_damage_multiplier(PC.faze_fire_level)
+		var burn_main_multiplier = 1.0
 		if target_enemy.is_in_group("elite") or target_enemy.is_in_group("boss"):
-			main_target_multiplier = Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
-		var final_damage = burn_damage * main_target_multiplier
-		target_enemy.take_damage(int(final_damage), false, false, debuff_id)
-		Global.emit_signal("monster_damage", damage_type_int, final_damage, target_enemy.global_position - Vector2(16, 6))
+			burn_main_multiplier = Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
+		var burn_final_dmg = burn_dmg_val * burn_main_multiplier
+		target_enemy.take_damage(int(burn_final_dmg), false, false, debuff_id)
+		Global.emit_signal("monster_damage", damage_type_int, burn_final_dmg, target_enemy.global_position - Vector2(16, 6))
 		
 		var burn_radius = burn_instance.collision.shape.radius * burn_instance.collision.global_scale.x
-		var space_state = target_enemy.get_world_2d().direct_space_state
-		var query = PhysicsShapeQueryParameters2D.new()
-		var circle_shape = CircleShape2D.new()
-		circle_shape.radius = burn_radius
-		query.set_shape(circle_shape)
-		query.transform = Transform2D(0, target_enemy.global_position)
-		query.collide_with_areas = true
-		query.collide_with_bodies = false
-		query.collision_mask = target_enemy.collision_mask
-		var results = space_state.intersect_shape(query)
-		for hit in results:
+		var burn_space_state = target_enemy.get_world_2d().direct_space_state
+		var burn_query = PhysicsShapeQueryParameters2D.new()
+		var burn_circle_shape = CircleShape2D.new()
+		burn_circle_shape.radius = burn_radius
+		burn_query.set_shape(burn_circle_shape)
+		burn_query.transform = Transform2D(0, target_enemy.global_position)
+		burn_query.collide_with_areas = true
+		burn_query.collide_with_bodies = false
+		burn_query.collision_mask = target_enemy.collision_mask
+		var burn_results = burn_space_state.intersect_shape(burn_query)
+		for hit in burn_results:
 			var area = hit.collider
 			if area == target_enemy:
 				continue
 			if area.is_in_group("enemies"):
-				var neighbor_multiplier = 1.0
+				var burn_neighbor_multiplier = 1.0
 				if area.is_in_group("elite") or area.is_in_group("boss"):
-					neighbor_multiplier = Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
-				var neighbor_damage = burn_damage * 0.5 * neighbor_multiplier
-				area.take_damage(int(neighbor_damage), false, false, debuff_id)
-				Global.emit_signal("monster_damage", damage_type_int, neighbor_damage, area.global_position)
+					burn_neighbor_multiplier = Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
+				var burn_neighbor_damage = burn_dmg_val * 0.5 * burn_neighbor_multiplier
+				area.take_damage(int(burn_neighbor_damage), false, false, debuff_id)
+				Global.emit_signal("monster_damage", damage_type_int, burn_neighbor_damage, area.global_position)
 		return
 	var main_target_multiplier = EnemyDebuffManager.get_debuff_elite_boss_damage_multiplier(debuff_id, target_enemy)
 	var final_damage = damage * main_target_multiplier

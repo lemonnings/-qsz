@@ -1,16 +1,16 @@
 extends Area2D
 class_name Duize
 
-@export var sprite : AnimatedSprite2D
-@export var collision : CollisionShape2D
+@export var sprite: AnimatedSprite2D
+@export var collision: CollisionShape2D
 
-static var main_skill_duize_damage: float = 0.2
+static var main_skill_duize_damage: float = 0.3
 static var duize_final_damage_multi: float = 1.0
 static var duize_range: float = 60.0
 static var duize_slow_ratio: float = 0.2
 
 static func reset_data() -> void:
-	main_skill_duize_damage = 0.2
+	main_skill_duize_damage = 0.3
 	duize_final_damage_multi = 1.0
 	duize_range = 60.0
 	duize_slow_ratio = 0.2
@@ -164,8 +164,8 @@ func setup(pos: Vector2, p_damage: float, p_range: float) -> void:
 
 func _ready() -> void:
 	z_index = -1
-	connect("area_entered", Callable(self, "_on_area_entered"))
-	connect("area_exited", Callable(self, "_on_area_exited"))
+	connect("area_entered", Callable(self , "_on_area_entered"))
+	connect("area_exited", Callable(self , "_on_area_exited"))
 	
 	_deal_damage_to_all()
 

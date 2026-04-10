@@ -74,7 +74,7 @@ func setup_emblem_ui(icons: Array, panels: Array, details: Array) -> void:
 func _on_emblem_added(emblem_id: String, stack: int):
 	print("Adding emblem: ", emblem_id, " Stack: ", stack)
 	# 获取纹章配置数据
-	var emblem_config = Global.SettingEmblem.get_emblem_data(emblem_id)
+	var emblem_config = Global.setting_emblem.get_emblem_data(emblem_id)
 	# 如果纹章已存在，更新它
 	if active_emblems.has(emblem_id):
 		_update_existing_emblem(emblem_id, stack, emblem_config)
@@ -148,7 +148,7 @@ static func add_emblem(emblem_id: String, stack: int = 1) -> bool:
 		print("纹章数量已达上限：", PC.emblem_slots_max)
 		return false
 	# 获取纹章配置数据
-	var emblem_config = Global.SettingEmblem.get_emblem_data(emblem_id)
+	var emblem_config = Global.setting_emblem.get_emblem_data(emblem_id)
 	if not emblem_config:
 		print("Error: Emblem config not found for ID: ", emblem_id)
 		return false
@@ -229,9 +229,9 @@ func _update_stack_label(slot: int, stack: int) -> void:
 		label.visible = false
 
 # 构建纹章详情文本（RichTextLabel 使用 BBCode 文本）
-func _build_emblem_detail_text(name: String, description: String, current_stack: int, max_stack: int) -> String:
+func _build_emblem_detail_text(emblem_name: String, description: String, current_stack: int, max_stack: int) -> String:
 	var lines: Array[String] = []
-	lines.append("[font_size=30]" + name + "[/font_size]")
+	lines.append("[font_size=30]" + emblem_name + "[/font_size]")
 	lines.append("效果：" + description)
 	lines.append("")
 	lines.append("层数：" + str(current_stack) + " / "+ str(max_stack))

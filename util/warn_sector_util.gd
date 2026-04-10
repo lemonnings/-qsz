@@ -4,7 +4,9 @@ class_name WarnSectorUtil
 # 预警扇形AOE工具类
 # 用于创建boss技能的扇形范围预警效果
 
+@warning_ignore("unused_signal")
 signal warning_finished
+@warning_ignore("unused_signal")
 signal damage_dealt(damage_amount)
 
 # 预警参数

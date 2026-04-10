@@ -22,7 +22,7 @@ var audio_manager: AudioManager
 
 func _ready() -> void:
 	# 获取音频管理器引用
-	audio_manager = Global.AudioManager
+	audio_manager = Global.audio_manager
 	
 	# 创建UI
 	setup_ui()

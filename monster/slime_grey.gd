@@ -6,14 +6,14 @@ var is_dead: bool = false
 # 0为从左到右，1为从右向左，2为随机移动，3为靠近角色
 var move_direction: int = 1
 
-var base_speed: float = SettingMoster.slime("speed")
+var base_speed: float = SettingMoster.slime_grey("speed")
 var speed: float
-var hpMax: float = SettingMoster.slime("hp")
-var hp: float = SettingMoster.slime("hp")
-var atk: float = SettingMoster.slime("atk")
-var get_point: int = SettingMoster.slime("point")
-var get_exp: int = SettingMoster.slime("exp")
-var get_mechanism: int = SettingMoster.slime("mechanism")
+var hpMax: float = SettingMoster.slime_grey("hp")
+var hp: float = SettingMoster.slime_grey("hp")
+var atk: float = SettingMoster.slime_grey("atk")
+var get_point: int = SettingMoster.slime_grey("point")
+var get_exp: int = SettingMoster.slime_grey("exp")
+var get_mechanism: int = SettingMoster.slime_grey("mechanism")
 var health_bar_shown: bool = false
 var health_bar: Node2D
 var progress_bar: ProgressBar
@@ -81,7 +81,7 @@ func _physics_process(delta: float) -> void:
 			get_tree().current_scene.point += point_gain
 			Global.total_points += point_gain
 			var exp_gain = int(get_exp * Faze.get_exp_multiplier())
-			PC.pc_exp += exp_gain
+			Global.emit_signal("drop_exp_orb", exp_gain, global_position, is_elite)
 			Global.emit_signal("monster_mechanism_gained", get_mechanism)
 			var change = randf()
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
@@ -90,6 +90,7 @@ func _physics_process(delta: float) -> void:
 			$death.play()
 			Global.emit_signal("monster_killed")
 			is_dead = true
+			remove_from_group("enemies")
 			# 死亡时去除滤镜和描边
 			$AnimatedSprite2D.modulate = Color(1, 1, 1, 1)
 			$AnimatedSprite2D.material = null
@@ -103,13 +104,13 @@ func _physics_process(delta: float) -> void:
 			var shadow = get_node_or_null("Shadow")
 			if shadow:
 				shadow.visible = false
-			if SettingMoster.slime("itemdrop") != null:
-				for key in SettingMoster.slime("itemdrop"):
-					var drop_chance = SettingMoster.slime("itemdrop")[key] * drop_rate_multiplier
+			if SettingMoster.slime_grey("itemdrop") != null:
+				for key in SettingMoster.slime_grey("itemdrop"):
+					var drop_chance = SettingMoster.slime_grey("itemdrop")[key] * drop_rate_multiplier
 					if randf() <= drop_chance:
 						Global.emit_signal("drop_out_item", key, 1, global_position)
-				# for item in SettingMoster.slime("itemdrop"):
-				# 	if randf() <= SettingMoster.slime("itemdrop")[item]:
+				# for item in SettingMoster.slime_grey("itemdrop"):
+				# 	if randf() <= SettingMoster.slime_grey("itemdrop")[item]:
 				# 		Global.emit_signal("drop_out_item", item, 1, global_position)
 			await get_tree().create_timer(0.35).timeout
 			queue_free()

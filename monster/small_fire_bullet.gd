@@ -3,7 +3,7 @@ extends Area2D
 @export var bullet_speed: float  # Boss子弹速度
 @export var bullet_damage: float  # Boss子弹伤害
 @export var bullet_range: float = 4000.0  # 子弹射程
-@export var rotation_speed_degrees: float = 1080.0
+@export var rotation_speed_degrees: float = 680.0
 
 var direction: Vector2 = Vector2.RIGHT
 var start_position: Vector2

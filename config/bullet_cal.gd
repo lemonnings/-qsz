@@ -56,7 +56,7 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 	# 应用全局buff效果
 	final_damage_val = apply_global_buff_effects(final_damage_val)
 	
-	if weapon_tag == "treasure":
+	if weapon_tag == "treasure" or weapon_tag == "branch":
 		if enemy.is_in_group("elite") or enemy.is_in_group("boss"):
 			final_damage_val = final_damage_val * Faze.get_treasure_elite_boss_multiplier(PC.faze_treasure_level, PC.lucky)
 	
@@ -98,22 +98,26 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 			)
 			# Boss特殊处理
 			if is_crit:
-				Global.emit_signal("monster_damage", 2, final_damage_val, enemy.global_position - Vector2(35,20) + damage_offset)
+				Global.emit_signal("monster_damage", 2, final_damage_val, enemy.global_position - Vector2(35, 20) + damage_offset, weapon_tag)
 			else:
-				Global.emit_signal("monster_damage", 1, final_damage_val, enemy.global_position - Vector2(35,20) + damage_offset)
+				Global.emit_signal("monster_damage", 1, final_damage_val, enemy.global_position - Vector2(35, 20) + damage_offset, weapon_tag)
 		else:
 			# 普通怪物
 			if is_summon_bullet:
-				Global.emit_signal("monster_damage", 4, final_damage_val, enemy.global_position - damage_offset)
+				Global.emit_signal("monster_damage", 4, final_damage_val, enemy.global_position - damage_offset, weapon_tag)
 			elif is_crit:
-				Global.emit_signal("monster_damage", 2, final_damage_val, enemy.global_position - damage_offset)
+				Global.emit_signal("monster_damage", 2, final_damage_val, enemy.global_position - damage_offset, weapon_tag)
 			else:
-				Global.emit_signal("monster_damage", 1, final_damage_val, enemy.global_position - damage_offset)
+				Global.emit_signal("monster_damage", 1, final_damage_val, enemy.global_position - damage_offset, weapon_tag)
 	
 	if area.has_method("is_faze_bullet_weapon") and area.is_faze_bullet_weapon():
 		Faze.on_bullet_hit()
 	if area.has_method("is_sword_weapon") and area.is_sword_weapon():
 		Faze.on_sword_weapon_hit(enemy)
+	
+	# 击中粒子崩散特效（受 particle_enabled 开关控制）
+	if final_damage_val > 0 and enemy and is_instance_valid(enemy):
+		HitParticleSpawner.spawn_by_weapon(area.get_tree(), enemy.global_position, weapon_tag)
 	
 	return result
 
@@ -133,7 +137,7 @@ static func should_create_rebound(bullet: Area2D) -> bool:
 	if not is_rebound and parent_bullet and change <= 0.25:
 		return true
 	else:
-		return false  # 只有父级子弹且非反弹子弹才能反弹
+		return false # 只有父级子弹且非反弹子弹才能反弹
 
 # 应用全局buff效果到最终伤害
 static func apply_global_buff_effects(damage: float) -> float:
@@ -145,7 +149,7 @@ static func apply_global_buff_effects(damage: float) -> float:
 		if PC.player_instance and PC.player_instance.has_method("get_last_move_time"):
 			var last_move = PC.player_instance.get_last_move_time()
 			var current = Time.get_unix_time_from_system()
-			if current - last_move >= 1.0:  # 1秒
+			if current - last_move >= 1.0: # 1秒
 				final_damage *= (1.0 + 0.06 * chenjing_stack)
 	
 	# 炼体：每1%的减伤率额外提升0.2*层数%的最终伤害

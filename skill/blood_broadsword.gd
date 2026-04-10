@@ -55,7 +55,7 @@ func _ready() -> void:
 func _build_attack_data() -> Dictionary:
 	var damage_ratio = PC.main_skill_bloodboardsword_damage
 	var heal_ratio = 0.01
-	var min_heal = 1
+	var min_heal = 10
 	var range_multiplier = 1.0
 	var bleed_damage_bonus = 0.0
 	var heal_on_bleed_bonus = 0.0
@@ -69,35 +69,32 @@ func _build_attack_data() -> Dictionary:
 	var life_time = 0.6
 	
 	if PC.selected_rewards.has("BloodBoardSword1"):
-		damage_ratio += 0.3
+		damage_ratio += 0.1
 		heal_ratio = 0.02
-		min_heal = 2
+		min_heal = 20
 	
 	if PC.selected_rewards.has("BloodBoardSword2"):
-		damage_ratio += 0.6
+		damage_ratio += 0.1
 		range_multiplier += 0.3
 	
 	if PC.selected_rewards.has("BloodBoardSword3"):
-		damage_ratio += 0.2
 		repeat_chance = 0.3
 	
 	if PC.selected_rewards.has("BloodBoardSword4"):
-		damage_ratio += 0.4
 		bleed_damage_bonus = 0.5
 	
 	if PC.selected_rewards.has("BloodBoardSword11"):
-		damage_ratio += 0.5
+		damage_ratio += 0.1
 		shield_hit_count = 5
 		shield_ratio = 0.02
-		shield_min = 2
+		shield_min = 20
 		shield_duration = 12.0
 	
 	if PC.selected_rewards.has("BloodBoardSword22"):
-		damage_ratio += 0.8
+		damage_ratio += 0.2
 		heal_on_bleed_bonus = 0.3
 	
 	if PC.selected_rewards.has("BloodBoardSword33"):
-		damage_ratio += 0.3
 		repeat_chance = 0.4
 		repeat_range_multiplier = 1.3
 	
@@ -217,6 +214,8 @@ func _apply_damage(attack_data: Dictionary) -> Dictionary:
 			area.emit_signal("debuff_applied", "bleed")
 		
 		area.take_damage(int(damage), is_crit, false, "blood_broadsword")
+		# 击中粒子崩散特效
+		HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "bloodboardsword")
 		Faze.on_sword_weapon_hit(area)
 	
 	return {"hit_count": hit_count, "hit_bleed": hit_bleed}

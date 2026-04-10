@@ -2,7 +2,7 @@ extends Area2D
 
 @export var sprite: AnimatedSprite2D
 @export var collision_shape: CollisionShape2D
-@export var rotation_offset: float = -PI / 2.0
+@export var rotation_offset: float = - PI / 2.0
 
 var thunder_scene: PackedScene = preload("res://Scenes/player/thunder.tscn")
 var start_position: Vector2
@@ -83,7 +83,7 @@ func _apply_damage_to_enemy(enemy: Node) -> void:
 	# 八卦法则伤害加成
 	final_damage *= Faze.get_bagua_damage_multiplier()
 	
-	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("has_debuff"):		if enemy.debuff_manager.has_debuff("electrified"):
+	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("has_debuff"): if enemy.debuff_manager.has_debuff("electrified"):
 			final_damage *= (1.0 + Faze.get_thunder_damage_vs_electrified_bonus(thunder_level))
 	
 	if is_boss and boss_extra_damage > 0.0:
@@ -96,11 +96,10 @@ func _apply_damage_to_enemy(enemy: Node) -> void:
 		Faze.add_bagua_progress(5, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
 	
 	if not is_boss and paralyze_duration > 0.0:
-		enemy.set_physics_process(false)
-		enemy.set_process(false)
-		await get_tree().create_timer(paralyze_duration).timeout
-		enemy.set_physics_process(true)
-		enemy.set_process(true)
+		# 使用 debuff 系统管理麻痹状态，计时器挂在敌人的 debuff_manager 上
+		# 避免直接调用 set_process(false) 导致 thunder 节点释放后协程中断、敌人永久卡死
+		if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("add_debuff"):
+			enemy.debuff_manager.add_debuff("paralyze", 0, paralyze_duration)
 
 func _find_nearest_enemy(from_position: Vector2, excluded_id: int) -> Node:
 	var enemies = get_tree().get_nodes_in_group("enemies")

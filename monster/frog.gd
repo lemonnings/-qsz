@@ -211,7 +211,7 @@ func _physics_process(delta: float) -> void:
 			get_tree().current_scene.point += point_gain
 			Global.total_points += point_gain
 			var exp_gain = int(get_exp * Faze.get_exp_multiplier())
-			PC.pc_exp += exp_gain
+			Global.emit_signal("drop_exp_orb", exp_gain, global_position, is_elite)
 			Global.emit_signal("monster_mechanism_gained", get_mechanism)
 			var change = randf()
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
@@ -219,6 +219,7 @@ func _physics_process(delta: float) -> void:
 			$death.play()
 			Global.emit_signal("monster_killed")
 			is_dead = true
+			remove_from_group("enemies")
 			# 死亡时去除滤镜和描边
 			$AnimatedSprite2D.modulate = Color(1, 1, 1, 1)
 			$AnimatedSprite2D.material = null
@@ -240,16 +241,7 @@ func _physics_process(delta: float) -> void:
 
 			await get_tree().create_timer(0.36).timeout
 			queue_free()
-			# 巨大树精：skill1 冲锋，skill2 八方树枝， skill3 点名连续放四次不会消失的带毒减速藤蔓， skill4, 从左右随机缓慢生长的直线，skill5 引灵，随机冰或者火
-			# 如果是冰，可以放到一个区域，阻碍直线生长，如果是火，可以放到带毒减速藤蔓烧掉
-			# 高难下添加，每2秒不断叠加的1%巨木之韧的减伤，最多70层，引灵添加风，风会在脚下生成一个风圈，踩中后获得移速加成但持续扣血，在每次使用八方攻击时候的尽头都会留下一个持续1秒的木灵珠，如果冰火都处理成功，可以
-			# 额外获得冰火灵珠，当三个灵珠都存在时，获得屏障穿透buff，提升50%最终伤害并且清除掉boss的减伤，持续15秒。
-		# 区域1幻境外围-森林，boss1巨大树精，boss2巨型粘液怪
-		# 区域2幻境外围-山间
-		# 区域3幻境深处-异域（机械城）
-		# 区域4深处，城堡
-		# 区域5深处，火山
-		# 区域6核心，山顶
+
 	if not is_direction_locked and current_state != State.FLEEING and PC.player_instance: # 未锁定方向且非逃跑状态下，朝向玩家
 		var player_pos = PC.player_instance.global_position
 		if global_position.x > player_pos.x: # 青蛙在玩家右侧

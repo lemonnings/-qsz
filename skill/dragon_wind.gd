@@ -32,22 +32,6 @@ static func reset_data() -> void:
 	dragonwind_slow_duration = 0.0
 	dragonwind_slow_damage_bonus = 0.0
 	dragonwind_boss_bonus_ratio = 0.0
-	DragonWind.dragonwind_final_damage_multi += 0.60
-	DragonWind.dragonwind_pull_force *= 1.50
-	DragonWind.dragonwind_final_damage_multi += 0.50
-	DragonWind.dragonwind_range_scale *= 1.4
-	DragonWind.dragonwind_final_damage_multi += 0.40
-	DragonWind.dragonwind_center_bonus_ratio = 1.0
-	DragonWind.dragonwind_final_damage_multi += 0.40
-	DragonWind.dragonwind_slow_duration = 5.0
-	DragonWind.dragonwind_final_damage_multi += 0.70
-	DragonWind.dragonwind_pull_force *= 1.20
-	DragonWind.dragonwind_range_scale *= 1.3
-	DragonWind.dragonwind_final_damage_multi += 0.60
-	DragonWind.dragonwind_slow_damage_bonus = 0.50
-	DragonWind.dragonwind_final_damage_multi += 0.50
-	DragonWind.dragonwind_center_bonus_ratio = 1.50
-	DragonWind.dragonwind_boss_bonus_ratio = 1.0
 
 static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree) -> void:
 	if not scene or not tree:

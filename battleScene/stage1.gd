@@ -2,6 +2,7 @@ extends Node2D
 
 # ============== 关卡配置 ==============
 @export var slime_scene: PackedScene
+@export var peach_yao_scene: PackedScene
 @export var bat_scene: PackedScene
 @export var frog_scene: PackedScene
 @export var boss_robot_scene: PackedScene
@@ -17,9 +18,10 @@ const WAVE_SPAWN_INCREASE_STEP: int = 5
 const MAX_WAVE_SPAWN_COUNT: int = 15
 const EARLY_WAVE_LIMIT: int = 10
 
+# PEACH_GROVE: slime_blue(5), peach_yao(2), frog(1)
 var stage_spawn_pool: Array[Dictionary] = [
-	{"type": "slime", "weight": 4, "blocked_early": false},
-	{"type": "bat", "weight": 3, "blocked_early": false},
+	{"type": "slime", "weight": 5, "blocked_early": false},
+	{"type": "peach_yao", "weight": 3, "blocked_early": false},
 	{"type": "frog", "weight": 1, "blocked_early": true}
 ]
 
@@ -38,19 +40,33 @@ var last_wave_spawn_frame: int = -1
 var boss_event_triggered: bool = false
 
 # 非基础怪物类型限制
-const BASIC_TYPES = ["slime", "bat"]
-const OTHER_TYPE_PER_WAVE_MAX: int = 2 # 非基础类型每波每种最多2个
-const OTHER_TYPE_TOTAL_MAX: int = 5 # 非基础类型总上限5个
-var other_type_alive: int = 0 # 非基础类型怪物当前存活数（上限5个，死亡后递减）
+const BASIC_TYPES = ["slime", "peach_yao"]
+const OTHER_TYPE_PER_WAVE_MAX: int = 1 # 非基础类型每波每种最多1个
+const OTHER_TYPE_TOTAL_MAX: int = 4 # 非基础类型总上限4个
+var other_type_alive: int = 0 # 非基础类型怪物当前存活数（上限4个，死亡后递减）
+
+# 精英怪数量上限
+const ELITE_MAX: int = 3 # 精英怪同时存在最多3个
+var elite_alive: int = 0 # 当前存活精英怪数量
 
 # 精英怪配置
-const ELITE_SPAWN_CHANCE: float = 0.05 # 5%概率生成精英怪
+const ELITE_SPAWN_CHANCE: float = 0.02 # 2%概率生成精英怪
 const ELITE_SCALE_MULTIPLIER: float = 1.3 # 体型增加30%
 const ELITE_ATK_MULTIPLIER: float = 1.2 # 攻击提升20%
-const ELITE_HP_MULTIPLIER: float = 9.0 # 血量提升800%
-const ELITE_EXP_MULTIPLIER: float = 5.0 # 经验5倍
+const ELITE_HP_MULTIPLIER: float = 8.0 # 血量提升800%
+const ELITE_EXP_MULTIPLIER: float = 4.0 # 经验4倍
 const ELITE_POINT_MULTIPLIER: float = 5.0 # 真气5倍
-const ELITE_DROP_MULTIPLIER: float = 10.0 # 掉落率10倍
+const ELITE_DROP_MULTIPLIER: float = 15.0 # 掉落率15倍
+
+# 动态平衡配置
+var current_wave_hp_reduction: float = 0.0 # 当前波的HP削减比例
+const DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD: float = 0.4 # 出怪增量低阈值（30%以下）
+const DYNAMIC_BALANCE_SPAWN_HIGH_THRESHOLD: float = 0.6 # 出怪增量高阈值（60%时0%增量）
+const DYNAMIC_BALANCE_SPAWN_MAX_BONUS: float = 2.0 # 最大出怪增量100%
+const DYNAMIC_BALANCE_HP_LOW_THRESHOLD: float = 0.7 # HP削减低阈值（70%开始削弱）
+const DYNAMIC_BALANCE_HP_HIGH_THRESHOLD: float = 1.0 # HP削减高阈值（100%最大削弱）
+const DYNAMIC_BALANCE_HP_MIN_REDUCTION: float = 0.1 # 最小HP削减10%
+const DYNAMIC_BALANCE_HP_MAX_REDUCTION: float = 0.3 # 最大HP削减30%
 
 # UI子场景引用
 @export var layer_ui: CanvasLayer
@@ -61,14 +77,14 @@ func _ready() -> void:
 	Global.emit_signal("reset_camera")
 	
 	# stage1 特定的相机设置
-	$Player.camera.zoom = Vector2(2.55, 2.55)
-	$Player.min_zoom = 2.2
+	$Player.camera.zoom = Vector2(2.7, 2.7)
+	$Player.min_zoom = 2.5
 	
 	map_mechanism_num = 0
-	map_mechanism_num_max = 21000
-	# map_mechanism_num_max = 18000
+	# map_mechanism_num_max = 21
+	map_mechanism_num_max = 20000
 	
-	Global.reset_dps_counter()
+	DpsManager.reset_dps_counter()
 	
 	# 连接关卡特定信号
 	Global.connect("monster_mechanism_gained", Callable(self , "_on_monster_mechanism_gained"))
@@ -198,7 +214,12 @@ func _spawn_wave() -> void:
 		monster_spawn_timer.start()
 		return
 
-	var wave_spawn_count = _get_wave_spawn_count()
+	# 计算动态平衡参数
+	var spawn_multiplier = _calculate_spawn_count_multiplier()
+	current_wave_hp_reduction = _calculate_hp_reduction()
+
+	var base_wave_spawn_count = _get_wave_spawn_count()
+	var wave_spawn_count = int(ceil(float(base_wave_spawn_count) * spawn_multiplier))
 	var available_slots = max_monster_limit - current_monster_count
 	var spawn_target_count = min(wave_spawn_count, available_slots)
 	if spawn_target_count <= 0:
@@ -224,6 +245,8 @@ func _spawn_wave() -> void:
 		match spawn_list[i]:
 			"slime":
 				_spawn_single_slime()
+			"peach_yao":
+				_spawn_single_peach_yao()
 			"bat":
 				_spawn_single_bat()
 			"frog":
@@ -269,6 +292,43 @@ func _update_wave_monster_limit() -> void:
 	var limit_growth = int(float(spawn_count - 1) / float(MONSTER_LIMIT_INCREASE_WAVE_STEP))
 	max_monster_limit = min(INITIAL_MONSTER_LIMIT + limit_growth, MAX_MONSTER_CAP)
 
+# ============== 动态平衡函数 ==============
+## 获取当前容量占用率（0.0~1.0+）
+func _get_capacity_ratio() -> float:
+	if max_monster_limit <= 0:
+		return 0.0
+	return float(current_monster_count) / float(max_monster_limit)
+
+## 计算出怪数量增量（30%时+100%，60%时+0%，线性衰减）
+func _calculate_spawn_count_multiplier() -> float:
+	var ratio = _get_capacity_ratio()
+	if ratio >= DYNAMIC_BALANCE_SPAWN_HIGH_THRESHOLD:
+		return 1.0 # 60%及以上，无增量
+	if ratio <= DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD:
+		return 1.0 + DYNAMIC_BALANCE_SPAWN_MAX_BONUS # 30%及以下，+100%增量
+	# 线性衰减：从30%的+100%衰减到60%的+0%
+	var t = (ratio - DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD) / (DYNAMIC_BALANCE_SPAWN_HIGH_THRESHOLD - DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD)
+	return 1.0 + DYNAMIC_BALANCE_SPAWN_MAX_BONUS * (1.0 - t)
+
+## 计算HP削减比例（70%时-10%，100%时-30%，线性增加）
+func _calculate_hp_reduction() -> float:
+	var ratio = _get_capacity_ratio()
+	if ratio < DYNAMIC_BALANCE_HP_LOW_THRESHOLD:
+		return 0.0 # 70%以下无削弱
+	if ratio >= DYNAMIC_BALANCE_HP_HIGH_THRESHOLD:
+		return DYNAMIC_BALANCE_HP_MAX_REDUCTION # 100%时-30%
+	# 线性增加：从70%的-10%增加到100%的-30%
+	var t = (ratio - DYNAMIC_BALANCE_HP_LOW_THRESHOLD) / (DYNAMIC_BALANCE_HP_HIGH_THRESHOLD - DYNAMIC_BALANCE_HP_LOW_THRESHOLD)
+	return DYNAMIC_BALANCE_HP_MIN_REDUCTION + (DYNAMIC_BALANCE_HP_MAX_REDUCTION - DYNAMIC_BALANCE_HP_MIN_REDUCTION) * t
+
+## 应用动态平衡HP削减到怪物
+func _apply_dynamic_hp_reduction(monster_node: Node) -> void:
+	if current_wave_hp_reduction <= 0.0:
+		return
+	var reduction_multiplier = 1.0 - current_wave_hp_reduction
+	monster_node.hp *= reduction_multiplier
+	monster_node.hpMax *= reduction_multiplier
+
 
 func _spawn_single_slime() -> void:
 	var slime_node = slime_scene.instantiate()
@@ -277,7 +337,7 @@ func _spawn_single_slime() -> void:
 	slime_node.move_direction = randi_range(2, 8)
 	match spawn_edge:
 		0: # Top
-			spawn_position = Vector2(randf_range(-590, 590), -25)
+			spawn_position = Vector2(randf_range(-590, 590), 100)
 		1: # Bottom
 			spawn_position = Vector2(randf_range(-590, 590), 480)
 		2: # Left
@@ -287,6 +347,7 @@ func _spawn_single_slime() -> void:
 	slime_node.position = spawn_position
 	get_tree().current_scene.add_child(slime_node)
 	_try_make_elite(slime_node)
+	_apply_dynamic_hp_reduction(slime_node)
 	slime_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(slime_node, "modulate:a", 1.0, 0.7)
@@ -299,7 +360,7 @@ func _spawn_single_frog() -> void:
 	var spawn_position = Vector2.ZERO
 	match spawn_edge:
 		0: # Top
-			spawn_position = Vector2(randf_range(-590, 590), -25)
+			spawn_position = Vector2(randf_range(-590, 590), 100)
 		1: # Bottom
 			spawn_position = Vector2(randf_range(-590, 590), 480)
 		2: # Left
@@ -309,6 +370,7 @@ func _spawn_single_frog() -> void:
 	frog_node.position = spawn_position
 	get_tree().current_scene.add_child(frog_node)
 	_try_make_elite(frog_node)
+	_apply_dynamic_hp_reduction(frog_node)
 	frog_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(frog_node, "modulate:a", 1.0, 0.7)
@@ -316,11 +378,34 @@ func _spawn_single_frog() -> void:
 	frog_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
 	frog_node.connect("tree_exiting", func(): other_type_alive = max(0, other_type_alive - 1))
 
+func _spawn_single_peach_yao() -> void:
+	var peach_yao_node = peach_yao_scene.instantiate()
+	var spawn_edge = randi_range(0, 3)
+	var spawn_position = Vector2.ZERO
+	peach_yao_node.move_direction = randi_range(2, 8)
+	match spawn_edge:
+		0: # Top
+			spawn_position = Vector2(randf_range(-590, 590), 100)
+		1: # Bottom
+			spawn_position = Vector2(randf_range(-590, 590), 480)
+		2: # Left
+			spawn_position = Vector2(-590, randf_range(0, 480))
+		3: # Right
+			spawn_position = Vector2(590, randf_range(0, 480))
+	peach_yao_node.position = spawn_position
+	get_tree().current_scene.add_child(peach_yao_node)
+	_try_make_elite(peach_yao_node)
+	_apply_dynamic_hp_reduction(peach_yao_node)
+	peach_yao_node.modulate.a = 0
+	var tween = create_tween()
+	tween.tween_property(peach_yao_node, "modulate:a", 1.0, 0.7)
+	current_monster_count += 1
+	peach_yao_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
+
 func _spawn_single_bat() -> void:
 	var bat_node = bat_scene.instantiate()
 	var spawn_edge = randi_range(0, 3)
 	var spawn_position = Vector2.ZERO
-	bat_node.move_direction = randi_range(2, 8)
 	match spawn_edge:
 		0: # Top
 			spawn_position = Vector2(randf_range(-590, 590), -25)
@@ -333,6 +418,7 @@ func _spawn_single_bat() -> void:
 	bat_node.position = spawn_position
 	get_tree().current_scene.add_child(bat_node)
 	_try_make_elite(bat_node)
+	_apply_dynamic_hp_reduction(bat_node)
 	bat_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(bat_node, "modulate:a", 1.0, 0.7)
@@ -350,10 +436,14 @@ func _on_monster_defeated():
 func _try_make_elite(monster_node: Node) -> void:
 	if randf() > ELITE_SPAWN_CHANCE:
 		return # 未触发精英怪
+	if elite_alive >= ELITE_MAX:
+		return # 精英怪已达上限
 	
 	# 标记为精英怪
 	monster_node.is_elite = true
 	monster_node.add_to_group("elite")
+	elite_alive += 1
+	monster_node.connect("tree_exiting", func(): elite_alive = max(0, elite_alive - 1))
 	
 	# 体型增加30%
 	monster_node.scale *= ELITE_SCALE_MULTIPLIER
@@ -420,6 +510,9 @@ void fragment() {
 	
 # ============== 游戏结果 ==============
 func show_game_over():
+	PC.is_game_over = true
+	EmblemManager.clear_all_emblems()
+	DpsManager.stop_dps_counter()
 	layer_ui.show_game_over()
 	var player = get_node("Player")
 	player.stop_all_skill_cooldowns()
@@ -437,7 +530,7 @@ func _on_boss_defeated(get_point: int):
 		EmblemManager.clear_all_emblems()
 		
 		# 停止DPS计数器
-		Global.stop_dps_counter()
+		DpsManager.stop_dps_counter()
 		
 		$Victory.play()
 		var player = get_node("Player")

@@ -126,7 +126,7 @@ func _physics_process(delta: float) -> void:
 			get_tree().current_scene.point += point_gain
 			Global.total_points += point_gain
 			var exp_gain = int(get_exp * Faze.get_exp_multiplier())
-			PC.pc_exp += exp_gain
+			Global.emit_signal("drop_exp_orb", exp_gain, global_position, is_elite)
 			Global.emit_signal("monster_mechanism_gained", get_mechanism)
 			var change = randf()
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
@@ -134,6 +134,7 @@ func _physics_process(delta: float) -> void:
 			$death.play()
 			Global.emit_signal("monster_killed")
 			is_dead = true
+			remove_from_group("enemies")
 			# 死亡时去除滤镜和描边
 			$AnimatedSprite2D.modulate = Color(1, 1, 1, 1)
 			$AnimatedSprite2D.material = null
@@ -147,9 +148,9 @@ func _physics_process(delta: float) -> void:
 			var shadow = get_node_or_null("Shadow")
 			if shadow:
 				shadow.visible = false
-			if SettingMoster.bat("itemdrop") != null:
-				for key in SettingMoster.bat("itemdrop"):
-					var drop_chance = SettingMoster.bat("itemdrop")[key] * drop_rate_multiplier
+			if SettingMoster.taohua_yao("itemdrop") != null:
+				for key in SettingMoster.taohua_yao("itemdrop"):
+					var drop_chance = SettingMoster.taohua_yao("itemdrop")[key] * drop_rate_multiplier
 					if randf() <= drop_chance:
 						Global.emit_signal("drop_out_item", key, 1, global_position)
 

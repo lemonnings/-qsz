@@ -7,25 +7,30 @@ var is_attacking: bool = false
 var is_charging: bool = false # 是否正在冲锋
 var allow_turning: bool = true
 
+# 落花技能状态变量
+var petal_use_count: int = 0 # 落花已使用次数（0 = 尚未使用，开局触发）
+var attacks_since_last_petal: int = 0 # 上次落花后已释放的随机技能数
+var _petal_loop_generation: int = 0 # 微触发新循环时使旧循环自动退出
+
 signal debuff_applied(debuff_id: String)
 
 # 屏幕边界
-@export var top_boundary: float = 0.0
-@export var bottom_boundary: float = 265.0
-@export var left_boundary: float = -340.0
-@export var right_boundary: float = 340.0
+@export var top_boundary: float = 110.0
+@export var bottom_boundary: float = 460.0
+@export var left_boundary: float = -560.0
+@export var right_boundary: float = 550.0
 
 # 0为从左到右，1为从右向左，2为随机移动，3为靠近角色，4为y轴靠近x轴保持距离，5为从左向右y随机，6为从右向左y随机
 var move_direction: int = 4
 var target_position: Vector2 # 用于存储移动目标位置
 var update_move_timer: Timer # 移动模式计时器
 
-var speed: float = SettingMoster.slime("speed") * 1 # Boss移动速度，可以调整
-var hpMax: float = SettingMoster.slime("hp") * 90 # Boss最大生命值，可以调整
+var speed: float = SettingMoster.slime_blue("speed") * 1 # Boss移动速度，可以调整
+var hpMax: float = SettingMoster.slime_blue("hp") * 90 # Boss最大生命值，可以调整
 #var hpMax : float = SettingMoster.slime("hp") * 0.1 # Boss最大生命值，可以调整
 var hp: float = hpMax # Boss当前生命值
-var atk: float = SettingMoster.slime("atk") * 0.9 # Boss攻击力，可以调整
-var get_point: int = SettingMoster.slime("point") * 25 # 击败Boss获得的积分
+var atk: float = SettingMoster.slime_blue("atk") * 0.9 # Boss攻击力，可以调整
+var get_point: int = SettingMoster.slime_blue("point") * 25 # 击败Boss获得的积分
 var get_exp: int = 0 # 击败Boss获得的经验
 
 var attack_timer: Timer # Boss攻击计时器
@@ -67,12 +72,12 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	hp = hpMax # 初始化当前血量
 	
-	debuff_manager = EnemyDebuffManager.new(self)
+	debuff_manager = EnemyDebuffManager.new(self )
 	add_child(debuff_manager)
 	debuff_applied.connect(debuff_manager.add_debuff)
 	
 	# 创建脚底阴影（Boss阴影较大）
-	CharacterEffects.create_shadow(self, 45.0, 14.0, 12.0)
+	CharacterEffects.create_shadow(self , 45.0, 14.0, 12.0)
 	
 	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "测试BOSS")
 	Global.emit_signal("boss_hp_bar_show")
@@ -134,20 +139,32 @@ func _move_pattern(delta: float):
 func _choose_attack():
 	if is_dead:
 		return
-		
-	is_attacking = true # 标记开始攻击，停止移动
-	
-	# 播放攻击前摇动画
-	# sprite.play("attack_anticipation") 
-	# await get_tree().create_timer(0.5).timeout # 等待前摇
 
-	var attack_type = randi_range(1, 9) # 扩展到新技能
+	is_attacking = true # 标记开始攻击，停止移动
+
+	# 开局必定优先使用落花
+	if petal_use_count == 0:
+		_attack_petal_rain()
+		return
+
+	# 每累计 4 次随机技能后必定使用一次落花
+	if attacks_since_last_petal >= 4:
+		_attack_petal_rain()
+		return
+
+	# 正常随机技能（计数 +1）
+	attacks_since_last_petal += 1
+
+	var attack_type = randi_range(1, 7)
 	print("Boss chooses attack: ", attack_type)
 
 	# 显示攻击范围
 	if [3, 4].has(attack_type):
+		var chant_name = "荆棘遍布" if attack_type == 3 else "冲锋"
+		Global.emit_signal("boss_chant_start", chant_name, 1.0)
 		_show_attack_indicator(attack_type)
 		await get_tree().create_timer(1.0).timeout
+		Global.emit_signal("boss_chant_end")
 
 	match attack_type:
 		1:
@@ -166,10 +183,9 @@ func _choose_attack():
 			_attack_meteor_instant() # 陨石攻击(即时伤害)
 		7:
 			_attack_meteor_persistent() # 陨石攻击(持续伤害区域)
-		8:
-			_attack_sector_aoe() # 扇形AOE
-		9:
-			_attack_multi_sector_aoe() # 连续扇形AOE
+		_:
+			# 未实现的攻击类型，直接重置攻击状态防止 boss 冻住
+			is_attacking = false
 
 
 func _show_attack_indicator(type: int):
@@ -277,8 +293,8 @@ func _show_attack_indicator(type: int):
 			inner_line_charge.modulate.a = 0.0
 			attack_indicator.add_child(inner_line_charge)
 
-			var charge_max_length = 2400.0
-			var charge_extend_speed = 2400.0
+			var charge_max_length = 600.0
+			var charge_extend_speed = 600.0
 			var charge_extend_duration = charge_max_length / charge_extend_speed
 
 			charge_appear_tween.tween_property(inner_line_charge, "modulate:a", 1.0, charge_extend_duration * 0.5)
@@ -298,21 +314,6 @@ func _show_attack_indicator(type: int):
 			)
 
 			attack_indicator.visible = true
-		7: # 旋转激光
-			outer_line_node.add_point(Vector2.ZERO)
-			outer_line_node.add_point(Vector2.RIGHT * 800)
-			inner_line_node.add_point(Vector2.ZERO)
-			inner_line_node.add_point(Vector2.RIGHT * 800)
-		9: # 黑洞
-			var player_pos_for_indicator = PC.player_instance.global_position
-			var black_hole_indicator_pos = global_position.direction_to(player_pos_for_indicator) * 200
-			var circle_points = 32
-			var radius = 100
-			for i in circle_points + 1:
-				var angle = TAU * i / circle_points
-				var point = black_hole_indicator_pos + Vector2(cos(angle), sin(angle)) * radius
-				outer_line_node.add_point(point)
-				inner_line_node.add_point(point)
 	
 func _attack_straight_line():
 	# 连续射击5次
@@ -321,17 +322,24 @@ func _attack_straight_line():
 		var current_player_pos = PC.player_instance.global_position
 		var current_direction = global_position.direction_to(current_player_pos)
 		
+		# 读条
+		Global.emit_signal("boss_chant_start", "荆棘之刺" + str(i + 1), 0.75)
+		
 		# 显示攻击指示器
 		_show_attack_indicator_for_straight_line(current_direction)
 		
 		# 等待0.75秒让生成动画播放完毕
 		await get_tree().create_timer(0.75).timeout
+		Global.emit_signal("boss_chant_end")
 		
 		# 播放消失动画
 		_hide_attack_indicator_with_animation()
+		# 播放藤蔓攻击动画
+		_spawn_vine_along_line(global_position, current_direction, 1000.0, 4)
 		
 		# 播放射击音效
 		$straight.play()
+		_screen_shake(3.0, 0.15)
 		
 		# 进行伤害判定
 		var player_pos = PC.player_instance.global_position
@@ -460,14 +468,21 @@ func _attack_triple_line():
 		var current_player_pos = PC.player_instance.global_position
 		var base_direction = global_position.direction_to(current_player_pos)
 		
+		# 读条
+		Global.emit_signal("boss_chant_start", "分裂荆棘" + str(i + 1), 0.75)
+		
 		# 显示攻击指示器（带生成动画）
 		_show_attack_indicator_for_triple_line(base_direction)
 		
 		# 等待0.5秒让生成动画播放完毕
 		await get_tree().create_timer(0.75).timeout
+		Global.emit_signal("boss_chant_end")
 		
 		# 播放消失动画
 		_hide_attack_indicator_with_animation()
+		# 播放藤蔓攻击动画（三个方向）
+		for jv in range(-1, 2):
+			_spawn_vine_along_line(global_position, base_direction.rotated(deg_to_rad(jv * 20)), 1600.0, 3)
 		
 		# 隐藏攻击指示器
 		# if attack_indicator:
@@ -475,6 +490,7 @@ func _attack_triple_line():
 		
 		# 播放射击音效
 		$straight.play()
+		_screen_shake(3.0, 0.15)
 		
 		# 进行伤害判定
 		var player_pos = PC.player_instance.global_position
@@ -598,99 +614,81 @@ func _attack_eight_directions():
 				print("Player hit by eight-direction line attack, damage: ", actual_damage)
 				break # 玩家已受伤，跳出方向循环
 
+	# 播放藤蔓攻击动画（八个方向）
+	for i in 8:
+		var vine_dir = Vector2.RIGHT.rotated(deg_to_rad(i * 45.0))
+		_spawn_vine_along_line(global_position, vine_dir, 600.0, 3)
+	_screen_shake(4.0, 0.2)
+
+	await get_tree().create_timer(0.5).timeout
 	is_attacking = false
 
 
 func _attack_charge():
-	# is_attacking = false # 不要过早重置攻击状态，否则会导致move_pattern在冲锋过程中执行，干扰冲锋方向
 	print("Attack: Charge")
 
-	# 根据 charge_indicator_direction (即瞄准方向) 设置sprite朝向
-	# charge_indicator_direction 应该在 _show_attack_indicator 中被正确设置
+	# 根据锁定的冲锋方向设置 sprite 朝向
 	if charge_indicator_direction.x < 0:
 		sprite.flip_h = true
 	else:
 		sprite.flip_h = false
 
-	# 使用存储的冲锋方向，从当前位置出发计算目标位置
-	# 这样即使Boss在预警期间移动了，也会沿着预警时锁定的方向冲锋
-	var charge_direction_normalized = charge_indicator_direction # 预警时锁定的方向
-	var charge_distance = 600.0 # 冲锋距离
-	var intended_target_pos = global_position + charge_direction_normalized * charge_distance
-	print("执行冲锋，从当前位置: ", global_position, " 沿方向: ", charge_direction_normalized, " 冲锋")
+	# 【核心修复】直接使用指示器生成时锁定的方向矢量，
+	# 不再从「当前 boss 位置 → 存储目标点」重新推算方向。
+	# 这样无论 boss 在预警期间是否有任何位置偏移，冲锋方向与指示器始终完全一致。
+	var charge_dir := charge_indicator_direction # 锁定方向
+	var charge_dist := 600.0 # 与指示器一致的预设冲锋距离
+	var ray_origin := global_position
+	var ray_end := ray_origin + charge_dir * 2000.0
 
-	var final_target_pos = intended_target_pos
+	# 从当前 boss 位置沿锁定方向出发，计算预设落地点
+	var intended_target_pos := ray_origin + charge_dir * charge_dist
 
-	# 射线检测以确定与边界的碰撞点，保持方向
-	var ray_origin = global_position
-	var ray_end = ray_origin + charge_direction_normalized * 2000
-
-	# 定义边界的四个线段
-	var boundaries = [
-		[Vector2(left_boundary, top_boundary), Vector2(right_boundary, top_boundary)], # 上边界
-		[Vector2(left_boundary, bottom_boundary), Vector2(right_boundary, bottom_boundary)], # 下边界
-		[Vector2(left_boundary, top_boundary), Vector2(left_boundary, bottom_boundary)], # 左边界
-		[Vector2(right_boundary, top_boundary), Vector2(right_boundary, bottom_boundary)] # 右边界
+	# 边界截断：若落地点超出场地边界则截断到最近边界交点
+	var boundaries := [
+		[Vector2(left_boundary, top_boundary), Vector2(right_boundary, top_boundary)],
+		[Vector2(left_boundary, bottom_boundary), Vector2(right_boundary, bottom_boundary)],
+		[Vector2(left_boundary, top_boundary), Vector2(left_boundary, bottom_boundary)],
+		[Vector2(right_boundary, top_boundary), Vector2(right_boundary, bottom_boundary)]
 	]
 
-	var closest_collision_point = intended_target_pos # 默认为原始目标
-	var min_collision_distance_sq = (intended_target_pos - ray_origin).length_squared()
-	var collided_with_boundary = false
+	var final_target_pos := intended_target_pos
+	var min_dist_sq := (intended_target_pos - ray_origin).length_squared()
+	for seg in boundaries:
+		var intersection = Geometry2D.segment_intersects_segment(
+				ray_origin, ray_end, seg[0], seg[1])
+		if intersection:
+			var hit_point := intersection as Vector2 # 显式转型，解决 Variant 类型推断失败
+			var d_sq := (hit_point - ray_origin).length_squared()
+			if d_sq < min_dist_sq:
+				min_dist_sq = d_sq
+				final_target_pos = hit_point
 
-	# 检查原始目标点是否在边界内
-	var intended_target_in_bounds = intended_target_pos.x >= left_boundary and intended_target_pos.x <= right_boundary and \
-								  intended_target_pos.y >= top_boundary and intended_target_pos.y <= bottom_boundary
+	print("执行冲锋: 方向=", charge_dir, " 目标=", final_target_pos)
 
-	if not intended_target_in_bounds:
-		# 如果原始目标点超出边界，则计算与边界的交点
-		min_collision_distance_sq = INF # 重置为无穷大，以便找到最近的交点
-		for boundary_segment in boundaries:
-			var intersection = Geometry2D.segment_intersects_segment(ray_origin, ray_end, boundary_segment[0], boundary_segment[1])
-			if intersection:
-				var dist_sq = (intersection - ray_origin).length_squared()
-				# 确保交点在冲锋方向上，并且比当前最近的交点更近
-				var original_target_distance_sq = (intended_target_pos - ray_origin).length_squared()
-				if dist_sq < min_collision_distance_sq and dist_sq <= original_target_distance_sq:
-					min_collision_distance_sq = dist_sq
-					closest_collision_point = intersection
-					collided_with_boundary = true
-		# 如果没有找到交点，则clamp到边界
-		if not collided_with_boundary:
-			closest_collision_point.x = clamp(intended_target_pos.x, left_boundary, right_boundary)
-			closest_collision_point.y = clamp(intended_target_pos.y, top_boundary, bottom_boundary)
-	else:
-		# 如果原始目标点就在边界内，则不需要碰撞检测
-		collided_with_boundary = false # 明确标记未与边界碰撞
-
-	final_target_pos = closest_collision_point
-
-	var charge_speed = speed * 12 # 冲锋速度
-
-	# 根据最终目标位置，重新计算实际冲锋距离和时间
-	var actual_charge_vector = final_target_pos - global_position
-	var actual_charge_distance = actual_charge_vector.length()
-	var charge_time = 0.0
-	if charge_speed > 0 and actual_charge_distance > 0.1: # 增加一个小的阈值避免极小距离的移动
-		charge_time = actual_charge_distance / charge_speed
+	var charge_speed := speed * 12
+	var actual_distance := (final_target_pos - ray_origin).length()
+	var charge_time := 0.0
+	if charge_speed > 0 and actual_distance > 0.1:
+		charge_time = actual_distance / charge_speed
 
 	$BossA.play("run")
-	var tween = create_tween()
-	
-	# 如果实际冲锋距离和时间都大于0，才执行移动
-	if actual_charge_distance > 0.1 and charge_time > 0: # 增加一个小的阈值避免极小距离的移动
-		tween.tween_property(self, "global_position", final_target_pos, charge_time)
+	is_charging = true # 冲锋开始
+	var tween := create_tween()
+	if actual_distance > 0.1 and charge_time > 0:
+		_start_charge_shake() # 启动后台持续小幅震颟
+		tween.tween_property(self , "global_position", final_target_pos, charge_time)
 		tween.finished.connect(func():
 			is_attacking = false
 			is_charging = false
 			$BossA.play("run")
-			allow_turning = true # 允许boss转向
+			allow_turning = true
 		)
 	else:
-		# 如果无法冲锋 (例如已在边界、目标点与当前位置相同，或计算出的时间为0或距离过小)
 		is_attacking = false
 		is_charging = false
 		$BossA.play("run")
-		allow_turning = true # 允许boss转向
+		allow_turning = true
 
 
 func _on_body_entered(body: Node2D) -> void:
@@ -753,7 +751,7 @@ func _on_area_entered(area: Area2D) -> void:
 			return
 		
 		# 使用BulletCalculator处理完整的子弹碰撞逻辑
-		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self, true)
+		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self , true)
 		var final_damage_val = collision_result["final_damage"]
 		var is_crit = collision_result["is_crit"]
 		
@@ -778,6 +776,7 @@ func _on_area_entered(area: Area2D) -> void:
 				Global.emit_signal("monster_killed")
 				
 			is_dead = true
+			remove_from_group("enemies")
 			var collision_shape = get_node("CollisionShape2D")
 			collision_shape.disabled = true
 			collision_layer = 0
@@ -790,6 +789,8 @@ func _on_area_entered(area: Area2D) -> void:
 				shadow.visible = false
 			attack_timer.stop()
 			# await get_tree().create_timer(1.0).timeout # 等待死亡动画
+			# 清除全部花瓣
+			get_tree().call_group("boss_a_petal", "queue_free")
 			queue_free()
 		else:
 			Global.play_hit_anime(position, is_crit)
@@ -811,11 +812,11 @@ func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: Strin
 
 	var damage_offset = Vector2(randf_range(-15, 15), randf_range(-15, 15))
 	if is_summon:
-		Global.emit_signal("monster_damage", 4, final_damage_val, global_position - Vector2(35, 20) + damage_offset)
+		Global.emit_signal("monster_damage", 4, final_damage_val, global_position - Vector2(35, 20) + damage_offset, damage_type)
 	elif is_crit:
-		Global.emit_signal("monster_damage", 2, final_damage_val, global_position - Vector2(35, 20) + damage_offset)
+		Global.emit_signal("monster_damage", 2, final_damage_val, global_position - Vector2(35, 20) + damage_offset, damage_type)
 	else:
-		Global.emit_signal("monster_damage", 1, final_damage_val, global_position - Vector2(35, 20) + damage_offset)
+		Global.emit_signal("monster_damage", 1, final_damage_val, global_position - Vector2(35, 20) + damage_offset, damage_type)
 	Global.emit_signal("boss_hp_bar_take_damage", final_damage_val)
 	hp -= final_damage_val
 	if hp <= 0:
@@ -828,6 +829,8 @@ func _die():
 		Global.emit_signal("boss_defeated", get_point)
 		Global.emit_signal("monster_killed")
 	is_dead = true
+	remove_from_group("enemies")
+	Global.emit_signal("boss_chant_end")
 	var collision_shape = get_node("CollisionShape2D")
 	collision_shape.disabled = true
 	collision_layer = 0
@@ -859,8 +862,11 @@ func _point_to_line_distance(point: Vector2, line_start: Vector2, line_end: Vect
 
 func _attack_random_barrage():
 	print("Attack: Random Barrage")
+	var barrage_duration = RANDOM_BARRAGE_BULLET_COUNT * RANDOM_BARRAGE_INTERVAL
+	Global.emit_signal("boss_chant_start", "花雨", barrage_duration)
+	var petal_bullet_scene = preload("res://Scenes/moster/petal_bullet.tscn")
 	for i in range(RANDOM_BARRAGE_BULLET_COUNT):
-		var bullet = STRAIGHT_BULLET.instantiate()
+		var bullet = petal_bullet_scene.instantiate()
 		
 		# 将子弹添加到场景树
 		if get_parent():
@@ -880,6 +886,7 @@ func _attack_random_barrage():
 		
 		await get_tree().create_timer(RANDOM_BARRAGE_INTERVAL).timeout
 	
+	Global.emit_signal("boss_chant_end")
 	is_attacking = false # 攻击结束
 
 #func free_health_bar():
@@ -894,6 +901,7 @@ func apply_knockback(direction: Vector2, force: float):
 func _attack_meteor_instant():
 	"""技能6: 向玩家周围随机掉落陨石，落地后直接判定伤害"""
 	print("Attack: Meteor Instant")
+	Global.emit_signal("boss_chant_start", "盛放之棘", METEOR_WARNING_TIME + METEOR_COUNT * 0.15)
 	
 	var player_pos = PC.player_instance.global_position
 	
@@ -909,8 +917,8 @@ func _attack_meteor_instant():
 		)
 		var spawn_pos = player_pos + random_offset
 		
-		# 连接信号
-		warning_circle.warning_finished.connect(_on_meteor_warning_finished.bind(warning_circle))
+		# 连接信号，启动时把落点位置一并传入回调
+		warning_circle.warning_finished.connect(_on_meteor_warning_finished.bind(spawn_pos, warning_circle))
 		warning_circle.damage_dealt.connect(_on_meteor_damage_dealt)
 		
 		# 开始预警 - 使用INSTANT_DAMAGE模式
@@ -929,12 +937,21 @@ func _attack_meteor_instant():
 	
 	# 等待最后一个陨石预警完成
 	await get_tree().create_timer(METEOR_WARNING_TIME + 0.3).timeout
+	Global.emit_signal("boss_chant_end")
 	is_attacking = false
 
-func _on_meteor_warning_finished(warning_circle: Node2D):
-	"""陨石预警结束回调"""
+func _on_meteor_warning_finished(spawn_pos: Vector2, warning_circle: Node2D):
+	"""陨石预警结束回调：清除预警圈并在落点生成藤蔓特效"""
 	if is_instance_valid(warning_circle):
 		warning_circle.cleanup()
+	# 在落点中心及周围生成一簇藤蔓，模拟水泌/荆棘爆发感
+	_spawn_vine_effect_at(spawn_pos)
+	for i in 4:
+		var angle := i * PI * 0.5 + randf_range(-0.3, 0.3) # 四方向带小幅随机偏移
+		var offset := Vector2.RIGHT.rotated(angle) * randf_range(12.0, 22.0)
+		_spawn_vine_effect_at(spawn_pos + offset)
+	# 陨石落地震颟
+	_screen_shake(1.75, 0.2)
 
 func _on_meteor_damage_dealt(damage_amount: float):
 	"""陨石造成伤害回调"""
@@ -942,8 +959,9 @@ func _on_meteor_damage_dealt(damage_amount: float):
 
 # ============== 新技能: 陨石攻击(持续伤害区域) ==============
 func _attack_meteor_persistent():
-	"""技能7: 向玩家周围随机掉落陨石，落地后产生持续伤害区域"""
+	"""技能7: 向玩家周围随机掉落陨石，落地后产生poison_circle持续伤害绿圈"""
 	print("Attack: Meteor Persistent")
+	Global.emit_signal("boss_chant_start", "剧毒之棘", METEOR_WARNING_TIME + METEOR_COUNT * 0.15)
 	
 	var player_pos = PC.player_instance.global_position
 	
@@ -959,22 +977,20 @@ func _attack_meteor_persistent():
 		)
 		var spawn_pos = player_pos + random_offset
 		
-		# 连接信号
-		warning_circle.area_entered.connect(_on_persist_area_entered)
-		warning_circle.area_exited.connect(_on_persist_area_exited)
+		# 预警结束后生成 poison_circle（视觉+伤害），使用 bind 传递位置
+		warning_circle.warning_finished.connect(
+			_on_meteor_persistent_warning_finished.bind(spawn_pos, warning_circle)
+		)
 		
-		# 开始预警 - 使用PERSISTENT_AREA模式
+		# 使用 INSTANT_DAMAGE 模式（伤害为0）仅用于显示预警圈动画
 		warning_circle.start_warning(
 			spawn_pos, # 位置
 			1.2, # 长宽比(圆形)
 			METEOR_RADIUS, # 半径
 			METEOR_WARNING_TIME, # 预警时间
-			atk * 0.3, # 持续伤害每次触发的伤害
+			0.0, # 伤害设为0，由 poison_circle 负责实际伤害
 			null, # 动画播放器
-			WarnCircleUtil.ReleaseMode.PERSISTENT_AREA, # 持续区域模式
-			null, # 区域精灵场景(TODO: 可添加火焰特效)
-			METEOR_PERSIST_DURATION, # 持续时间
-			"damage" # 效果类型
+			WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE
 		)
 		
 		# 每个陨石之间稍微延迟
@@ -982,30 +998,26 @@ func _attack_meteor_persistent():
 	
 	# 等待预警完成
 	await get_tree().create_timer(METEOR_WARNING_TIME + 0.3).timeout
+	Global.emit_signal("boss_chant_end")
 	is_attacking = false
 
-var persist_damage_timer: float = 0.0
-const PERSIST_DAMAGE_INTERVAL: float = 0.5 # 持续伤害间隔
-
-func _on_persist_area_entered(player_node: Node2D):
-	"""玩家进入持续伤害区域"""
-	print("玩家进入持续伤害区域")
-	# 进入时立即造成一次伤害
-	_deal_persist_damage()
-
-func _on_persist_area_exited(player_node: Node2D):
-	"""玩家离开持续伤害区域"""
-	print("玩家离开持续伤害区域")
-
-func _deal_persist_damage():
-	"""处理持续伤害"""
-	if PC.player_instance and not PC.invincible:
-		Global.emit_signal("player_hit")
-		var actual_damage = int(atk * 0.3 * (1.0 - PC.damage_reduction_rate))
-		PC.apply_damage(actual_damage)
-		if PC.pc_hp <= 0:
-			PC.player_instance.game_over()
-		print("持续伤害: ", actual_damage)
+func _on_meteor_persistent_warning_finished(spawn_pos: Vector2, warning_circle: Node2D):
+	"""陨石预警结束，生成持续伤害绻圈（poison_circle 像素风格）"""
+	if is_instance_valid(warning_circle):
+		warning_circle.cleanup()
+	
+	# 生成 poison_circle（像素风格绿圈，负责视觉显示和持续伤害）
+	# scale 根据 METEOR_RADIUS 与预警圈 aspect_ratio 动态计算，确保判定范围与预警圈完全一致
+	# 预警圈: x = METEOR_RADIUS * 1.2, y = METEOR_RADIUS；poison_circle 基础半径(CircleShape2D.radius) = 15
+	var poison_circle_scene = preload("res://Scenes/moster/poison_circle.tscn")
+	var pc_instance = poison_circle_scene.instantiate()
+	pc_instance.damage_per_tick = atk * 0.4
+	pc_instance.duration = METEOR_PERSIST_DURATION
+	pc_instance.global_position = spawn_pos
+	pc_instance.scale = Vector2(METEOR_RADIUS * 1.2 / 15.0, METEOR_RADIUS / 15.0)
+	get_tree().current_scene.add_child(pc_instance)
+	# 陨石落地震颟
+	_screen_shake(1.75, 0.2)
 
 # ============== 新技能: 扇形AOE ==============
 func _attack_sector_aoe():
@@ -1092,3 +1104,200 @@ func _on_multi_sector_warning_finished(warning_sector: Node2D):
 func _on_multi_sector_damage_dealt(damage_amount: float):
 	"""连续扇形AOE造成伤害回调"""
 	print("连续扇形AOE对玩家造成伤害: ", damage_amount)
+
+# ============== 藤蔓攻击动画辅助函数 ==============
+func _spawn_vine_along_line(origin: Vector2, direction: Vector2, length: float, _count: int = 4) -> void:
+	"""沿攻击线段每隔 38 像素生成一个藤蔓特效，直至射程末端"""
+	var step := 16.0
+	var traveled := step * 2 # 从半步开始，避免直接在 boss 脚下生成
+	while traveled <= length:
+		_spawn_vine_effect_at(origin + direction * traveled)
+		traveled += step
+
+# 静态缓存：像素风藤蔓动画帧，多次攻击共享同一份数据
+static var _vine_frames_cache: SpriteFrames = null
+
+func _build_vine_frames() -> SpriteFrames:
+	"""
+	程序化绘制像素风格藤蔓动画（不依赖任何外部图片）。
+	12×12 艺术像素网格，每格 4×4 实际像素 = 48×48 帧尺寸。
+	颜色参考用户手绘：深绿轮廓 / 中绿主体 / 亮绿高亮，厚实方块笔触。
+	"""
+	var frames := SpriteFrames.new()
+	frames.add_animation("attack")
+
+	# 三层颜色（参考上传图片的手绘马克笔像素风格）
+	var col_dark := Color(0.051, 0.282, 0.051, 1.0) # 深绿 - 粗轮廓
+	var col_mid := Color(0.102, 0.541, 0.102, 1.0) # 中绿 - 主体填充
+	var col_hi := Color(0.141, 0.741, 0.141, 1.0) # 亮绿 - 高亮点缀
+
+	# 藤蔓图案：12×12 网格（0=透明 1=深绿 2=中绿 3=亮绿）
+	# 风格：厚实方块笔触、多方向分叉的有机藤蔓枝干
+	var pattern: Array = [
+		[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], # 行 0
+		[0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], # 行 1  左上分支起始
+		[0, 1, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0], # 行 2
+		[0, 0, 1, 2, 1, 0, 0, 0, 0, 0, 0, 0], # 行 3
+		[0, 0, 1, 2, 2, 1, 0, 0, 0, 0, 0, 0], # 行 4  汇入主干
+		[0, 0, 0, 1, 2, 2, 1, 1, 1, 0, 0, 0], # 行 5  主干 + 右侧分支
+		[0, 0, 0, 0, 1, 2, 3, 2, 2, 1, 0, 0], # 行 6  高亮节点
+		[0, 0, 0, 0, 1, 2, 2, 3, 2, 1, 0, 0], # 行 7  右分支延伸
+		[0, 0, 0, 0, 0, 1, 2, 2, 1, 0, 0, 0], # 行 8  右分支末端
+		[0, 0, 0, 0, 1, 2, 1, 0, 0, 0, 0, 0], # 行 9  下方分支
+		[0, 0, 0, 1, 2, 2, 1, 0, 0, 0, 0, 0], # 行 10 下左延伸
+		[0, 0, 0, 1, 2, 1, 0, 0, 0, 0, 0, 0], # 行 11 底部末端
+	]
+
+	var pixel_size := 4 # 每个艺术像素占 4×4 实际像素
+	var grid_size := 12
+	var img_size := grid_size * pixel_size # = 48
+
+	# 计算图案内所有有效像素到视觉中心 (5.5, 5.5) 的最大距离
+	var center_r := 5.5
+	var center_c := 5.5
+	var max_dist := 0.001
+	for r in grid_size:
+		for c in grid_size:
+			if pattern[r][c] != 0:
+				var d := sqrt((r - center_r) * (r - center_r) + (c - center_c) * (c - center_c))
+				if d > max_dist:
+					max_dist = d
+
+	var TOTAL_FRAMES := 8
+	var GROW_FRAMES := 6 # 前 6 帧：从中心向外生长
+	var FADE_FRAMES := 2 # 后 2 帧：整体淡出消散
+
+	for frame_idx in TOTAL_FRAMES:
+		var img := Image.create(img_size, img_size, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0, 0, 0, 0))
+
+		# 当前帧的最大显示半径和整体透明度
+		var radius_shown: float
+		var alpha: float
+		if frame_idx < GROW_FRAMES:
+			radius_shown = (float(frame_idx + 1) / float(GROW_FRAMES)) * max_dist
+			alpha = 1.0
+		else:
+			radius_shown = max_dist # 全部显示
+			alpha = 1.0 - float(frame_idx - GROW_FRAMES + 1) / float(FADE_FRAMES + 1)
+
+		for r in grid_size:
+			for c in grid_size:
+				var cell: int = pattern[r][c]
+				if cell == 0:
+					continue
+				var dist := sqrt((r - center_r) * (r - center_r) + (c - center_c) * (c - center_c))
+				if dist > radius_shown:
+					continue
+				var base_color: Color
+				match cell:
+					1: base_color = col_dark
+					2: base_color = col_mid
+					3: base_color = col_hi
+					_: continue
+				var draw_color := Color(base_color.r, base_color.g, base_color.b, base_color.a * alpha)
+				# 填充 4×4 像素块
+				for py in pixel_size:
+					for px in pixel_size:
+						img.set_pixel(c * pixel_size + px, r * pixel_size + py, draw_color)
+
+		frames.add_frame("attack", ImageTexture.create_from_image(img))
+
+	frames.set_animation_speed("attack", 12.0)
+	frames.set_animation_loop("attack", false)
+	return frames
+
+func _spawn_vine_effect_at(pos: Vector2) -> void:
+	"""在指定位置生成一个像素风格藤蔓/荆棘攻击动画节点，播放完毕后自动销毁"""
+	if _vine_frames_cache == null:
+		_vine_frames_cache = _build_vine_frames()
+
+	var vine := AnimatedSprite2D.new()
+	vine.sprite_frames = _vine_frames_cache
+	vine.animation = "attack"
+	vine.global_position = pos
+	vine.z_index = 1
+	vine.scale = Vector2(0.9, 0.9) # 显示尺寸 36×36（48×0.75）
+	vine.rotation = randf() * TAU # 随机旋转，增加每次生成的多样感
+	get_tree().current_scene.add_child(vine)
+	vine.play("attack")
+	vine.animation_finished.connect(vine.queue_free)
+
+# ============== 技能: 落花 ==============
+func _attack_petal_rain() -> void:
+	"""落花：从场地顶部持续飘落带红色勾边的花瓣，碰到玩家造成 ATK×60% 伤害。
+	第 1 次: 每0.5秒 4 片；此后每次 +2 片0.5秒（3, 5, 7, 9 ...）
+	花瓣持续飘落直到 boss 死亡才停止。"""
+	petal_use_count += 1
+	attacks_since_last_petal = 0
+	_petal_loop_generation += 1 # 使旧循环立即失效
+	var my_gen: int = _petal_loop_generation
+
+	var petals_per_second: int = petal_use_count * 2 + 2 # 3, 5, 7, 9 ...
+	var spawn_interval: float = 0.5 / float(petals_per_second)
+
+	# 技能读条
+	Global.emit_signal("boss_chant_start", "落花", 1.2)
+	await get_tree().create_timer(1.2).timeout
+	Global.emit_signal("boss_chant_end")
+
+	# 读条结束后立即解除攻击锁定，boss 可继续释放其他技能
+	is_attacking = false
+
+	# 启动后台连续生成循环（不阻塞攻击状态）
+	_start_petal_loop(spawn_interval, my_gen)
+
+
+func _start_petal_loop(spawn_interval: float, generation: int) -> void:
+	"""花瓣后台生成循环（非阻塞）。
+	当 is_dead=true、boss 节点已释放、或者新一轮落花启动如旧进出循环。"""
+	while not is_dead and is_instance_valid(self ) and _petal_loop_generation == generation:
+		_spawn_one_petal()
+		await get_tree().create_timer(spawn_interval).timeout
+
+
+func _spawn_one_petal() -> void:
+	"""在场地顶部随机 x 位置生成一片花瓣"""
+	var petal_scene = preload("res://Scenes/moster/petal.tscn")
+	var p = petal_scene.instantiate()
+	get_tree().current_scene.add_child(p)
+	p.scale = Vector2(0.25, 0.25)
+	var spawn_x = randf_range(left_boundary, right_boundary)
+	var spawn_y = top_boundary - randf_range(20.0, 80.0) # 从顶部边界上方飘落
+	p.initialize(atk * 0.6, Vector2(spawn_x, spawn_y), bottom_boundary + 100.0)
+
+
+# 屏幕震颟效果
+func _start_charge_shake() -> void:
+	"""冲锋位移期间持续小幅震颟，直到 is_charging = false。
+	用独立的 base_offset 捕获 + 循环帧偏移，避免与 _screen_shake 冲突。"""
+	var camera = get_viewport().get_camera_2d()
+	if not camera:
+		return
+	var base_offset = camera.offset
+	while is_charging and is_instance_valid(self ):
+		camera.offset = base_offset + Vector2(
+			randf_range(-2.0, 2.0),
+			randf_range(-1.0, 1.0)
+		)
+		await get_tree().process_frame
+	if is_instance_valid(camera):
+		camera.offset = base_offset
+
+
+func _screen_shake(intensity: float = 6.0, duration: float = 0.3, frequency: float = 30.0):
+	var camera = get_viewport().get_camera_2d()
+	if not camera:
+		return
+	var original_offset = camera.offset
+	var elapsed := 0.0
+	while elapsed < duration:
+		var dt = get_process_delta_time()
+		elapsed += dt
+		var strength = intensity * (1.0 - elapsed / duration)
+		camera.offset = original_offset + Vector2(
+			randf_range(-strength, strength),
+			randf_range(-strength, strength)
+		)
+		await get_tree().process_frame
+	camera.offset = original_offset

@@ -1,10 +1,10 @@
 extends Area2D
 class_name Xuanwu
 
-@export var sprite : AnimatedSprite2D
-@export var collision : CollisionShape2D
+@export var sprite: AnimatedSprite2D
+@export var collision: CollisionShape2D
 
-static var main_skill_xuanwu_damage: float = 0.3
+static var main_skill_xuanwu_damage: float = 0.45
 static var xuanwu_hp_damage_ratio: float = 0.35
 static var xuanwu_range: float = 240.0
 static var xuanwu_shield_base: int = 6
@@ -19,7 +19,7 @@ static var xuanwu_final_damage_multi: float = 1.0
 static var xuanwu_shield_duration: float = 6.0
 
 static func reset_data() -> void:
-	main_skill_xuanwu_damage = 0.3
+	main_skill_xuanwu_damage = 0.45
 	xuanwu_hp_damage_ratio = 0.35
 	xuanwu_range = 240.0
 	xuanwu_shield_base = 6
@@ -33,7 +33,7 @@ static func reset_data() -> void:
 	xuanwu_final_damage_multi = 1.0
 	xuanwu_shield_duration = 6.0
 
-enum State { FORWARD, RETURN, MISS }
+enum State {FORWARD, RETURN, MISS}
 var state = State.FORWARD
 
 var direction = Vector2.RIGHT
@@ -119,7 +119,8 @@ static func _build_data() -> Dictionary:
 	var atk_dmg = PC.pc_atk * damage_multiplier
 	var hp_dmg = PC.pc_max_hp * hp_damage_ratio
 	var total_damage = atk_dmg + hp_dmg
-	total_damage = total_damage * Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.lucky)
+	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
+	total_damage = total_damage * (1.0 + (Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.lucky) - 1.0))
 	
 	
 	if shield_bonus_damage > 0:
@@ -149,8 +150,8 @@ static func _build_data() -> Dictionary:
 	}
 
 func _ready():
-	connect("body_entered", Callable(self, "_on_body_entered"))
-	connect("area_entered", Callable(self, "_on_area_entered"))
+	connect("body_entered", Callable(self , "_on_body_entered"))
+	connect("area_entered", Callable(self , "_on_area_entered"))
 	
 	return_angle_offset = deg_to_rad(randf_range(-3, 3))
 
@@ -229,6 +230,8 @@ func _handle_hit(target: Node):
 				final_damage = final_damage * Faze.get_treasure_elite_boss_multiplier(PC.faze_treasure_level, PC.lucky)
 				
 			target.take_damage(int(final_damage), is_crit, false, "xuanwu")
+			# 击中粒子崩散特效
+			HitParticleSpawner.spawn_by_weapon(get_tree(), target.global_position, "xuanwu")
 			
 			# Check for abnormal status (for Xuanwu22 bonus)
 			if target.get("debuff_manager") and target.debuff_manager.has_method("get_debuff_count"):

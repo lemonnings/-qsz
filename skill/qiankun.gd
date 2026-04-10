@@ -14,7 +14,7 @@ var damage_per_debuff: float = 0.0
 var damage_per_enemy: float = 0.0
 var crit_on_3_debuffs: bool = false
 
-static var main_skill_qiankun_damage: float = 0.35
+static var main_skill_qiankun_damage: float = 0.55
 static var qiankun_final_damage_multi: float = 1.0
 static var qiankun_speed: float = 300.0
 static var qiankun_range: float = 240.0
@@ -26,7 +26,7 @@ static var qiankun_damage_per_enemy: float = 0.0
 static var qiankun_crit_on_3_debuffs: bool = false
 
 static func reset_data() -> void:
-	main_skill_qiankun_damage = 0.35
+	main_skill_qiankun_damage = 0.55
 	qiankun_final_damage_multi = 1.0
 	qiankun_speed = 300.0
 	qiankun_range = 240.0
@@ -38,7 +38,7 @@ static func reset_data() -> void:
 	qiankun_crit_on_3_debuffs = false
 
 
-enum State { IDLE, ATTACK, RETURN }
+enum State {IDLE, ATTACK, RETURN}
 var state: State = State.IDLE
 var player_ref: Node2D = null
 var idle_offset: Vector2 = Vector2.ZERO
@@ -185,7 +185,7 @@ func _process(delta: float) -> void:
 				# 贴图默认朝向左上 (-45度, -PI/4)
 				# 飞行方向 angle
 				# 目标 rotation = angle + PI/4
-				var angle = disp.angle() + PI/4
+				var angle = disp.angle() + PI / 4
 				rotation = lerp_angle(rotation, angle, 10.0 * delta)
 
 func setup(pos: Vector2, _is_qian: bool) -> void:
@@ -237,9 +237,7 @@ func update_stats() -> void:
 	if PC.selected_rewards.has("Qiankun2"):
 		search_range *= 1.5
 		
-	# Qiankun3: 激发
-	if PC.selected_rewards.has("Qiankun3"):
-		speed_per_enemy = 10.0
+	# Qiankun3: 激发（speed_per_enemy 已由 qiankun_speed_per_enemy 静态变量正确读取，值为0.02，无需重复覆盖）
 		
 	# Qiankun4: 乘虚
 	if PC.selected_rewards.has("Qiankun4"):
@@ -326,11 +324,11 @@ func _launch_logic() -> void:
 		# 目标角度 target_angle (例如 0度)
 		# 我们设置 rotation = target_angle - (-PI/4) = target_angle + PI/4
 		# 比如 target=0(右), rotation = 45度。45度时，贴图从 -45 转到 0。对的。
-		rotation = dir.angle() + PI/4
+		rotation = dir.angle() + PI / 4
 	else:
 		# 没有目标，向右飞
 		destination = global_position + Vector2.RIGHT * search_range
-		rotation = 0 + PI/4
+		rotation = 0 + PI / 4
 		
 	start_position = global_position
 	total_attack_distance = start_position.distance_to(destination)

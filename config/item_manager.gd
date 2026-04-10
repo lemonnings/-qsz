@@ -23,7 +23,7 @@ extends Node
 
 var items_data = {
 	"item_001": {
-		"item_name": " ",
+		"item_name": "回复精华",
 		"item_stack_max": 10,
 		"item_type": "immediate", # 立即生效
 		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/healths.png",
@@ -46,7 +46,6 @@ var items_data = {
 		"item_detail": "涎兽死后凝结的胶体，粘合性非常出色",
 		"item_rare": "common", # 稀有
 		"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
-		# "item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
 		"item_anime": "res://assets/animations/item_pickup_rare.tres"
 	},
 	"item_003": {
@@ -59,7 +58,7 @@ var items_data = {
 		"item_use_condition": "",
 		"item_detail": "少数涎兽体内存在的具有奇效的液体",
 		"item_rare": "rare",
-		"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
+		"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 		"item_anime": "res://assets/animations/item_pickup_common.tres"
 	},
 	"item_004": {
@@ -89,7 +88,7 @@ var items_data = {
 		"item_anime": "res://assets/animations/item_pickup_epic.tres"
 	},
 	"item_006": {
-		"item_name": "聚灵石",
+		"item_name": "聚灵髓",
 		"item_stack_max": 9999,
 		"item_type": "material",
 		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/juling.png",
@@ -102,7 +101,7 @@ var items_data = {
 		"item_anime": "res://assets/animations/item_pickup_legendary.tres"
 	},
 	"item_007": {
-		"item_name": "灵石碎片",
+		"item_name": "灵髓碎片",
 		"item_stack_max": 9999,
 		"item_type": "material",
 		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/julingsuipian.png",
@@ -163,7 +162,7 @@ var items_data = {
 			"item_use_condition": "",
 			"item_detail": "怪物体内储毒的囊袋，炼毒或制药常用材",
 			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_013": {
@@ -176,7 +175,7 @@ var items_data = {
 			"item_use_condition": "",
 			"item_detail": "特制纸片，耐灵力冲刷，刻绘符阵的常备材",
 			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1), # 蓝色
+			"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_014": {
@@ -215,7 +214,7 @@ var items_data = {
 			"item_use_condition": "",
 			"item_detail": "坚硬的外壳碎片，可用于强化护具与器胚",
 			"item_rare": "common",
-			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
 		"item_017": {
@@ -306,7 +305,7 @@ var items_data = {
 			"item_use_condition": "",
 			"item_detail": "蕴含仙灵气的木材，法器坯料的上佳选择",
 			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_024": {
@@ -319,7 +318,7 @@ var items_data = {
 			"item_use_condition": "",
 			"item_detail": "人参的灵性精华，药效强劲",
 			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_025": {
@@ -332,7 +331,7 @@ var items_data = {
 			"item_use_condition": "",
 			"item_detail": "纯净灯油，炼制灵灯或引火法阵的核心材料",
 			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_026": {
@@ -345,7 +344,7 @@ var items_data = {
 			"item_use_condition": "",
 			"item_detail": "蟾妖腹中灵珠，可稳固毒性与水性术式",
 			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_027": {
@@ -358,7 +357,7 @@ var items_data = {
 			"item_use_condition": "",
 			"item_detail": "上好墨汁精华，刻阵绘符必备",
 			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_028": {
@@ -371,7 +370,7 @@ var items_data = {
 			"item_use_condition": "",
 			"item_detail": "矿石内核髓质，炼器时提升稳定与强度",
 			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_029": {
@@ -384,7 +383,7 @@ var items_data = {
 			"item_use_condition": "",
 			"item_detail": "研磨而成的骨粉，炼符与炼药的辅材",
 			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_030": {
@@ -397,7 +396,7 @@ var items_data = {
 			"item_use_condition": "",
 			"item_detail": "薄如雾的绢布，适合包裹灵材与导灵",
 			"item_rare": "rare",
-			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_color": Color(0.8, 0.8, 0.8, 1), # 白色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_031": {
@@ -473,7 +472,7 @@ var items_data = {
 			"item_price": 500,
 			"item_source": "合成获得",
 			"item_use_condition": "",
-			"item_detail": "使玄元（提升HP）修炼上限提升4阶",
+			"item_detail": "使玄元（提升HP）修炼上限提升4阶（最多8次）",
 			"item_rare": "rare",
 			"item_color": Color(0.2, 0.5, 1.0, 1),
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
@@ -486,7 +485,7 @@ var items_data = {
 			"item_price": 500,
 			"item_source": "合成获得",
 			"item_use_condition": "",
-			"item_detail": "使破虚（提升攻击）修炼上限提升4阶",
+			"item_detail": "使破虚（提升攻击）修炼上限提升4阶（最多8次）",
 			"item_rare": "rare",
 			"item_color": Color(0.2, 0.5, 1.0, 1),
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
@@ -499,7 +498,7 @@ var items_data = {
 			"item_price": 500,
 			"item_source": "合成获得",
 			"item_use_condition": "",
-			"item_detail": "使化灵（提升灵气获取）修炼上限提升4阶",
+			"item_detail": "使化灵（提升灵气获取）修炼上限提升4阶（最多8次）",
 			"item_rare": "rare",
 			"item_color": Color(0.2, 0.5, 1.0, 1),
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
@@ -512,7 +511,7 @@ var items_data = {
 			"item_price": 500,
 			"item_source": "合成获得",
 			"item_use_condition": "",
-			"item_detail": "攻速方向上限+2",
+			"item_detail": "使流光（提升攻速）修炼上限提升2阶（最多8次）",
 			"item_rare": "rare",
 			"item_color": Color(0.2, 0.5, 1.0, 1),
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
@@ -568,6 +567,532 @@ var items_data = {
 			"item_rare": "epic", # 传说
 			"item_color": Color(0.7, 0.3, 0.9, 1), # 紫色
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_044": {
+			"item_name": "晶核",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/mojing.png",
+			"item_price": 35,
+			"item_source": "击败晶属性怪物获取",
+			"item_use_condition": "",
+			"item_detail": "晶质核心，内含稳定的灵气残留",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_045": {
+			"item_name": "草药",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fenglingcao.png",
+			"item_price": 20,
+			"item_source": "采集或击败植物系怪物获取",
+			"item_use_condition": "",
+			"item_detail": "带有淡淡的灵力气息的野地草药",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_046": {
+			"item_name": "兽骨",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/gufen.png",
+			"item_price": 40,
+			"item_source": "击败兽类怪物获取",
+			"item_use_condition": "",
+			"item_detail": "坚韧的兽骨，可用于炼器与强化护具",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		# ============== 一阶丹药 ==============
+		"item_047": {
+			"item_name": "破阵散",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huamaidan.png",
+			"item_price": 200,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使破虚（提升攻击）修炼上限提升2阶（最多10次）",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_048": {
+			"item_name": "固元散",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xuanludan.png",
+			"item_price": 200,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使玄元（提升HP）修炼上限提升2阶（最多10次）",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_049": {
+			"item_name": "明光散",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xunfengdan.png",
+			"item_price": 200,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使流光（提升攻速）修炼上限提升1阶（最多10次）",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_050": {
+			"item_name": "引灵散",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jilingdan.png",
+			"item_price": 200,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使化灵（提升灵气获取）修炼上限提升2阶（最多10次）",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_051": {
+			"item_name": "磨锋散",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huolingjing.png",
+			"item_price": 200,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使锋锐（提升暴击率）修炼上限提升1阶（最多10次）",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_052": {
+			"item_name": "铁骨散",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jiake.png",
+			"item_price": 200,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使护体（提升减伤率）修炼上限提升1阶（最多10次）",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_053": {
+			"item_name": "疾步散",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fenglingcao.png",
+			"item_price": 200,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使追风（提升移速）修炼上限提升1阶（最多10次）",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_054": {
+			"item_name": "爆烈散",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanhuo.png",
+			"item_price": 200,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使烈劲（提升暴击伤害）修炼上限提升2阶（最多10次）",
+			"item_rare": "common",
+			"item_color": Color(0.8, 0.8, 0.8, 1),
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		# ============== 二阶丹药（新增） ==============
+		"item_055": {
+			"item_name": "锐锋丹",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huolingjing.png",
+			"item_price": 500,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使锋锐（提升暴击率）修炼上限提升2阶（最多8次）",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_056": {
+			"item_name": "金身丹",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jiake.png",
+			"item_price": 500,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使护体（提升减伤率）修炼上限提升2阶（最多8次）",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_057": {
+			"item_name": "追风丹",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xunfengdan.png",
+			"item_price": 500,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使追风（提升移速）修炼上限提升2阶（最多8次）",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_058": {
+			"item_name": "烈焰丹",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanhuo.png",
+			"item_price": 500,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "使烈劲（提升暴击伤害）修炼上限提升4阶（最多8次）",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		# ============== 三阶丹药 ==============
+		"item_060": {
+			"item_name": "碎天丸",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huamaidan.png",
+			"item_price": 1000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使破虚（提升攻击）修炼上限提升6阶（最多6次）",
+			"item_rare": "epic",
+			"item_color": Color(0.7, 0.3, 0.9, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_061": {
+			"item_name": "厚土丸",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xuanludan.png",
+			"item_price": 1000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使玄元（提升HP）修炼上限提升6阶（最多6次）",
+			"item_rare": "epic",
+			"item_color": Color(0.7, 0.3, 0.9, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_062": {
+			"item_name": "迅影丸",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xunfengdan.png",
+			"item_price": 1000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使流光（提升攻速）修炼上限提升3阶（最多6次）",
+			"item_rare": "epic",
+			"item_color": Color(0.7, 0.3, 0.9, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_063": {
+			"item_name": "凝灵丸",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jilingdan.png",
+			"item_price": 1000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使化灵（提升灵气获取）修炼上限提升6阶（最多6次）",
+			"item_rare": "epic",
+			"item_color": Color(0.7, 0.3, 0.9, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_064": {
+			"item_name": "裂锋丸",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huolingjing.png",
+			"item_price": 1000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使锋锐（提升暴击率）修炼上限提升3阶（最多6次）",
+			"item_rare": "epic",
+			"item_color": Color(0.7, 0.3, 0.9, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_065": {
+			"item_name": "玄甲丸",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jiake.png",
+			"item_price": 1000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使护体（提升减伤率）修炼上限提升3阶（最多6次）",
+			"item_rare": "epic",
+			"item_color": Color(0.7, 0.3, 0.9, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_066": {
+			"item_name": "御风丸",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fenglingcao.png",
+			"item_price": 1000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使追风（提升移速）修炼上限提升3阶（最多6次）",
+			"item_rare": "epic",
+			"item_color": Color(0.7, 0.3, 0.9, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_067": {
+			"item_name": "雷霆丸",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanhuo.png",
+			"item_price": 1000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使烈劲（提升暴击伤害）修炼上限提升6阶（最多6次）",
+			"item_rare": "epic",
+			"item_color": Color(0.7, 0.3, 0.9, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		# ============== 四阶丹药 ==============
+		"item_068": {
+			"item_name": "灭虚膏",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huamaidan.png",
+			"item_price": 2000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使破虚（提升攻击）修炼上限提升8阶（最多4次）",
+			"item_rare": "legendary",
+			"item_color": Color(1.0, 0.8, 0.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_069": {
+			"item_name": "不灭膏",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xuanludan.png",
+			"item_price": 2000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使玄元（提升HP）修炼上限提升8阶（最多4次）",
+			"item_rare": "legendary",
+			"item_color": Color(1.0, 0.8, 0.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_070": {
+			"item_name": "瞬光膏",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xunfengdan.png",
+			"item_price": 2000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使流光（提升攻速）修炼上限提升4阶（最多4次）",
+			"item_rare": "legendary",
+			"item_color": Color(1.0, 0.8, 0.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_071": {
+			"item_name": "通灵膏",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jilingdan.png",
+			"item_price": 2000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使化灵（提升灵气获取）修炼上限提升8阶（最多4次）",
+			"item_rare": "legendary",
+			"item_color": Color(1.0, 0.8, 0.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_072": {
+			"item_name": "断魂膏",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huolingjing.png",
+			"item_price": 2000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使锋锐（提升暴击率）修炼上限提升4阶（最多4次）",
+			"item_rare": "legendary",
+			"item_color": Color(1.0, 0.8, 0.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_073": {
+			"item_name": "金刚膏",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jiake.png",
+			"item_price": 2000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使护体（提升减伤率）修炼上限提升4阶（最多4次）",
+			"item_rare": "legendary",
+			"item_color": Color(1.0, 0.8, 0.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_074": {
+			"item_name": "疾影膏",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fenglingcao.png",
+			"item_price": 2000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使追风（提升移速）修炼上限提升4阶（最多4次）",
+			"item_rare": "legendary",
+			"item_color": Color(1.0, 0.8, 0.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_075": {
+			"item_name": "焚天膏",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanhuo.png",
+			"item_price": 2000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使烈劲（提升暴击伤害）修炼上限提升8阶（最多4次）",
+			"item_rare": "legendary",
+			"item_color": Color(1.0, 0.8, 0.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		# ============== 五阶丹药 ==============
+		"item_076": {
+			"item_name": "天罡破虚露",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huamaidan.png",
+			"item_price": 5000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使破虚（提升攻击）修炼上限提升10阶（最多3次）",
+			"item_rare": "artifact",
+			"item_color": Color(1.0, 0.2, 0.2, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_077": {
+			"item_name": "天罡玄元露",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xuanludan.png",
+			"item_price": 5000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使玄元（提升HP）修炼上限提升10阶（最多3次）",
+			"item_rare": "artifact",
+			"item_color": Color(1.0, 0.2, 0.2, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_078": {
+			"item_name": "天罡流光露",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xunfengdan.png",
+			"item_price": 5000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使流光（提升攻速）修炼上限提升5阶（最多3次）",
+			"item_rare": "artifact",
+			"item_color": Color(1.0, 0.2, 0.2, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_079": {
+			"item_name": "天罡化灵露",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jilingdan.png",
+			"item_price": 5000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使化灵（提升灵气获取）修炼上限提升10阶（最多3次）",
+			"item_rare": "artifact",
+			"item_color": Color(1.0, 0.2, 0.2, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_080": {
+			"item_name": "天罡锋锐露",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huolingjing.png",
+			"item_price": 5000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使锋锐（提升暴击率）修炼上限提升5阶（最多3次）",
+			"item_rare": "artifact",
+			"item_color": Color(1.0, 0.2, 0.2, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_081": {
+			"item_name": "天罡护体露",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jiake.png",
+			"item_price": 5000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使护体（提升减伤率）修炼上限提升5阶（最多3次）",
+			"item_rare": "artifact",
+			"item_color": Color(1.0, 0.2, 0.2, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_082": {
+			"item_name": "天罡追风露",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fenglingcao.png",
+			"item_price": 5000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使追风（提升移速）修炼上限提升5阶（最多3次）",
+			"item_rare": "artifact",
+			"item_color": Color(1.0, 0.2, 0.2, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_083": {
+			"item_name": "天罡烈劲露",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanhuo.png",
+			"item_price": 5000,
+			"item_source": "暂无合成途径",
+			"item_use_condition": "",
+			"item_detail": "使烈劲（提升暴击伤害）修炼上限提升10阶（最多3次）",
+			"item_rare": "artifact",
+			"item_color": Color(1.0, 0.2, 0.2, 1),
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		# ============== 特殊物品 ==============
+		"item_059": {
+			"item_name": "进货单",
+			"item_stack_max": 99,
+			"item_type": "special",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/qizhi.png",
+			"item_price": 300,
+			"item_source": "合成获得",
+			"item_use_condition": "",
+			"item_detail": "记录着货物清单的纸条，可用于商店进货",
+			"item_rare": "rare",
+			"item_color": Color(0.2, 0.5, 1.0, 1),
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		}
 		# 更多物品可以添加到这里
 	}
@@ -581,11 +1106,96 @@ var item_function = {
 # 注意：立即生效的物品（如野果）不应该在这里，它们在拾取时直接生效
 var usable_items = {
 	"item_001": true,
-	"item_036": true, # 玄露丹
-	"item_037": true, # 化脉丹
-	"item_038": true, # 汲灵丹
-	"item_039": true, # 迅风丹
-	"item_040": true # 回春露
+	"item_036": true, # 玄露丹（二阶）
+	"item_037": true, # 化脉丹（二阶）
+	"item_038": true, # 汲灵丹（二阶）
+	"item_039": true, # 迅风丹（二阶）
+	"item_040": true, # 回春露
+	"item_047": true, # 破阵散（一阶）
+	"item_048": true, # 固元散（一阶）
+	"item_049": true, # 明光散（一阶）
+	"item_050": true, # 引灵散（一阶）
+	"item_051": true, # 磨锋散（一阶）
+	"item_052": true, # 铁骨散（一阶）
+	"item_053": true, # 疾步散（一阶）
+	"item_054": true, # 爆烈散（一阶）
+	"item_055": true, # 锐锋丹（二阶）
+	"item_056": true, # 金身丹（二阶）
+	"item_057": true, # 追风丹（二阶）
+	"item_058": true, # 烈焰丹（二阶）
+	"item_060": true, # 碎天丸（三阶）
+	"item_061": true, # 厚土丸（三阶）
+	"item_062": true, # 迅影丸（三阶）
+	"item_063": true, # 凝灵丸（三阶）
+	"item_064": true, # 裂锋丸（三阶）
+	"item_065": true, # 玄甲丸（三阶）
+	"item_066": true, # 御风丸（三阶）
+	"item_067": true, # 雷霆丸（三阶）
+	"item_068": true, # 灭虚膏（四阶）
+	"item_069": true, # 不灭膏（四阶）
+	"item_070": true, # 瞬光膏（四阶）
+	"item_071": true, # 通灵膏（四阶）
+	"item_072": true, # 断魂膏（四阶）
+	"item_073": true, # 金刚膏（四阶）
+	"item_074": true, # 疾影膏（四阶）
+	"item_075": true, # 焚天膏（四阶）
+	"item_076": true, # 天罡破虚露（五阶）
+	"item_077": true, # 天罡玄元露（五阶）
+	"item_078": true, # 天罡流光露（五阶）
+	"item_079": true, # 天罡化灵露（五阶）
+	"item_080": true, # 天罡锋锐露（五阶）
+	"item_081": true, # 天罡护体露（五阶）
+	"item_082": true, # 天罡追风露（五阶）
+	"item_083": true # 天罡烈劲露（五阶）
+}
+
+# 丹药效果配置表：item_id -> {"var": 全局变量名, "bonus": 每次加成, "max_uses": 最大使用次数}
+var pill_config = {
+	# 一阶丹药（最多10次）
+	"item_047": {"var": "cultivation_poxu_level_max", "bonus": 2, "max_uses": 10},
+	"item_048": {"var": "cultivation_xuanyuan_level_max", "bonus": 2, "max_uses": 10},
+	"item_049": {"var": "cultivation_liuguang_level_max", "bonus": 1, "max_uses": 10},
+	"item_050": {"var": "cultivation_hualing_level_max", "bonus": 2, "max_uses": 10},
+	"item_051": {"var": "cultivation_fengrui_level_max", "bonus": 1, "max_uses": 10},
+	"item_052": {"var": "cultivation_huti_level_max", "bonus": 1, "max_uses": 10},
+	"item_053": {"var": "cultivation_zhuifeng_level_max", "bonus": 1, "max_uses": 10},
+	"item_054": {"var": "cultivation_liejin_level_max", "bonus": 2, "max_uses": 10},
+	# 二阶丹药（最多8次）
+	"item_037": {"var": "cultivation_poxu_level_max", "bonus": 4, "max_uses": 8},
+	"item_036": {"var": "cultivation_xuanyuan_level_max", "bonus": 4, "max_uses": 8},
+	"item_039": {"var": "cultivation_liuguang_level_max", "bonus": 2, "max_uses": 8},
+	"item_038": {"var": "cultivation_hualing_level_max", "bonus": 4, "max_uses": 8},
+	"item_055": {"var": "cultivation_fengrui_level_max", "bonus": 2, "max_uses": 8},
+	"item_056": {"var": "cultivation_huti_level_max", "bonus": 2, "max_uses": 8},
+	"item_057": {"var": "cultivation_zhuifeng_level_max", "bonus": 2, "max_uses": 8},
+	"item_058": {"var": "cultivation_liejin_level_max", "bonus": 4, "max_uses": 8},
+	# 三阶丹药（最多6次）
+	"item_060": {"var": "cultivation_poxu_level_max", "bonus": 6, "max_uses": 6},
+	"item_061": {"var": "cultivation_xuanyuan_level_max", "bonus": 6, "max_uses": 6},
+	"item_062": {"var": "cultivation_liuguang_level_max", "bonus": 3, "max_uses": 6},
+	"item_063": {"var": "cultivation_hualing_level_max", "bonus": 6, "max_uses": 6},
+	"item_064": {"var": "cultivation_fengrui_level_max", "bonus": 3, "max_uses": 6},
+	"item_065": {"var": "cultivation_huti_level_max", "bonus": 3, "max_uses": 6},
+	"item_066": {"var": "cultivation_zhuifeng_level_max", "bonus": 3, "max_uses": 6},
+	"item_067": {"var": "cultivation_liejin_level_max", "bonus": 6, "max_uses": 6},
+	# 四阶丹药（最多4次）
+	"item_068": {"var": "cultivation_poxu_level_max", "bonus": 8, "max_uses": 4},
+	"item_069": {"var": "cultivation_xuanyuan_level_max", "bonus": 8, "max_uses": 4},
+	"item_070": {"var": "cultivation_liuguang_level_max", "bonus": 4, "max_uses": 4},
+	"item_071": {"var": "cultivation_hualing_level_max", "bonus": 8, "max_uses": 4},
+	"item_072": {"var": "cultivation_fengrui_level_max", "bonus": 4, "max_uses": 4},
+	"item_073": {"var": "cultivation_huti_level_max", "bonus": 4, "max_uses": 4},
+	"item_074": {"var": "cultivation_zhuifeng_level_max", "bonus": 4, "max_uses": 4},
+	"item_075": {"var": "cultivation_liejin_level_max", "bonus": 8, "max_uses": 4},
+	# 五阶丹药（最多3次）
+	"item_076": {"var": "cultivation_poxu_level_max", "bonus": 10, "max_uses": 3},
+	"item_077": {"var": "cultivation_xuanyuan_level_max", "bonus": 10, "max_uses": 3},
+	"item_078": {"var": "cultivation_liuguang_level_max", "bonus": 5, "max_uses": 3},
+	"item_079": {"var": "cultivation_hualing_level_max", "bonus": 10, "max_uses": 3},
+	"item_080": {"var": "cultivation_fengrui_level_max", "bonus": 5, "max_uses": 3},
+	"item_081": {"var": "cultivation_huti_level_max", "bonus": 5, "max_uses": 3},
+	"item_082": {"var": "cultivation_zhuifeng_level_max", "bonus": 5, "max_uses": 3},
+	"item_083": {"var": "cultivation_liejin_level_max", "bonus": 10, "max_uses": 3}
 }
 
 # 根据物品ID获取该物品的所有数据
@@ -697,20 +1307,20 @@ func use_item(item_id: String, count: int = 1) -> Dictionary:
 
 # 执行物品使用效果
 func _execute_item_use_effect(item_id: String, count: int) -> bool:
+	# 丹药类：通过 pill_config 数据驱动处理
+	if pill_config.has(item_id):
+		var cfg = pill_config[item_id]
+		var used = Global.pill_used_counts.get(item_id, 0)
+		var remaining = cfg.max_uses - used
+		if remaining <= 0:
+			return false
+		var actual = mini(count, remaining)
+		Global.set(cfg["var"], Global.get(cfg["var"]) + cfg.bonus * actual)
+		Global.pill_used_counts[item_id] = used + actual
+		return true
+	# 非丹药类物品
 	match item_id:
 		"item_008":
-			return true
-		"item_036": # 玄露丹 - 使玄元（提升HP）修炼上限提升4阶
-			Global.cultivation_xuanyuan_level_max += 4 * count
-			return true
-		"item_037": # 化脉丹 - 使破虚（提升攻击）修炼上限提升4阶
-			Global.cultivation_poxu_level_max += 4 * count
-			return true
-		"item_038": # 汲灵丹 - 使化灵（提升灵气获取）修炼上限提升4阶
-			Global.cultivation_hualing_level_max += 4 * count
-			return true
-		"item_039": # 迅风丹 - 攻速方向上限+2（流光）
-			Global.cultivation_liuguang_level_max += 2 * count
 			return true
 		"item_040": # 回春露 - 果实回复效果提升10%（最多10次）
 			var remaining_uses = 10 - Global.fruit_heal_multi_used_count

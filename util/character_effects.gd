@@ -51,6 +51,8 @@ static func _create_ellipse_shadow_texture(width: int, height: int) -> ImageText
 ## 返回需要应用的位移向量
 static func calculate_enemy_separation(current_enemy: Area2D, min_distance: float = 15.0) -> Vector2:
 	var separation = Vector2.ZERO
+	if not current_enemy.monitoring:
+		return separation
 	var overlapping = current_enemy.get_overlapping_areas()
 	
 	for other in overlapping:
@@ -99,6 +101,10 @@ static func apply_separation(enemy: Area2D, enemy_min_dist: float = 15.0, player
 	
 	var separation = Vector2.ZERO
 	var has_separation = false
+	
+	# 检查监测状态，如果未启用则直接返回
+	if not enemy.monitoring:
+		return
 	
 	# 敌人之间的推挤
 	var overlapping = enemy.get_overlapping_areas()

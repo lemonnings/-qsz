@@ -67,12 +67,12 @@ func _on_player_hit(attacker: Node2D = null) -> void:
 	_trigger_electrified("hit")
 
 func _on_player_healed(amount: float) -> void:
-	_fire_heal_bullet(amount)
+	_fire_heal_bullet(amount, true) # true = 治疗来源
 
 func _on_player_shield_damaged(amount: float) -> void:
-	_fire_heal_bullet(amount)
+	_fire_heal_bullet(amount, false) # false = 护盾损失来源
 
-func _fire_heal_bullet(amount: float) -> void:
+func _fire_heal_bullet(amount: float, is_heal: bool) -> void:
 	if PC.faze_heal_level < 6:
 		return
 	if PC.is_game_over:
@@ -99,22 +99,27 @@ func _fire_heal_bullet(amount: float) -> void:
 		return
 
 	# Calculate damage
-	# 100% ATK + amount * 600%
-	var base_damage = float(PC.pc_atk) + amount * 6.0
+	# 治疗来源: 60% ATK + amount * 2400%
+	# 护盾损失来源: 60% ATK + amount * 1600%
+	var amount_multiplier = 24.0 if is_heal else 16.0
+	var base_damage = float(PC.pc_atk) * 0.6 + amount * amount_multiplier
 	var final_damage = base_damage
 	
-	# Tier 8: Double damage
-	if PC.faze_heal_level >= 8:
-		final_damage *= 2.0
-		
-	# Tier 11: 5x damage (replaces double? or multiplies? "翻5倍" usually means 5x base, or 5x total. Assuming 5x base instead of 2x)
-	# User says: "弹体伤害翻5倍" at tier 11. Tier 8 says "弹体伤害翻倍".
-	# Usually this means Tier 11 replaces Tier 8 multiplier.
-	if PC.faze_heal_level >= 11:
-		final_damage = base_damage * 5.0
+	# 等级乘算累加：每级提升10%（从6阶开始）
+	# 公式：1.10^(level - 6)
+	var level_multiplier = pow(1.10, PC.faze_heal_level - 6)
+	final_damage *= level_multiplier
 	
-	var is_crit = false
+	# Tier 8: 弹体伤害*150%
 	if PC.faze_heal_level >= 8:
+		final_damage *= 1.5
+		
+	# Tier 11: 弹体伤害累计*600%（替换8阶的*150%为*600%）
+	if PC.faze_heal_level >= 11:
+		final_damage *= 4.0 # 8阶*1.5 -> 替换为*6.0，所以*4.0
+		
+	var is_crit = false
+	if PC.faze_heal_level >= 11:
 		if randf() < PC.crit_chance:
 			is_crit = true
 			final_damage *= PC.crit_damage_multi
@@ -655,13 +660,13 @@ static func apply_destroy_crit_overflow(base_chance: float, base_crit_multi: flo
 static func get_life_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
-		bonus += 0.3
+		bonus += 0.25
 	if level >= 7:
-		bonus += 0.4
+		bonus += 0.35
 	if level >= 10:
-		bonus += 0.9
+		bonus += 0.80
 	if level >= 13:
-		bonus += 1.8
+		bonus += 1.80
 	return 1.0 + bonus
 
 static func get_life_range_multiplier(level: int) -> float:
@@ -674,11 +679,11 @@ static func get_life_exp_multiplier(level: int) -> float:
 	if level >= 13:
 		return 3.0
 	if level >= 10:
-		return 1.7
+		return 1.8
 	if level >= 7:
-		return 1.35
+		return 1.4
 	if level >= 4:
-		return 1.15
+		return 1.2
 	return 1.0
 
 static func get_exp_multiplier() -> float:
@@ -775,7 +780,7 @@ static func get_treasure_extra_refresh_count(level: int, lucky: int) -> int:
 		return 0
 	if lucky <= 0:
 		return 0
-	return int(lucky / 20)
+	return int(lucky / 20.0)
 
 static func get_skill_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
@@ -792,13 +797,13 @@ static func get_skill_damage_multiplier(level: int) -> float:
 static func get_wind_weapon_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
-		bonus += 0.15
+		bonus += 0.25
 	if level >= 7:
-		bonus += 0.20
-	if level >= 10:
 		bonus += 0.35
+	if level >= 10:
+		bonus += 0.45
 	if level >= 13:
-		bonus += 0.80
+		bonus += 0.90
 	return 1.0 + bonus
 
 static func get_wind_base_move_speed_bonus(level: int) -> float:
@@ -966,21 +971,21 @@ func _update_sixsense_bonus() -> void:
 static func get_bullet_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
-		bonus += 0.2
+		bonus += 0.10
 	if level >= 10:
-		bonus += 0.4
+		bonus += 0.35
 	if level >= 13:
-		bonus += 0.6
+		bonus += 0.50
 	if level >= 17:
-		bonus += 1.2
+		bonus += 1.20
 	return 1.0 + bonus
 
 static func get_bullet_range_multiplier(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
-		bonus += 0.1
+		bonus += 0.20
 	if level >= 10:
-		bonus += 0.3
+		bonus += 0.30
 	return 1.0 + bonus
 
 static func get_sword_attack_speed_multiplier(level: int) -> float:
@@ -1047,6 +1052,17 @@ static func on_sword_weapon_hit(enemy: Node) -> void:
 	enemy.set_meta("coldlight_stack", stack)
 	enemy.set_meta("coldlight_nodes", nodes)
 
+# 怪物死亡时立即清除刀剑法则冷光图像效果
+static func clear_sword_faze_effects(enemy: Node) -> void:
+	if not enemy.has_meta("coldlight_nodes"):
+		return
+	var nodes: Array = enemy.get_meta("coldlight_nodes")
+	for node in nodes:
+		if is_instance_valid(node):
+			node.queue_free()
+	enemy.set_meta("coldlight_stack", 0)
+	enemy.set_meta("coldlight_nodes", [])
+
 static func on_bullet_hit() -> void:
 	if PC.faze_bullet_level < 7:
 		return
@@ -1067,7 +1083,7 @@ func _start_barrage() -> void:
 	barrage_running = true
 	var level = PC.faze_bullet_level
 	var total_bullets = _get_barrage_total_bullets(level)
-	var wave_count = int(total_bullets / 45)
+	var wave_count = int(total_bullets / 45.0)
 	var damage_multiplier = _get_barrage_damage_multiplier(level)
 	var damage = PC.pc_atk * damage_multiplier
 	for i in range(wave_count):
@@ -1104,8 +1120,8 @@ static func _get_barrage_damage_multiplier(level: int) -> float:
 	if level >= 13:
 		return 3.2
 	if level >= 10:
-		return 1.8
-	return 0.8
+		return 1.5
+	return 0.65
 
 static func _sync_barrage_charge_buff() -> void:
 	if PC.faze_bullet_level < 7:
@@ -1153,9 +1169,9 @@ static func get_thunder_electrified_elite_bonus(level: int) -> float:
 static func get_heal_shield_bonus(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
-		bonus += 0.2
+		bonus += 0.30
 	if level >= 8:
 		bonus += 0.35
 	if level >= 11:
-		bonus += 0.45
+		bonus += 0.50
 	return bonus

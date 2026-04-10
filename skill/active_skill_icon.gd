@@ -25,9 +25,9 @@ func _ready() -> void:
 		cooldown_progress.texture_progress = texture_normal
 	
 	# 连接主动技能管理器信号
-	if Global.ActiveSkillManager:
-		Global.ActiveSkillManager.skill_cooldown_started.connect(_on_skill_cooldown_started)
-		Global.ActiveSkillManager.skill_cooldown_finished.connect(_on_skill_cooldown_finished)
+	if Global.active_skill_manager:
+		Global.active_skill_manager.skill_cooldown_started.connect(_on_skill_cooldown_started)
+		Global.active_skill_manager.skill_cooldown_finished.connect(_on_skill_cooldown_finished)
 
 func _setup_ui_nodes() -> void:
 	# 设置UI节点引用
@@ -52,11 +52,11 @@ func _setup_ui_nodes() -> void:
 	hotkey_label.show()
 	
 	# 连接主动技能管理器信号（因为脚本是动态替换的，_ready不会被调用）
-	if Global.ActiveSkillManager:
-		if not Global.ActiveSkillManager.skill_cooldown_started.is_connected(_on_skill_cooldown_started):
-			Global.ActiveSkillManager.skill_cooldown_started.connect(_on_skill_cooldown_started)
-		if not Global.ActiveSkillManager.skill_cooldown_finished.is_connected(_on_skill_cooldown_finished):
-			Global.ActiveSkillManager.skill_cooldown_finished.connect(_on_skill_cooldown_finished)
+	if Global.active_skill_manager:
+		if not Global.active_skill_manager.skill_cooldown_started.is_connected(_on_skill_cooldown_started):
+			Global.active_skill_manager.skill_cooldown_started.connect(_on_skill_cooldown_started)
+		if not Global.active_skill_manager.skill_cooldown_finished.is_connected(_on_skill_cooldown_finished):
+			Global.active_skill_manager.skill_cooldown_finished.connect(_on_skill_cooldown_finished)
 
 func setup_active_skill(slot: String, hotkey_text: String) -> void:
 	## 初始化主动技能图标

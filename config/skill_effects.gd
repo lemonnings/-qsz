@@ -64,7 +64,7 @@ static func apply_skill_effect(player_name: String, study_level: int, skill_name
 # 奕秋 - 第1层级 - up1技能效果实现
 static func apply_yiqiu_1_up1_1() -> void:
 	# 习得闪避 - 等级1
-	var skill_manager = Global.ActiveSkillManager
+	var skill_manager = Global.active_skill_manager
 	if not skill_manager:
 		push_error("ActiveSkillManager未找到，无法解锁闪避技能")
 		return
@@ -88,7 +88,7 @@ static func apply_yiqiu_1_up1_1() -> void:
 # 奕秋 - 第1层级 - up11技能效果实现
 static func apply_yiqiu_1_up11_1() -> void:
 	# 闪避无敌时间 - 等级1 (0.3秒)
-	var skill_manager = Global.ActiveSkillManager
+	var skill_manager = Global.active_skill_manager
 	if not skill_manager:
 		push_error("ActiveSkillManager未找到，无法修改闪避无敌时间")
 		return
@@ -103,7 +103,7 @@ static func apply_yiqiu_1_up11_1() -> void:
 
 static func apply_yiqiu_1_up11_2() -> void:
 	# 闪避无敌时间 - 等级2 (0.4秒)
-	var skill_manager = Global.ActiveSkillManager
+	var skill_manager = Global.active_skill_manager
 	if not skill_manager:
 		push_error("ActiveSkillManager未找到，无法修改闪避无敌时间")
 		return
@@ -118,7 +118,7 @@ static func apply_yiqiu_1_up11_2() -> void:
 
 static func apply_yiqiu_1_up11_3() -> void:
 	# 闪避无敌时间 - 等级3 (0.5秒)
-	var skill_manager = Global.ActiveSkillManager
+	var skill_manager = Global.active_skill_manager
 	if not skill_manager:
 		push_error("ActiveSkillManager未找到，无法修改闪避无敌时间")
 		return
@@ -134,7 +134,7 @@ static func apply_yiqiu_1_up11_3() -> void:
 # 奕秋 - 第1层级 - up12技能效果实现
 static func apply_yiqiu_1_up12_1() -> void:
 	# 闪避冷却时间 - 等级1 (10秒)
-	var skill_manager = Global.ActiveSkillManager
+	var skill_manager = Global.active_skill_manager
 	if not skill_manager:
 		push_error("ActiveSkillManager未找到，无法修改闪避冷却时间")
 		return
@@ -149,7 +149,7 @@ static func apply_yiqiu_1_up12_1() -> void:
 
 static func apply_yiqiu_1_up12_2() -> void:
 	# 闪避冷却时间 - 等级2 (9秒)
-	var skill_manager = Global.ActiveSkillManager
+	var skill_manager = Global.active_skill_manager
 	if not skill_manager:
 		push_error("ActiveSkillManager未找到，无法修改闪避冷却时间")
 		return
@@ -164,7 +164,7 @@ static func apply_yiqiu_1_up12_2() -> void:
 
 static func apply_yiqiu_1_up12_3() -> void:
 	# 闪避冷却时间 - 等级3 (8秒)
-	var skill_manager = Global.ActiveSkillManager
+	var skill_manager = Global.active_skill_manager
 	if not skill_manager:
 		push_error("ActiveSkillManager未找到，无法修改闪避冷却时间")
 		return

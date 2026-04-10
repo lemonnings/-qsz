@@ -67,8 +67,8 @@ func _ready() -> void:
 	if PC.selected_rewards.has("SplitSwordQi2"):
 		sword_wave_trace_enabled = true
 	
-	# 检查是否启用SwordQi4追踪功能
-	if PC.selected_rewards.has("SplitSwordQi4"):
+	# 检查是否启用SwordQi4追踪功能（只对主剑气生效，不影响子剑气）
+	if PC.selected_rewards.has("SplitSwordQi4") and not is_other_sword_wave:
 		sword_qi4_enabled = true
 		find_nearest_enemy()
 	
@@ -175,23 +175,26 @@ func initialize_bullet_damage() -> void:
 	var base_damage: float
 	var can_crit: bool = not is_summon_bullet # 召唤物子弹不参与暴击
 	
+	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
+	var bullet_law_bonus = 0.0
+	if not is_summon_bullet:
+		bullet_law_bonus += (Faze.get_bullet_damage_multiplier(PC.faze_bullet_level) - 1.0) # 弹体法则
+	
 	if is_summon_bullet:
 		base_damage = summon_damage * PC.main_skill_swordQi_damage
 	elif is_ring_bullet:
-		base_damage = PC.pc_atk * ring_bullet_damage_multiplier * PC.main_skill_swordQi_damage
-		base_damage = base_damage * Faze.get_skill_damage_multiplier(PC.faze_skill_level)
+		var skill_law_bonus = (Faze.get_skill_damage_multiplier(PC.faze_skill_level) - 1.0) # 技能法则
+		base_damage = PC.pc_atk * (ring_bullet_damage_multiplier + bullet_law_bonus + skill_law_bonus) * PC.main_skill_swordQi_damage
 	elif is_wave_bullet:
 		# 新增：浪形子弹伤害为角色攻击的指定倍数（此处由调用处设置倍数，如0.5）
-		base_damage = PC.pc_atk * wave_bullet_damage_multiplier * PC.main_skill_swordQi_damage
-		base_damage = base_damage * Faze.get_skill_damage_multiplier(PC.faze_skill_level)
+		var skill_law_bonus = (Faze.get_skill_damage_multiplier(PC.faze_skill_level) - 1.0) # 技能法则
+		base_damage = PC.pc_atk * (wave_bullet_damage_multiplier + bullet_law_bonus + skill_law_bonus) * PC.main_skill_swordQi_damage
 	elif is_other_sword_wave:
-		base_damage = PC.pc_atk * PC.swordQi_other_sword_wave_damage * PC.main_skill_swordQi_damage
+		base_damage = PC.pc_atk * (PC.swordQi_other_sword_wave_damage + bullet_law_bonus) * PC.main_skill_swordQi_damage
 		if PC.selected_rewards.has("SplitSwordQi11"):
 			base_damage *= (1.0 + 0.05 * _get_extra_sword_wave_count())
 	else:
-		base_damage = PC.pc_atk * PC.main_skill_swordQi_damage
-	if not is_summon_bullet:
-		base_damage = base_damage * Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
+		base_damage = PC.pc_atk * (PC.main_skill_swordQi_damage + bullet_law_bonus)
 	
 	is_crit_hit = false
 	bullet_damage = base_damage
@@ -208,11 +211,11 @@ func initialize_bullet_damage() -> void:
 	bullet_damage *= extra_damage_multiplier
 
 # 应用buff效果到伤害
-func apply_buff_effects_to_damage(base_damage: float, is_summon_bullet: bool) -> float:
+func apply_buff_effects_to_damage(base_damage: float, p_is_summon_bullet: bool) -> float:
 	var final_damage = base_damage
 	
 	# 如果是召唤物子弹，不应用武器攻击相关的buff
-	if not is_summon_bullet:
+	if not p_is_summon_bullet:
 		# 血气：基础武器攻击附带2*层数%当前HP的伤害
 		if EmblemManager.has_emblem("xueqi"):
 			var xueqi_stack = EmblemManager.get_emblem_stack("xueqi")
@@ -264,7 +267,7 @@ func handle_penetration() -> bool:
 	var frame = Engine.get_process_frames()
 	if PC.swordQi_penetration_count > 1 and !PC.selected_rewards.has("SplitSwordQi31"):
 		var now_penetration_count = PC.swordQi_penetration_count - penetration_count + 1
-		bullet_damage = bullet_damage * (1 - (0.15 * now_penetration_count))
+		bullet_damage = bullet_damage * (1 - (0.4 * now_penetration_count))
 	# 如果是新的一帧，重置处理标志
 	if frame != current_frame:
 		current_frame = frame
@@ -341,48 +344,32 @@ func set_speed(new_speed: float) -> void:
 # 更新碰撞形状大小以匹配精灵缩放
 func update_collision_shape_size() -> void:
 	if collision_shape and collision_shape.shape:
-		# 获取当前的缩放值
-		var current_scale = scale
+		# 如果是RectangleShape2D
+		if collision_shape.shape is RectangleShape2D:
+			var rect_shape = collision_shape.shape as RectangleShape2D
+			# 基础大小定义
+			var original_size = Vector2(14, 26) 
+			rect_shape.size = original_size
+		
+		# 如果是CircleShape2D
+		elif collision_shape.shape is CircleShape2D:
+			var circle_shape = collision_shape.shape as CircleShape2D
+			var original_radius = 20.0 
+			if PC.selected_rewards.has("SplitSwordQi21"):
+				original_radius = 25.0
+			circle_shape.radius = original_radius
 
 
 func _create_sword_wave_instance(position: Vector2) -> void:
 	if PC.swordQi_penetration_count == 1 or (PC.swordQi_penetration_count > 1 and penetration_count == PC.swordQi_penetration_count):
 		if SwordWaveScene:
-			# todo，剑痕*2的改动
-			# if PC.selected_rewards.has("SplitSwordQi22"):
-			# 	var existing_waves = get_tree().get_nodes_in_group("sword_wave_trace")
-			# 	while existing_waves.size() >= 2:
-			# 		var oldest_wave = existing_waves.pop_front()
-			# 		if is_instance_valid(oldest_wave):
-			# 			oldest_wave.queue_free()
 			var sword_wave_instance = SwordWaveScene.instantiate()
 			# 将剑痕实例添加到与子弹相同的父节点下，或者一个专门管理特效的节点下
 			if get_parent():
 				get_parent().call_deferred("add_child", sword_wave_instance)
-				# 设置剑痕的初始位置（虽然setup_wave会重新计算，但先设置一个大致位置）
-				# sword_wave_instance.global_position = position # 延迟调用后，直接设置属性可能过早
 				# 调用剑痕的设置方法
 				if sword_wave_instance.has_method("setup_wave"):
-					# 确保在节点添加到场景树之后再调用 setup_wave
-					# 可以通过一个简短的延迟或者连接到 ready 信号（如果 setup_wave 依赖于 _ready）
-					# 更简单的方式是也延迟调用 setup_wave，并传递必要的参数
 					sword_wave_instance.call_deferred("setup_wave", position)
-			
-			# 如果是RectangleShape2D
-			if collision_shape.shape is RectangleShape2D:
-				var rect_shape = collision_shape.shape as RectangleShape2D
-				# 设置新的大小，基于原始大小和当前缩放
-				var original_size = Vector2(14, 26) # 原始碰撞形状大小
-				rect_shape.size = original_size * scale
-			
-			# 如果是CircleShape2D
-			elif collision_shape.shape is CircleShape2D:
-				var circle_shape = collision_shape.shape as CircleShape2D
-				# 设置新的半径，基于原始半径和当前缩放的平均值
-				var original_radius = 20.0 # 原始碰撞形状半径
-				if PC.selected_rewards.has("SplitSwordQi21"):
-					original_radius = 25.0
-				circle_shape.radius = original_radius * ((scale.x + scale.y) / 2.0)
 
 func _get_extra_sword_wave_count() -> int:
 	var count = 0

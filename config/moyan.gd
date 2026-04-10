@@ -209,9 +209,11 @@ func set_direction(new_direction: Vector2) -> void:
 
 # 初始化子弹的伤害和暴击状态
 func initialize_bullet_damage() -> void:
-	var base_damage: float = PC.pc_atk * PC.main_skill_moyan_damage
-	base_damage = base_damage * Faze.get_destroy_damage_multiplier(PC.faze_destroy_level)
-	base_damage = base_damage * Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level)
+	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
+	var damage_multiplier = PC.main_skill_moyan_damage
+	damage_multiplier += (Faze.get_destroy_damage_multiplier(PC.faze_destroy_level) - 1.0) # 破坏法则
+	damage_multiplier += (Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level) - 1.0) # 火焰法则
+	var base_damage: float = PC.pc_atk * damage_multiplier
 
 	is_crit_hit = false
 	bullet_damage = base_damage

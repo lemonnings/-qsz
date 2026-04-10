@@ -18,7 +18,7 @@ class_name PlayerSkillIntegration
 func setup_skill_system():
 	"""设置技能系统（在player_action.gd的_ready()中调用）"""
 	# 获取技能管理器引用
-	# skill_manager = Global.ActiveSkillManager
+	# skill_manager = Global.active_skill_manager
 	
 	# 连接技能事件
 	# if skill_manager:
@@ -166,7 +166,7 @@ func get_facing_direction() -> Vector2:
 6. 测试技能系统是否正常工作
 
 注意事项：
-- 确保Global.ActiveSkillManager已正确初始化
+- 确保Global.active_skill_manager已正确初始化
 - 技能系统只在非城镇环境下工作
 - 可以根据游戏需求调整技能效果和UI显示
 - 建议先使用测试脚本验证系统功能

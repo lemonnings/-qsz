@@ -5,7 +5,7 @@ class_name IceFlower
 @export var collision_shape: CollisionShape2D
 @export var rotation_offset: float = 0.0
 
-static var main_skill_ice_damage: float = 0.6
+static var main_skill_ice_damage: float = 0.65
 static var ice_flower_range: float = 132.0
 static var ice_flower_penetration_count: int = 0
 static var ice_flower_pierce_decay: float = 0.0
@@ -16,7 +16,7 @@ static var ice_flower_small_scale_ratio: float = 0.65
 static var ice_flower_base_scale: float = 1.0
 
 static func reset_data() -> void:
-	main_skill_ice_damage = 0.6
+	main_skill_ice_damage = 0.65
 	ice_flower_range = 132.0
 	ice_flower_penetration_count = 0
 	ice_flower_pierce_decay = 0.0
@@ -66,12 +66,12 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 	var main_ice = scene.instantiate()
 	tree.current_scene.add_child(main_ice)
 	main_ice.setup_ice_flower(
-		spawn_position, 
-		base_direction, 
-		data.range, 
-		data.damage, 
-		data.penetration_count, 
-		data.pierce_decay, 
+		spawn_position,
+		base_direction,
+		data.range,
+		data.damage,
+		data.penetration_count,
+		data.pierce_decay,
 		data.base_scale * PC.bullet_size
 	)
 	
@@ -102,6 +102,9 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 static func _build_data() -> Dictionary:
 	# 基础属性
 	var damage_multiplier = main_skill_ice_damage
+	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
+	damage_multiplier += (Faze.get_destroy_damage_multiplier(PC.faze_destroy_level) - 1.0) # 破坏法则
+	damage_multiplier += (Faze.get_bullet_damage_multiplier(PC.faze_bullet_level) - 1.0) # 弹体法则
 	var small_damage_ratio = ice_flower_small_damage_ratio
 	var spread_angle = ice_flower_spread_angle
 	var small_count = ice_flower_extra_small_count
@@ -110,8 +113,6 @@ static func _build_data() -> Dictionary:
 	var base_scale = ice_flower_base_scale
 	var small_scale_ratio = ice_flower_small_scale_ratio
 	var range_val = ice_flower_range
-	var destroy_damage_multiplier = Faze.get_destroy_damage_multiplier(PC.faze_destroy_level)
-	var bullet_damage_multiplier = Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
 	var bullet_range_multiplier = Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
 	
 	# 根据升级修正属性
@@ -148,9 +149,8 @@ static func _build_data() -> Dictionary:
 		small_damage_ratio = 1.0 # 等同于冰刺术伤害
 		
 	if PC.selected_rewards.has("Ice33"):
-		damage_multiplier += 0.3
-		small_damage_ratio = 1.0
-		pierce_decay = max(0.0, pierce_decay - 0.05) # 每次伤害衰减降低5%
+		damage_multiplier += 0.2
+		pierce_decay = max(0.0, pierce_decay - 0.1) # 每次伤害衰减降低5%
 		
 	if PC.selected_rewards.has("Ice44"):
 		damage_multiplier += 0.7
@@ -163,7 +163,6 @@ static func _build_data() -> Dictionary:
 		penetration_count += 2
 		pierce_decay = max(0.0, pierce_decay - 0.05)
 	
-	damage_multiplier = damage_multiplier * destroy_damage_multiplier * bullet_damage_multiplier
 	range_val = range_val * bullet_range_multiplier
 	
 	var final_damage = PC.pc_atk * damage_multiplier
@@ -266,6 +265,8 @@ func _on_area_entered(area: Area2D) -> void:
 		# 但因为是 Area2D 移动，碰到一个敌人算一次
 	if area.has_method("take_damage"):
 		area.take_damage(int(final_damage), is_crit, false, "ice_flower")
+		# 击中粒子崩散特效
+		HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "ice")
 		Faze.on_bullet_hit()
 		
 		if penetration_count > 0:

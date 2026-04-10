@@ -102,22 +102,23 @@ extends Node
 @export var last_atk_speed: float = 0
 
 @export var current_weapon_num: int = 0
+@export var new_weapon_obtained_count: int = 0 # 新获得武器计数（用于怪物血量乘算）
 
 # 魔焰相关变量
 @export var main_skill_moyan = 0
 @export var main_skill_moyan_advance = 0
 @export var first_has_moyan: bool = true
-@export var main_skill_moyan_damage: float = 1.5 # 魔焰基础伤害倍率
+@export var main_skill_moyan_damage: float = 2.25 # 魔焰基础伤害倍率
 @export var moyan_range: float = 220.0 # 魔焰基础射程
 
 # 跟升级抽卡有关系的
 @export var now_lunky_level: int = 1
 @export var lucky: int = 1
 @export var now_red_p: float = 2
-@export var now_gold_p: float = 50
-@export var now_darkorchid_p: float = 15
+@export var now_gold_p: float = 5
+@export var now_darkorchid_p: float = 12
 @export var now_blue_p: float = 35
-@export var now_green_p: float = 43
+@export var now_green_p: float = 46
 @export var selected_rewards = []
 
 # 存储主要技能等级
@@ -147,20 +148,20 @@ extends Node
 @export var first_has_riyan: bool = true
 @export var first_has_riyan_pc: bool = true
 @export var riyan_range: float = 70.0
-@export var riyan_cooldown: float = 1.0 # 赤曜伤害频率：1秒/次
-@export var riyan_hp_max_damage: float = 0.2 # 赤曜基础伤害：最大HP的20%
-@export var riyan_atk_damage: float = 0.1 # 赤曜基础伤害：攻击力的10%
+@export var riyan_cooldown: float = 1 # 赤曜伤害频率：1秒/次
+@export var riyan_hp_max_damage: float = 0.20 # 赤曜基础伤害：最大HP的20%
+@export var riyan_atk_damage: float = 0.16 # 赤曜基础伤害：攻击力的16%
 
 # 环火相关量
 @export var main_skill_ringFire = 0
 @export var main_skill_ringFire_advance = 0
-@export var main_skill_ringFire_damage: float = 0.3 # 炎轮基础伤害30%
+@export var main_skill_ringFire_damage: float = 0.4 # 炎轮基础伤害40%
 @export var first_has_ringFire: bool = true
 
 # 雷光相关量
 @export var main_skill_thunder = 0
 @export var main_skill_thunder_advance = 0
-@export var main_skill_thunder_damage: float = 1.0
+@export var main_skill_thunder_damage: float = 0.85
 @export var first_has_thunder: bool = true
 @export var thunder_range: float = 260.0
 
@@ -169,10 +170,10 @@ extends Node
 @export var main_skill_bloodwave_advance = 0
 @export var first_has_bloodwave: bool = true
 
-
+# 饮血刀
 @export var main_skill_bloodboardsword = 0
 @export var main_skill_bloodboardsword_advance = 0
-@export var main_skill_bloodboardsword_damage: float = 0.55
+@export var main_skill_bloodboardsword_damage: float = 0.80
 @export var first_has_bloodboardsword: bool = true
 
 # 冰刺术相关变量
@@ -185,14 +186,14 @@ extends Node
 @export var main_skill_thunder_break = 0
 @export var main_skill_thunder_break_advance = 0
 @export var first_has_thunder_break: bool = true
-@export var main_skill_thunder_break_damage: float = 0.5
+@export var main_skill_thunder_break_damage: float = 0.65
 @export var thunder_break_final_damage_multi: float = 1.0 # 天雷破总伤害加成
 
 # 光弹相关变量
 @export var main_skill_light_bullet = 0
 @export var main_skill_light_bullet_advance = 0
 @export var first_has_light_bullet: bool = true
-@export var main_skill_light_bullet_damage: float = 0.5
+@export var main_skill_light_bullet_damage: float = 0.45
 @export var light_bullet_final_damage_multi: float = 1.0 # 光弹总伤害加成
 @export var light_bullet_shot_count = 0
 
@@ -200,7 +201,7 @@ extends Node
 @export var main_skill_water = 0
 @export var main_skill_water_advance = 0
 @export var first_has_water: bool = true
-@export var main_skill_water_damage: float = 0.45
+@export var main_skill_water_damage: float = 0.60
 @export var water_final_damage_multi: float = 1.0 # 坎水诀总伤害加成
 
 # 乾坤双剑相关变量
@@ -244,7 +245,7 @@ extends Node
 @export var main_skill_qigong = 0
 @export var main_skill_qigong_advance = 0
 @export var first_has_qigong: bool = true
-@export var main_skill_qigong_damage: float = 1.0
+@export var main_skill_qigong_damage: float = 1.25
 
 
 # 反弹子弹相关属性
@@ -278,7 +279,7 @@ extends Node
 # 刷新次数
 @export var refresh_num: int = 3
 # 锁定次数
-@export var lock_num: int = 0
+@export var lock_num: int = 1
 
 # 纹章相关字段
 @export var emblem_slots_max: int = 4
@@ -331,11 +332,12 @@ func reset_player_attr() -> void:
 	
 	PC.pc_lv = 1
 	PC.pc_exp = 0
-	PC.pc_speed = 0 + (Global.cultivation_zhuifeng_level * 0.02)
-	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.02)
+	PC.pc_speed = 0 # 修炼追风加成在移速公式中单独计算，此处不重复叠加
+	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.01) # 流光提升攻速，每级+1%
 	PC.pc_sheild = []
 
 	PC.current_weapon_num = 0
+	PC.new_weapon_obtained_count = 0 # 重置新获得武器计数
 
 	PC.invincible = false
 	
@@ -404,7 +406,7 @@ func reset_player_attr() -> void:
 	PC.faze_heal_level = 0
 	PC.faze_summon_level = 0
 	PC.faze_shield_level = 0
-	PC.faze_fire_level = 13
+	PC.faze_fire_level = 0
 	PC.faze_destroy_level = 0
 	PC.faze_life_level = 0
 	PC.faze_bullet_level = 0
@@ -456,7 +458,7 @@ func reset_player_attr() -> void:
 	PC.main_skill_moyan = 0
 	PC.main_skill_moyan_advance = 0
 	PC.first_has_moyan = true
-	PC.main_skill_moyan_damage = 1.0
+	PC.main_skill_moyan_damage = 2.25
 	PC.moyan_range = 220.0
 	
 	# 重置树枝相关属性
@@ -475,19 +477,19 @@ func reset_player_attr() -> void:
 	PC.first_has_riyan_pc = true
 	PC.riyan_range = 70.0
 	PC.riyan_cooldown = 1.0
-	PC.riyan_hp_max_damage = 0.06
-	PC.riyan_atk_damage = 0.06
+	PC.riyan_hp_max_damage = 0.10
+	PC.riyan_atk_damage = 0.08
 	
 	# 重置环火相关属性
 	PC.main_skill_ringFire = 0
 	PC.main_skill_ringFire_advance = 0
-	PC.main_skill_ringFire_damage = 1
+	PC.main_skill_ringFire_damage = 0.4
 	PC.first_has_ringFire = true
 	
 	# 重置雷光相关属性
 	PC.main_skill_thunder = 0
 	PC.main_skill_thunder_advance = 0
-	PC.main_skill_thunder_damage = 1.0
+	PC.main_skill_thunder_damage = 0.85
 	PC.first_has_thunder = true
 	PC.thunder_range = 260.0
 	
@@ -498,7 +500,7 @@ func reset_player_attr() -> void:
 	
 	PC.main_skill_bloodboardsword = 0
 	PC.main_skill_bloodboardsword_advance = 0
-	PC.main_skill_bloodboardsword_damage = 0.55
+	PC.main_skill_bloodboardsword_damage = 0.80
 	PC.first_has_bloodboardsword = true
 	
 	# 重置冰刺术相关属性
@@ -510,7 +512,7 @@ func reset_player_attr() -> void:
 	PC.main_skill_thunder_break = 0
 	PC.main_skill_thunder_break_advance = 0
 	PC.first_has_thunder_break = true
-	PC.main_skill_thunder_break_damage = 0.5
+	PC.main_skill_thunder_break_damage = 0.65
 	PC.thunder_break_final_damage_multi = 1.0
 	
 	# 重置光弹相关属性
@@ -524,7 +526,7 @@ func reset_player_attr() -> void:
 	PC.main_skill_water = 0
 	PC.main_skill_water_advance = 0
 	PC.first_has_water = true
-	PC.main_skill_water_damage = 0.45
+	PC.main_skill_water_damage = 0.60
 	PC.water_final_damage_multi = 1.0
 	
 	# 重置乾坤双剑相关属性
@@ -566,10 +568,10 @@ func reset_player_attr() -> void:
 	PC.main_skill_qigong = 0
 	PC.main_skill_qigong_advance = 0
 	PC.first_has_qigong = true
-	PC.main_skill_qigong_damage = 1.0
+	PC.main_skill_qigong_damage = 1.25
 	
 	PC.refresh_num = Global.refresh_max_num
-	PC.lock_num = 0
+	PC.lock_num = 1
 	
 	# 重置纹章系统
 	PC.current_emblems.clear()
@@ -676,7 +678,7 @@ func exec_pc_atk() -> void:
 	PC.pc_start_atk = PC.pc_atk
 	
 func exec_pc_hp() -> void:
-	PC.pc_max_hp = int(50 + int(Global.cultivation_xuanyuan_level * 2))
+	PC.pc_max_hp = int(500 + int(Global.cultivation_xuanyuan_level * 20))
 	PC.pc_start_max_hp = PC.pc_max_hp
 	PC.pc_hp = PC.pc_max_hp
 	
@@ -752,20 +754,20 @@ func get_character_animation_name(char_name: String = "") -> String:
 func get_character_attributes_text() -> String:
 	# 计算基础属性值
 	var base_atk = int(25 + int(Global.cultivation_poxu_level * 1))
-	var base_hp = int(50 + int(Global.cultivation_xuanyuan_level * 2))
+	var base_hp = int(500 + int(Global.cultivation_xuanyuan_level * 20))
 	
 	# 获取装备加成
-	var equipment_stats = Global.EquipmentManager.calculate_total_equipment_stats()
+	var equipment_stats = Global.equipment_manager.calculate_total_equipment_stats()
 	
 	# 计算最终属性
 	var final_atk = base_atk + equipment_stats["pc_atk"]
 	var final_hp = base_hp + equipment_stats["pc_hp"]
-	var atk_speed = (Global.cultivation_liuguang_level * 0.02 + equipment_stats["pc_atk_speed"]) * 100
-	var move_speed = (Global.cultivation_zhuifeng_level * 0.02 + equipment_stats["pc_speed"]) * 100
+	var atk_speed = (Global.cultivation_liuguang_level * 0.01 + equipment_stats["pc_atk_speed"]) * 100
+	var move_speed = (Global.cultivation_zhuifeng_level * 0.01 + equipment_stats["pc_speed"]) * 100
 	var damage_reduction = min((Global.cultivation_huti_level * 0.002) + equipment_stats["damage_reduction_rate"], 0.7) * 100
 	var crit_rate = (0.1 + Global.cultivation_fengrui_level * 0.005 + equipment_stats["crit_chance"]) * 100
 	var crit_damage = (1.5 + Global.cultivation_liejin_level * 0.01 + equipment_stats["crit_damage_multi"]) * 100
-	var point_rate = (1 + Global.cultivation_hualing_level * 0.05 + equipment_stats["point_multi"]) * 100
+	var point_rate = (1 + Global.cultivation_hualing_level * 0.03 + equipment_stats["point_multi"]) * 100
 	var exp_rate = (1 + equipment_stats["exp_multi"]) * 100
 	var drop_rate = (1 + equipment_stats["drop_multi"]) * 100
 	
@@ -787,9 +789,31 @@ func get_character_attributes_text() -> String:
 		normal_monster_multi_val, boss_multi_val, cooldown_val, active_skill_multi_val
 	)
 	
+	# 计算期望DPS
+	# 攻击*暴击期望*攻速加成*最终伤害*对小怪伤害加成的一半*对精英首领伤害加成的一半
+	# 暴击期望 = 1 + crit_chance * (crit_damage_multi - 1)
+	var crit_chance_decimal = (0.1 + Global.cultivation_fengrui_level * 0.005 + equipment_stats["crit_chance"])
+	var crit_damage_decimal = (1.5 + Global.cultivation_liejin_level * 0.01 + equipment_stats["crit_damage_multi"])
+	var crit_expected_multi = 1.0 + crit_chance_decimal * (crit_damage_decimal - 1.0)
+	
+	# 攻速加成
+	var atk_speed_decimal = 1.0 + (Global.cultivation_liuguang_level * 0.01 + equipment_stats["pc_atk_speed"])
+	
+	# 最终伤害加成
+	var final_damage_decimal = 1.0 + equipment_stats.get("pc_final_atk", 0.0)
+	
+	# 对小怪增伤一半
+	var normal_monster_bonus_multi = 1.0 + (equipment_stats.get("normal_monster_multi", 0.0) * 0.5)
+	
+	# 对精英首领增伤一半
+	var boss_bonus_multi = 1.0 + (equipment_stats.get("boss_multi", 0.0) * 0.5)
+	
+	var expected_dps = float(final_atk) * crit_expected_multi * atk_speed_decimal * final_damage_decimal * normal_monster_bonus_multi * boss_bonus_multi
+	
 	var attr_text = ""
 	# 修为使用金红过渡色和稍大字号显示
 	attr_text += _get_cultivation_bbcode(cultivation_power) + "\n"
+	attr_text += "[color=#FF6B6B]期望DPS  %.1f[/color]\n" % expected_dps
 	attr_text += "攻击  " + str(final_atk) + "\n"
 	attr_text += "体力  " + str(final_hp) + "\n"
 	attr_text += "攻击速度  " + str(int(atk_speed)) + "%\n"
@@ -805,8 +829,8 @@ func get_character_attributes_text() -> String:
 func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: float, move_speed: float,
 								   damage_reduction: float, crit_rate: float, crit_damage: float,
 								   point_rate: float, exp_rate: float, drop_rate: float,
-								   bullet_size: float = 0, body_size: float = 0, heal_multi: float = 0, sheild_multi: float = 0,
-								   normal_monster_multi: float = 0, boss_multi: float = 0, cooldown: float = 0, active_skill_multi: float = 0) -> int:
+								   p_bullet_size: float = 0, p_body_size: float = 0, p_heal_multi: float = 0, p_sheild_multi: float = 0,
+								   p_normal_monster_multi: float = 0, p_boss_multi: float = 0, p_cooldown: float = 0, p_active_skill_multi: float = 0) -> int:
 	# 攻速实际倍率 = 1 + atk_speed/100
 	var atk_speed_multi = 1.0 + atk_speed / 100.0
 	# 暴击期望 = 1 + 暴击率 * (暴击伤害倍率 - 1)
@@ -847,21 +871,21 @@ func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: floa
 	
 	# === 次要属性额外加成 ===
 	# 攻击范围每1%提升16修为
-	var bullet_size_bonus = bullet_size * 16.0
+	var bullet_size_bonus = p_bullet_size * 16.0
 	# 体型大小每1%提升4修为
-	var body_size_bonus = body_size * 4.0
+	var body_size_bonus = p_body_size * 4.0
 	# 治疗加成每1%提升6修为
-	var heal_multi_bonus = heal_multi * 6.0
+	var heal_multi_bonus = p_heal_multi * 6.0
 	# 护盾加成每1%提升6修为
-	var sheild_multi_bonus = sheild_multi * 6.0
+	var sheild_multi_bonus = p_sheild_multi * 6.0
 	# 对小怪增伤每1%提升8修为
-	var normal_monster_bonus = normal_monster_multi * 8.0
+	var normal_monster_bonus = p_normal_monster_multi * 8.0
 	# 精英首领增伤每1%提升8修为
-	var boss_bonus = boss_multi * 8.0
+	var boss_bonus = p_boss_multi * 8.0
 	# 主动技能冷却缩减每1%提升32修为
-	var cooldown_bonus = cooldown * 32.0
+	var cooldown_bonus = p_cooldown * 32.0
 	# 主动技能增伤每1%提升6修为
-	var active_skill_bonus = active_skill_multi * 6.0
+	var active_skill_bonus = p_active_skill_multi * 6.0
 	
 	# 总修为
 	var total_cultivation = atk_part + hp_part + point_part + exp_bonus + drop_bonus \
@@ -896,11 +920,11 @@ func _get_cultivation_bbcode(cultivation_power: int) -> String:
 # 获取次要属性文本（用于背包界面悬停显示）
 func get_secondary_attributes_text() -> String:
 	# 获取装备加成
-	var equipment_stats = Global.EquipmentManager.calculate_total_equipment_stats()
+	var equipment_stats = Global.equipment_manager.calculate_total_equipment_stats()
 	
 	# 计算次要属性
 	var bullet_size_val = (1 + equipment_stats["bullet_size"]) * 100
-	var point_multi_val = (1 + Global.cultivation_hualing_level * 0.05 + equipment_stats["point_multi"]) * 100
+	var point_multi_val = (1 + Global.cultivation_hualing_level * 0.03 + equipment_stats["point_multi"]) * 100
 	var exp_multi_val = (1 + equipment_stats["exp_multi"]) * 100
 	var drop_multi_val = (1 + equipment_stats["drop_multi"]) * 100
 	var body_size_val = 100.0 # 基础体型

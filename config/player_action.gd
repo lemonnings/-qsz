@@ -1,6 +1,6 @@
 extends CharacterBody2D
 
-@export var move_speed: float = 120.0 * (1 + (Global.cultivation_zhuifeng_level * 0.02) + PC.pc_speed)
+@export var move_speed: float = 120.0 * (1 + (Global.cultivation_zhuifeng_level * 0.01) + PC.pc_speed)
 
 @export var hp: int = 0
 @export var maxHP: int = 0
@@ -9,6 +9,7 @@ extends CharacterBody2D
 
 var last_move_time: float = -1.0 # -1表示未初始化
 var chenjing_effect: Node2D = null # 沉静纹章的脚底光圈效果
+var _burning_timer: float = 0.0 # 燃火Buff计时器
 
 #@export var joystick_left : VirtualJoystick
 #
@@ -103,16 +104,17 @@ func _ready() -> void:
 	add_to_group("player")
 	
 	# 创建脚底阴影
-	CharacterEffects.create_shadow(self, 22.0, 9.0, 7.5)
+	CharacterEffects.create_shadow(self , 22.0, 9.0, 7.5)
 	var faze_manager = Faze.new()
 	add_child(faze_manager)
-	faze_manager.setup(self)
+	faze_manager.setup(self )
 	
 	hp = PC.pc_hp
 	maxHP = PC.pc_max_hp
-	Global.connect("player_hit", Callable(self, "_on_player_hit"))
-	Global.connect("zoom_camera", Callable(self, "_zoom_camera"))
-	Global.connect("reset_camera", Callable(self, "_reset_camera"))
+	Global.connect("player_hit", Callable(self , "_on_player_hit"))
+	Global.connect("player_healed", Callable(self , "_on_player_healed"))
+	Global.connect("zoom_camera", Callable(self , "_zoom_camera"))
+	Global.connect("reset_camera", Callable(self , "_reset_camera"))
 	# 初始化技能攻速
 	update_skill_attack_speeds()
 	
@@ -120,28 +122,28 @@ func _ready() -> void:
 	_update_active_skill_timers(PC.player_name)
 	_cache_beastify_hitbox()
 
-	Global.connect("_fire_ring_bullets", Callable(self, "_fire_ring_bullets"))
+	Global.connect("_fire_ring_bullets", Callable(self , "_fire_ring_bullets"))
 	
-	Global.connect("skill_cooldown_complete", Callable(self, "_on_fire"))
-	Global.connect("skill_cooldown_complete_branch", Callable(self, "_on_fire_branch"))
-	Global.connect("skill_cooldown_complete_moyan", Callable(self, "_on_fire_moyan"))
-	Global.connect("skill_cooldown_complete_riyan", Callable(self, "_on_fire_riyan"))
-	Global.connect("skill_cooldown_complete_ringFire", Callable(self, "_on_fire_ringFire"))
-	Global.connect("skill_cooldown_complete_thunder", Callable(self, "_on_fire_thunder"))
-	Global.connect("skill_cooldown_complete_bloodwave", Callable(self, "_on_fire_bloodwave"))
-	Global.connect("skill_cooldown_complete_bloodboardsword", Callable(self, "_on_fire_bloodboardsword"))
-	Global.connect("skill_cooldown_complete_ice", Callable(self, "_on_fire_ice"))
-	Global.connect("skill_cooldown_complete_thunder_break", Callable(self, "_on_fire_thunder_break"))
-	Global.connect("skill_cooldown_complete_light_bullet", Callable(self, "_on_fire_light_bullet"))
-	Global.connect("skill_cooldown_complete_water", Callable(self, "_on_fire_water"))
-	Global.connect("skill_cooldown_complete_qiankun", Callable(self, "_on_fire_qiankun"))
-	Global.connect("skill_cooldown_complete_xuanwu", Callable(self, "_on_fire_xuanwu"))
-	Global.connect("skill_cooldown_complete_xunfeng", Callable(self, "_on_fire_xunfeng"))
-	Global.connect("skill_cooldown_complete_genshan", Callable(self, "_on_fire_genshan"))
-	Global.connect("skill_cooldown_complete_duize", Callable(self, "_on_fire_duize"))
-	Global.connect("skill_cooldown_complete_holylight", Callable(self, "_on_fire_holylight"))
-	Global.connect("skill_cooldown_complete_qigong", Callable(self, "_on_fire_qigong"))
-	Global.connect("skill_cooldown_complete_dragonwind", Callable(self, "_on_fire_dragonwind"))
+	Global.connect("skill_cooldown_complete", Callable(self , "_on_fire"))
+	Global.connect("skill_cooldown_complete_branch", Callable(self , "_on_fire_branch"))
+	Global.connect("skill_cooldown_complete_moyan", Callable(self , "_on_fire_moyan"))
+	Global.connect("skill_cooldown_complete_riyan", Callable(self , "_on_fire_riyan"))
+	Global.connect("skill_cooldown_complete_ringFire", Callable(self , "_on_fire_ringFire"))
+	Global.connect("skill_cooldown_complete_thunder", Callable(self , "_on_fire_thunder"))
+	Global.connect("skill_cooldown_complete_bloodwave", Callable(self , "_on_fire_bloodwave"))
+	Global.connect("skill_cooldown_complete_bloodboardsword", Callable(self , "_on_fire_bloodboardsword"))
+	Global.connect("skill_cooldown_complete_ice", Callable(self , "_on_fire_ice"))
+	Global.connect("skill_cooldown_complete_thunder_break", Callable(self , "_on_fire_thunder_break"))
+	Global.connect("skill_cooldown_complete_light_bullet", Callable(self , "_on_fire_light_bullet"))
+	Global.connect("skill_cooldown_complete_water", Callable(self , "_on_fire_water"))
+	Global.connect("skill_cooldown_complete_qiankun", Callable(self , "_on_fire_qiankun"))
+	Global.connect("skill_cooldown_complete_xuanwu", Callable(self , "_on_fire_xuanwu"))
+	Global.connect("skill_cooldown_complete_xunfeng", Callable(self , "_on_fire_xunfeng"))
+	Global.connect("skill_cooldown_complete_genshan", Callable(self , "_on_fire_genshan"))
+	Global.connect("skill_cooldown_complete_duize", Callable(self , "_on_fire_duize"))
+	Global.connect("skill_cooldown_complete_holylight", Callable(self , "_on_fire_holylight"))
+	Global.connect("skill_cooldown_complete_qigong", Callable(self , "_on_fire_qigong"))
+	Global.connect("skill_cooldown_complete_dragonwind", Callable(self , "_on_fire_dragonwind"))
 	
 	camera.zoom = Vector2(1.6, 1.6)
 	
@@ -247,12 +249,12 @@ func _process(_delta: float) -> void:
 	# Rotation:
 	#if joystick_right and joystick_right.is_pressed:
 		#rotation = joystick_right.output.angle()
+	# 统一使用关卡内移速公式，基础速度120.0
+	var bloodwave_speed_bonus = _get_bloodwave_move_speed_bonus()
 	if Global.in_town:
-		# 主城中只使用局外属性（追风修炼等级），不使用局内移速 PC.pc_speed
-		move_speed = 240.0 * (1 + (Global.cultivation_zhuifeng_level * 0.02))
+		move_speed = 120.0 * 1.2 * (1 + (Global.cultivation_zhuifeng_level * 0.01))
 	else:
-		var bloodwave_speed_bonus = _get_bloodwave_move_speed_bonus()
-		move_speed = 120.0 * (1 + (Global.cultivation_zhuifeng_level * 0.02) + PC.pc_speed + bloodwave_speed_bonus)
+		move_speed = 120.0 * (1 + (Global.cultivation_zhuifeng_level * 0.01) + PC.pc_speed + bloodwave_speed_bonus)
 		
 	if velocity == Vector2.ZERO or PC.is_game_over:
 		$RunningSound.stop()
@@ -340,6 +342,21 @@ func _physics_process(_delta: float) -> void:
 	var missing_hp_ratio = float(PC.pc_max_hp - PC.pc_hp) / float(PC.pc_max_hp)
 	var bloodwave_heal_bonus = missing_hp_ratio * BloodWave.bloodwave_missing_hp_heal_bonus * 100.0
 	PC.heal_multi = Global.heal_multi + bloodwave_heal_bonus
+	
+	if BuffManager.has_buff("burning_fire"):
+		_burning_timer += _delta
+		if _burning_timer >= 1.0:
+			_burning_timer -= 1.0
+			var stacks = BuffManager.get_buff_stack("burning_fire")
+			if stacks > 0:
+				var dmg = int(PC.pc_max_hp * 0.01 * stacks)
+				if dmg < 1: dmg = 1
+				PC.apply_damage(dmg)
+				if PC.pc_hp <= 0:
+					game_over()
+	else:
+		_burning_timer = 0.0
+	
 	if not PC.is_game_over and not PC.movement_disabled:
 		# 获取输入向量（键盘或虚拟摇杆）
 		var input_vector = Vector2.ZERO
@@ -348,13 +365,15 @@ func _physics_process(_delta: float) -> void:
 		if OS.has_feature("mobile"):
 			if virtual_joystick_manager and virtual_joystick_manager.has_method("get_left_stick_output"):
 				input_vector = virtual_joystick_manager.get_left_stick_output()
-			# If virtual_joystick_manager is not set up, input_vector remains ZERO for mobile movement.
-			# Add fallback if necessary: 
-			# else: input_vector = Input.get_vector("ui_left","ui_right","ui_up","ui_down") 
 		else: # Keyboard
 			input_vector = Input.get_vector("left", "right", "up", "down")
 			
-		velocity = input_vector * move_speed
+		var frozen_stack = 0
+		if BuffManager.has_buff("frozen"):
+			frozen_stack = BuffManager.get_buff_stack("frozen")
+		var frozen_reduction = max(0.1, 1.0 - (0.1 * frozen_stack))
+		
+		velocity = input_vector * move_speed * frozen_reduction
 		
 		if velocity.x < -0.01:
 			sprite.flip_h = true
@@ -389,7 +408,7 @@ func game_over():
 		EmblemManager.clear_all_emblems()
 		
 		# 停止DPS计数器
-		Global.stop_dps_counter()
+		DpsManager.stop_dps_counter()
 		
 		Global.save_game()
 		$GameOver.play()
@@ -600,7 +619,7 @@ func _fire_light_bullet_ring(data: Dictionary) -> void:
 	var interval = 0.025
 	
 	# 起始方向：正上方 (Vector2.UP = (0, -1))
-	var start_angle = -PI / 2 # -90 degrees
+	var start_angle = - PI / 2 # -90 degrees
 	
 	# 用于跟踪每一轮的发射进度
 	var current_bullet_indices = []
@@ -617,7 +636,7 @@ func _fire_light_bullet_ring(data: Dictionary) -> void:
 		
 	for step in range(max_steps):
 		# 检查对象是否有效
-		if not is_instance_valid(self) or PC.is_game_over:
+		if not is_instance_valid(self ) or PC.is_game_over:
 			return
 			
 		# 处理暂停
@@ -664,6 +683,9 @@ func _fire_light_bullet_ring(data: Dictionary) -> void:
 
 func _build_light_bullet_data() -> Dictionary:
 	var damage_multiplier = PC.main_skill_light_bullet_damage # Base 0.45
+	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
+	damage_multiplier += (Faze.get_life_damage_multiplier(PC.faze_life_level) - 1.0) # 生灵法则
+	damage_multiplier += (Faze.get_bullet_damage_multiplier(PC.faze_bullet_level) - 1.0) # 弹体法则
 	var range_val = 300.0
 	var penetration_count = 0
 	
@@ -757,6 +779,8 @@ func _on_fire_detail_water() -> void:
 
 func _build_water_data() -> Dictionary:
 	var damage_multiplier = PC.main_skill_water_damage # Base 0.45
+	# 生灵法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
+	damage_multiplier += (Faze.get_life_damage_multiplier(PC.faze_life_level) - 1.0)
 	var range_val = 65.0
 	var heal_amount = 0 # 基础治疗量
 	
@@ -890,11 +914,11 @@ func _on_fire_detail() -> void:
 	if PC.selected_rewards.has("SplitSwordQi11"):
 		var back_bullet = bullet_scene.instantiate()
 		back_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
-		var back_direction = base_direction.rotated(deg_to_rad(180.0)) 
+		var back_direction = base_direction.rotated(deg_to_rad(180.0))
 		back_bullet.set_direction(back_direction)
 		back_bullet.position = spawn_position
 		back_bullet.penetration_count = PC.swordQi_penetration_count
-		back_bullet.is_other_sword_wave = true 
+		back_bullet.is_other_sword_wave = true
 		if PC.selected_rewards.has("rebound"): back_bullet.is_rebound = false
 		get_tree().current_scene.add_child(back_bullet)
 	
@@ -902,7 +926,7 @@ func fire_extra_attack(damage_multiplier: float) -> void:
 	if PC.is_game_over:
 		return
 	var bullet_node_size = PC.bullet_size
-	var base_direction = Vector2.RIGHT 
+	var base_direction = Vector2.RIGHT
 	var spawn_position = position
 
 	# 直接攻击最近的敌人，不再使用预测瞄准
@@ -1039,8 +1063,8 @@ func _start_mizongbu_visual() -> void:
 	modulate = Color(1, 1, 1, 1)
 	mizongbu_visual_tween = create_tween()
 	mizongbu_visual_tween.set_loops()
-	mizongbu_visual_tween.tween_property(self, "modulate", Color(1, 1, 1, 0.45), 0.15)
-	mizongbu_visual_tween.tween_property(self, "modulate", Color(1, 1, 1, 0.9), 0.15)
+	mizongbu_visual_tween.tween_property(self , "modulate", Color(1, 1, 1, 0.45), 0.15)
+	mizongbu_visual_tween.tween_property(self , "modulate", Color(1, 1, 1, 0.9), 0.15)
 
 func _stop_mizongbu_visual() -> void:
 	if mizongbu_visual_tween:
@@ -1207,7 +1231,7 @@ func _on_fire_detail_thunder() -> void:
 	for i in range(thunder_data.shot_count):
 		var thunder_instance = thunder_scene.instantiate()
 		get_tree().current_scene.add_child(thunder_instance)
-		thunder_instance.setup_thunder(start_position, end_positions[i], target_enemies[i], thunder_data.damage * thunder_data.shot_damage_multiplier, thunder_data.chain_left, thunder_data.damage_decay, thunder_data.chain_range, thunder_data.paralyze_duration, thunder_data.boss_extra_damage, self)
+		thunder_instance.setup_thunder(start_position, end_positions[i], target_enemies[i], thunder_data.damage * thunder_data.shot_damage_multiplier, thunder_data.chain_left, thunder_data.damage_decay, thunder_data.chain_range, thunder_data.paralyze_duration, thunder_data.boss_extra_damage, self )
 
 func _on_fire_detail_bloodwave() -> void:
 	if not bloodwave_scene:
@@ -1253,7 +1277,7 @@ func _on_fire_holylight(skill_id: int = 18) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if not PC.selected_rewards.has("HolyLight"):
+	if not PC.selected_rewards.has("Holylight"):
 		return
 	_on_fire_detail_holylight()
 
@@ -1311,38 +1335,36 @@ func _build_thunder_break_data() -> Dictionary:
 	
 	# ThunderBreak1: 引雷
 	if PC.selected_rewards.has("ThunderBreak1"):
-		damage_multiplier += 0.4
+		damage_multiplier += 0.1
 		width *= 1.3
 		
 	# ThunderBreak2: 穿雷
 	if PC.selected_rewards.has("ThunderBreak2"):
-		damage_multiplier += 0.3
+		damage_multiplier += 0.15
 		range_val += 120.0
 		
 	# ThunderBreak3: 感电
 	if PC.selected_rewards.has("ThunderBreak3"):
-		damage_multiplier += 0.2
 		apply_electrified = true
 		
 	# ThunderBreak4: 霹雷
 	if PC.selected_rewards.has("ThunderBreak4"):
-		damage_multiplier += 0.2
 		damage_distance_bonus = true
 		
 	# ThunderBreak11: 引雷x穿雷
 	if PC.selected_rewards.has("ThunderBreak11"):
-		damage_multiplier += 0.3
+		damage_multiplier += 0.1
 		infinite_range = true
 		damage_drop_after_400 = true
 		
 	# ThunderBreak22: 穿雷x霹雷
 	if PC.selected_rewards.has("ThunderBreak22"):
-		damage_multiplier += 0.4
+		damage_multiplier += 0.1
 		crit_after_180 = true
 		
 	# ThunderBreak33: 引雷x震雷
 	if PC.selected_rewards.has("ThunderBreak33"):
-		damage_multiplier += 0.8
+		damage_multiplier += 0.1
 		apply_vulnerable = true
 		
 	var damage = PC.pc_atk * damage_multiplier
@@ -1370,46 +1392,30 @@ func _build_thunder_data() -> Dictionary:
 	var shot_count = 1
 	var shot_damage_multiplier = 1.0
 	
-	if PC.selected_rewards.has("RThunder"):
-		damage_ratio += 0.2
-	if PC.selected_rewards.has("SRThunder"):
-		damage_ratio += 0.25
-	if PC.selected_rewards.has("SSRThunder"):
-		damage_ratio += 0.3
-	if PC.selected_rewards.has("URThunder"):
-		damage_ratio += 0.4
-	
 	if PC.selected_rewards.has("Thunder1"):
-		damage_ratio += 0.4
 		damage_decay = 0.4
 		chain_left = 5
 	
 	if PC.selected_rewards.has("Thunder2"):
-		damage_ratio += 0.4
 		shot_count = 2
 		shot_damage_multiplier = 0.6
 	
 	if PC.selected_rewards.has("Thunder3"):
-		damage_ratio += 0.6
 		chain_range = 195.0
 	
 	if PC.selected_rewards.has("Thunder4"):
-		damage_ratio += 0.4
 		paralyze_duration = 0.2
 		boss_extra_damage = 0.3
 	
 	if PC.selected_rewards.has("Thunder11"):
-		damage_ratio += 0.3
 		damage_decay = 0.35
 		chain_left = 7
 	
 	if PC.selected_rewards.has("Thunder22"):
-		damage_ratio += 0.6
 		paralyze_duration = 0.25
 		boss_extra_damage = 0.5
 	
 	if PC.selected_rewards.has("Thunder33"):
-		damage_ratio += 0.5
 		shot_count = 3
 		shot_damage_multiplier = 0.5
 	
@@ -1426,7 +1432,6 @@ func _build_thunder_data() -> Dictionary:
 		"shot_count": shot_count,
 		"shot_damage_multiplier": shot_damage_multiplier
 	}
-
 
 
 func find_nearest_enemies_for_thunder(from_position: Vector2, max_range: float, count: int) -> Array[Node2D]:
@@ -1541,6 +1546,15 @@ func heal(amount: int) -> void:
 	if new_hp > PC.pc_max_hp:
 		new_hp = PC.pc_max_hp
 	PC.pc_hp = new_hp
+
+func _on_player_healed(_amount: float) -> void:
+	if PC.is_game_over:
+		return
+	if sprite == null:
+		return
+	sprite.modulate = Color(0.4, 1.0, 0.4)
+	var tween = create_tween()
+	tween.tween_property(sprite, "modulate", Color(1.0, 1.0, 1.0), 0.35)
 
 func get_last_move_time() -> float:
 	return last_move_time
@@ -1919,7 +1933,7 @@ func _on_fire_detail_qigong() -> void:
 		
 	# 发射逻辑
 	for i in range(damage_multipliers.size()):
-		if not is_instance_valid(self) or PC.is_game_over:
+		if not is_instance_valid(self ) or PC.is_game_over:
 			break
 			
 		_spawn_qigong(base_direction, Vector2.ZERO, damage_multipliers[i])

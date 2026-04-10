@@ -30,6 +30,12 @@ func setup_barrage_bullet(pos: Vector2, dir: Vector2, p_damage: float) -> void:
 	rotation = direction.angle()
 
 func _process(delta: float) -> void:
+	if Global.in_menu or Global.in_town:
+		if sprite:
+			sprite.pause()
+		return
+	if sprite and not sprite.is_playing():
+		sprite.play("default")
 	position += direction * speed * delta
 	traveled_distance = start_position.distance_to(global_position)
 	var fade_start_distance = range_val * 0.9

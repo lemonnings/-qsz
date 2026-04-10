@@ -140,17 +140,17 @@ func get_cultivation_bonus_text(type: String, level: int) -> String:
 		"atk":
 			return "+" + str(level * 2) + " 攻击力"
 		"hp":
-			return "+" + str(level * 4) + " 生命值"
+			return "+" + str(level * 20) + " 生命值"
 		"atk_speed":
-			return "+" + str(level * 2) + "% 攻速"
+			return "+" + str(level * 1) + "% 攻速"
 		"spirit_gain":
-			return "+" + str(level * 5) + "% 灵气获取"
+			return "+" + str(level * 3) + "% 灵气获取"
 		"crit_chance":
 			return "+" + str(level * 0.5) + "% 暴击率"
 		"damage_reduction":
 			return "+" + str(level * 0.3) + "% 减伤率"
 		"move_speed":
-			return "+" + str(level * 2) + "% 移速"
+			return "+" + str(level * 1) + "% 移速"
 		"crit_damage":
 			return "+" + str(level * 1) + "% 暴击伤害"
 		"cool_down":
@@ -166,17 +166,17 @@ func get_cultivation_bonus_value(type: String, level: int) -> float:
 		"atk":
 			return level * 2.0
 		"hp":
-			return level * 5.0
+			return level * 20.0
 		"atk_speed":
-			return level * 0.02
+			return level * 0.01
 		"spirit_gain":
-			return level * 0.05 # 5%转换为0.05
+			return level * 0.03 # 3%转换为0.03
 		"crit_chance":
 			return level * 0.005 # 0.5%转换为0.005
 		"damage_reduction":
 			return level * 0.003 # 0.3%转换为0.003
 		"move_speed":
-			return level * 0.02 # 2%转换为0.02
+			return level * 0.01 # 1%转换为0.01
 		"crit_damage":
 			return level * 0.01 # 1%转换为0.01
 		"cool_down":

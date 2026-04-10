@@ -14,7 +14,7 @@ extends Control
 
 ## （可选）容纳所有ProgressBar子节点的Node2D容器。
 ## 如果未设置，ProgressBar将作为此Control节点的子节点创建。
-@export var health_bar_container: Node2D = null 
+@export var health_bar_container: Node2D = null
 ## 是否显示整个血条UI（包括其容器）
 @export var health_bar_shown: bool = false
 ## Boss的名字
@@ -23,12 +23,12 @@ extends Control
 #-------------------- Constants (常量) --------------------#
 ## 每层血条的颜色定义数组。可以根据需要扩展。
 const BAR_COLORS: Array[Color] = [
-	Color.RED,       # 第一条血的颜色
-	Color.ORANGE,    # 第二条血的颜色
-	Color.YELLOW,    # 第三条血的颜色
-	Color.GREEN,     # 第四条血的颜色
-	Color.ROYAL_BLUE,       # 第五条血的颜色
-	Color.DARK_MAGENTA       # 第五条血的颜色
+	Color.RED, # 第一条血的颜色
+	Color.ORANGE, # 第二条血的颜色
+	Color.YELLOW, # 第三条血的颜色
+	Color.GREEN, # 第四条血的颜色
+	Color.ROYAL_BLUE, # 第五条血的颜色
+	Color.DARK_MAGENTA # 第五条血的颜色
 ]
 
 #-------------------- Private Variables (私有变量) --------------------#
@@ -38,13 +38,27 @@ var _progress_bars_nodes: Array[ProgressBar] = []
 @export var _boss_name_label: Label
 ## 显示血条层数的Label节点
 @export var _bar_count_label: Label
+## 显示boss当前读条名字
+@export var skill_name: Label
+## 显示boss当前读条剩余时间（每0.1秒刷新一次）
+@export var chant_time: Label
+## 显示boss当前读条进度条
+@export var chant_bar: ProgressBar
+
+# 读条内部状态
+var _chant_total_time: float = 0.0
+var _chant_elapsed: float = 0.0
+var _chant_active: bool = false
+var _chant_timer: Timer = null
 
 #-------------------- Godot Lifecycle Methods (Godot生命周期函数) --------------------#
 func _ready():
-	Global.connect("boss_hp_bar_show", Callable(self, "_on_boss_hp_bar_show"))
-	Global.connect("boss_hp_bar_hide", Callable(self, "_on_boss_hp_bar_hide"))
-	Global.connect("boss_hp_bar_initialize", Callable(self, "_on_boss_hp_bar_initialize"))
-	Global.connect("boss_hp_bar_take_damage", Callable(self, "_on_boss_hp_bar_take_damage"))
+	Global.connect("boss_hp_bar_show", Callable(self , "_on_boss_hp_bar_show"))
+	Global.connect("boss_hp_bar_hide", Callable(self , "_on_boss_hp_bar_hide"))
+	Global.connect("boss_hp_bar_initialize", Callable(self , "_on_boss_hp_bar_initialize"))
+	Global.connect("boss_hp_bar_take_damage", Callable(self , "_on_boss_hp_bar_take_damage"))
+	Global.connect("boss_chant_start", Callable(self , "_on_boss_chant_start"))
+	Global.connect("boss_chant_end", Callable(self , "_on_boss_chant_end"))
 	# 初始化时，根据health_bar_shown设置此Control节点自身的可见性。
 	visible = health_bar_shown
 
@@ -79,7 +93,54 @@ func _ready():
 	# 这时标签会覆盖在ProgressBar上，如果ProgressBar背景不透明，可能需要调整
 	# 一个简单的处理是让ProgressBar的区域稍微缩小，或者让标签背景透明
 
-	await get_tree().process_frame 
+	await get_tree().process_frame
+
+	# 初始化读条 UI 为隐藏状态
+	_set_chant_ui_visible(false)
+	set_process(false)
+
+	# 设置读条进度条样式：褐色外框+白色微黄填充+褐色外发光
+	if is_instance_valid(chant_bar):
+		# 填充样式：白色带一点点黄色
+		var fill_style = StyleBoxFlat.new()
+		fill_style.bg_color = Color(0.98, 0.96, 0.82, 1.0) # 白色微黄
+		fill_style.corner_radius_top_left = 2
+		fill_style.corner_radius_top_right = 2
+		fill_style.corner_radius_bottom_right = 2
+		fill_style.corner_radius_bottom_left = 2
+		# 褐色边框
+		fill_style.border_width_left = 1
+		fill_style.border_width_top = 1
+		fill_style.border_width_right = 1
+		fill_style.border_width_bottom = 1
+		fill_style.border_color = Color(0.55, 0.40, 0.22, 0.9)
+		# 褐色外发光效果
+		fill_style.shadow_color = Color(0.55, 0.40, 0.22, 0.45)
+		fill_style.shadow_size = 4
+		chant_bar.add_theme_stylebox_override("fill", fill_style)
+		# 背景样式：褐色外框半透明背景
+		var bg_style = StyleBoxFlat.new()
+		bg_style.bg_color = Color(0.15, 0.12, 0.08, 0.5)
+		bg_style.corner_radius_top_left = 2
+		bg_style.corner_radius_top_right = 2
+		bg_style.corner_radius_bottom_right = 2
+		bg_style.corner_radius_bottom_left = 2
+		bg_style.border_width_left = 1
+		bg_style.border_width_top = 1
+		bg_style.border_width_right = 1
+		bg_style.border_width_bottom = 1
+		bg_style.border_color = Color(0.55, 0.40, 0.22, 0.7)
+		# 背景也带褐色外发光
+		bg_style.shadow_color = Color(0.55, 0.40, 0.22, 0.35)
+		bg_style.shadow_size = 3
+		chant_bar.add_theme_stylebox_override("background", bg_style)
+
+	# 创建读条刷新 Timer（每 0.1 秒刷新一次）
+	_chant_timer = Timer.new()
+	_chant_timer.wait_time = 0.1
+	_chant_timer.one_shot = false
+	_chant_timer.timeout.connect(_on_chant_timer_tick)
+	add_child(_chant_timer)
 
 
 #-------------------- Private Helper Methods (私有辅助函数) --------------------#
@@ -99,7 +160,7 @@ func _create_and_configure_bars():
 				child.queue_free()
 
 	var bar_height = custom_minimum_size.y # 使用此Control节点的高度作为bar的高度
-	var bar_width = custom_minimum_size.x  # 使用此Control节点的宽度作为bar的宽度
+	var bar_width = custom_minimum_size.x # 使用此Control节点的宽度作为bar的宽度
 
 	# 从最上层（视觉上的顶层，数组中的高索引）开始创建，以便绘制顺序正确（后加的在上面）
 	# 但为了逻辑上从底层血条开始算，我们按索引顺序创建，然后在_update_display中处理显示逻辑
@@ -127,7 +188,7 @@ func _create_and_configure_bars():
 		# 如果父节点是Node2D，则需要设置size
 		if parent_node is Node2D:
 			bar_node.size = Vector2(bar_width, bar_height)
-			bar_node.position = Vector2(0,0) # Node2D的子节点位置相对于Node2D
+			bar_node.position = Vector2(0, 0) # Node2D的子节点位置相对于Node2D
 
 		# 设置前景（填充）颜色和样式
 		var fill_style = StyleBoxFlat.new()
@@ -141,10 +202,10 @@ func _create_and_configure_bars():
 		
 		# 设置背景样式（包括描边和圆角，背景色透明）
 		var background_style = StyleBoxFlat.new()
-		if i == 0 :
-			background_style.bg_color = Color(0,0,0,0.3) # 背景完全透明
+		if i == 0:
+			background_style.bg_color = Color(0, 0, 0, 0.3) # 背景完全透明
 		else:
-			background_style.bg_color = Color(0,0,0,0) # 背景完全透明
+			background_style.bg_color = Color(0, 0, 0, 0) # 背景完全透明
 		background_style.corner_radius_top_left = 10
 		background_style.corner_radius_top_right = 10
 		background_style.corner_radius_bottom_right = 10
@@ -169,7 +230,7 @@ func _update_display():
 		return
 
 	var hp_per_segment: float = hpMax / float(hp_bar_num)
-	if hp_per_segment <= 0: hp_per_segment = 1.0 
+	if hp_per_segment <= 0: hp_per_segment = 1.0
 
 	var remaining_hp_total = hp
 	var now_hp_bar_num = hp_bar_num
@@ -220,7 +281,7 @@ func _animate_hp_change(from_hp: float, to_hp: float):
 		return
 	
 	var hp_per_segment: float = hpMax / float(hp_bar_num)
-	if hp_per_segment <= 0: 
+	if hp_per_segment <= 0:
 		_update_display()
 		return
 	
@@ -293,7 +354,7 @@ func _update_labels_and_ui():
 func _hide_and_destroy_hp_bar():
 	# 创建淡出动画
 	var tween = get_tree().create_tween()
-	tween.tween_property(self, "modulate:a", 0.0, 0.3).set_trans(Tween.TRANS_LINEAR)
+	tween.tween_property(self , "modulate:a", 0.0, 0.3).set_trans(Tween.TRANS_LINEAR)
 	tween.tween_callback(queue_free)
 
 #-------------------- Public Methods (公共方法) --------------------#
@@ -314,7 +375,7 @@ func take_damage(damage_amount: float):
 
 # Helper function to get current visible HP bar count based on HP
 func _get_current_hp_bar_count() -> int:
-	if hp_bar_num <= 0 or hpMax <=0:
+	if hp_bar_num <= 0 or hpMax <= 0:
 		return 0
 	var hp_per_segment: float = hpMax / float(hp_bar_num)
 	if hp_per_segment <= 0: return hp_bar_num # Avoid division by zero or negative
@@ -324,20 +385,20 @@ func _get_current_hp_bar_count() -> int:
 
 ## 在运行时动态更改hpMax, hp, 或 hp_bar_num
 func refresh_bar_config_and_display():
-	_create_and_configure_bars() 
-	_update_display()            
+	_create_and_configure_bars()
+	_update_display()
 
 func _on_boss_hp_bar_show():
 	health_bar_shown = true
 	# 先确保节点是可见的，以便动画可以播放
-	visible = true 
+	visible = true
 	if is_instance_valid(health_bar_container):
 		health_bar_container.visible = true
 	if is_instance_valid(_boss_name_label): _boss_name_label.visible = true
 	if is_instance_valid(_bar_count_label): _bar_count_label.visible = true
 	
 	var tween = get_tree().create_tween()
-	tween.tween_property(self, "modulate:a", 0.8, 0.5).from(0.0) # 从完全透明渐变到0.8透明度
+	tween.tween_property(self , "modulate:a", 0.8, 0.5).from(0.0) # 从完全透明渐变到0.8透明度
 	# _update_display() 应该在动画开始前或动画逻辑中被调用，以确保内容正确
 	# 如果_update_display本身会改变visible状态，需要小心处理
 	# 这里假设_update_display主要是更新血条的值和文本，而不是整体可见性动画
@@ -346,14 +407,14 @@ func _on_boss_hp_bar_show():
 func _on_boss_hp_bar_hide():
 	health_bar_shown = false
 	var tween = get_tree().create_tween()
-	tween.tween_property(self, "modulate:a", 0.0, 0.5).from(modulate.a) # 从当前透明度渐变到完全透明
+	tween.tween_property(self , "modulate:a", 0.0, 0.5).from(modulate.a) # 从当前透明度渐变到完全透明
 	# 动画完成后再彻底隐藏节点，或者依赖 modulate.a = 0 来隐藏
-	tween.tween_callback(Callable(self, "_finalize_hide"))
+	tween.tween_callback(Callable(self , "_finalize_hide"))
 
 func _finalize_hide():
 	# 这个函数在隐藏动画结束后被调用
 	# _update_display() 会根据 health_bar_shown 设置子节点可见性
-	_update_display() 
+	_update_display()
 	# visible = false # 如果modulate.a = 0 不足以隐藏所有内容，可以在这里设置
 
 func _on_boss_hp_bar_initialize(max_hp: float, current_hp: float, bar_num: int, bar_boss_name: String):
@@ -362,6 +423,65 @@ func _on_boss_hp_bar_initialize(max_hp: float, current_hp: float, bar_num: int, 
 	hp_bar_num = bar_num
 	boss_name = bar_boss_name
 	refresh_bar_config_and_display()
+
+# -------------------- Chant UI (读条 UI) --------------------#
+func _set_chant_ui_visible(show: bool):
+	if is_instance_valid(skill_name):
+		skill_name.visible = show
+	if is_instance_valid(chant_time):
+		chant_time.visible = show
+	if is_instance_valid(chant_bar):
+		chant_bar.visible = show
+
+func _on_boss_chant_start(skill_display_name: String, chant_duration: float):
+	_chant_total_time = chant_duration
+	_chant_elapsed = 0.0
+	_chant_active = true
+
+	if is_instance_valid(skill_name):
+		skill_name.text = skill_display_name
+	if is_instance_valid(chant_bar):
+		chant_bar.max_value = chant_duration
+		chant_bar.value = 0.0
+	if is_instance_valid(chant_time):
+		chant_time.text = str(snapped(chant_duration, 0.1)) + "s"
+
+	_set_chant_ui_visible(true)
+	set_process(true)
+	if _chant_timer and not _chant_timer.is_stopped():
+		_chant_timer.stop()
+	if _chant_timer:
+		_chant_timer.start()
+
+func _on_boss_chant_end():
+	_chant_active = false
+	set_process(false)
+	if _chant_timer and not _chant_timer.is_stopped():
+		_chant_timer.stop()
+	_set_chant_ui_visible(false)
+
+# 每帧平滑更新进度条填充
+func _process(delta: float):
+	if not _chant_active:
+		return
+	_chant_elapsed += delta
+	if is_instance_valid(chant_bar):
+		chant_bar.value = min(_chant_elapsed, _chant_total_time)
+	if _chant_elapsed >= _chant_total_time:
+		_chant_active = false
+		set_process(false)
+		if _chant_timer and not _chant_timer.is_stopped():
+			_chant_timer.stop()
+		_set_chant_ui_visible(false)
+
+# Timer 仅负责每 0.1 秒刷新剩余时间文字
+func _on_chant_timer_tick():
+	if not _chant_active:
+		_chant_timer.stop()
+		return
+	var remaining = max(_chant_total_time - _chant_elapsed, 0.0)
+	if is_instance_valid(chant_time):
+		chant_time.text = str(snapped(remaining, 0.1)) + "s"
 
 func set_health_bar_shown(is_shown: bool):
 	health_bar_shown = is_shown

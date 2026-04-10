@@ -45,7 +45,6 @@ func _ready():
 # 此方法应在剑痕场景实例化后，由创建者调用以完成初始化
 func setup_wave(wave_target_position: Vector2):
 	#print("SwordWave instance setup_wave called with target: ", wave_target_position)
-
 	if PC.player_instance == null:
 		printerr("SwordWave Error: PC.player_instance is null. Cannot create sword wave.")
 		queue_free() # 无法获取玩家位置，直接销毁自身
@@ -89,11 +88,11 @@ func setup_wave(wave_target_position: Vector2):
 	modulate.a = 0.0 # 确保从完全透明开始
 	var tween = create_tween()
 	# 阶段1: 0.5秒内，透明度从0到1
-	tween.tween_property(self, "modulate:a", 0.5, 0.15)
+	tween.tween_property(self , "modulate:a", 0.5, 0.15)
 	# 阶段2: 保持1.5秒
 	tween.tween_interval(2.35)
 	# 阶段3: 1秒内，透明度从1到0
-	tween.tween_property(self, "modulate:a", 0.0, 0.5)
+	tween.tween_property(self , "modulate:a", 0.0, 0.5)
 	# 总持续时间 0.5 + 1.5 + 1.0 = 3.0秒，与 lifetime_timer 匹配
 
 func _on_lifetime_timer_timeout():
@@ -101,18 +100,19 @@ func _on_lifetime_timer_timeout():
 
 func _on_damage_timer_timeout():
 	# 检查节点是否仍然有效，以防在处理过程中被释放
-	if not is_instance_valid(self):
+	if not is_instance_valid(self ):
 		return
 
 	var bodies = get_overlapping_areas()
-	for body in bodies:	
+	for body in bodies:
 		if PC.selected_rewards.has("SplitSwordQi21") and body.has_signal("debuff_applied"):
 			body.emit_signal("debuff_applied", "slow")
 		# 确保body也有效，并且是敌人且有受伤方法
 		if body.is_in_group("enemies") and body.has_method("take_damage"):
 			var tick_ratio = 0.2
-			var damage = PC.pc_atk * PC.main_skill_swordQi_damage * tick_ratio
-			damage *= Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
+			# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
+			var damage_multiplier = PC.main_skill_swordQi_damage + (Faze.get_bullet_damage_multiplier(PC.faze_bullet_level) - 1.0)
+			var damage = PC.pc_atk * damage_multiplier * tick_ratio
 			body.take_damage(damage, false, false, "sword_wave") # 参数: 伤害值, 是否暴击, 是否召唤物伤害, 伤害类型
 
 # _physics_process 通常用于每帧更新，如果剑痕创建后是静态的，则此函数可以为空或移除

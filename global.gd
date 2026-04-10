@@ -1,3 +1,4 @@
+@warning_ignore("unused_signal")
 extends Node
 
 const CONFIG_PATH = "user://game_config.cfg"
@@ -6,22 +7,25 @@ const CONFIG_PATH = "user://game_config.cfg"
 var in_synthesis: bool = false
 
 # 纹章配置管理器
-var SettingEmblem = preload("res://Script/config/setting_emblem.gd").new()
+var setting_emblem = preload("res://Script/config/setting_emblem.gd").new()
 
 # 音频管理器
-var AudioManager = preload("res://Script/system/audio_manager.gd").new()
+var audio_manager = preload("res://Script/system/audio_manager.gd").new()
 
 # 设置管理器
-var SettingsManager = preload("res://Script/system/settings_manager.gd").new()
+var settings_manager = preload("res://Script/system/settings_manager.gd").new()
 
 # 滤镜管理器
-var SoftGlowManager = preload("res://Script/system/soft_glow_manager.gd").new()
+var soft_glow_manager = preload("res://Script/system/soft_glow_manager.gd").new()
 
 # 主动技能管理器
-var ActiveSkillManager = preload("res://Script/config/active_skill_manager.gd").new()
+var active_skill_manager = preload("res://Script/config/active_skill_manager.gd").new()
 
 # 装备管理器
-var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
+var equipment_manager = preload("res://Script/config/equipment_manager.gd").new()
+
+# 经验光点系统
+var exp_orb_system = preload("res://Script/system/exp_orb_system.gd").new()
 
 @export var total_points: int = 1000
 
@@ -49,6 +53,9 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 # 果实回复效果
 @export var fruit_heal_multi: float = 1
 @export var fruit_heal_multi_used_count: int = 0 # 回春露已使用次数（最多10次）
+
+# 丹药使用次数记录 {item_id: 已使用次数}
+@export var pill_used_counts: Dictionary = {}
 
 # lunky概率
 @export var lunky_level: int = 1
@@ -171,142 +178,399 @@ var EquipmentManager = preload("res://Script/config/equipment_manager.gd").new()
 
 # 鼠标动画通过autoload管理
 
+@warning_ignore("unused_signal")
 signal player_hit(attacker: Node2D)
+@warning_ignore("unused_signal")
 signal player_lv_up
+@warning_ignore("unused_signal")
 signal lucky_level_up
+@warning_ignore("unused_signal")
 signal setup_summons
+@warning_ignore("unused_signal")
 signal level_up_selection_complete
+@warning_ignore("unused_signal")
 signal monster_damage
+@warning_ignore("unused_signal")
 signal player_heal(heal_value, world_position)
+@warning_ignore("unused_signal")
 signal player_take_damage(damage_val, shield_val, world_position)
+@warning_ignore("unused_signal")
 signal monster_mechanism_gained
+@warning_ignore("unused_signal")
 signal monster_killed
+@warning_ignore("unused_signal")
 signal boss_defeated
+@warning_ignore("unused_signal")
 signal skill_attack_speed_updated
 
 # 对话相关
+@warning_ignore("unused_signal")
 signal start_dialog(dialog_file_path: String) # Signal to start a dialog sequence
 
 # bgm切换
+@warning_ignore("unused_signal")
 signal boss_bgm
+@warning_ignore("unused_signal")
 signal normal_bgm
 
 # 影机相关
+@warning_ignore("unused_signal")
 signal zoom_camera
+@warning_ignore("unused_signal")
 signal reset_camera
 
 # Boss血条控制信号
+@warning_ignore("unused_signal")
 signal boss_hp_bar_show
+@warning_ignore("unused_signal")
 signal boss_hp_bar_hide
+@warning_ignore("unused_signal")
 signal boss_hp_bar_initialize(max_hp: float, current_hp: float, bar_num: int)
+@warning_ignore("unused_signal")
 signal boss_hp_bar_take_damage(damage: float)
+@warning_ignore("unused_signal")
+signal boss_chant_start(skill_display_name: String, chant_duration: float)
+@warning_ignore("unused_signal")
+signal boss_chant_end
 
 # Buff系统信号
+@warning_ignore("unused_signal")
 signal buff_added(buff_id: String, duration: float, stack: int)
+@warning_ignore("unused_signal")
 signal buff_removed(buff_id: String)
+@warning_ignore("unused_signal")
 signal buff_updated(buff_id: String, remaining_time: float, stack: int)
+@warning_ignore("unused_signal")
 signal buff_stack_changed(buff_id: String, new_stack: int)
 
 # 纹章系统信号
+@warning_ignore("unused_signal")
 signal emblem_added(emblem_id: String, stack: int)
+@warning_ignore("unused_signal")
 signal emblem_removed(emblem_id: String)
+@warning_ignore("unused_signal")
 signal emblem_stack_changed(emblem_id: String, new_stack: int)
 
 # 攻击相关
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_branch
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_moyan
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_riyan
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_ringFire
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_thunder
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_bloodwave
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_bloodboardsword
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_ice
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_thunder_break
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_light_bullet
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_water
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_qiankun
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_xuanwu
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_xunfeng
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_genshan
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_duize
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_holylight(skill_id)
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_qigong(skill_id)
+@warning_ignore("unused_signal")
 signal skill_cooldown_complete_dragonwind(skill_id)
 
 
 # 其他攻击方式相关
+@warning_ignore("unused_signal")
 signal riyan_damage_triggered
+@warning_ignore("unused_signal")
 signal ringFire_damage_triggered
 
 # 剑气相关
+@warning_ignore("unused_signal")
 signal createSwordWave
+@warning_ignore("unused_signal")
 signal _fire_ring_bullets
 
 # 掉落
+@warning_ignore("unused_signal")
 signal drop_out_item(item_id: String, quantity: int, position: Vector2)
+@warning_ignore("unused_signal")
+signal drop_exp_orb(exp_value: int, position: Vector2, is_elite: bool)
 
 # 对话键
+@warning_ignore("unused_signal")
 signal press_f
+@warning_ignore("unused_signal")
 signal press_g
+@warning_ignore("unused_signal")
 signal press_h
 
-# 玩家背包
-var player_inventory = {}
+# DPS管理器相关信号
+@warning_ignore("unused_signal")
+signal dps_updated(total_dps: float, weapon_dps: Dictionary)
 
-# 合成书获取进度 - 记录每个合成篇章是否已解锁
-# 格式: {"recipe_id": bool}
-@export var recipe_unlock_progress = {
-	"recipe_001": true,
-	"recipe_002": false,
-	"recipe_003": false,
-	"recipe_004": false,
-	"recipe_noam": false
-}
+# --------------------------
+# --- DPS 计数逻辑 ---
+var dps_damage_records = [] # 存储过去30秒的伤害记录: [{"damage": float, "time": float, "weapon": String}]
+@export var current_dps: float = 0.0 # 当前总DPS值
+var weapon_dps: Dictionary = {} # 当前各武器DPS字典: {weapon_name: dps_value}
+var dps_timer: Timer
 
-# DPS计数器相关
-var dps_damage_records = [] # 存储过去30秒的伤害记录
-@export var current_dps: float = 0.0 # 当前DPS值
-var dps_timer: Timer # DPS计算定时器
+# 伤害数字显示配置
+@export var damage_show_type: int = 2
+@export var damage_show_enabled: bool = true
+@export var particle_enable: bool = true
 
 # 伤害标签限制
 const MAX_DAMAGE_LABELS: int = 500
 var _active_damage_label_count: int = 0
 var _damage_label_scene = preload("res://Scenes/global/damage.tscn")
 
-
-func _ready() -> void:
-	monster_damage.connect(_on_monster_damage)
-	player_heal.connect(_on_player_heal)
-	player_take_damage.connect(_on_player_take_damage)
-	
-	# 初始化纹章配置管理器
-	add_child(SettingEmblem)
-	
-	# 初始化音频管理器
-	add_child(AudioManager)
-	
-	# 初始化柔光滤镜管理器
-	add_child(SoftGlowManager)
-	
-	# 初始化设置管理器
-	add_child(SettingsManager)
-	
-	# 初始化装备管理器
-	add_child(EquipmentManager)
-	
-	# 初始化主动技能管理器
-	add_child(ActiveSkillManager)
-	
-	# 初始化DPS计时器
+func _init_dps_counter() -> void:
 	dps_timer = Timer.new()
 	dps_timer.wait_time = 1.0 # 每秒计算一次DPS
 	dps_timer.timeout.connect(_calculate_dps)
 	dps_timer.autostart = false
 	add_child(dps_timer)
+
+# 记录伤害，可选武器名称
+func record_damage_for_dps(damage: float, weapon_name: String = "Unknown") -> void:
+	var current_time = Time.get_ticks_msec() / 1000.0
+	dps_damage_records.append({
+		"damage": damage, 
+		"time": current_time,
+		"weapon": weapon_name
+	})
+
+# 计算DPS（每秒调用一次）
+func _calculate_dps() -> void:
+	var current_time = Time.get_ticks_msec() / 1000.0
+	var total_damage = 0.0
+	var weapon_totals = {} # {weapon_name: total_damage}
+	
+	# 移除30秒前的记录并计算
+	for i in range(dps_damage_records.size() - 1, -1, -1):
+		var record = dps_damage_records[i]
+		if current_time - record["time"] > 30.0:
+			dps_damage_records.remove_at(i)
+		else:
+			var dmg = record["damage"]
+			var w_name = record["weapon"]
+			total_damage += dmg
+			weapon_totals[w_name] = weapon_totals.get(w_name, 0.0) + dmg
+	
+	# 计算总DPS
+	current_dps = total_damage / 30.0
+	
+	# 计算分武器DPS
+	weapon_dps.clear()
+	for w_name in weapon_totals:
+		weapon_dps[w_name] = weapon_totals[w_name] / 30.0
+	
+	# 发送信号
+	emit_signal("dps_updated", current_dps, weapon_dps)
+
+# ---------------------------------
+
+func _ready():
+	monster_damage.connect(_on_monster_damage)
+	player_heal.connect(_on_player_heal)
+	player_take_damage.connect(_on_player_take_damage)
+	
+	# 初始化管理器
+	add_child(setting_emblem)
+	add_child(audio_manager)
+	add_child(soft_glow_manager)
+	add_child(settings_manager)
+	add_child(equipment_manager)
+	add_child(active_skill_manager)
+	add_child(exp_orb_system)
+	
+	load_game()
+	_init_dps_counter()
 	
 	# 游戏启动时立即加载鼠标动画
 	MouseAnimation.start_mouse_animation()
+
+func save_game():
+	var config = ConfigFile.new()
+	
+	var data = {
+		"total_points": total_points,
+		"player_name": PC.player_name,
+		"world_level": world_level,
+		"world_level_multiple": world_level_multiple,
+		"world_level_reward_multiple": world_level_reward_multiple,
+		"lunky_level": lunky_level,
+		"red_p": red_p,
+		"gold_p": gold_p,
+		"darkorchid_p": darkorchid_p,
+		"blue_p": blue_p,
+		"green_p": green_p,
+		"exp_multi": exp_multi,
+		"drop_multi": drop_multi,
+		"body_size": body_size,
+		"heal_multi": heal_multi,
+		"sheild_multi": sheild_multi,
+		"normal_monster_multi": normal_monster_multi,
+		"boss_multi": boss_multi,
+		"cooldown": cooldown,
+		"active_skill_multi": active_skill_multi,
+		"fruit_heal_multi": fruit_heal_multi,
+		"fruit_heal_multi_used_count": fruit_heal_multi_used_count,
+		"pill_used_counts": pill_used_counts,
+		"player_inventory": player_inventory,
+		"recipe_unlock_progress": recipe_unlock_progress,
+		"unlock_moning": unlock_moning,
+		"unlock_yiqiu": unlock_yiqiu,
+		"unlock_noam": unlock_noam,
+		"unlock_kansel": unlock_kansel,
+		"refresh_max_num": refresh_max_num,
+		"cultivation_unlock_progress": cultivation_unlock_progress,
+		"cultivation_poxu_level": cultivation_poxu_level,
+		"cultivation_xuanyuan_level": cultivation_xuanyuan_level,
+		"cultivation_liuguang_level": cultivation_liuguang_level,
+		"cultivation_hualing_level": cultivation_hualing_level,
+		"cultivation_fengrui_level": cultivation_fengrui_level,
+		"cultivation_huti_level": cultivation_huti_level,
+		"cultivation_zhuifeng_level": cultivation_zhuifeng_level,
+		"cultivation_liejin_level": cultivation_liejin_level,
+		"cultivation_poxu_level_max": cultivation_poxu_level_max,
+		"cultivation_xuanyuan_level_max": cultivation_xuanyuan_level_max,
+		"cultivation_liuguang_level_max": cultivation_liuguang_level_max,
+		"cultivation_hualing_level_max": cultivation_hualing_level_max,
+		"cultivation_fengrui_level_max": cultivation_fengrui_level_max,
+		"cultivation_huti_level_max": cultivation_huti_level_max,
+		"cultivation_zhuifeng_level_max": cultivation_zhuifeng_level_max,
+		"cultivation_liejin_level_max": cultivation_liejin_level_max,
+		"player_study_data": player_study_data,
+		"player_active_skill_data": player_active_skill_data,
+		"player_now_active_skill": player_now_active_skill,
+		"max_main_skill_num": max_main_skill_num,
+		"max_weapon_num": max_weapon_num,
+		"emblem_slots_max": emblem_slots_max,
+		"max_carry_equipment_slots": max_carry_equipment_slots,
+		"equipment_data": equipment_manager.save_equipment_data(),
+		"master_volume": audio_manager.get_master_volume(),
+		"bgm_volume": audio_manager.get_bgm_volume(),
+		"sfx_volume": audio_manager.get_sfx_volume(),
+		"bg_volume": audio_manager.get_bg_volume(),
+		"damage_show_enabled": damage_show_enabled,
+		"damage_show_type": damage_show_type,
+		"particle_enable": particle_enable
+	}
+	
+	for key in data:
+		config.set_value("save", key, data[key])
+	
+	var err = config.save(CONFIG_PATH)
+	if err == OK:
+		print("save success")
+	else:
+		push_error("save error")
+	
+	audio_manager.save_audio_settings()
+
+func load_game():
+	var config = ConfigFile.new()
+	var err = config.load(CONFIG_PATH)
+	if err != OK: return
+	
+	total_points = config.get_value("save", "total_points", total_points)
+	PC.player_name = config.get_value("save", "player_name", PC.player_name)
+	
+	world_level = config.get_value("save", "world_level", world_level)
+	world_level_multiple = config.get_value("save", "world_level_multiple", world_level_multiple)
+	world_level_reward_multiple = config.get_value("save", "world_level_reward_multiple", world_level_reward_multiple)
+	lunky_level = config.get_value("save", "lunky_level", lunky_level)
+	red_p = config.get_value("save", "red_p", red_p)
+	gold_p = config.get_value("save", "gold_p", gold_p)
+	darkorchid_p = config.get_value("save", "darkorchid_p", darkorchid_p)
+	blue_p = config.get_value("save", "blue_p", blue_p)
+	green_p = config.get_value("save", "green_p", green_p)
+	
+	exp_multi = config.get_value("save", "exp_multi", exp_multi)
+	drop_multi = config.get_value("save", "drop_multi", drop_multi)
+	body_size = config.get_value("save", "body_size", body_size)
+	heal_multi = config.get_value("save", "heal_multi", heal_multi)
+	sheild_multi = config.get_value("save", "sheild_multi", sheild_multi)
+	normal_monster_multi = config.get_value("save", "normal_monster_multi", normal_monster_multi)
+	boss_multi = config.get_value("save", "boss_multi", boss_multi)
+	cooldown = config.get_value("save", "cooldown", cooldown)
+	active_skill_multi = config.get_value("save", "active_skill_multi", active_skill_multi)
+	fruit_heal_multi = config.get_value("save", "fruit_heal_multi", fruit_heal_multi)
+	fruit_heal_multi_used_count = config.get_value("save", "fruit_heal_multi_used_count", fruit_heal_multi_used_count)
+	pill_used_counts = config.get_value("save", "pill_used_counts", {})
+	
+	player_inventory = config.get_value("save", "player_inventory", {})
+	recipe_unlock_progress = config.get_value("save", "recipe_unlock_progress", recipe_unlock_progress)
+	unlock_moning = config.get_value("save", "unlock_moning", true)
+	unlock_yiqiu = config.get_value("save", "unlock_yiqiu", true)
+	unlock_noam = config.get_value("save", "unlock_noam", true)
+	unlock_kansel = config.get_value("save", "unlock_kansel", true)
+	refresh_max_num = config.get_value("save", "refresh_max_num", 3)
+	
+	cultivation_unlock_progress = config.get_value("save", "cultivation_unlock_progress", 0)
+	cultivation_poxu_level = config.get_value("save", "cultivation_poxu_level", 0)
+	cultivation_xuanyuan_level = config.get_value("save", "cultivation_xuanyuan_level", 0)
+	cultivation_liuguang_level = config.get_value("save", "cultivation_liuguang_level", 0)
+	cultivation_hualing_level = config.get_value("save", "cultivation_hualing_level", 0)
+	cultivation_fengrui_level = config.get_value("save", "cultivation_fengrui_level", 0)
+	cultivation_huti_level = config.get_value("save", "cultivation_huti_level", 0)
+	cultivation_zhuifeng_level = config.get_value("save", "cultivation_zhuifeng_level", 0)
+	cultivation_liejin_level = config.get_value("save", "cultivation_liejin_level", 0)
+	
+	cultivation_poxu_level_max = config.get_value("save", "cultivation_poxu_level_max", 50)
+	cultivation_xuanyuan_level_max = config.get_value("save", "cultivation_xuanyuan_level_max", 50)
+	cultivation_liuguang_level_max = config.get_value("save", "cultivation_liuguang_level_max", 25)
+	cultivation_hualing_level_max = config.get_value("save", "cultivation_hualing_level_max", 50)
+	cultivation_fengrui_level_max = config.get_value("save", "cultivation_fengrui_level_max", 25)
+	cultivation_huti_level_max = config.get_value("save", "cultivation_huti_level_max", 25)
+	cultivation_zhuifeng_level_max = config.get_value("save", "cultivation_zhuifeng_level_max", 25)
+	cultivation_liejin_level_max = config.get_value("save", "cultivation_liejin_level_max", 50)
+	
+	var loaded_study_data = config.get_value("save", "player_study_data", player_study_data)
+	for p_name in loaded_study_data.keys():
+		if not loaded_study_data[p_name].has("zhenqi_points"):
+			loaded_study_data[p_name]["zhenqi_points"] = 100
+	player_study_data = loaded_study_data
+	player_active_skill_data = config.get_value("save", "player_active_skill_data", player_active_skill_data)
+	player_now_active_skill = config.get_value("save", "player_now_active_skill", player_now_active_skill)
+	max_main_skill_num = config.get_value("save", "max_main_skill_num", 3)
+	max_weapon_num = config.get_value("save", "max_weapon_num", 5)
+	
+	emblem_slots_max = config.get_value("save", "emblem_slots_max", 4)
+	max_carry_equipment_slots = config.get_value("save", "max_carry_equipment_slots", 2)
+	var equipment_data = config.get_value("save", "equipment_data", {})
+	equipment_manager.load_equipment_data(equipment_data)
+	
+	audio_manager.set_master_volume(config.get_value("save", "master_volume", 1.0))
+	audio_manager.set_bgm_volume(config.get_value("save", "bgm_volume", 1.0))
+	audio_manager.set_sfx_volume(config.get_value("save", "sfx_volume", 1.0))
+	audio_manager.set_bg_volume(config.get_value("save", "bg_volume", 1.0))
+	
+	damage_show_enabled = config.get_value("save", "damage_show_enabled", true)
+	damage_show_type = config.get_value("save", "damage_show_type", 2)
+	particle_enable = config.get_value("save", "particle_enable", true)
+	
+	if settings_manager:
+		settings_manager.particle_enabled = particle_enable
+		settings_manager.damage_show_enabled = damage_show_enabled
 
 func reset_battle_modifiers() -> void:
 	exp_multi = 0
@@ -319,252 +583,68 @@ func reset_battle_modifiers() -> void:
 	cooldown = 0
 	active_skill_multi = 0
 
-func _input(event: InputEvent) -> void:
-	# 全局快捷键：F1打开音频设置
-	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_F1:
-			show_audio_settings()
-
-# 显示音频设置UI的全局函数
-func show_audio_settings() -> void:
-	var current_scene = get_tree().current_scene
-	if current_scene:
-		# 检查是否已经有音频设置UI打开
-		var existing_ui = current_scene.get_node_or_null("AudioSettingsUI")
-		if existing_ui:
-			existing_ui.queue_free()
-		else:
-			var audio_ui = AudioSettingsUI.show_audio_settings(current_scene)
-			audio_ui.name = "AudioSettingsUI"
-
-
-func save_game() -> void:
-	var config = ConfigFile.new()
-	var data = {
-		"total_points": total_points,
-		"player_name": PC.player_name,
-		"exp_multi": exp_multi,
-		"drop_multi": drop_multi,
-		"body_size": body_size,
-		"heal_multi": heal_multi,
-		"sheild_multi": sheild_multi,
-		"normal_monster_multi": normal_monster_multi,
-		"boss_multi": boss_multi,
-		"cooldown": cooldown,
-		"active_skill_multi": active_skill_multi,
-		"world_level": world_level,
-		"world_level_multiple": world_level_multiple,
-		"world_level_reward_multiple": world_level_reward_multiple,
-		"lunky_level": lunky_level,
-		"red_p": red_p,
-		"gold_p": gold_p,
-		"darkorchid_p": darkorchid_p,
-		"blue_p": blue_p,
-		"green_p": green_p,
-		"player_inventory": player_inventory,
-		"max_main_skill_num": max_main_skill_num,
-		"max_weapon_num": max_weapon_num,
-		"refresh_max_num": refresh_max_num,
-		"recipe_unlock_progress": recipe_unlock_progress,
-		"cultivation_unlock_progress": cultivation_unlock_progress,
-		"cultivation_poxu_level": cultivation_poxu_level,
-		"cultivation_xuanyuan_level": cultivation_xuanyuan_level,
-		"cultivation_liuguang_level": cultivation_liuguang_level,
-		"cultivation_hualing_level": cultivation_hualing_level,
-		"cultivation_fengrui_level": cultivation_fengrui_level,
-		"cultivation_huti_level": cultivation_huti_level,
-		"cultivation_zhuifeng_level": cultivation_zhuifeng_level,
-		"cultivation_liejin_level": cultivation_liejin_level,
-		"fruit_heal_multi": fruit_heal_multi,
-		"fruit_heal_multi_used_count": fruit_heal_multi_used_count,
-		# 修炼等级上限
-		"cultivation_poxu_level_max": cultivation_poxu_level_max,
-		"cultivation_xuanyuan_level_max": cultivation_xuanyuan_level_max,
-		"cultivation_liuguang_level_max": cultivation_liuguang_level_max,
-		"cultivation_hualing_level_max": cultivation_hualing_level_max,
-		"cultivation_fengrui_level_max": cultivation_fengrui_level_max,
-		"cultivation_huti_level_max": cultivation_huti_level_max,
-		"cultivation_zhuifeng_level_max": cultivation_zhuifeng_level_max,
-		"cultivation_liejin_level_max": cultivation_liejin_level_max,
-		# 玩家修习技能数据
-		"player_study_data": player_study_data,
-		"player_active_skill_data": player_active_skill_data,
-		"player_now_active_skill": player_now_active_skill,
-		# 纹章系统
-		"emblem_slots_max": emblem_slots_max,
-		# 装备系统
-		"max_carry_equipment_slots": max_carry_equipment_slots,
-		"equipment_data": EquipmentManager.save_equipment_data(),
-		# 音频设置
-		"master_volume": AudioManager.get_master_volume(),
-		"bgm_volume": AudioManager.get_bgm_volume(),
-		"sfx_volume": AudioManager.get_sfx_volume()
-		
-	}
-	for key in data:
-		config.set_value("save", key, data[key])
-	
-	var err = config.save(CONFIG_PATH)
-	if err == OK:
-		print("save success")
-	else:
-		push_error("save error")
-	
-	# 同时保存音频设置到专用文件
-	AudioManager.save_audio_settings()
-		
-
-func load_game() -> void:
-	var config = ConfigFile.new()
-	var err = config.load(CONFIG_PATH)
-	
-	if err != OK:
-		#print("no save data, use defalut value")
-		return
-	
-	total_points = config.get_value("save", "total_points", total_points)
-	PC.player_name = config.get_value("save", "player_name", PC.player_name)
-	exp_multi = config.get_value("save", "exp_multi", exp_multi)
-	drop_multi = config.get_value("save", "drop_multi", drop_multi)
-	body_size = config.get_value("save", "body_size", body_size)
-	heal_multi = config.get_value("save", "heal_multi", heal_multi)
-	sheild_multi = config.get_value("save", "sheild_multi", sheild_multi)
-	normal_monster_multi = config.get_value("save", "normal_monster_multi", normal_monster_multi)
-	boss_multi = config.get_value("save", "boss_multi", boss_multi)
-	cooldown = config.get_value("save", "cooldown", cooldown)
-	active_skill_multi = config.get_value("save", "active_skill_multi", active_skill_multi)
-	world_level = config.get_value("save", "world_level", world_level)
-	world_level_multiple = config.get_value("save", "world_level_multiple", world_level_multiple)
-	world_level_reward_multiple = config.get_value("save", "world_level_reward_multiple", world_level_reward_multiple)
-	lunky_level = config.get_value("save", "lunky_level", lunky_level)
-	red_p = config.get_value("save", "red_p", red_p)
-	gold_p = config.get_value("save", "gold_p", gold_p)
-	darkorchid_p = config.get_value("save", "darkorchid_p", darkorchid_p)
-	blue_p = config.get_value("save", "blue_p", blue_p)
-	green_p = config.get_value("save", "green_p", green_p)
-	player_inventory = config.get_value("save", "player_inventory", player_inventory)
-	max_main_skill_num = config.get_value("save", "max_main_skill_num", max_main_skill_num)
-	max_weapon_num = config.get_value("save", "max_weapon_num", max_weapon_num)
-	refresh_max_num = config.get_value("save", "refresh_max_num", refresh_max_num)
-	recipe_unlock_progress = config.get_value("save", "recipe_unlock_progress", recipe_unlock_progress)
-	cultivation_unlock_progress = config.get_value("save", "cultivation_unlock_progress", cultivation_unlock_progress)
-	cultivation_poxu_level = config.get_value("save", "cultivation_poxu_level", cultivation_poxu_level)
-	cultivation_xuanyuan_level = config.get_value("save", "cultivation_xuanyuan_level", cultivation_xuanyuan_level)
-	cultivation_liuguang_level = config.get_value("save", "cultivation_liuguang_level", cultivation_liuguang_level)
-	cultivation_hualing_level = config.get_value("save", "cultivation_hualing_level", cultivation_hualing_level)
-	cultivation_fengrui_level = config.get_value("save", "cultivation_fengrui_level", cultivation_fengrui_level)
-	cultivation_huti_level = config.get_value("save", "cultivation_huti_level", cultivation_huti_level)
-	cultivation_zhuifeng_level = config.get_value("save", "cultivation_zhuifeng_level", cultivation_zhuifeng_level)
-	cultivation_liejin_level = config.get_value("save", "cultivation_liejin_level", cultivation_liejin_level)
-	emblem_slots_max = config.get_value("save", "emblem_slots_max", emblem_slots_max)
-	fruit_heal_multi = config.get_value("save", "fruit_heal_multi", fruit_heal_multi)
-	fruit_heal_multi_used_count = config.get_value("save", "fruit_heal_multi_used_count", fruit_heal_multi_used_count)
-	# 加载修炼等级上限
-	cultivation_poxu_level_max = config.get_value("save", "cultivation_poxu_level_max", cultivation_poxu_level_max)
-	cultivation_xuanyuan_level_max = config.get_value("save", "cultivation_xuanyuan_level_max", cultivation_xuanyuan_level_max)
-	cultivation_liuguang_level_max = config.get_value("save", "cultivation_liuguang_level_max", cultivation_liuguang_level_max)
-	cultivation_hualing_level_max = config.get_value("save", "cultivation_hualing_level_max", cultivation_hualing_level_max)
-	cultivation_fengrui_level_max = config.get_value("save", "cultivation_fengrui_level_max", cultivation_fengrui_level_max)
-	cultivation_huti_level_max = config.get_value("save", "cultivation_huti_level_max", cultivation_huti_level_max)
-	cultivation_zhuifeng_level_max = config.get_value("save", "cultivation_zhuifeng_level_max", cultivation_zhuifeng_level_max)
-	cultivation_liejin_level_max = config.get_value("save", "cultivation_liejin_level_max", cultivation_liejin_level_max)
-	
-	
-	# 加载玩家修习技能数据，确保兼容性
-	var loaded_study_data = config.get_value("save", "player_study_data", player_study_data)
-	# 为现有存档添加zhenqi_points字段的兼容性处理
-	for player_name in loaded_study_data.keys():
-		if not loaded_study_data[player_name].has("zhenqi_points"):
-			loaded_study_data[player_name]["zhenqi_points"] = 100 # 默认真气点数
-	player_study_data = loaded_study_data
-	player_active_skill_data = config.get_value("save", "player_active_skill_data", player_active_skill_data)
-	player_now_active_skill = config.get_value("save", "player_now_active_skill", player_now_active_skill)
-	
-	# 加载装备系统数据
-	max_carry_equipment_slots = config.get_value("save", "max_carry_equipment_slots", 2)
-	var equipment_data = config.get_value("save", "equipment_data", {})
-	if EquipmentManager:
-		EquipmentManager.load_equipment_data(equipment_data)
-	
-	# 加载音频设置
-	var master_vol = config.get_value("save", "master_volume", 1.0)
-	var bgm_vol = config.get_value("save", "bgm_volume", 1.0)
-	var sfx_vol = config.get_value("save", "sfx_volume", 1.0)
-	
-	# 应用音频设置
-	if AudioManager:
-		AudioManager.set_master_volume(master_vol)
-		AudioManager.set_bgm_volume(bgm_vol)
-		AudioManager.set_sfx_volume(sfx_vol)
-	
 var hit_scene = null
 
 signal player_healed(amount: float)
 signal player_shield_damaged(amount: float)
 
 func play_hit_anime(position: Vector2, is_crit: bool = false, anime: int = 1):
-	if anime == 0:
-		return
+	if anime == 0: return
 	if hit_scene == null:
 		hit_scene = ResourceLoader.load("res://Scenes/global/hit.tscn")
 	var hit_instantiate = hit_scene.instantiate()
 	hit_instantiate.position = position + Vector2(-1, 5)
 	get_tree().current_scene.add_child(hit_instantiate)
 	
-	# 设置音效使用SFX总线
-	if hit_instantiate.gun_hit_crit_sound:
-		hit_instantiate.gun_hit_crit_sound.bus = "SFX"
-	if hit_instantiate.gun_hit_sound:
-		hit_instantiate.gun_hit_sound.bus = "SFX"
+	if hit_instantiate.get_node_or_null("GunHitSound"): hit_instantiate.get_node("GunHitSound").bus = "SFX"
+	if hit_instantiate.get_node_or_null("GunHitCriSound"): hit_instantiate.get_node("GunHitCriSound").bus = "SFX"
 	
 	if is_crit:
-		hit_instantiate.gun_hit_crit_anime.play("hit") # Assuming crit animation name is also "hit"
-		hit_instantiate.gun_hit_crit_sound.play(0.0)
-		hit_instantiate.emit_signal("critical_hit_played") # Emit signal if you need to react to this elsewhere
+		hit_instantiate.get_node("GunHitCri").play("hit")
+		hit_instantiate.get_node("GunHitCriSound").play(0.0)
+		hit_instantiate.emit_signal("critical_hit_played")
 	else:
-		hit_instantiate.gun_hit_anime.play("hit")
-		hit_instantiate.gun_hit_sound.play(0.0)
+		hit_instantiate.get_node("GunHit").play("hit")
+		hit_instantiate.get_node("GunHitSound").play(0.0)
 	await get_tree().create_timer(0.2).timeout
-	if hit_instantiate != null:
-		hit_instantiate.queue_free()
-
+	if hit_instantiate != null: hit_instantiate.queue_free()
 
 func _on_monster_damage(damage_type_int: int, damage_value: float, world_position: Vector2):
+	# 找到武器名称（从调用上下文或者默认Unknown）
+	var weapon_name = "Unknown" 
+	# 注意：实际项目中建议在信号发射处带上武器名，或者在此处通过逻辑推断
+	
+	if not damage_show_enabled:
+		record_damage_for_dps(damage_value, weapon_name)
+		return
 	var damage_label_instance = _create_damage_label()
 	if damage_label_instance == null:
-		# 仍然记录DPS，只是不显示标签
-		record_damage_for_dps(damage_value)
+		record_damage_for_dps(damage_value, weapon_name)
 		return
 	damage_label_instance.show_damage_number(damage_type_int, damage_value, world_position)
-	
-	# 记录伤害到DPS计数器
-	record_damage_for_dps(damage_value)
+	record_damage_for_dps(damage_value, weapon_name)
 
 func _on_player_heal(heal_value: float, world_position: Vector2):
 	emit_signal("player_healed", heal_value)
+	if not damage_show_enabled: return
 	var damage_label_instance = _create_damage_label()
-	if damage_label_instance == null:
-		return
+	if damage_label_instance == null: return
 	damage_label_instance.show_damage_number(9, heal_value, world_position)
 
 func _on_player_take_damage(damage_val: float, shield_val: float, world_position: Vector2):
-	# 护盾吸收伤害（灰色）
+	if not damage_show_enabled: return
 	if shield_val > 0:
 		emit_signal("player_shield_damaged", shield_val)
 		var damage_label_instance = _create_damage_label()
 		if damage_label_instance != null:
 			damage_label_instance.show_damage_number(10, shield_val, world_position)
-
-	# 玩家承受伤害（红色）
 	if damage_val > 0:
 		var damage_label_instance = _create_damage_label()
 		if damage_label_instance != null:
 			damage_label_instance.show_damage_number(11, damage_val, world_position)
 
-# 创建伤害标签实例（统一管理，限制数量不超过MAX_DAMAGE_LABELS）
 func _create_damage_label() -> Node2D:
-	if _active_damage_label_count >= MAX_DAMAGE_LABELS:
-		return null
+	if _active_damage_label_count >= MAX_DAMAGE_LABELS: return null
 	var instance = _damage_label_scene.instantiate()
 	add_child(instance)
 	instance.z_index = 100
@@ -575,38 +655,21 @@ func _create_damage_label() -> Node2D:
 func _on_damage_label_freed() -> void:
 	_active_damage_label_count -= 1
 
-# 记录伤害用于DPS计算
-func record_damage_for_dps(damage: float) -> void:
-	var current_time = Time.get_ticks_msec() / 1000.0
-	dps_damage_records.append({"damage": damage, "time": current_time})
-
-# 计算DPS（每秒调用一次）
-func _calculate_dps() -> void:
-	var current_time = Time.get_ticks_msec() / 1000.0
-	var total_damage = 0.0
-	
-	# 移除30秒前的记录并计算总伤害
-	for i in range(dps_damage_records.size() - 1, -1, -1):
-		var record = dps_damage_records[i]
-		if current_time - record["time"] > 30.0:
-			dps_damage_records.remove_at(i)
-		else:
-			total_damage += record["damage"]
-	
-	# 计算DPS（过去30秒的总伤害除以30）
-	current_dps = total_damage / 30.0
-	print(current_dps)
-
 # 重置DPS计数器（游戏开始时调用）
 func reset_dps_counter() -> void:
 	dps_damage_records.clear()
 	current_dps = 0.0
-	dps_timer.start()
+	weapon_dps.clear()
+	if dps_timer: dps_timer.start()
 
 # 停止DPS计数器（游戏结束时调用）
 func stop_dps_counter() -> void:
-	dps_timer.stop()
+	if dps_timer: dps_timer.stop()
 
-# 获取当前DPS值
+# 获取当前总DPS值
 func get_current_dps() -> float:
 	return current_dps
+
+# 获取各武器统计字典
+func get_weapon_dps() -> Dictionary:
+	return weapon_dps

@@ -4,8 +4,11 @@ extends Area2D
 var debuff_manager: EnemyDebuffManager
 var is_dead: bool = false
 
-# 0为从左到右，1为从右向左，2为随机移动，3为靠近角色
-var move_direction: int = 1
+var move_vector: Vector2 = Vector2.LEFT
+
+# 发射子弹计时器
+var fire_timer: Timer
+const FIRE_INTERVAL: float = 4.0
 
 var base_speed: float = SettingMoster.bat("speed")
 var speed: float # Actual speed after debuffs
@@ -25,9 +28,15 @@ var progress_bar: ProgressBar
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 
+# 坐标日志计时器
+var _log_timer: float = 0.0
+
 # 精英怪相关
 var is_elite: bool = false
 var drop_rate_multiplier: float = 1.0
+
+# 边界检测标志，防止重复触发转向
+var is_out_of_bounds: bool = false
 
 func _ready():
 	debuff_manager = EnemyDebuffManager.new(self )
@@ -36,6 +45,16 @@ func _ready():
 	if is_elite:
 		add_to_group("elite")
 	speed = base_speed # Initialize speed
+	
+	# 随机初始移动方向
+	_pick_random_direction()
+	
+	# 初始化发射子弹定时器
+	fire_timer = Timer.new()
+	add_child(fire_timer)
+	fire_timer.wait_time = FIRE_INTERVAL
+	fire_timer.timeout.connect(_shoot_bullet)
+	fire_timer.start()
 	
 	# 创建地面阴影（飞行单位阴影在更下方，表示地面投影）
 	CharacterEffects.create_shadow(self , 16.0, 5.0, 13.0)
@@ -61,11 +80,20 @@ func free_health_bar():
 		health_bar.queue_free()
 
 func _physics_process(delta: float) -> void:
+	# 每秒打印一次坐标日志
+	_log_timer += delta
+	if _log_timer >= 1.0:
+		_log_timer = 0.0
+		print("[bat] position: ", position, " | global_position: ", global_position)
+	
 	if hp < hpMax and hp > 0:
 		show_health_bar()
 	
 	if debuff_manager.is_action_disabled():
+		fire_timer.paused = true
 		return
+	if fire_timer.paused:
+		fire_timer.paused = false
 
 	# 处理推挤效果（防止怪物重叠）
 	if not is_dead:
@@ -89,33 +117,23 @@ func _physics_process(delta: float) -> void:
 
 		
 	if not is_dead:
-		if move_direction == 0:
-			position += Vector2(speed, 0) * delta
-			sprite.flip_h = true;
-		if move_direction == 1:
-			position -= Vector2(speed, 0) * delta
-			sprite.flip_h = false;
-		if move_direction >= 2:
-			# 靠近角色的移动方式
-			if PC.player_instance != null:
-				var player_pos = PC.player_instance.global_position
-				var direction_to_player = (player_pos - global_position).normalized()
-				speed = base_speed * debuff_manager.get_speed_multiplier()
-				position += direction_to_player * speed * delta
-				# 根据移动方向设置精灵翻转
-				if direction_to_player.x > 0:
-					sprite.flip_h = true
-				else:
-					sprite.flip_h = false
-	
-
-	if move_direction == 0 and position.x <= -534:
-		free_health_bar()
-		queue_free()
+		speed = base_speed * debuff_manager.get_speed_multiplier()
+		position += move_vector * speed * delta
+		# 根据水平移动方向翻转精灵
+		if move_vector.x > 0:
+			sprite.flip_h = true
+		elif move_vector.x < 0:
+			sprite.flip_h = false
 		
-	if move_direction == 1 and position.x >= 534:
-		free_health_bar()
-		queue_free()
+		# 超出边界范围时，朝向玩家方向转向（只在刚越界时触发一次）
+		# 边界：y > 25, y < -560, x > 305, x < -310，向内缩10像素作为触发边界
+		# 使用 global_position 与世界坐标边界比较
+		var currently_out_of_bounds = (global_position.y > 550 or global_position.y < 50 or global_position.x > 295 or global_position.x < -300)
+		if currently_out_of_bounds and not is_out_of_bounds:
+			_pick_direction_to_safe_zone()
+			is_out_of_bounds = true
+		elif not currently_out_of_bounds:
+			is_out_of_bounds = false
 		
 	if hp <= 0:
 		free_health_bar()
@@ -126,7 +144,7 @@ func _physics_process(delta: float) -> void:
 			get_tree().current_scene.point += point_gain
 			Global.total_points += point_gain
 			var exp_gain = int(get_exp * Faze.get_exp_multiplier())
-			PC.pc_exp += exp_gain
+			Global.emit_signal("drop_exp_orb", exp_gain, global_position, is_elite)
 			Global.emit_signal("monster_mechanism_gained", get_mechanism)
 			var change = randf()
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
@@ -135,6 +153,7 @@ func _physics_process(delta: float) -> void:
 			$death.play()
 			Global.emit_signal("monster_killed")
 			is_dead = true
+			remove_from_group("enemies")
 			# 死亡时去除滤镜和描边
 			$AnimatedSprite2D.modulate = Color(1, 1, 1, 1)
 			$AnimatedSprite2D.material = null
@@ -148,9 +167,9 @@ func _physics_process(delta: float) -> void:
 			var shadow = get_node_or_null("Shadow")
 			if shadow:
 				shadow.visible = false
-			if SettingMoster.bat("itemdrop") != null:
-				for key in SettingMoster.bat("itemdrop"):
-					var drop_chance = SettingMoster.bat("itemdrop")[key] * drop_rate_multiplier
+			if SettingMoster.ghost("itemdrop") != null:
+				for key in SettingMoster.ghost("itemdrop"):
+					var drop_chance = SettingMoster.ghost("itemdrop")[key] * drop_rate_multiplier
 					if randf() <= drop_chance:
 						Global.emit_signal("drop_out_item", key, 1, global_position)
 
@@ -223,6 +242,40 @@ func _on_area_entered(area: Area2D) -> void:
 
 func apply_debuff_effect(debuff_id: String):
 	emit_signal("debuff_applied", debuff_id)
+
+# 随机选择一个移动方向
+func _pick_random_direction() -> void:
+	var angle = randf() * TAU
+	move_vector = Vector2(cos(angle), sin(angle))
+
+# 朝向安全区域中心选择方向（避免再次越界）
+func _pick_direction_to_safe_zone() -> void:
+	# 计算朝向玩家的方向
+	var direction_to_player: Vector2
+	if PC.player_instance:
+		direction_to_player = (PC.player_instance.global_position - global_position).normalized()
+	else:
+		# 如果没有玩家实例，使用默认方向
+		direction_to_player = Vector2.LEFT
+	# 添加随机偏移（±30度），增加变化性
+	var random_offset = deg_to_rad(randf_range(-30, 30))
+	move_vector = direction_to_player.rotated(random_offset)
+
+# 每隔 FIRE_INTERVAL 秒向玩家发射一次子弹
+func _shoot_bullet() -> void:
+	if is_dead:
+		return
+	var fireball_scene = preload("res://Scenes/moster/frog_attack.tscn")
+	var fireball = fireball_scene.instantiate()
+	get_parent().add_child(fireball)
+	fireball.global_position = global_position
+	var shoot_direction: Vector2
+	if PC.player_instance:
+		shoot_direction = (PC.player_instance.global_position - global_position).normalized()
+	else:
+		shoot_direction = move_vector
+	fireball.set_direction(shoot_direction)
+	fireball.play_animation("fire")
 
 func apply_knockback(direction: Vector2, force: float):
 	var tween = create_tween()

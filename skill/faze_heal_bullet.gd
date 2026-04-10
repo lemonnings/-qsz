@@ -1,4 +1,4 @@
-extends AnimatedSprite2D
+extends Area2D
 
 @export var sprite: AnimatedSprite2D
 @export var collision_shape: CollisionShape2D
@@ -6,7 +6,7 @@ extends AnimatedSprite2D
 var target: Node2D
 var damage: float
 var is_crit: bool
-var speed: float = 800.0
+var speed: float = 240.0
 
 func setup(p_target: Node2D, p_damage: float, p_is_crit: bool) -> void:
 	target = p_target

@@ -1,9 +1,9 @@
 extends Area2D
 
-@export var circleAnimate : AnimatedSprite2D
-@export var sectorAnimate : AnimatedSprite2D
-@export var circleCollision : CollisionShape2D
-@export var sectorCollision : CollisionShape2D
+@export var circleAnimate: AnimatedSprite2D
+@export var sectorAnimate: AnimatedSprite2D
+@export var circleCollision: CollisionShape2D
+@export var sectorCollision: CollisionShape2D
 
 # 基础属性
 var damage: float = 0.0
@@ -31,7 +31,6 @@ var locked_enemy_ref: WeakRef = null
 var locked_direction: Vector2 = Vector2.RIGHT
 
 func _ready() -> void:
-		
 	# 初始状态
 	modulate.a = 0.0
 	if circleAnimate:
@@ -48,9 +47,9 @@ func _ready() -> void:
 
 func setup_water(pos: Vector2, p_damage: float, p_range: float, p_heal: int, options: Dictionary = {}) -> void:
 	global_position = pos
-	var life_damage_multiplier = Faze.get_life_damage_multiplier(PC.faze_life_level)
+	# 伤害仅由奖励直接累加（main_skill_water_damage），不再叠加生灵法则乘数，避免奖励加成 × 法则加成的双重放大
 	var life_range_multiplier = Faze.get_life_range_multiplier(PC.faze_life_level)
-	damage = p_damage * life_damage_multiplier
+	damage = p_damage
 	range_val = p_range * life_range_multiplier
 	heal_amount = p_heal
 	player_ref = get_tree().get_first_node_in_group("player")
@@ -152,7 +151,7 @@ func _update_visuals_and_collision() -> void:
 		circleCollision.shape = circle_shape
 		
 	if circleAnimate:
-		var scale_val = range_val / 16.0 
+		var scale_val = range_val / 16.0
 		circleAnimate.scale = Vector2(scale_val, scale_val)
 		
 	# 设置扇形范围 (Water1)
@@ -281,6 +280,8 @@ func _deal_damage(enemy: Area2D, deal_circle: bool, deal_sector: bool) -> void:
 				source = "water_combined"
 				
 			enemy.take_damage(int(final_damage), is_crit, false, source)
+		# 击中粒子崩散特效
+		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "water")
 			
 		# Water2: 迟滞 - 减速 (只要造成伤害且开启了减速)
 		if apply_slow:

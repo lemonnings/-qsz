@@ -1,0 +1,335 @@
+extends Area2D
+
+@onready var sprite = $AnimatedSprite2D
+var debuff_manager: EnemyDebuffManager
+var is_dead: bool = false
+# 0为从左到右，1为从右向左，2为随机移动，3为靠近角色
+var move_direction: int = 1
+
+var base_speed: float = SettingMoster.stone_man("speed")
+var speed: float
+var hpMax: float = SettingMoster.stone_man("hp")
+var hp: float = SettingMoster.stone_man("hp")
+var atk: float = SettingMoster.stone_man("atk")
+var get_point: int = SettingMoster.stone_man("point")
+var get_exp: int = SettingMoster.stone_man("exp")
+var get_mechanism: int = SettingMoster.stone_man("mechanism")
+var health_bar_shown: bool = false
+var health_bar: Node2D
+var progress_bar: ProgressBar
+var last_sword_wave_damage_time: float = 0.0
+const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
+const CHARGE_TRIGGER_DISTANCE: float = 100.0
+const CHARGE_DISTANCE: float = 110.0
+const CHARGE_SPEED_MULTIPLIER: float = 5.0
+const CHARGE_WARNING_TIME: float = 1.2
+const CHARGE_WARNING_WIDTH: float = 16.0
+const CHARGE_COOLDOWN: float = 5.0
+
+# 精英怪相关
+var is_elite: bool = false
+var drop_rate_multiplier: float = 1.0
+var is_charge_warning: bool = false
+var is_charging: bool = false
+var charge_direction: Vector2 = Vector2.ZERO
+var charge_start_position: Vector2 = Vector2.ZERO
+var charge_target_point: Vector2 = Vector2.ZERO
+var charge_warning_node: WarnRectUtil
+var last_charge_start_time: float = -100.0
+
+signal debuff_applied(debuff_id: String)
+
+func _ready():
+	if is_elite:
+		add_to_group("elite")
+	debuff_manager = EnemyDebuffManager.new(self )
+	add_child(debuff_manager)
+	debuff_applied.connect(debuff_manager.add_debuff)
+	speed = base_speed # Initialize speed
+
+func show_health_bar():
+	if not health_bar_shown:
+		health_bar = preload("res://Scenes/global/hp_bar.tscn").instantiate()
+		add_child(health_bar)
+		health_bar.z_index = 100
+		progress_bar = health_bar.get_node("HPBar")
+		progress_bar.position = global_position + Vector2(-15, -10)
+		health_bar_shown = true
+		progress_bar.top_level = true
+	elif progress_bar and progress_bar.is_inside_tree():
+		progress_bar.position = global_position + Vector2(-15, -10)
+		var target_value_hp = (float(hp / hpMax)) * 100
+		if progress_bar.value != target_value_hp:
+			var tween = create_tween()
+			tween.tween_property(progress_bar, "value", target_value_hp, 0.35)
+
+		
+func free_health_bar():
+	if health_bar != null and health_bar.is_inside_tree():
+		health_bar.queue_free()
+
+func _physics_process(delta: float) -> void:
+	if hp <= 0:
+		clear_charge_warning()
+		is_charge_warning = false
+		is_charging = false
+		free_health_bar()
+		if not is_dead: # Add this check
+			$AnimatedSprite2D.stop()
+			$AnimatedSprite2D.play("death")
+			var point_gain = int(get_point * Faze.get_point_multiplier())
+			get_tree().current_scene.point += point_gain
+			Global.total_points += point_gain
+			var exp_gain = int(get_exp * Faze.get_exp_multiplier())
+			Global.emit_signal("drop_exp_orb", exp_gain, global_position, is_elite)
+			Global.emit_signal("monster_mechanism_gained", get_mechanism)
+			var change = randf()
+			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
+				# Release a round of sword Qi in (90°)(270°) and other all directions
+				release_round_sword_qi()
+			$death.play()
+			Global.emit_signal("monster_killed")
+			is_dead = true
+			remove_from_group("enemies")
+			# 死亡时去除滤镜和描边
+			$AnimatedSprite2D.modulate = Color(1, 1, 1, 1)
+			$AnimatedSprite2D.material = null
+			var collision_shape = get_node("CollisionShape2D")
+			collision_shape.disabled = true
+			collision_layer = 0
+			collision_mask = 0
+			monitoring = false
+			monitorable = false
+			# 隐藏阴影
+			var shadow = get_node_or_null("Shadow")
+			if shadow:
+				shadow.visible = false
+			if SettingMoster.stone_man("itemdrop") != null:
+				for key in SettingMoster.stone_man("itemdrop"):
+					var drop_chance = SettingMoster.stone_man("itemdrop")[key] * drop_rate_multiplier
+					if randf() <= drop_chance:
+						Global.emit_signal("drop_out_item", key, 1, global_position)
+				# for item in SettingMoster.stone_man("itemdrop"):
+				# 	if randf() <= SettingMoster.stone_man("itemdrop")[item]:
+				# 		Global.emit_signal("drop_out_item", item, 1, global_position)
+			await get_tree().create_timer(0.35).timeout
+			queue_free()
+		
+	if hp < hpMax and hp > 0:
+		show_health_bar()
+	
+	if debuff_manager.is_action_disabled():
+		return
+	
+	# 处理推挤效果（防止怪物重叠）
+	if not is_dead and not is_charge_warning and not is_charging:
+		CharacterEffects.apply_separation(self , 10.0, 12.0)
+		
+	if not is_dead:
+		if is_charging:
+			update_charge_movement(delta)
+		elif is_charge_warning:
+			pass
+		else:
+			try_start_charge_skill()
+			if not is_charge_warning and not is_charging:
+				if move_direction == 0:
+					position += Vector2(speed, 0) * delta
+					sprite.flip_h = true;
+				if move_direction == 1:
+					position -= Vector2(speed, 0) * delta
+					sprite.flip_h = false;
+				if move_direction >= 2:
+					# 靠近角色的移动方式
+					if PC.player_instance != null:
+						var player_pos = PC.player_instance.global_position
+						var direction_to_player = (player_pos - global_position).normalized()
+						speed = base_speed * debuff_manager.get_speed_multiplier()
+						position += direction_to_player * speed * delta
+						# 根据移动方向设置精灵翻转
+						if direction_to_player.x > 0:
+							sprite.flip_h = true
+						else:
+							sprite.flip_h = false
+	
+	
+	# 处理敌人之间的碰撞 - 直接防止重叠
+	if monitoring and not is_charge_warning and not is_charging:
+		var overlapping_bodies = get_overlapping_areas()
+		
+		for body in overlapping_bodies:
+			if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
+				var distance = global_position.distance_to(body.global_position)
+				var min_distance = 12.0 # 最小允许距离
+				
+				# 如果距离太近，直接调整位置
+				if distance < min_distance and distance > 0.1:
+					var direction_away = (global_position - body.global_position).normalized()
+					var overlap = min_distance - distance
+					# 两个物体各自移动一半的重叠距离
+					position += direction_away * (overlap * 0.5)
+	
+	if move_direction == 0 and position.x <= -534:
+		clear_charge_warning()
+		free_health_bar()
+		queue_free()
+		
+	if move_direction == 1 and position.x >= 534:
+		clear_charge_warning()
+		free_health_bar()
+		queue_free()
+
+
+func _on_body_entered(body: Node2D) -> void:
+	if debuff_manager.is_action_disabled():
+		return
+	if (body is CharacterBody2D and not is_dead and not PC.invincible):
+		Global.emit_signal("player_hit")
+		var damage_before_debuff = atk * (1.0 - PC.damage_reduction_rate)
+		var actual_damage = int(damage_before_debuff * debuff_manager.get_take_damage_multiplier())
+		PC.apply_damage(actual_damage)
+		if PC.pc_hp <= 0:
+			body.game_over()
+
+
+func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:
+	var damage_offset = Vector2(35, 20)
+	var final_damage = int(damage * debuff_manager.get_damage_multiplier())
+	if damage_type == "sword_wave":
+		var current_time = Time.get_ticks_msec() / 1000.0
+		if PC.selected_rewards.has("SplitSwordQi22"):
+			current_time = current_time / 2
+		if current_time - last_sword_wave_damage_time >= SWORD_WAVE_DAMAGE_INTERVAL:
+			hp -= final_damage
+			last_sword_wave_damage_time = current_time
+	else:
+		hp -= final_damage
+		
+		# DoT伤害由EnemyDebuffManager负责显示跳字，避免重复显示白字
+		if damage_type in ["bleed", "burn", "electrified", "corrosion", "corrosion2"]:
+			return
+			
+		var damage_type_int = 1
+		if is_summon:
+			damage_type_int = 4
+		elif is_crit:
+			damage_type_int = 2
+		Global.emit_signal("monster_damage", damage_type_int, final_damage, global_position - damage_offset)
+
+
+func _on_area_entered(area: Area2D) -> void:
+	if is_dead:
+		return
+	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
+		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self , false)
+		
+		# 根据穿透逻辑决定是否销毁子弹
+		if collision_result["should_delete_bullet"]:
+			area.queue_free()
+			
+		var base_bullet_damage = collision_result["final_damage"]
+		var final_damage_val = int(base_bullet_damage * debuff_manager.get_damage_multiplier())
+		var is_crit = collision_result["is_crit"]
+		
+		hp -= int(final_damage_val)
+		
+		# 处理子弹反弹
+		if collision_result["should_rebound"]:
+			area.call_deferred("create_rebound")
+			
+		if hp <= 0:
+			# 如果已经死亡，则不重复播放死亡动画，也不播放受击动画
+			if not is_dead:
+				$AnimatedSprite2D.play("death")
+		else:
+			Global.play_hit_anime(position, is_crit)
+
+func try_start_charge_skill():
+	if PC.player_instance == null:
+		return
+	var current_time = Time.get_ticks_msec() / 1000.0
+	var cooldown_elapsed = current_time - last_charge_start_time
+	if cooldown_elapsed < CHARGE_COOLDOWN:
+		return
+	var player_pos = PC.player_instance.global_position
+	var distance_to_player = global_position.distance_to(player_pos)
+	if distance_to_player > CHARGE_TRIGGER_DISTANCE:
+		return
+	charge_direction = (player_pos - global_position).normalized()
+	if charge_direction == Vector2.ZERO:
+		return
+	charge_start_position = global_position
+	charge_target_point = charge_start_position + charge_direction * CHARGE_DISTANCE
+	is_charge_warning = true
+	is_charging = false
+	last_charge_start_time = current_time
+	sprite.flip_h = charge_direction.x > 0
+	clear_charge_warning()
+	charge_warning_node = WarnRectUtil.new()
+	get_tree().current_scene.add_child(charge_warning_node)
+	charge_warning_node.warning_finished.connect(_on_charge_warning_finished)
+	charge_warning_node.start_warning(charge_start_position, charge_target_point, CHARGE_WARNING_WIDTH, CHARGE_WARNING_TIME, 0.0, null, 0.25)
+
+func _on_charge_warning_finished():
+	clear_charge_warning()
+	if is_dead:
+		is_charge_warning = false
+		is_charging = false
+		return
+	is_charge_warning = false
+	is_charging = true
+	charge_start_position = global_position
+
+func update_charge_movement(delta: float):
+	var charge_speed = base_speed * debuff_manager.get_speed_multiplier() * CHARGE_SPEED_MULTIPLIER
+	var moved_distance = global_position.distance_to(charge_start_position)
+	var remain_distance = CHARGE_DISTANCE - moved_distance
+	if remain_distance <= 0.0:
+		is_charging = false
+		return
+	var step_distance = charge_speed * delta
+	if step_distance > remain_distance:
+		step_distance = remain_distance
+	position += charge_direction * step_distance
+	sprite.flip_h = charge_direction.x > 0
+	if step_distance == remain_distance:
+		is_charging = false
+
+func clear_charge_warning():
+	if charge_warning_node != null and is_instance_valid(charge_warning_node):
+		charge_warning_node.cleanup()
+	charge_warning_node = null
+
+func _exit_tree():
+	clear_charge_warning()
+
+func apply_debuff_effect(debuff_id: String):
+	emit_signal("debuff_applied", debuff_id)
+
+func apply_knockback(direction: Vector2, force: float):
+	var tween = create_tween()
+	tween.tween_property(self , "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+# Release a round of sword Qi in (90°)(270°) and other all directions
+func release_round_sword_qi():
+	var bullet_scene = preload("res://Scenes/bullet.tscn")
+	var spawn_position = global_position
+	var bullet_size = PC.bullet_size
+	
+	# Create sword Qi at 90°, 270° and other all directions
+	var angles = [90.0, 270.0] # Initial angles as per requirement
+	# Add other directions to make it a complete round
+	for i in range(8): # Add 6 more directions to make 8 total directions
+		var angle = (360.0 / 8) * i
+		if not (angle == 90.0 or angle == 270.0): # Avoid duplicates
+			angles.append(angle)
+	
+	for angle_deg in angles:
+		var sword_qi = bullet_scene.instantiate()
+		sword_qi.set_bullet_scale(Vector2(bullet_size, bullet_size))
+		var direction = Vector2.RIGHT.rotated(deg_to_rad(angle_deg))
+		sword_qi.set_direction(direction)
+		sword_qi.position = spawn_position
+		sword_qi.penetration_count = PC.swordQi_penetration_count
+		sword_qi.is_other_sword_wave = true # Mark as additional sword wave for damage calculation
+		get_tree().current_scene.add_child(sword_qi)

@@ -141,6 +141,24 @@ static func _init_buff_configs():
 		"大幅提升各项属性，并将攻击变为爪击"
 	)
 
+	buff_configs["burning_fire"] = BuffData.new(
+		"burning_fire",
+		"燃火",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.TEMPORARY,
+		4,
+		"每秒受到最大体力1%的伤害"
+	)
+
+	buff_configs["frozen"] = BuffData.new(
+		"frozen",
+		"冻僵",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.TEMPORARY,
+		4,
+		"降低移动速度10%"
+	)
+
 static func get_buff_data(buff_id: String) -> BuffData:
 	if buff_configs.is_empty():
 		_init_buff_configs()

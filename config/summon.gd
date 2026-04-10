@@ -195,7 +195,7 @@ func find_nearest_enemy() -> Node2D:
 	return nearest_enemy
 
 # 治疗型召唤：按间隔为角色回复生命，回复量为攻击力的一定比例
-func fire_heal_bullet(color: Color) -> void:
+func fire_heal_bullet(_color: Color) -> void:
 	if PC.is_game_over:
 		return
 	# 计算治疗量：攻击力 * heal_ratio，并受召唤物增伤（用于“增强其他召唤物的治疗/伤害提升”）影响
@@ -211,7 +211,7 @@ func fire_heal_bullet(color: Color) -> void:
 		Global.emit_signal("player_heal", heal_amount, player_node.global_position)
 
 # 辅助型召唤：主要提供持续增益，定时器触发时无需额外行为
-func fire_aux_bullet(color: Color) -> void:
+func fire_aux_bullet(_color: Color) -> void:
 	# 辅助效果在 set_summon_type 中一次性应用，这里不做额外处理
 	pass
 

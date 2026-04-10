@@ -77,8 +77,20 @@ func setup_thunder_break(pos: Vector2, dir: Vector2, p_damage: float, p_range: f
 func _update_visuals() -> void:
 	if not sprite:
 		return
-		
-	sprite.visible = false # 隐藏模板sprite
+		# === 清理之前创建的所有视觉子节点 ===
+	for child in created_sprites:
+		if is_instance_valid(child):
+			child.queue_free()
+	created_sprites.clear()
+
+	# 同样清理之前可能存在的 glow 线条（可选：如果你知道它们名字）
+	# 或者更通用：清理所有 Line2D（如果你确定只有 glow 用 Line2D）
+	for child in get_children():
+		if child is Line2D:
+			child.queue_free()
+
+	# === 重新隐藏模板 sprite ===
+	sprite.visible = false
 	
 	# 计算缩放比例
 	# 宽度提升，scale也等比提升
@@ -87,7 +99,7 @@ func _update_visuals() -> void:
 	
 	# 步长：假设base_scale对应50像素的步长，如果scale变大，步长也变大
 	# 用户描述：长度280是5.6个sprite -> 280/5.6 = 50
-	var stride = 50.0 * scale_ratio
+	var stride = 35.0 * scale_ratio
 	
 	var num_sprites = ceil(range_val / stride)
 	
@@ -95,39 +107,34 @@ func _update_visuals() -> void:
 		var s = sprite.duplicate()
 		s.visible = true
 		s.scale = final_scale
-		# 假设sprite中心点在中心，需要向右排列
-		# 第0个在 stride/2, 第1个在 stride*1.5 ...
-		# 或者如果anchor在左边，则是 0, stride...
-		# 既然是AnimatedSprite2D，通常Centered=true
 		s.position = Vector2(i * stride + stride * 0.5, 0)
 		s.play("default") # 确保播放动画
 		add_child(s)
 		created_sprites.append(s)
 		
 		# 直线末端10%渐隐
-		# 计算该sprite在直线中的位置比例
 		var sprite_end_dist = (i + 1) * stride
-		if sprite_end_dist > range_val * 0.92:
+		if sprite_end_dist > range_val * 0.95:
 			# 简单的末端透明度处理
-			s.modulate.a = 0.5
+			s.modulate.a = 0.6
 			
 	# 添加蓝白色光线边缘提示
 	_add_edge_glow()
 
 func _add_edge_glow() -> void:
 	var line_color = Color(0.5, 0.8, 1.0, 0.5) # 蓝白色，带透明度
-	var line_width = 4
+	var line_width = 3.5
 	
 	# 上边缘
 	var upper_line = Line2D.new()
-	upper_line.points = [Vector2(0, -width/2), Vector2(range_val, -width/2)]
+	upper_line.points = [Vector2(0, -width / 2), Vector2(range_val + 10, -width / 2)]
 	upper_line.default_color = line_color
 	upper_line.width = line_width
 	add_child(upper_line)
 	
 	# 下边缘
 	var lower_line = Line2D.new()
-	lower_line.points = [Vector2(0, width/2), Vector2(range_val, width/2)]
+	lower_line.points = [Vector2(0, width / 2), Vector2(range_val + 10, width / 2)]
 	lower_line.default_color = line_color
 	lower_line.width = line_width
 	add_child(lower_line)
@@ -171,15 +178,15 @@ func _on_area_entered(area: Area2D) -> void:
 func _deal_damage(enemy: Area2D) -> void:
 	var dist = global_position.distance_to(enemy.global_position)
 	
-	var final_damage = damage * Faze.get_destroy_damage_multiplier(PC.faze_destroy_level)
-	
-	# 鸣雷法则加成
-	var thunder_level = PC.faze_thunder_level
-	final_damage *= Faze.get_thunder_weapon_damage_multiplier(thunder_level)
+	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
+	var law_bonus = 0.0
+	law_bonus += (Faze.get_destroy_damage_multiplier(PC.faze_destroy_level) - 1.0) # 破坏法则
+	law_bonus += (Faze.get_thunder_weapon_damage_multiplier(PC.faze_thunder_level) - 1.0) # 雷鸣法则
+	var final_damage = damage * (1.0 + law_bonus)
 	
 	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("has_debuff"):
 		if enemy.debuff_manager.has_debuff("electrified"):
-			final_damage *= (1.0 + Faze.get_thunder_damage_vs_electrified_bonus(thunder_level))
+			final_damage *= (1.0 + Faze.get_thunder_damage_vs_electrified_bonus(PC.faze_thunder_level))
 	
 	var is_crit = false
 	
@@ -216,6 +223,8 @@ func _deal_damage(enemy: Area2D) -> void:
 	# 应用伤害
 	if enemy.has_method("take_damage"):
 		enemy.take_damage(int(final_damage), is_crit, false, "thunder_break")
+		# 击中粒子崩散特效
+		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "thunderbreak")
 		
 	# 应用状态效果
 	if apply_electrified:

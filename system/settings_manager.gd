@@ -17,12 +17,19 @@ var current_resolution_index: int = 1 # 默认1366x768
 var is_fullscreen: bool = false
 var vignetting_enabled: bool = true
 var particle_enabled: bool = true
+var damage_show_enabled: bool = true
 
 # 信号
+@warning_ignore("unused_signal")
 signal resolution_changed(new_resolution: Vector2i)
+@warning_ignore("unused_signal")
 signal fullscreen_changed(is_fullscreen: bool)
+@warning_ignore("unused_signal")
 signal vignetting_changed(enabled: bool)
+@warning_ignore("unused_signal")
 signal particle_changed(enabled: bool)
+@warning_ignore("unused_signal")
+signal damage_show_changed(enabled: bool)
 
 func _ready() -> void:
 	# 加载设置
@@ -69,24 +76,34 @@ func set_fullscreen(enabled: bool) -> void:
 func set_vignetting(enabled: bool) -> void:
 	vignetting_enabled = enabled
 	
-	# 通过Global.SoftGlowManager控制暗角效果
-	if Global.SoftGlowManager and Global.SoftGlowManager.has_method("toggle_filter"):
-		Global.SoftGlowManager.toggle_filter(enabled)
+	# 通过Global.soft_glow_manager控制暗角效果
+	if Global.soft_glow_manager and Global.soft_glow_manager.has_method("toggle_filter"):
+		Global.soft_glow_manager.toggle_filter(enabled)
 		print("暗角效果: ", enabled)
 	else:
-		print("警告: SoftGlowManager未找到或未正确初始化")
+		print("警告: soft_glow_manager未找到或未正确初始化")
 	
 	vignetting_changed.emit(enabled)
 	save_settings()
 
-# 设置粒子效果（暂未实现）
+# 设置粒子效果
 func set_particle(enabled: bool) -> void:
 	particle_enabled = enabled
 	
-	# TODO: 实现粒子效果控制
-	print("粒子效果设置: ", enabled, " (功能暂未实现)")
+	# 同步更新 Global.particle_enable
+	Global.particle_enable = enabled
 	
 	particle_changed.emit(enabled)
+	save_settings()
+
+# 设置伤害跳字显示
+func set_damage_show(enabled: bool) -> void:
+	damage_show_enabled = enabled
+	
+	# 同步更新 Global.damage_show_enabled
+	Global.damage_show_enabled = enabled
+	
+	damage_show_changed.emit(enabled)
 	save_settings()
 
 # 获取当前设置
@@ -105,12 +122,16 @@ func is_vignetting_enabled() -> bool:
 func is_particle_enabled() -> bool:
 	return particle_enabled
 
+func is_damage_show_enabled() -> bool:
+	return damage_show_enabled
+
 # 应用所有设置
 func apply_all_settings() -> void:
 	set_resolution(current_resolution_index)
 	set_fullscreen(is_fullscreen)
 	set_vignetting(vignetting_enabled)
 	set_particle(particle_enabled)
+	set_damage_show(damage_show_enabled)
 
 # 保存设置
 func save_settings() -> void:
@@ -119,6 +140,7 @@ func save_settings() -> void:
 	config.set_value("display", "fullscreen", is_fullscreen)
 	config.set_value("effects", "vignetting", vignetting_enabled)
 	config.set_value("effects", "particle", particle_enabled)
+	config.set_value("effects", "damage_show", damage_show_enabled)
 	
 	var err = config.save(SETTINGS_CONFIG_PATH)
 	if err == OK:
@@ -139,6 +161,7 @@ func load_settings() -> void:
 	is_fullscreen = config.get_value("display", "fullscreen", false)
 	vignetting_enabled = config.get_value("effects", "vignetting", true)
 	particle_enabled = config.get_value("effects", "particle", true)
+	damage_show_enabled = config.get_value("effects", "damage_show", true)
 	
 	# 验证分辨率索引的有效性
 	if current_resolution_index < 0 or current_resolution_index >= RESOLUTION_OPTIONS.size():
@@ -152,6 +175,7 @@ func reset_to_defaults() -> void:
 	is_fullscreen = false
 	vignetting_enabled = true
 	particle_enabled = true
+	damage_show_enabled = true
 	
 	apply_all_settings()
 	save_settings()

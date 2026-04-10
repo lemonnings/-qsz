@@ -43,11 +43,10 @@ func setup_light_bullet(pos: Vector2, dir: Vector2, p_damage: float, p_range: fl
 	rotation = dir.angle()
 	velocity = dir.normalized() * speed
 	
-	var life_damage_multiplier = Faze.get_life_damage_multiplier(PC.faze_life_level)
+	# 伤害仅由奖励直接累加（main_skill_light_bullet_damage），法则加成已在_build_light_bullet_data中累加
 	var life_range_multiplier = Faze.get_life_range_multiplier(PC.faze_life_level)
-	var bullet_damage_multiplier = Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
 	var bullet_range_multiplier = Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
-	damage = p_damage * life_damage_multiplier * bullet_damage_multiplier
+	damage = p_damage
 	range_val = p_range * life_range_multiplier * bullet_range_multiplier
 	penetration_count = p_penetration
 	
@@ -121,6 +120,8 @@ func _deal_damage(enemy: Area2D) -> void:
 	
 	if enemy.has_method("take_damage"):
 		enemy.take_damage(int(final_damage), is_crit, false, "light_bullet")
+		# 击中粒子崩散特效
+		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "lightbullet")
 		
 	# 施加蓄光debuff
 	if apply_light_accumulation:

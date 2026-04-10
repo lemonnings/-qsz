@@ -1,31 +1,31 @@
 extends CanvasLayer
 
-@export var now_character_anime : AnimatedSprite2D
-@export var now_character_name : RichTextLabel
+@export var now_character_anime: AnimatedSprite2D
+@export var now_character_name: RichTextLabel
 
-@export var exit_button : Button
+@export var exit_button: Button
 
-@export var active_skill1 : Panel
-@export var active_skill2 : Panel
-@export var active_skill3 : Panel
+@export var active_skill1: Panel
+@export var active_skill2: Panel
+@export var active_skill3: Panel
 
-@export var skillFlowContainer : FlowContainer
+@export var skillFlowContainer: FlowContainer
 
-@export var skill1 : Panel
-@export var skill2 : Panel
-@export var skill3 : Panel
-@export var skill4 : Panel
-@export var skill5 : Panel
-@export var skill6 : Panel
-@export var skill7 : Panel
-@export var skill8 : Panel
-@export var skill9 : Panel
-@export var skill10 : Panel
-@export var skill11 : Panel
-@export var skill12 : Panel
-@export var skill13 : Panel
-@export var skill14 : Panel
-@export var skill15 : Panel
+@export var skill1: Panel
+@export var skill2: Panel
+@export var skill3: Panel
+@export var skill4: Panel
+@export var skill5: Panel
+@export var skill6: Panel
+@export var skill7: Panel
+@export var skill8: Panel
+@export var skill9: Panel
+@export var skill10: Panel
+@export var skill11: Panel
+@export var skill12: Panel
+@export var skill13: Panel
+@export var skill14: Panel
+@export var skill15: Panel
 
 var active_slot_panels: Array[Panel] = []
 var learned_skill_panels: Array[Panel] = []
@@ -438,10 +438,10 @@ func _build_heal_hot_skill_text(level: int) -> String:
 		if level >= lv:
 			duration += 1.0
 
-	var heal_base = 3.0
+	var heal_base = 30.0
 	for lv in [2, 5, 8, 11, 14]:
 		if level >= lv:
-			heal_base += 1.0
+			heal_base += 10.0
 
 	var cooldown = 30.0
 	for lv in [3, 6, 9, 12, 15]:

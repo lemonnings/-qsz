@@ -7,10 +7,13 @@ extends CanvasLayer
 @onready var main_volume: HSlider = $Panel/MainVolume
 @onready var bgm_volume: HSlider = $Panel/BGMVolume
 @onready var se_volume: HSlider = $Panel/SEVolume
+@onready var bg_volume: HSlider = $Panel/BGVolume
 @onready var screen_resolution: OptionButton = $Panel/ScreenResolution
 @onready var full_screen: CheckButton = $Panel/FullScreen
 @onready var vignetting: CheckButton = $Panel/Vignetting
 @onready var particle: CheckButton = $Panel/Particle
+@onready var damage_show: CheckButton = $Panel/DamageShow
+@onready var damage_type_item: OptionButton = $Panel/DamageTypeItem
 @onready var exit_button: Button = $Panel/Exit2
 @onready var dark_overlay: Control = get_node("../CanvasLayer/DarkOverlay")
 @onready var bag_layer: CanvasLayer = get_node("../BagLayer")
@@ -44,58 +47,87 @@ func setup_settings_ui() -> void:
 	main_volume.min_value = 0.0
 	main_volume.max_value = 1.0
 	main_volume.step = 0.01
-	main_volume.value = Global.AudioManager.get_master_volume()
+	main_volume.value = Global.audio_manager.get_master_volume()
 	main_volume.value_changed.connect(_on_main_volume_changed)
 
 	bgm_volume.min_value = 0.0
 	bgm_volume.max_value = 1.0
 	bgm_volume.step = 0.01
-	bgm_volume.value = Global.AudioManager.get_bgm_volume()
+	bgm_volume.value = Global.audio_manager.get_bgm_volume()
 	bgm_volume.value_changed.connect(_on_bgm_volume_changed)
 
 	se_volume.min_value = 0.0
 	se_volume.max_value = 1.0
 	se_volume.step = 0.01
-	se_volume.value = Global.AudioManager.get_sfx_volume()
+	se_volume.value = Global.audio_manager.get_sfx_volume()
 	se_volume.value_changed.connect(_on_se_volume_changed)
+
+	bg_volume.min_value = 0.0
+	bg_volume.max_value = 1.0
+	bg_volume.step = 0.01
+	bg_volume.value = Global.audio_manager.get_bg_volume()
+	bg_volume.value_changed.connect(_on_bg_volume_changed)
 
 	screen_resolution.clear()
 	screen_resolution.add_item("1024 × 576")
 	screen_resolution.add_item("1366 × 768")
 	screen_resolution.add_item("1920 × 1080")
 	screen_resolution.add_item("2240 × 1260")
-	screen_resolution.selected = Global.SettingsManager.get_current_resolution_index()
+	screen_resolution.selected = Global.settings_manager.get_current_resolution_index()
 	screen_resolution.item_selected.connect(_on_resolution_selected)
 
-	full_screen.button_pressed = Global.SettingsManager.is_fullscreen_enabled()
+	full_screen.button_pressed = Global.settings_manager.is_fullscreen_enabled()
 	full_screen.toggled.connect(_on_fullscreen_toggled)
 
-	vignetting.button_pressed = Global.SettingsManager.is_vignetting_enabled()
+	vignetting.button_pressed = Global.settings_manager.is_vignetting_enabled()
 	vignetting.toggled.connect(_on_vignetting_toggled)
 
-	particle.button_pressed = Global.SettingsManager.is_particle_enabled()
+	particle.button_pressed = Global.settings_manager.is_particle_enabled()
 	particle.toggled.connect(_on_particle_toggled)
 
+	damage_show.button_pressed = Global.settings_manager.is_damage_show_enabled()
+	damage_show.toggled.connect(_on_damage_show_toggled)
+
+	damage_type_item.clear()
+	damage_type_item.add_item("原始数字")
+	damage_type_item.add_item("中式缩写（万/亿）")
+	damage_type_item.add_item("英式缩写（k/m/b）")
+	damage_type_item.selected = Global.damage_show_type
+	damage_type_item.item_selected.connect(_on_damage_type_selected)
+	# 根据伤害跳字开关状态设置格式选项的禁用状态
+	damage_type_item.disabled = not Global.settings_manager.is_damage_show_enabled()
+
 func _on_main_volume_changed(value: float) -> void:
-	Global.AudioManager.set_master_volume(value)
+	Global.audio_manager.set_master_volume(value)
 
 func _on_bgm_volume_changed(value: float) -> void:
-	Global.AudioManager.set_bgm_volume(value)
+	Global.audio_manager.set_bgm_volume(value)
 
 func _on_se_volume_changed(value: float) -> void:
-	Global.AudioManager.set_sfx_volume(value)
+	Global.audio_manager.set_sfx_volume(value)
 
 func _on_resolution_selected(index: int) -> void:
-	Global.SettingsManager.set_resolution(index)
+	Global.settings_manager.set_resolution(index)
 
 func _on_fullscreen_toggled(pressed: bool) -> void:
-	Global.SettingsManager.set_fullscreen(pressed)
+	Global.settings_manager.set_fullscreen(pressed)
 
 func _on_vignetting_toggled(pressed: bool) -> void:
-	Global.SettingsManager.set_vignetting(pressed)
+	Global.settings_manager.set_vignetting(pressed)
 
 func _on_particle_toggled(pressed: bool) -> void:
-	Global.SettingsManager.set_particle(pressed)
+	Global.settings_manager.set_particle(pressed)
+
+func _on_damage_show_toggled(pressed: bool) -> void:
+	Global.settings_manager.set_damage_show(pressed)
+	# 禁用伤害跳字时，同时禁用伤害显示格式选项
+	damage_type_item.disabled = not pressed
+
+func _on_damage_type_selected(index: int) -> void:
+	Global.damage_show_type = index
+
+func _on_bg_volume_changed(value: float) -> void:
+	Global.audio_manager.set_bg_volume(value)
 
 func _on_setting_pressed() -> void:
 	if setting.visible:

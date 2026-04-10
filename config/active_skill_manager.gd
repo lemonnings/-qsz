@@ -160,8 +160,8 @@ class HealHotSkill extends ActiveSkill:
 	var duration: float = 12.0
 	var base_heal_percent: float = 0.01
 	var heal_percent: float = 0.01
-	var base_heal_amount: float = 3.0
-	var heal_amount: float = 3.0
+	var base_heal_amount: float = 30.0
+	var heal_amount: float = 30.0
 	
 	func _init():
 		super ("heal_hot", "疗愈", "持续恢复自身体力", 30.0)
@@ -172,7 +172,7 @@ class HealHotSkill extends ActiveSkill:
 		var heal_bonus = 0.0
 		for lv in [2, 5, 8, 11, 14]:
 			if level >= lv:
-				heal_bonus += 1.0
+				heal_bonus += 10.0
 		heal_amount = base_heal_amount + heal_bonus
 		
 		# 等级3，6，9，12，15，冷却时间-1秒
@@ -709,7 +709,9 @@ func _set_player_ghost_effect(enabled: bool):
 	if not player:
 		return
 	
-	var sprite = player.get_node_or_null("AnimatedSprite2D")
+	var sprite = player.get("sprite") as AnimatedSprite2D
+	if not sprite:
+		sprite = player.get_node_or_null("AnimatedSprite2D")
 	if sprite:
 		if enabled:
 			# 半透明
@@ -723,7 +725,10 @@ func _start_afterimage_effect(duration: float):
 	if not player:
 		return
 	
-	var sprite = player.get_node_or_null("AnimatedSprite2D")
+	# 优先使用 player.sprite（当前激活的精灵变量）
+	var sprite = player.get("sprite") as AnimatedSprite2D
+	if not sprite:
+		sprite = player.get_node_or_null("AnimatedSprite2D")
 	if not sprite:
 		return
 	
@@ -744,6 +749,8 @@ func _create_afterimage(source_sprite: AnimatedSprite2D):
 	afterimage.texture = source_sprite.sprite_frames.get_frame_texture(source_sprite.animation, source_sprite.frame)
 	afterimage.global_position = player.global_position
 	afterimage.scale = source_sprite.scale
+	# 保持与原精灵相同的翻转方向
+	afterimage.flip_h = source_sprite.flip_h
 	afterimage.z_index = player.z_index - 1
 	
 	# 设置残影颜色（淡红色半透明）

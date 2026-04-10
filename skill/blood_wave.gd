@@ -163,9 +163,7 @@ func _apply_damage() -> void:
 	var crit_damage_multi = PC.crit_damage_multi + extra_crit_damage
 	
 	var is_crit = false
-	var final_damage = wave_damage * 0.8 # 造成80%攻击的伤害 -> Wait, why 0.8? Original code had it.
-	# I should check if the original code logic was `wave_damage * 0.8`.
-	# Yes: `var final_damage = wave_damage * 0.8` in original `_apply_damage`.
+	var final_damage = wave_damage # 造成100%攻击的伤害
 	
 	if randf() < crit_chance:
 		is_crit = true
@@ -179,5 +177,7 @@ func _apply_damage() -> void:
 				continue
 			hit_targets[body_id] = true
 			body.take_damage(int(final_damage), is_crit, false, "blood_wave")
+			# 击中粒子崩散特效
+			HitParticleSpawner.spawn_by_weapon(get_tree(), body.global_position, "bloodwave")
 			if apply_bleed:
 				body.emit_signal("debuff_applied", "bleed")

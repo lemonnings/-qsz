@@ -1,8 +1,8 @@
 extends Area2D
 class_name Xunfeng
 
-@export var sprite : AnimatedSprite2D
-@export var collision : CollisionShape2D
+@export var sprite: AnimatedSprite2D
+@export var collision: CollisionShape2D
 
 var damage: float = 0.0
 var speed: float = 400.0
@@ -14,7 +14,7 @@ var traveled_dist: float = 0.0
 var direction: Vector2 = Vector2.RIGHT
 
 # State variables moved from PC
-static var main_skill_xunfeng_damage: float = 0.55
+static var main_skill_xunfeng_damage: float = 0.75
 static var xunfeng_final_damage_multi: float = 1.0
 static var xunfeng_range: float = 280.0
 static var xunfeng_size_scale: float = 1.0
@@ -29,7 +29,7 @@ static var extra_blade_angle_offset: float = 0.0
 static var attack_count: int = 0
 
 static func reset_data() -> void:
-	main_skill_xunfeng_damage = 0.55
+	main_skill_xunfeng_damage = 0.75
 	xunfeng_final_damage_multi = 1.0
 	xunfeng_range = 280.0
 	xunfeng_size_scale = 1.0
@@ -92,17 +92,17 @@ static func _spawn_blade(scene: PackedScene, tree: SceneTree, origin_pos: Vector
 static func _build_data() -> Dictionary:
 	var damage_multiplier = main_skill_xunfeng_damage
 	
-	# 八卦法则伤害加成
-	damage_multiplier *= Faze.get_bagua_damage_multiplier()
+	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
+	damage_multiplier += (Faze.get_bagua_damage_multiplier() - 1.0) # 八卦法则
+	damage_multiplier += (Faze.get_bullet_damage_multiplier(PC.faze_bullet_level) - 1.0) # 弹体法则
+	damage_multiplier += (Faze.get_wind_weapon_damage_multiplier(PC.faze_wind_level) - 1.0) # 风法则
 	
 	var speed = xunfeng_speed
 	var range_val = xunfeng_range
 	var size_scale = xunfeng_size_scale
 	var penetration_count = xunfeng_penetration_count
 	var pierce_decay = xunfeng_pierce_decay
-	var bullet_damage_multiplier = Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
 	var bullet_range_multiplier = Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
-	var wind_damage_multiplier = Faze.get_wind_weapon_damage_multiplier(PC.faze_wind_level)
 	
 	var extra_blade_count_threshold = xunfeng_extra_blade_count_threshold
 	var extra_blade_damage_ratio = xunfeng_extra_blade_damage_ratio
@@ -110,7 +110,8 @@ static func _build_data() -> Dictionary:
 	# 这里添加升级逻辑，目前代码中没有看到具体的 Xunfeng 升级对属性的直接修正
 	# 假设如果有升级，会在这里处理
 	
-	var final_damage = PC.pc_atk * damage_multiplier * xunfeng_final_damage_multi * bullet_damage_multiplier * wind_damage_multiplier
+	# 最终伤害倍率是奖励给的独立加成，使用乘法
+	var final_damage = PC.pc_atk * damage_multiplier * xunfeng_final_damage_multi
 	range_val = range_val * bullet_range_multiplier
 	
 	return {
@@ -138,7 +139,7 @@ func setup(pos: Vector2, dir: Vector2, p_damage: float, p_speed: float, p_range:
 	scale = Vector2(p_scale, p_scale)
 
 func _ready() -> void:
-	connect("area_entered", Callable(self, "_on_area_entered"))
+	connect("area_entered", Callable(self , "_on_area_entered"))
 	# 如果有 sprite，播放动画
 	if sprite:
 		sprite.play("default")
@@ -164,6 +165,8 @@ func _on_area_entered(area: Area2D) -> void:
 				final_damage = final_damage * Faze.get_wind_elite_boss_multiplier(PC.faze_wind_level, PC.wind_huanfeng_stacks)
 				
 			var damage_dealt = area.take_damage(int(final_damage), is_crit, false, "xunfeng")
+			# 击中粒子崩散特效
+			HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "xunfeng")
 			Faze.on_wind_weapon_hit()
 			
 			Faze.add_bagua_progress(1, area.is_in_group("elite") or area.is_in_group("boss"))

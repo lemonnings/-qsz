@@ -1,6 +1,7 @@
 extends Node
 
 # Signal to notify when a critical hit animation/sound should play
+@warning_ignore("unused_signal")
 signal critical_hit_played
 
 
