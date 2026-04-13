@@ -171,9 +171,7 @@ var _upgrade_info_panel: Panel
 var _exit_button: Button
 var _tooltip_font: Font = null
 var _setting_monster = SETTING_MONSTER_SCRIPT.new()
-# 这个标记只表示“本次打开商店后，是否还没做过自动刷新”。
-# 关闭商店后会重置为 true，因此下一次重新打开商店时仍会自动刷新一次。
-var _need_auto_refresh_on_open: bool = true
+
 
 func _ready() -> void:
 	randomize()
@@ -195,11 +193,11 @@ func open_shop() -> void:
 	_hide_upgrade_info()
 	var recycle_message := _recycle_obsolete_pills()
 	var did_auto_refresh := false
-	# 这里只判断“本次开店是不是第一次处理自动刷新”，而不是判断整个存档的人生第一次进商店。
-	# 这样玩家每次重新打开商店时，都会稳定地自动刷新一次。
-	if _need_auto_refresh_on_open or _shop_items.size() != _item_panels.size():
+	# 只有当前存档第一次进入货摊时才自动刷新。
+	# 之后再次进入时，继续显示上次保存下来的货物；除非玩家手动点击刷新。
+	if not Global.shop_first_entered:
 		_generate_shop_items()
-		_need_auto_refresh_on_open = false
+		Global.shop_first_entered = true
 		did_auto_refresh = true
 	_refresh_display()
 	_save_shop_items_to_save()
@@ -208,7 +206,7 @@ func open_shop() -> void:
 	if not recycle_message.is_empty():
 		_show_tips(recycle_message, 1.2)
 	elif did_auto_refresh:
-		_show_tips("本次进入货摊，已自动刷新一次。", 0.7)
+		_show_tips("首次进入货摊，已自动刷新一次。", 0.7)
 
 func _cache_nodes() -> void:
 	_item_panels = [item1, item2, item3, item4, item5, item6]
@@ -228,6 +226,7 @@ func _cache_nodes() -> void:
 	_shop_level_label.scroll_active = false
 	for panel in _item_panels:
 		_icon_nodes.append(_ensure_icon_node(panel))
+	_configure_item_hit_areas_and_labels()
 
 func _create_extra_controls() -> void:
 	_offer_tooltip_panel = _create_bag_style_panel("OfferTooltipPanel", true)
@@ -374,9 +373,8 @@ func _connect_interactions() -> void:
 		panel.mouse_exited.connect(_on_item_panel_mouse_exited)
 
 	refresh_num.mouse_filter = Control.MOUSE_FILTER_STOP
-	refresh_num.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	refresh_num.mouse_default_cursor_shape = Control.CURSOR_ARROW
 	refresh_num.gui_input.connect(_on_refresh_gui_input)
-	refresh_num.mouse_entered.connect(_on_refresh_mouse_entered)
 
 	shop_level_up_button.pressed.connect(_on_shop_level_up_pressed)
 	shop_level_up_button.mouse_entered.connect(_on_shop_level_up_mouse_entered)
@@ -388,15 +386,17 @@ func _ensure_icon_node(panel: Panel) -> TextureRect:
 	if icon_node == null:
 		icon_node = TextureRect.new()
 		icon_node.name = "Icon"
-		icon_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		icon_node.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		icon_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		icon_node.set_anchors_preset(Control.PRESET_FULL_RECT)
-		icon_node.offset_left = 6
-		icon_node.offset_top = 6
-		icon_node.offset_right = -6
-		icon_node.offset_bottom = -6
 		panel.add_child(icon_node)
+	# 不管图标节点是不是场景里原本就存在，都统一设置为不拦截鼠标。
+	# 这样鼠标放在图标、名称或价格区域时，都能命中整块商品并弹出详情。
+	icon_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_node.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	icon_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon_node.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon_node.offset_left = 6
+	icon_node.offset_top = 6
+	icon_node.offset_right = -6
+	icon_node.offset_bottom = -6
 	return icon_node
 
 func _ensure_shop_state() -> void:
@@ -845,8 +845,29 @@ func _on_refresh_gui_input(event: InputEvent) -> void:
 		if mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed:
 			_try_refresh_shop()
 
-func _on_refresh_mouse_entered() -> void:
-	_show_tips("刷新货摊\n通关累计：%d\n进货单：%d\n优先消耗通关次数。" % [Global.shop_battle_refresh_count, Global.get_item_count("item_059")], 0.8)
+func _configure_item_hit_areas_and_labels() -> void:
+	if _item_panels.is_empty() or _detail_labels.is_empty() or _price_labels.is_empty():
+		return
+	var detail_offset := _detail_labels[0].position - _item_panels[0].position
+	var price_offset := _price_labels[0].position - _item_panels[0].position
+	var detail_size := _detail_labels[0].size
+	var price_size := _price_labels[0].size
+	for i in range(_item_panels.size()):
+		var panel := _item_panels[i]
+		var detail_label := _detail_labels[i]
+		var price_label := _price_labels[i]
+		panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		detail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		detail_label.position = panel.position + detail_offset
+		price_label.position = panel.position + price_offset
+		detail_label.size = detail_size
+		price_label.size = price_size
+		detail_label.custom_minimum_size = detail_size
+		price_label.custom_minimum_size = price_size
+	for extra_name_label in [item1_name, item2_name, item3_name, item4_name, item5_name, item6_name]:
+		if extra_name_label != null:
+			extra_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _try_refresh_shop() -> void:
 	var battle_refresh := Global.shop_battle_refresh_count
@@ -976,8 +997,7 @@ func _show_tips(message: String, duration: float = 0.5) -> void:
 		tips.start_animation(message, duration)
 
 func prepare_for_close() -> void:
-	# 商店关闭后，下一次重新打开时需要再次执行一次自动刷新判定。
-	_need_auto_refresh_on_open = true
+	# 关闭商店时只做界面收尾，不再修改货摊的刷新状态。
 	_hide_offer_tooltip()
 	_hide_upgrade_info()
 

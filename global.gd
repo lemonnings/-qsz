@@ -71,7 +71,9 @@ var player_inventory: Dictionary = {}
 @export var shop_level: int = 1
 @export var shop_battle_refresh_count: int = 0
 @export var shop_lingshi_unit_price: int = 50
-# 当前货摊商品列表会保存在存档里；但“本次开店是否已自动刷新”不再放到 Global。
+# 仅在当前存档第一次进入货摊时自动刷新一次；之后除非手动刷新，否则保持当前货物。
+@export var shop_first_entered: bool = false
+# 当前货摊商品列表会保存在存档里，保证再次进入时仍显示上次的货物状态。
 var shop_saved_items: Array = []
 @export var recipe_unlock_progress: Dictionary = {
 
@@ -497,6 +499,7 @@ func save_game():
 		"shop_level": shop_level,
 		"shop_battle_refresh_count": shop_battle_refresh_count,
 		"shop_lingshi_unit_price": shop_lingshi_unit_price,
+		"shop_first_entered": shop_first_entered,
 		"shop_saved_items": shop_saved_items,
 		"recipe_unlock_progress": recipe_unlock_progress,
 
@@ -586,6 +589,7 @@ func load_game():
 	shop_level = clampi(int(config.get_value("save", "shop_level", shop_level)), 1, 8)
 	shop_battle_refresh_count = clampi(int(config.get_value("save", "shop_battle_refresh_count", shop_battle_refresh_count)), 0, refresh_max_num)
 	shop_lingshi_unit_price = max(int(config.get_value("save", "shop_lingshi_unit_price", shop_lingshi_unit_price)), 50)
+	shop_first_entered = bool(config.get_value("save", "shop_first_entered", shop_first_entered))
 	var loaded_shop_items = config.get_value("save", "shop_saved_items", [])
 	if typeof(loaded_shop_items) == TYPE_ARRAY:
 		shop_saved_items = (loaded_shop_items as Array).duplicate(true)
