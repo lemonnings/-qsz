@@ -61,8 +61,9 @@ class QualityGlow:
 	# 这里用固定倍率，而不是随机值。
 	# 这样每个方向的光束都会稳定地一长一短，像素风观感更整齐，
 	# 也不会出现每一帧长度乱跳的情况。
-	const MAIN_RAY_LENGTH_FACTORS := PackedFloat32Array([1.0, 0.84, 1.14, 0.9, 1.2, 0.78, 1.08, 0.88])
-	const SUB_RAY_LENGTH_FACTORS := PackedFloat32Array([0.96, 1.08, 0.82, 1.14, 0.9, 1.02, 0.86, 1.1])
+	const MAIN_RAY_LENGTH_FACTORS := [1.0, 0.84, 1.14, 0.9, 1.2, 0.78, 1.08, 0.88]
+	const SUB_RAY_LENGTH_FACTORS := [0.96, 1.08, 0.82, 1.14, 0.9, 1.02, 0.86, 1.1]
+
 
 
 	var glow_rarity: String = ""
