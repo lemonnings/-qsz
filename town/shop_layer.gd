@@ -8,11 +8,11 @@ const SHOP_HEADER_FONT_SIZE := 39
 const TOOLTIP_FONT_SIZE := 24
 const RARITY_ORDER := ["white", "blue", "purple", "gold", "red"]
 const RARITY_NAMES := {
-	"white": "白",
-	"blue": "蓝",
-	"purple": "紫",
-	"gold": "金",
-	"red": "红"
+	"white": "普通",
+	"blue": "稀有",
+	"purple": "史诗",
+	"gold": "传说",
+	"red": "神话"
 }
 const SHOP_RARITY_DISPLAY_NAMES := {
 	"white": "普通品级",
@@ -234,7 +234,7 @@ func _create_extra_controls() -> void:
 	_exit_button = Button.new()
 	_exit_button.name = "ExitButton"
 	_exit_button.text = "返回"
-	_exit_button.position = Vector2(1118, 93)
+	_exit_button.position = Vector2(1148, 53)
 	_exit_button.size = Vector2(112, 54)
 	_exit_button.focus_mode = Control.FOCUS_NONE
 	_exit_button.theme = shop_level_up_button.theme
@@ -595,16 +595,15 @@ func _refresh_display() -> void:
 func _update_shop_header() -> void:
 	_shop_level_label.text = _build_shop_header_text()
 	if Global.shop_level >= SHOP_LEVEL_CAP:
-		shop_level_up_button.text = "货摊升级\n已满级"
+		shop_level_up_button.text = "货摊已满级"
 		shop_level_up_button.disabled = true
 		return
 	shop_level_up_button.disabled = false
-	var next_level: int = Global.shop_level + 1
 	var costs: Array = SHOP_UPGRADE_COSTS.get(Global.shop_level, [])
 	if costs.is_empty():
-		shop_level_up_button.text = "货摊升级\n暂未开放"
+		shop_level_up_button.text = "后续等级未开放"
 	else:
-		shop_level_up_button.text = "货摊升级\nLv.%d → Lv.%d" % [Global.shop_level, next_level]
+		shop_level_up_button.text = "货摊升级"
 
 func _update_refresh_label() -> void:
 	var battle_refresh := Global.shop_battle_refresh_count
@@ -686,8 +685,6 @@ func _build_offer_detail_text(offer: Dictionary) -> String:
 	var detail_text := "\n".join(detail_lines)
 	if not item_source.is_empty():
 		detail_text += "\n\n[来源] " + item_source
-	if str(offer.get("product_type", "")) == "lingshi_pack":
-		detail_text += "\n\n当前灵石单价：%d 真气/个\n每买 10 个灵石，下次单价 +1。" % Global.shop_lingshi_unit_price
 	return detail_text
 
 func _show_offer_tooltip(index: int) -> void:
@@ -713,7 +710,7 @@ func _show_offer_tooltip(index: int) -> void:
 		name_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 		type_label.text = "[已售罄]"
 		desc_label.text = "该商品已被买走，等待下次刷新。"
-		price_label.text = "售价: --"
+		price_label.text = "卖完啦！"
 		hint_label.visible = false
 	else:
 		var rarity := str(offer.get("rarity", "white"))
@@ -803,7 +800,7 @@ func _try_buy_offer(index: int) -> void:
 		return
 	var offer := _shop_items[index]
 	if bool(offer.get("sold", false)):
-		_show_tips("这个商品已经卖空了。", 0.5)
+		_show_tips("商品已告罄", 0.5)
 		return
 	if str(offer.get("product_type", "")) == "lingshi_pack":
 		offer["cost"] = int(offer.get("quantity", 0)) * Global.shop_lingshi_unit_price
@@ -813,7 +810,7 @@ func _try_buy_offer(index: int) -> void:
 	var quantity := int(offer.get("quantity", 0))
 	if str(offer.get("cost_resource", "")) == "point":
 		if Global.total_points < cost:
-			_show_tips("真气不足，需要 %d 真气，当前只有 %d。" % [cost, Global.total_points], 0.5)
+			_show_tips("真气不足，需要 %d 真气，当前 %d。" % [cost, Global.total_points], 0.5)
 			return
 		Global.total_points -= cost
 	else:
@@ -850,7 +847,7 @@ func _try_refresh_shop() -> void:
 	var consume_message := ""
 	if battle_refresh > 0:
 		Global.shop_battle_refresh_count -= 1
-		consume_message = "消耗了 1 次通关刷新。"
+		consume_message = "消耗了 1 次进货次数。"
 	else:
 		Global.consume_item_count("item_059", 1)
 		consume_message = "消耗了 1 张进货单。"
