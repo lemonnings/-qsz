@@ -33,45 +33,30 @@ const ZHENQI_PRICE_COLOR := Color(0.68, 0.88, 1.0, 1.0)
 const SOLD_OUT_TEXT_COLOR := Color(0.72, 0.72, 0.72, 1.0)
 
 # 每个商品格子下面都会放一个独立的像素光效控件。
-# 这样就不用改场景原本的布局，只要切换品质，就能改变发光颜色和动画。
+# 这次把它做成“从中心往外炸开”的放射束效果，尽量接近你截图里那种光芒四射的感觉。
 class QualityGlow:
 	extends Control
 
 	const PIXEL_SIZE := 4.0
-	const CORE_BLOCKS := [
-		{"offset": Vector2(0, 0), "size": 3, "alpha": 1.0},
-		{"offset": Vector2(-3, 0), "size": 2, "alpha": 0.72},
-		{"offset": Vector2(3, 0), "size": 2, "alpha": 0.72},
-		{"offset": Vector2(0, -3), "size": 2, "alpha": 0.72},
-		{"offset": Vector2(0, 3), "size": 2, "alpha": 0.72},
-		{"offset": Vector2(-5, -5), "size": 1, "alpha": 0.45},
-		{"offset": Vector2(5, -5), "size": 1, "alpha": 0.45},
-		{"offset": Vector2(-5, 5), "size": 1, "alpha": 0.45},
-		{"offset": Vector2(5, 5), "size": 1, "alpha": 0.45}
+	const MAIN_RAY_DIRECTIONS := [
+		Vector2.RIGHT,
+		Vector2.LEFT,
+		Vector2.UP,
+		Vector2.DOWN,
+		Vector2(1, 1),
+		Vector2(-1, 1),
+		Vector2(1, -1),
+		Vector2(-1, -1)
 	]
-	const STAR_RAYS := [
-		{"offset": Vector2(0, -10), "size": 1, "alpha": 1.0},
-		{"offset": Vector2(0, -14), "size": 1, "alpha": 0.86},
-		{"offset": Vector2(0, 10), "size": 1, "alpha": 1.0},
-		{"offset": Vector2(0, 14), "size": 1, "alpha": 0.86},
-		{"offset": Vector2(-10, 0), "size": 1, "alpha": 1.0},
-		{"offset": Vector2(-14, 0), "size": 1, "alpha": 0.86},
-		{"offset": Vector2(10, 0), "size": 1, "alpha": 1.0},
-		{"offset": Vector2(14, 0), "size": 1, "alpha": 0.86},
-		{"offset": Vector2(-7, -7), "size": 1, "alpha": 0.7},
-		{"offset": Vector2(7, -7), "size": 1, "alpha": 0.7},
-		{"offset": Vector2(-7, 7), "size": 1, "alpha": 0.7},
-		{"offset": Vector2(7, 7), "size": 1, "alpha": 0.7}
-	]
-	const EDGE_SPARKS := [
-		{"offset": Vector2(0, -18), "size": 1, "alpha": 0.72},
-		{"offset": Vector2(0, 18), "size": 1, "alpha": 0.72},
-		{"offset": Vector2(-18, 0), "size": 1, "alpha": 0.72},
-		{"offset": Vector2(18, 0), "size": 1, "alpha": 0.72},
-		{"offset": Vector2(-12, -12), "size": 1, "alpha": 0.6},
-		{"offset": Vector2(12, -12), "size": 1, "alpha": 0.6},
-		{"offset": Vector2(-12, 12), "size": 1, "alpha": 0.6},
-		{"offset": Vector2(12, 12), "size": 1, "alpha": 0.6}
+	const SUB_RAY_DIRECTIONS := [
+		Vector2(2, 1),
+		Vector2(2, -1),
+		Vector2(-2, 1),
+		Vector2(-2, -1),
+		Vector2(1, 2),
+		Vector2(1, -2),
+		Vector2(-1, 2),
+		Vector2(-1, -2)
 	]
 
 	var glow_rarity: String = ""
@@ -81,10 +66,11 @@ class QualityGlow:
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		set_anchors_preset(Control.PRESET_FULL_RECT)
-		offset_left = -12
-		offset_top = -12
-		offset_right = 12
-		offset_bottom = 12
+		# 放射束会比原来长很多，所以要把绘制区域放大，避免边缘被裁掉。
+		offset_left = -96
+		offset_top = -96
+		offset_right = 96
+		offset_bottom = 96
 		clip_contents = false
 		queue_redraw()
 
@@ -109,83 +95,189 @@ class QualityGlow:
 		var pulse := 1.0
 		var rotation := 0.0
 		if glow_rarity == "gold":
-			# 金色光效只做闪烁，让它看起来像在轻微跳动。
-			pulse = clampf(0.92 + sin(_time * 7.2) * 0.1 + sin(_time * 13.0) * 0.05, 0.72, 1.12)
+			# 金色主要靠闪烁营造“宝物感”。
+			pulse = clampf(0.96 + sin(_time * 7.6) * 0.14 + sin(_time * 13.8) * 0.06, 0.76, 1.18)
 		elif glow_rarity == "red":
-			# 红色品质更危险、更夸张，所以额外加入慢速旋转和闪烁。
-			pulse = clampf(0.9 + sin(_time * 4.0) * 0.14, 0.7, 1.15)
-			rotation = _time * 0.42
+			# 红色更张扬，所以做慢速旋转，再叠一点闪烁。
+			pulse = clampf(0.94 + sin(_time * 4.2) * 0.16 + sin(_time * 8.4) * 0.05, 0.74, 1.2)
+			rotation = _time * 0.36
 		var center := size * 0.5
-		_draw_pattern(center, CORE_BLOCKS, style["core_color"], float(style["core_alpha"]) * pulse * glow_alpha_scale, rotation * 0.35)
-		_draw_pattern(center, STAR_RAYS, style["ray_color"], float(style["ray_alpha"]) * pulse * glow_alpha_scale, rotation)
-		_draw_pattern(center, EDGE_SPARKS, style["spark_color"], float(style["spark_alpha"]) * pulse * glow_alpha_scale, rotation)
+		_draw_center_bloom(center, style, pulse)
+		_draw_ray_group(center, MAIN_RAY_DIRECTIONS, style, float(style.get("main_length", 80.0)), float(style.get("main_width", 14.0)), float(style.get("main_alpha", 0.25)) * pulse, rotation, 7)
+		_draw_ray_group(center, SUB_RAY_DIRECTIONS, style, float(style.get("sub_length", 58.0)), float(style.get("sub_width", 8.0)), float(style.get("sub_alpha", 0.16)) * pulse, rotation * 0.65, 5)
+		_draw_tip_sparks(center, style, rotation)
 
-	func _draw_pattern(center: Vector2, pattern: Array, base_color: Color, alpha_scale: float, rotation: float) -> void:
-		for block_data in pattern:
-			var block_color := base_color
-			block_color.a *= float(block_data.get("alpha", 1.0)) * alpha_scale
-			if block_color.a <= 0.01:
-				continue
-			var offset := (block_data.get("offset", Vector2.ZERO) as Vector2) * PIXEL_SIZE
-			if abs(rotation) > 0.001:
-				offset = offset.rotated(rotation)
-			offset = _snap_to_pixel(offset)
-			var block_size := Vector2.ONE * float(block_data.get("size", 1)) * PIXEL_SIZE
-			var block_pos := _snap_to_pixel(center + offset - block_size * 0.5)
-			draw_rect(Rect2(block_pos, block_size), block_color)
+	func _draw_center_bloom(center: Vector2, style: Dictionary, pulse: float) -> void:
+		var core_color: Color = style["core_color"]
+		var bloom_color: Color = style["bloom_color"]
+		var core_alpha := float(style.get("core_alpha", 0.3)) * pulse * glow_alpha_scale
+		var bloom_alpha := float(style.get("bloom_alpha", 0.18)) * pulse * glow_alpha_scale
+		var bloom_size := float(style.get("bloom_size", 44.0))
+		var core_size := float(style.get("core_size", 20.0))
+		_draw_center_square(center, bloom_size, bloom_color, bloom_alpha)
+		_draw_center_square(center, bloom_size * 0.68, core_color, core_alpha * 0.92)
+		_draw_center_square(center, core_size, Color(1, 1, 1, 1), core_alpha)
+
+	func _draw_center_square(center: Vector2, side_length: float, base_color: Color, alpha_scale: float) -> void:
+		var color := base_color
+		color.a *= alpha_scale
+		if color.a <= 0.01:
+			return
+		var side := max(_snap_scalar(side_length), PIXEL_SIZE)
+		var top_left := _snap_to_pixel(center - Vector2.ONE * side * 0.5)
+		draw_rect(Rect2(top_left, Vector2.ONE * side), color)
+
+	func _draw_ray_group(center: Vector2, directions: Array, style: Dictionary, beam_length: float, beam_width: float, beam_alpha: float, rotation: float, segment_count: int) -> void:
+		for direction_data in directions:
+			var direction := (direction_data as Vector2).normalized()
+			for segment in range(segment_count):
+				var t := float(segment) / max(float(segment_count - 1), 1.0)
+				var distance := lerpf(PIXEL_SIZE * 2.0, beam_length, t)
+				var length := lerpf(beam_width * 5.6, beam_width * 1.3, t)
+				var thickness := lerpf(beam_width, max(PIXEL_SIZE, beam_width * 0.38), t)
+				var alpha_scale := beam_alpha * pow(1.0 - t, 0.45)
+				_draw_ray_segment(center, direction, distance, length, thickness, style["ray_color"], alpha_scale, rotation)
+
+	func _draw_ray_segment(center: Vector2, direction: Vector2, distance: float, length: float, thickness: float, base_color: Color, alpha_scale: float, rotation: float) -> void:
+		var color := base_color
+		color.a *= alpha_scale * glow_alpha_scale
+		if color.a <= 0.01:
+			return
+		var dir := direction.normalized().rotated(rotation)
+		var perp := Vector2(-dir.y, dir.x)
+		var ray_center := _snap_to_pixel(center + dir * distance)
+		var half_length := dir * max(_snap_scalar(length) * 0.5, PIXEL_SIZE * 0.5)
+		var half_thickness := perp * max(_snap_scalar(thickness) * 0.5, PIXEL_SIZE * 0.5)
+		var points := PackedVector2Array([
+			_snap_to_pixel(ray_center - half_length - half_thickness),
+			_snap_to_pixel(ray_center - half_length + half_thickness),
+			_snap_to_pixel(ray_center + half_length + half_thickness),
+			_snap_to_pixel(ray_center + half_length - half_thickness)
+		])
+		draw_colored_polygon(points, color)
+
+	func _draw_tip_sparks(center: Vector2, style: Dictionary, rotation: float) -> void:
+		var spark_size := float(style.get("spark_size", 8.0))
+		var spark_length := float(style.get("spark_length", 92.0))
+		var spark_alpha := float(style.get("spark_alpha", 0.12)) * glow_alpha_scale
+		var spark_color: Color = style["spark_color"]
+		for direction_data in MAIN_RAY_DIRECTIONS:
+			var direction := (direction_data as Vector2).normalized().rotated(rotation)
+			var spark_center := _snap_to_pixel(center + direction * spark_length)
+			_draw_center_square(spark_center, spark_size, spark_color, spark_alpha)
+			_draw_center_square(_snap_to_pixel(center + direction * (spark_length * 0.82)), spark_size * 0.72, spark_color, spark_alpha * 0.75)
+
+	func _snap_scalar(value: float) -> float:
+		return round(value / PIXEL_SIZE) * PIXEL_SIZE
 
 	func _snap_to_pixel(value: Vector2) -> Vector2:
-		return Vector2(round(value.x / PIXEL_SIZE) * PIXEL_SIZE, round(value.y / PIXEL_SIZE) * PIXEL_SIZE)
+		return Vector2(_snap_scalar(value.x), _snap_scalar(value.y))
 
 	func _get_glow_style(rarity: String) -> Dictionary:
 		match rarity:
 			"white":
 				return {
 					"core_color": Color(1.0, 1.0, 1.0, 1.0),
-					"ray_color": Color(0.92, 0.96, 1.0, 1.0),
+					"bloom_color": Color(0.95, 0.97, 1.0, 1.0),
+					"ray_color": Color(0.96, 0.98, 1.0, 1.0),
 					"spark_color": Color(1.0, 1.0, 1.0, 1.0),
-					"core_alpha": 0.16,
-					"ray_alpha": 0.11,
-					"spark_alpha": 0.08
+					"core_alpha": 0.24,
+					"bloom_alpha": 0.12,
+					"main_alpha": 0.1,
+					"sub_alpha": 0.05,
+					"spark_alpha": 0.06,
+					"bloom_size": 34.0,
+					"core_size": 16.0,
+					"main_length": 58.0,
+					"sub_length": 42.0,
+					"main_width": 10.0,
+					"sub_width": 6.0,
+					"spark_length": 62.0,
+					"spark_size": 6.0
 				}
 			"blue":
 				return {
-					"core_color": Color(0.62, 0.84, 1.0, 1.0),
-					"ray_color": Color(0.4, 0.7, 1.0, 1.0),
-					"spark_color": Color(0.78, 0.92, 1.0, 1.0),
-					"core_alpha": 0.24,
-					"ray_alpha": 0.2,
-					"spark_alpha": 0.13
+					"core_color": Color(0.78, 0.92, 1.0, 1.0),
+					"bloom_color": Color(0.55, 0.8, 1.0, 1.0),
+					"ray_color": Color(0.48, 0.78, 1.0, 1.0),
+					"spark_color": Color(0.9, 0.96, 1.0, 1.0),
+					"core_alpha": 0.32,
+					"bloom_alpha": 0.18,
+					"main_alpha": 0.18,
+					"sub_alpha": 0.1,
+					"spark_alpha": 0.1,
+					"bloom_size": 42.0,
+					"core_size": 18.0,
+					"main_length": 74.0,
+					"sub_length": 54.0,
+					"main_width": 12.0,
+					"sub_width": 7.0,
+					"spark_length": 78.0,
+					"spark_size": 7.0
 				}
 			"purple":
 				return {
-					"core_color": Color(0.9, 0.68, 1.0, 1.0),
-					"ray_color": Color(0.76, 0.44, 1.0, 1.0),
-					"spark_color": Color(0.94, 0.78, 1.0, 1.0),
-					"core_alpha": 0.3,
-					"ray_alpha": 0.24,
-					"spark_alpha": 0.16
+					"core_color": Color(0.96, 0.84, 1.0, 1.0),
+					"bloom_color": Color(0.84, 0.58, 1.0, 1.0),
+					"ray_color": Color(0.74, 0.42, 1.0, 1.0),
+					"spark_color": Color(0.98, 0.9, 1.0, 1.0),
+					"core_alpha": 0.38,
+					"bloom_alpha": 0.22,
+					"main_alpha": 0.24,
+					"sub_alpha": 0.14,
+					"spark_alpha": 0.12,
+					"bloom_size": 48.0,
+					"core_size": 20.0,
+					"main_length": 86.0,
+					"sub_length": 64.0,
+					"main_width": 14.0,
+					"sub_width": 8.0,
+					"spark_length": 90.0,
+					"spark_size": 8.0
 				}
 			"gold":
 				return {
-					"core_color": Color(1.0, 0.92, 0.48, 1.0),
-					"ray_color": Color(1.0, 0.8, 0.22, 1.0),
-					"spark_color": Color(1.0, 0.97, 0.72, 1.0),
-					"core_alpha": 0.36,
-					"ray_alpha": 0.3,
-					"spark_alpha": 0.2
+					"core_color": Color(1.0, 0.96, 0.72, 1.0),
+					"bloom_color": Color(1.0, 0.88, 0.42, 1.0),
+					"ray_color": Color(1.0, 0.8, 0.2, 1.0),
+					"spark_color": Color(1.0, 0.98, 0.82, 1.0),
+					"core_alpha": 0.46,
+					"bloom_alpha": 0.28,
+					"main_alpha": 0.34,
+					"sub_alpha": 0.2,
+					"spark_alpha": 0.18,
+					"bloom_size": 56.0,
+					"core_size": 22.0,
+					"main_length": 102.0,
+					"sub_length": 74.0,
+					"main_width": 16.0,
+					"sub_width": 10.0,
+					"spark_length": 108.0,
+					"spark_size": 9.0
 				}
 			"red":
 				return {
-					"core_color": Color(1.0, 0.55, 0.55, 1.0),
+					"core_color": Color(1.0, 0.84, 0.84, 1.0),
+					"bloom_color": Color(1.0, 0.52, 0.52, 1.0),
 					"ray_color": Color(1.0, 0.24, 0.24, 1.0),
-					"spark_color": Color(1.0, 0.82, 0.82, 1.0),
-					"core_alpha": 0.44,
-					"ray_alpha": 0.34,
-					"spark_alpha": 0.22
+					"spark_color": Color(1.0, 0.9, 0.9, 1.0),
+					"core_alpha": 0.52,
+					"bloom_alpha": 0.32,
+					"main_alpha": 0.4,
+					"sub_alpha": 0.24,
+					"spark_alpha": 0.2,
+					"bloom_size": 60.0,
+					"core_size": 24.0,
+					"main_length": 112.0,
+					"sub_length": 82.0,
+					"main_width": 18.0,
+					"sub_width": 10.0,
+					"spark_length": 118.0,
+					"spark_size": 10.0
 				}
 			_:
 				return _get_glow_style("white")
+
 
 const LINGSHI_PACK_QUANTITY := {
 
