@@ -38,37 +38,17 @@ class QualityGlow:
 	extends Control
 
 	const PIXEL_SIZE := 4.0
-	const MAIN_RAY_DIRECTIONS := [
-		Vector2.RIGHT,
-		Vector2.LEFT,
-		Vector2.UP,
-		Vector2.DOWN,
-		Vector2(1, 1),
-		Vector2(-1, 1),
-		Vector2(1, -1),
-		Vector2(-1, -1)
-	]
-	const SUB_RAY_DIRECTIONS := [
-		Vector2(2, 1),
-		Vector2(2, -1),
-		Vector2(-2, 1),
-		Vector2(-2, -1),
-		Vector2(1, 2),
-		Vector2(1, -2),
-		Vector2(-1, 2),
-		Vector2(-1, -2)
-	]
-	# 这里用固定倍率，而不是随机值。
-	# 这样每个方向的光束都会稳定地一长一短，像素风观感更整齐，
-	# 也不会出现每一帧长度乱跳的情况。
-	const MAIN_RAY_LENGTH_FACTORS := [1.0, 0.84, 1.14, 0.9, 1.2, 0.78, 1.08, 0.88]
-	const SUB_RAY_LENGTH_FACTORS := [0.96, 1.08, 0.82, 1.14, 0.9, 1.02, 0.86, 1.1]
-
-
 
 	var glow_rarity: String = ""
 	var glow_alpha_scale := 1.0
 	var _time := 0.0
+	# 这两个数组会在品质变化时重建一次：
+	# - `_ray_directions` 负责记录每一根主光束的朝向
+	# - `_ray_length_factors` 负责记录每一根光束自己的长度倍率
+	# 这样既能做到“看起来有点随机”，又不会每一帧抖动。
+	var _ray_directions: Array[Vector2] = []
+	var _ray_length_factors: Array[float] = []
+
 
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -79,12 +59,16 @@ class QualityGlow:
 		offset_right = 96
 		offset_bottom = 96
 		clip_contents = false
+		if not glow_rarity.is_empty():
+			_rebuild_ray_layout()
 		queue_redraw()
 
 	func set_glow_rarity(new_rarity: String) -> void:
 		glow_rarity = new_rarity
 		visible = not glow_rarity.is_empty()
+		_rebuild_ray_layout()
 		queue_redraw()
+
 
 	func set_glow_alpha_scale(new_alpha_scale: float) -> void:
 		glow_alpha_scale = clampf(new_alpha_scale, 0.0, 1.0)
@@ -98,6 +82,8 @@ class QualityGlow:
 	func _draw() -> void:
 		if glow_rarity.is_empty():
 			return
+		if _ray_directions.is_empty():
+			_rebuild_ray_layout()
 		var style := _get_glow_style(glow_rarity)
 		# 所有品质统一带一个“呼吸”节奏：
 		# - 尺寸在 0.9 ~ 1.0 之间变化
@@ -115,9 +101,14 @@ class QualityGlow:
 			rotation = _time * 0.36
 		var center := size * 0.5
 		_draw_center_bloom(center, style, pulse, size_scale)
-		_draw_ray_group(center, MAIN_RAY_DIRECTIONS, style, float(style.get("main_length", 80.0)) * size_scale, float(style.get("main_width", 14.0)) * size_scale, float(style.get("main_alpha", 0.25)) * pulse, rotation, 7, false)
-		_draw_ray_group(center, SUB_RAY_DIRECTIONS, style, float(style.get("sub_length", 58.0)) * size_scale, float(style.get("sub_width", 8.0)) * size_scale, float(style.get("sub_alpha", 0.16)) * pulse, rotation * 0.65, 5, true)
+		# 这里两层都沿用同一组方向：
+		# - 主层负责“炸开”的大光束
+		# - 次层只是同方向的短一点、淡一点的补光
+		# 这样视觉上仍然是 4/5/6 根主射线，不会变成一圈过度规整的小刺。
+		_draw_ray_group(center, style["ray_color"], float(style.get("main_length", 80.0)) * size_scale, float(style.get("main_width", 14.0)) * size_scale, float(style.get("main_alpha", 0.25)) * pulse, rotation, 7, 1.0)
+		_draw_ray_group(center, style["ray_color"], float(style.get("sub_length", 58.0)) * size_scale, float(style.get("sub_width", 8.0)) * size_scale, float(style.get("sub_alpha", 0.16)) * pulse, rotation, 5, 0.82)
 		_draw_tip_sparks(center, style, rotation, size_scale, pulse)
+
 
 
 	func _draw_center_bloom(center: Vector2, style: Dictionary, pulse: float, size_scale: float) -> void:
@@ -142,19 +133,19 @@ class QualityGlow:
 
 		draw_rect(Rect2(top_left, Vector2.ONE * side), color)
 
-	func _draw_ray_group(center: Vector2, directions: Array, style: Dictionary, beam_length: float, beam_width: float, beam_alpha: float, rotation: float, segment_count: int, is_sub_group: bool) -> void:
-		for ray_index in range(directions.size()):
-			var direction := (directions[ray_index] as Vector2).normalized()
-			var ray_length_factor: float = _get_ray_length_factor(ray_index, is_sub_group)
+	func _draw_ray_group(center: Vector2, base_color: Color, beam_length: float, beam_width: float, beam_alpha: float, rotation: float, segment_count: int, group_length_scale: float) -> void:
+		for ray_index in range(_ray_directions.size()):
+			var direction: Vector2 = _ray_directions[ray_index]
+			var ray_length_factor: float = _get_ray_length_factor(ray_index) * group_length_scale
 			var varied_beam_length: float = beam_length * ray_length_factor
-			var tail_length_factor: float = float(max(0.82, ray_length_factor * 0.9))
+			var tail_length_factor: float = float(max(0.82, ray_length_factor * 0.92))
 			for segment in range(segment_count):
 				var t: float = float(segment) / float(max(float(segment_count - 1), 1.0))
 				var distance := lerpf(PIXEL_SIZE * 2.0, varied_beam_length, t)
 				var length := lerpf(beam_width * 5.6 * ray_length_factor, beam_width * 1.3 * tail_length_factor, t)
 				var thickness := lerpf(beam_width, float(max(PIXEL_SIZE, beam_width * 0.38)), t)
 				var alpha_scale := beam_alpha * pow(1.0 - t, 0.45)
-				_draw_ray_segment(center, direction, distance, length, thickness, style["ray_color"], alpha_scale, rotation)
+				_draw_ray_segment(center, direction, distance, length, thickness, base_color, alpha_scale, rotation)
 
 
 	func _draw_ray_segment(center: Vector2, direction: Vector2, distance: float, length: float, thickness: float, base_color: Color, alpha_scale: float, rotation: float) -> void:
@@ -182,20 +173,88 @@ class QualityGlow:
 		var spark_length := float(style.get("spark_length", 92.0)) * size_scale
 		var spark_alpha := float(style.get("spark_alpha", 0.12)) * pulse * glow_alpha_scale
 		var spark_color: Color = style["spark_color"]
-		for ray_index in range(MAIN_RAY_DIRECTIONS.size()):
-			var direction := (MAIN_RAY_DIRECTIONS[ray_index] as Vector2).normalized().rotated(rotation)
-			var spark_length_factor: float = _get_ray_length_factor(ray_index, false)
+		for ray_index in range(_ray_directions.size()):
+			var direction: Vector2 = _ray_directions[ray_index].rotated(rotation)
+			var spark_length_factor: float = _get_ray_length_factor(ray_index)
 			var varied_spark_length: float = spark_length * spark_length_factor
 			var spark_center := _snap_to_pixel(center + direction * varied_spark_length)
 			_draw_center_square(spark_center, spark_size, spark_color, spark_alpha)
 			_draw_center_square(_snap_to_pixel(center + direction * (varied_spark_length * 0.82)), spark_size * 0.72, spark_color, spark_alpha * 0.75)
 
-	func _get_ray_length_factor(ray_index: int, is_sub_group: bool) -> float:
-		if is_sub_group:
-			return float(SUB_RAY_LENGTH_FACTORS[ray_index % SUB_RAY_LENGTH_FACTORS.size()])
-		return float(MAIN_RAY_LENGTH_FACTORS[ray_index % MAIN_RAY_LENGTH_FACTORS.size()])
+	func _rebuild_ray_layout() -> void:
+		_ray_directions.clear()
+		_ray_length_factors.clear()
+		if glow_rarity.is_empty():
+			return
+		var ray_count: int = _get_rarity_ray_count(glow_rarity)
+		var rng := RandomNumberGenerator.new()
+		# 这里用“品质 + 当前控件实例”做种子：
+		# - 同一个商品格子的光束布局会保持稳定
+		# - 不同格子、不同品质又会略有差异
+		# - 不会在每一帧重算时闪来闪去
+		# 这样既满足“别太规整”，也不会影响像素风的稳定感。
+		rng.seed = _get_layout_seed(glow_rarity)
+		var angle_list: Array[float] = _build_irregular_ray_angles(ray_count, 30.0, rng)
+		for angle_deg in angle_list:
+			_ray_directions.append(Vector2.RIGHT.rotated(deg_to_rad(angle_deg)))
+		_ray_length_factors = _build_ray_length_factors(ray_count, rng)
+
+	func _get_rarity_ray_count(rarity: String) -> int:
+		match rarity:
+			"white":
+				return 4
+			"blue":
+				return 5
+			_:
+				return 6
+
+	func _get_layout_seed(rarity: String) -> int:
+		var base_seed: int = int(get_instance_id()) * 131
+		match rarity:
+			"white":
+				return base_seed + 17
+			"blue":
+				return base_seed + 29
+			"purple":
+				return base_seed + 43
+			"gold":
+				return base_seed + 59
+			"red":
+				return base_seed + 71
+			_:
+				return base_seed + 11
+
+	func _build_irregular_ray_angles(ray_count: int, min_gap_deg: float, rng: RandomNumberGenerator) -> Array[float]:
+		var weights: Array[float] = []
+		var weight_total := 0.0
+		var extra_total: float = 360.0 - min_gap_deg * float(ray_count)
+		for _index in range(ray_count):
+			# 权重越大，分到的夹角就越大。
+			# 这里故意只做“适度随机”，避免出现特别夸张的大空缺。
+			var weight: float = rng.randf_range(0.45, 1.55)
+			weights.append(weight)
+			weight_total += weight
+		var current_angle: float = rng.randf_range(-180.0, 180.0)
+		var angles: Array[float] = []
+		for index in range(ray_count):
+			angles.append(current_angle)
+			current_angle += min_gap_deg + extra_total * (weights[index] / weight_total)
+		return angles
+
+	func _build_ray_length_factors(ray_count: int, rng: RandomNumberGenerator) -> Array[float]:
+		var factors: Array[float] = []
+		for _index in range(ray_count):
+			# 每根光束给一个自己的长度倍率，避免整圈看起来像复制粘贴。
+			factors.append(rng.randf_range(0.82, 1.18))
+		return factors
+
+	func _get_ray_length_factor(ray_index: int) -> float:
+		if _ray_length_factors.is_empty():
+			return 1.0
+		return float(_ray_length_factors[ray_index % _ray_length_factors.size()])
 
 	func _snap_scalar(value: float) -> float:
+
 
 		return round(value / PIXEL_SIZE) * PIXEL_SIZE
 
