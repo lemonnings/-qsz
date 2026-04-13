@@ -28,7 +28,167 @@ const RARITY_COLORS := {
 	"gold": Color(1.0, 0.87, 0.36, 1),
 	"red": Color(1.0, 0.45, 0.45, 1)
 }
+const LINGSHI_PRICE_COLOR := Color(1.0, 0.9, 0.62, 1.0)
+const ZHENQI_PRICE_COLOR := Color(0.68, 0.88, 1.0, 1.0)
+const SOLD_OUT_TEXT_COLOR := Color(0.72, 0.72, 0.72, 1.0)
+
+# 每个商品格子下面都会放一个独立的像素光效控件。
+# 这样就不用改场景原本的布局，只要切换品质，就能改变发光颜色和动画。
+class QualityGlow:
+	extends Control
+
+	const PIXEL_SIZE := 4.0
+	const CORE_BLOCKS := [
+		{"offset": Vector2(0, 0), "size": 3, "alpha": 1.0},
+		{"offset": Vector2(-3, 0), "size": 2, "alpha": 0.72},
+		{"offset": Vector2(3, 0), "size": 2, "alpha": 0.72},
+		{"offset": Vector2(0, -3), "size": 2, "alpha": 0.72},
+		{"offset": Vector2(0, 3), "size": 2, "alpha": 0.72},
+		{"offset": Vector2(-5, -5), "size": 1, "alpha": 0.45},
+		{"offset": Vector2(5, -5), "size": 1, "alpha": 0.45},
+		{"offset": Vector2(-5, 5), "size": 1, "alpha": 0.45},
+		{"offset": Vector2(5, 5), "size": 1, "alpha": 0.45}
+	]
+	const STAR_RAYS := [
+		{"offset": Vector2(0, -10), "size": 1, "alpha": 1.0},
+		{"offset": Vector2(0, -14), "size": 1, "alpha": 0.86},
+		{"offset": Vector2(0, 10), "size": 1, "alpha": 1.0},
+		{"offset": Vector2(0, 14), "size": 1, "alpha": 0.86},
+		{"offset": Vector2(-10, 0), "size": 1, "alpha": 1.0},
+		{"offset": Vector2(-14, 0), "size": 1, "alpha": 0.86},
+		{"offset": Vector2(10, 0), "size": 1, "alpha": 1.0},
+		{"offset": Vector2(14, 0), "size": 1, "alpha": 0.86},
+		{"offset": Vector2(-7, -7), "size": 1, "alpha": 0.7},
+		{"offset": Vector2(7, -7), "size": 1, "alpha": 0.7},
+		{"offset": Vector2(-7, 7), "size": 1, "alpha": 0.7},
+		{"offset": Vector2(7, 7), "size": 1, "alpha": 0.7}
+	]
+	const EDGE_SPARKS := [
+		{"offset": Vector2(0, -18), "size": 1, "alpha": 0.72},
+		{"offset": Vector2(0, 18), "size": 1, "alpha": 0.72},
+		{"offset": Vector2(-18, 0), "size": 1, "alpha": 0.72},
+		{"offset": Vector2(18, 0), "size": 1, "alpha": 0.72},
+		{"offset": Vector2(-12, -12), "size": 1, "alpha": 0.6},
+		{"offset": Vector2(12, -12), "size": 1, "alpha": 0.6},
+		{"offset": Vector2(-12, 12), "size": 1, "alpha": 0.6},
+		{"offset": Vector2(12, 12), "size": 1, "alpha": 0.6}
+	]
+
+	var glow_rarity: String = ""
+	var glow_alpha_scale := 1.0
+	var _time := 0.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		offset_left = -12
+		offset_top = -12
+		offset_right = 12
+		offset_bottom = 12
+		clip_contents = false
+		queue_redraw()
+
+	func set_glow_rarity(new_rarity: String) -> void:
+		glow_rarity = new_rarity
+		visible = not glow_rarity.is_empty()
+		queue_redraw()
+
+	func set_glow_alpha_scale(new_alpha_scale: float) -> void:
+		glow_alpha_scale = clampf(new_alpha_scale, 0.0, 1.0)
+		queue_redraw()
+
+	func _process(delta: float) -> void:
+		_time += delta
+		if glow_rarity == "gold" or glow_rarity == "red":
+			queue_redraw()
+
+	func _draw() -> void:
+		if glow_rarity.is_empty():
+			return
+		var style := _get_glow_style(glow_rarity)
+		var pulse := 1.0
+		var rotation := 0.0
+		if glow_rarity == "gold":
+			# 金色光效只做闪烁，让它看起来像在轻微跳动。
+			pulse = clampf(0.92 + sin(_time * 7.2) * 0.1 + sin(_time * 13.0) * 0.05, 0.72, 1.12)
+		elif glow_rarity == "red":
+			# 红色品质更危险、更夸张，所以额外加入慢速旋转和闪烁。
+			pulse = clampf(0.9 + sin(_time * 4.0) * 0.14, 0.7, 1.15)
+			rotation = _time * 0.42
+		var center := size * 0.5
+		_draw_pattern(center, CORE_BLOCKS, style["core_color"], float(style["core_alpha"]) * pulse * glow_alpha_scale, rotation * 0.35)
+		_draw_pattern(center, STAR_RAYS, style["ray_color"], float(style["ray_alpha"]) * pulse * glow_alpha_scale, rotation)
+		_draw_pattern(center, EDGE_SPARKS, style["spark_color"], float(style["spark_alpha"]) * pulse * glow_alpha_scale, rotation)
+
+	func _draw_pattern(center: Vector2, pattern: Array, base_color: Color, alpha_scale: float, rotation: float) -> void:
+		for block_data in pattern:
+			var block_color := base_color
+			block_color.a *= float(block_data.get("alpha", 1.0)) * alpha_scale
+			if block_color.a <= 0.01:
+				continue
+			var offset := (block_data.get("offset", Vector2.ZERO) as Vector2) * PIXEL_SIZE
+			if abs(rotation) > 0.001:
+				offset = offset.rotated(rotation)
+			offset = _snap_to_pixel(offset)
+			var block_size := Vector2.ONE * float(block_data.get("size", 1)) * PIXEL_SIZE
+			var block_pos := _snap_to_pixel(center + offset - block_size * 0.5)
+			draw_rect(Rect2(block_pos, block_size), block_color)
+
+	func _snap_to_pixel(value: Vector2) -> Vector2:
+		return Vector2(round(value.x / PIXEL_SIZE) * PIXEL_SIZE, round(value.y / PIXEL_SIZE) * PIXEL_SIZE)
+
+	func _get_glow_style(rarity: String) -> Dictionary:
+		match rarity:
+			"white":
+				return {
+					"core_color": Color(1.0, 1.0, 1.0, 1.0),
+					"ray_color": Color(0.92, 0.96, 1.0, 1.0),
+					"spark_color": Color(1.0, 1.0, 1.0, 1.0),
+					"core_alpha": 0.16,
+					"ray_alpha": 0.11,
+					"spark_alpha": 0.08
+				}
+			"blue":
+				return {
+					"core_color": Color(0.62, 0.84, 1.0, 1.0),
+					"ray_color": Color(0.4, 0.7, 1.0, 1.0),
+					"spark_color": Color(0.78, 0.92, 1.0, 1.0),
+					"core_alpha": 0.24,
+					"ray_alpha": 0.2,
+					"spark_alpha": 0.13
+				}
+			"purple":
+				return {
+					"core_color": Color(0.9, 0.68, 1.0, 1.0),
+					"ray_color": Color(0.76, 0.44, 1.0, 1.0),
+					"spark_color": Color(0.94, 0.78, 1.0, 1.0),
+					"core_alpha": 0.3,
+					"ray_alpha": 0.24,
+					"spark_alpha": 0.16
+				}
+			"gold":
+				return {
+					"core_color": Color(1.0, 0.92, 0.48, 1.0),
+					"ray_color": Color(1.0, 0.8, 0.22, 1.0),
+					"spark_color": Color(1.0, 0.97, 0.72, 1.0),
+					"core_alpha": 0.36,
+					"ray_alpha": 0.3,
+					"spark_alpha": 0.2
+				}
+			"red":
+				return {
+					"core_color": Color(1.0, 0.55, 0.55, 1.0),
+					"ray_color": Color(1.0, 0.24, 0.24, 1.0),
+					"spark_color": Color(1.0, 0.82, 0.82, 1.0),
+					"core_alpha": 0.44,
+					"ray_alpha": 0.34,
+					"spark_alpha": 0.22
+				}
+			_:
+				return _get_glow_style("white")
+
 const LINGSHI_PACK_QUANTITY := {
+
 	"white": 10,
 	"blue": 20,
 	"purple": 40,
@@ -161,9 +321,12 @@ const SHOP_UPGRADE_COSTS := {
 
 var _item_panels: Array[Panel] = []
 var _detail_labels: Array[RichTextLabel] = []
+var _name_labels: Array[RichTextLabel] = []
 var _price_labels: Array[RichTextLabel] = []
 var _icon_nodes: Array[TextureRect] = []
+var _glow_nodes: Array = []
 var _shop_items: Array[Dictionary] = []
+
 var _common_material_pool: Array[String] = []
 var _shop_level_label: RichTextLabel
 var _offer_tooltip_panel: Panel
@@ -218,15 +381,20 @@ func _cache_nodes() -> void:
 		get_node("item1_detail5"),
 		get_node("item1_detail6")
 	]
+	_name_labels = [item1_name, item2_name, item3_name, item4_name, item5_name, item6_name]
 	_price_labels = [item1_price, item2_price, item3_price, item4_price, item5_price, item6_price]
 	_shop_level_label = get_node("shop_level")
 	_shop_level_label.bbcode_enabled = true
 	_shop_level_label.add_theme_font_size_override("normal_font_size", 22)
 	_shop_level_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_shop_level_label.scroll_active = false
+	_glow_nodes.clear()
+	_icon_nodes.clear()
 	for panel in _item_panels:
+		_glow_nodes.append(_ensure_glow_node(panel))
 		_icon_nodes.append(_ensure_icon_node(panel))
 	_configure_item_hit_areas_and_labels()
+
 
 func _create_extra_controls() -> void:
 	_offer_tooltip_panel = _create_bag_style_panel("OfferTooltipPanel", true)
@@ -381,7 +549,20 @@ func _connect_interactions() -> void:
 	shop_level_up_button.mouse_exited.connect(_on_shop_level_up_mouse_exited)
 	_exit_button.pressed.connect(_on_exit_button_pressed)
 
+func _ensure_glow_node(panel: Panel):
+	var glow_node = panel.get_node_or_null("QualityGlow")
+	if glow_node == null:
+		glow_node = QualityGlow.new()
+		glow_node.name = "QualityGlow"
+		panel.add_child(glow_node)
+	# 光效必须压在图标下面，不能盖住图标本体，所以始终放到最底层子节点。
+	panel.move_child(glow_node, 0)
+	return glow_node
+
+
 func _ensure_icon_node(panel: Panel) -> TextureRect:
+
+
 	var icon_node := panel.get_node_or_null("Icon") as TextureRect
 	if icon_node == null:
 		icon_node = TextureRect.new()
@@ -576,31 +757,48 @@ func _refresh_display() -> void:
 		var detail_label := _detail_labels[i]
 		var price_label := _price_labels[i]
 		var icon_node := _icon_nodes[i]
+		var glow_node = _glow_nodes[i] if i < _glow_nodes.size() else null
 		if i >= _shop_items.size():
 			detail_label.text = "未上架"
 			price_label.text = ""
+			_apply_name_color_to_slot(i, Color.WHITE)
+			price_label.modulate = LINGSHI_PRICE_COLOR
 			icon_node.texture = null
+			panel.modulate = Color(1, 1, 1, 1)
+			icon_node.modulate = Color(1, 1, 1, 1)
+			if glow_node != null:
+				glow_node.set_glow_rarity("")
+				glow_node.set_glow_alpha_scale(0.0)
 			continue
 		var offer := _shop_items[i]
 		var rarity := str(offer.get("rarity", "white"))
-		var color: Color = RARITY_COLORS.get(rarity, Color.WHITE)
-		detail_label.modulate = color
-		price_label.modulate = color
-		panel.modulate = Color(1, 1, 1, 1)
-		icon_node.modulate = Color(1, 1, 1, 1)
-		if bool(offer.get("sold", false)):
-			detail_label.text = "已售罄"
-			price_label.text = ""
-			icon_node.texture = load(str(ItemManager.get_item_property(str(offer.get("item_id", "")), "item_icon"))) if ItemManager.get_item_property(str(offer.get("item_id", "")), "item_icon") != null else null
-			icon_node.modulate = Color(0.35, 0.35, 0.35, 0.8)
-			panel.modulate = Color(0.75, 0.75, 0.75, 1)
-			continue
 		var item_id := str(offer.get("item_id", ""))
 		var item_name := str(ItemManager.get_item_property(item_id, "item_name"))
 		var item_icon = ItemManager.get_item_property(item_id, "item_icon")
+		var name_color := _get_rare_color(str(ItemManager.get_item_property(item_id, "item_rare")))
+		var price_color := _get_offer_price_color(offer)
+		panel.modulate = Color(1, 1, 1, 1)
+		icon_node.modulate = Color(1, 1, 1, 1)
+		_apply_name_color_to_slot(i, name_color)
+		price_label.modulate = price_color
+		if glow_node != null:
+			glow_node.set_glow_rarity(rarity)
+			glow_node.set_glow_alpha_scale(1.0)
+		if bool(offer.get("sold", false)):
+			detail_label.text = "已售罄"
+			price_label.text = ""
+			_apply_name_color_to_slot(i, SOLD_OUT_TEXT_COLOR)
+			price_label.modulate = SOLD_OUT_TEXT_COLOR
+			icon_node.texture = load(str(ItemManager.get_item_property(item_id, "item_icon"))) if ItemManager.get_item_property(item_id, "item_icon") != null else null
+			icon_node.modulate = Color(0.35, 0.35, 0.35, 0.8)
+			panel.modulate = Color(0.75, 0.75, 0.75, 1)
+			if glow_node != null:
+				glow_node.set_glow_alpha_scale(0.45)
+			continue
 		icon_node.texture = load(str(item_icon)) if item_icon != null else null
 		detail_label.text = item_name + " ×" + str(offer.get("quantity", 0))
 		price_label.text = _format_offer_price(offer)
+
 
 func _update_shop_header() -> void:
 	_shop_level_label.text = _build_shop_header_text()
@@ -653,7 +851,21 @@ func _format_offer_price(offer: Dictionary) -> String:
 		return str(cost) + " 真气"
 	return str(cost) + " 灵石"
 
+func _get_offer_price_color(offer: Dictionary) -> Color:
+	if str(offer.get("cost_resource", "lingshi")) == "point":
+		return ZHENQI_PRICE_COLOR
+	return LINGSHI_PRICE_COLOR
+
+func _apply_name_color_to_slot(index: int, color: Color) -> void:
+	if index >= 0 and index < _detail_labels.size() and _detail_labels[index] != null:
+		_detail_labels[index].modulate = color
+	# 场景里如果还保留了单独的名字标签，也同步给它上色。
+	# 这样无论当前用的是旧布局还是新布局，名字颜色规则都会一致。
+	if index >= 0 and index < _name_labels.size() and _name_labels[index] != null:
+		_name_labels[index].modulate = color
+
 func _get_item_type_display_name(item_id: String) -> String:
+
 	var item_type := str(ItemManager.get_item_property(item_id, "item_type"))
 	match item_type:
 		"consumable":
@@ -717,10 +929,11 @@ func _show_offer_tooltip(index: int) -> void:
 	icon.texture = load(item_icon) if not item_icon.is_empty() and ResourceLoader.exists(item_icon) else null
 	if bool(offer.get("sold", false)):
 		name_label.text = "  " + item_name
-		name_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+		name_label.add_theme_color_override("font_color", SOLD_OUT_TEXT_COLOR)
 		type_label.text = "[已售罄]"
 		desc_label.text = "该商品已被买走，等待下次刷新。"
 		price_label.text = "卖完啦！"
+		price_label.add_theme_color_override("font_color", SOLD_OUT_TEXT_COLOR)
 		hint_label.visible = false
 	else:
 		var rarity := str(offer.get("rarity", "white"))
@@ -730,8 +943,10 @@ func _show_offer_tooltip(index: int) -> void:
 		type_label.text = "【%s】 %s" % [SHOP_RARITY_DISPLAY_NAMES.get(rarity, rarity), _get_item_type_display_name(item_id)]
 		desc_label.text = _build_offer_detail_text(offer)
 		price_label.text = "售价: " + _format_offer_price(offer)
+		price_label.add_theme_color_override("font_color", _get_offer_price_color(offer))
 		hint_label.text = "\n点击购买商品"
 		hint_label.visible = true
+
 	await _finalize_info_panel_layout(_offer_tooltip_panel)
 	var hovered_panel := _item_panels[index]
 	var tooltip_pos := hovered_panel.global_position + Vector2(hovered_panel.size.x + 10, 0)
@@ -848,10 +1063,8 @@ func _on_refresh_gui_input(event: InputEvent) -> void:
 func _configure_item_hit_areas_and_labels() -> void:
 	if _item_panels.is_empty() or _detail_labels.is_empty() or _price_labels.is_empty():
 		return
-	var detail_offset := _detail_labels[0].position - _item_panels[0].position
-	var price_offset := _price_labels[0].position - _item_panels[0].position
-	var detail_size := _detail_labels[0].size
-	var price_size := _price_labels[0].size
+	# 这里回到之前的做法：只处理“谁来接鼠标事件”，不再统一改位置和尺寸。
+	# 这样就不会把场景里原本摆好的名字、价格位置重新覆盖掉。
 	for i in range(_item_panels.size()):
 		var panel := _item_panels[i]
 		var detail_label := _detail_labels[i]
@@ -859,15 +1072,12 @@ func _configure_item_hit_areas_and_labels() -> void:
 		panel.mouse_filter = Control.MOUSE_FILTER_STOP
 		detail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		detail_label.position = panel.position + detail_offset
-		price_label.position = panel.position + price_offset
-		detail_label.size = detail_size
-		price_label.size = price_size
-		detail_label.custom_minimum_size = detail_size
-		price_label.custom_minimum_size = price_size
+		if i < _icon_nodes.size() and _icon_nodes[i] != null:
+			_icon_nodes[i].mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for extra_name_label in [item1_name, item2_name, item3_name, item4_name, item5_name, item6_name]:
 		if extra_name_label != null:
 			extra_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 
 func _try_refresh_shop() -> void:
 	var battle_refresh := Global.shop_battle_refresh_count
