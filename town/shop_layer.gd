@@ -123,20 +123,22 @@ class QualityGlow:
 		color.a *= alpha_scale
 		if color.a <= 0.01:
 			return
-		var side := max(_snap_scalar(side_length), PIXEL_SIZE)
+		var side: float = float(max(_snap_scalar(side_length), PIXEL_SIZE))
 		var top_left := _snap_to_pixel(center - Vector2.ONE * side * 0.5)
+
 		draw_rect(Rect2(top_left, Vector2.ONE * side), color)
 
 	func _draw_ray_group(center: Vector2, directions: Array, style: Dictionary, beam_length: float, beam_width: float, beam_alpha: float, rotation: float, segment_count: int) -> void:
 		for direction_data in directions:
 			var direction := (direction_data as Vector2).normalized()
 			for segment in range(segment_count):
-				var t := float(segment) / max(float(segment_count - 1), 1.0)
+				var t: float = float(segment) / float(max(float(segment_count - 1), 1.0))
 				var distance := lerpf(PIXEL_SIZE * 2.0, beam_length, t)
 				var length := lerpf(beam_width * 5.6, beam_width * 1.3, t)
-				var thickness := lerpf(beam_width, max(PIXEL_SIZE, beam_width * 0.38), t)
+				var thickness := lerpf(beam_width, float(max(PIXEL_SIZE, beam_width * 0.38)), t)
 				var alpha_scale := beam_alpha * pow(1.0 - t, 0.45)
 				_draw_ray_segment(center, direction, distance, length, thickness, style["ray_color"], alpha_scale, rotation)
+
 
 	func _draw_ray_segment(center: Vector2, direction: Vector2, distance: float, length: float, thickness: float, base_color: Color, alpha_scale: float, rotation: float) -> void:
 		var color := base_color
@@ -146,8 +148,9 @@ class QualityGlow:
 		var dir := direction.normalized().rotated(rotation)
 		var perp := Vector2(-dir.y, dir.x)
 		var ray_center := _snap_to_pixel(center + dir * distance)
-		var half_length := dir * max(_snap_scalar(length) * 0.5, PIXEL_SIZE * 0.5)
-		var half_thickness := perp * max(_snap_scalar(thickness) * 0.5, PIXEL_SIZE * 0.5)
+		var half_length: Vector2 = dir * float(max(_snap_scalar(length) * 0.5, PIXEL_SIZE * 0.5))
+		var half_thickness: Vector2 = perp * float(max(_snap_scalar(thickness) * 0.5, PIXEL_SIZE * 0.5))
+
 		var points := PackedVector2Array([
 			_snap_to_pixel(ray_center - half_length - half_thickness),
 			_snap_to_pixel(ray_center - half_length + half_thickness),
