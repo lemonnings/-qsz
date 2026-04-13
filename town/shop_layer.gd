@@ -58,6 +58,12 @@ class QualityGlow:
 		Vector2(-1, 2),
 		Vector2(-1, -2)
 	]
+	# 这里用固定倍率，而不是随机值。
+	# 这样每个方向的光束都会稳定地一长一短，像素风观感更整齐，
+	# 也不会出现每一帧长度乱跳的情况。
+	const MAIN_RAY_LENGTH_FACTORS := PackedFloat32Array([1.0, 0.84, 1.14, 0.9, 1.2, 0.78, 1.08, 0.88])
+	const SUB_RAY_LENGTH_FACTORS := PackedFloat32Array([0.96, 1.08, 0.82, 1.14, 0.9, 1.02, 0.86, 1.1])
+
 
 	var glow_rarity: String = ""
 	var glow_alpha_scale := 1.0
@@ -85,38 +91,45 @@ class QualityGlow:
 
 	func _process(delta: float) -> void:
 		_time += delta
-		if glow_rarity == "gold" or glow_rarity == "red":
+		if not glow_rarity.is_empty():
 			queue_redraw()
 
 	func _draw() -> void:
 		if glow_rarity.is_empty():
 			return
 		var style := _get_glow_style(glow_rarity)
-		var pulse := 1.0
+		# 所有品质统一带一个“呼吸”节奏：
+		# - 尺寸在 0.9 ~ 1.0 之间变化
+		# - 透明度在 0.5 ~ 1.0 之间变化
+		var breath_progress: float = (sin(_time * 2.4) + 1.0) * 0.5
+		var size_scale: float = lerpf(0.9, 1.0, breath_progress)
+		var pulse: float = lerpf(0.5, 1.0, breath_progress)
 		var rotation := 0.0
 		if glow_rarity == "gold":
-			# 金色主要靠闪烁营造“宝物感”。
-			pulse = clampf(0.96 + sin(_time * 7.6) * 0.14 + sin(_time * 13.8) * 0.06, 0.76, 1.18)
+			# 金色保留更亮的闪烁感，但基础呼吸仍然存在。
+			pulse *= clampf(0.96 + sin(_time * 7.6) * 0.14 + sin(_time * 13.8) * 0.06, 0.76, 1.18)
 		elif glow_rarity == "red":
-			# 红色更张扬，所以做慢速旋转，再叠一点闪烁。
-			pulse = clampf(0.94 + sin(_time * 4.2) * 0.16 + sin(_time * 8.4) * 0.05, 0.74, 1.2)
+			# 红色保留慢速旋转，再叠一层更张扬的闪烁。
+			pulse *= clampf(0.94 + sin(_time * 4.2) * 0.16 + sin(_time * 8.4) * 0.05, 0.74, 1.2)
 			rotation = _time * 0.36
 		var center := size * 0.5
-		_draw_center_bloom(center, style, pulse)
-		_draw_ray_group(center, MAIN_RAY_DIRECTIONS, style, float(style.get("main_length", 80.0)), float(style.get("main_width", 14.0)), float(style.get("main_alpha", 0.25)) * pulse, rotation, 7)
-		_draw_ray_group(center, SUB_RAY_DIRECTIONS, style, float(style.get("sub_length", 58.0)), float(style.get("sub_width", 8.0)), float(style.get("sub_alpha", 0.16)) * pulse, rotation * 0.65, 5)
-		_draw_tip_sparks(center, style, rotation)
+		_draw_center_bloom(center, style, pulse, size_scale)
+		_draw_ray_group(center, MAIN_RAY_DIRECTIONS, style, float(style.get("main_length", 80.0)) * size_scale, float(style.get("main_width", 14.0)) * size_scale, float(style.get("main_alpha", 0.25)) * pulse, rotation, 7, false)
+		_draw_ray_group(center, SUB_RAY_DIRECTIONS, style, float(style.get("sub_length", 58.0)) * size_scale, float(style.get("sub_width", 8.0)) * size_scale, float(style.get("sub_alpha", 0.16)) * pulse, rotation * 0.65, 5, true)
+		_draw_tip_sparks(center, style, rotation, size_scale, pulse)
 
-	func _draw_center_bloom(center: Vector2, style: Dictionary, pulse: float) -> void:
+
+	func _draw_center_bloom(center: Vector2, style: Dictionary, pulse: float, size_scale: float) -> void:
 		var core_color: Color = style["core_color"]
 		var bloom_color: Color = style["bloom_color"]
 		var core_alpha := float(style.get("core_alpha", 0.3)) * pulse * glow_alpha_scale
 		var bloom_alpha := float(style.get("bloom_alpha", 0.18)) * pulse * glow_alpha_scale
-		var bloom_size := float(style.get("bloom_size", 44.0))
-		var core_size := float(style.get("core_size", 20.0))
+		var bloom_size := float(style.get("bloom_size", 44.0)) * size_scale
+		var core_size := float(style.get("core_size", 20.0)) * size_scale
 		_draw_center_square(center, bloom_size, bloom_color, bloom_alpha)
 		_draw_center_square(center, bloom_size * 0.68, core_color, core_alpha * 0.92)
 		_draw_center_square(center, core_size, Color(1, 1, 1, 1), core_alpha)
+
 
 	func _draw_center_square(center: Vector2, side_length: float, base_color: Color, alpha_scale: float) -> void:
 		var color := base_color
@@ -128,19 +141,23 @@ class QualityGlow:
 
 		draw_rect(Rect2(top_left, Vector2.ONE * side), color)
 
-	func _draw_ray_group(center: Vector2, directions: Array, style: Dictionary, beam_length: float, beam_width: float, beam_alpha: float, rotation: float, segment_count: int) -> void:
-		for direction_data in directions:
-			var direction := (direction_data as Vector2).normalized()
+	func _draw_ray_group(center: Vector2, directions: Array, style: Dictionary, beam_length: float, beam_width: float, beam_alpha: float, rotation: float, segment_count: int, is_sub_group: bool) -> void:
+		for ray_index in range(directions.size()):
+			var direction := (directions[ray_index] as Vector2).normalized()
+			var ray_length_factor: float = _get_ray_length_factor(ray_index, is_sub_group)
+			var varied_beam_length: float = beam_length * ray_length_factor
+			var tail_length_factor: float = float(max(0.82, ray_length_factor * 0.9))
 			for segment in range(segment_count):
 				var t: float = float(segment) / float(max(float(segment_count - 1), 1.0))
-				var distance := lerpf(PIXEL_SIZE * 2.0, beam_length, t)
-				var length := lerpf(beam_width * 5.6, beam_width * 1.3, t)
+				var distance := lerpf(PIXEL_SIZE * 2.0, varied_beam_length, t)
+				var length := lerpf(beam_width * 5.6 * ray_length_factor, beam_width * 1.3 * tail_length_factor, t)
 				var thickness := lerpf(beam_width, float(max(PIXEL_SIZE, beam_width * 0.38)), t)
 				var alpha_scale := beam_alpha * pow(1.0 - t, 0.45)
 				_draw_ray_segment(center, direction, distance, length, thickness, style["ray_color"], alpha_scale, rotation)
 
 
 	func _draw_ray_segment(center: Vector2, direction: Vector2, distance: float, length: float, thickness: float, base_color: Color, alpha_scale: float, rotation: float) -> void:
+
 		var color := base_color
 		color.a *= alpha_scale * glow_alpha_scale
 		if color.a <= 0.01:
@@ -159,18 +176,26 @@ class QualityGlow:
 		])
 		draw_colored_polygon(points, color)
 
-	func _draw_tip_sparks(center: Vector2, style: Dictionary, rotation: float) -> void:
-		var spark_size := float(style.get("spark_size", 8.0))
-		var spark_length := float(style.get("spark_length", 92.0))
-		var spark_alpha := float(style.get("spark_alpha", 0.12)) * glow_alpha_scale
+	func _draw_tip_sparks(center: Vector2, style: Dictionary, rotation: float, size_scale: float, pulse: float) -> void:
+		var spark_size := float(style.get("spark_size", 8.0)) * size_scale
+		var spark_length := float(style.get("spark_length", 92.0)) * size_scale
+		var spark_alpha := float(style.get("spark_alpha", 0.12)) * pulse * glow_alpha_scale
 		var spark_color: Color = style["spark_color"]
-		for direction_data in MAIN_RAY_DIRECTIONS:
-			var direction := (direction_data as Vector2).normalized().rotated(rotation)
-			var spark_center := _snap_to_pixel(center + direction * spark_length)
+		for ray_index in range(MAIN_RAY_DIRECTIONS.size()):
+			var direction := (MAIN_RAY_DIRECTIONS[ray_index] as Vector2).normalized().rotated(rotation)
+			var spark_length_factor: float = _get_ray_length_factor(ray_index, false)
+			var varied_spark_length: float = spark_length * spark_length_factor
+			var spark_center := _snap_to_pixel(center + direction * varied_spark_length)
 			_draw_center_square(spark_center, spark_size, spark_color, spark_alpha)
-			_draw_center_square(_snap_to_pixel(center + direction * (spark_length * 0.82)), spark_size * 0.72, spark_color, spark_alpha * 0.75)
+			_draw_center_square(_snap_to_pixel(center + direction * (varied_spark_length * 0.82)), spark_size * 0.72, spark_color, spark_alpha * 0.75)
+
+	func _get_ray_length_factor(ray_index: int, is_sub_group: bool) -> float:
+		if is_sub_group:
+			return float(SUB_RAY_LENGTH_FACTORS[ray_index % SUB_RAY_LENGTH_FACTORS.size()])
+		return float(MAIN_RAY_LENGTH_FACTORS[ray_index % MAIN_RAY_LENGTH_FACTORS.size()])
 
 	func _snap_scalar(value: float) -> float:
+
 		return round(value / PIXEL_SIZE) * PIXEL_SIZE
 
 	func _snap_to_pixel(value: Vector2) -> Vector2:
