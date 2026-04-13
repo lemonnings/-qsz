@@ -481,6 +481,8 @@ func _on_exit_pressed() -> void:
 		).set_delay(0.2)
 	
 	if is_instance_valid(shopLayer) and shopLayer.visible:
+		if shopLayer.has_method("prepare_for_close"):
+			shopLayer.prepare_for_close()
 		for child in shopLayer.get_children():
 			if child.has_method("set_modulate"):
 				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)

@@ -171,6 +171,9 @@ var _upgrade_info_panel: Panel
 var _exit_button: Button
 var _tooltip_font: Font = null
 var _setting_monster = SETTING_MONSTER_SCRIPT.new()
+# 这个标记只表示“本次打开商店后，是否还没做过自动刷新”。
+# 关闭商店后会重置为 true，因此下一次重新打开商店时仍会自动刷新一次。
+var _need_auto_refresh_on_open: bool = true
 
 func _ready() -> void:
 	randomize()
@@ -192,9 +195,11 @@ func open_shop() -> void:
 	_hide_upgrade_info()
 	var recycle_message := _recycle_obsolete_pills()
 	var did_auto_refresh := false
-	if not Global.shop_first_entered or _shop_items.size() != _item_panels.size():
+	# 这里只判断“本次开店是不是第一次处理自动刷新”，而不是判断整个存档的人生第一次进商店。
+	# 这样玩家每次重新打开商店时，都会稳定地自动刷新一次。
+	if _need_auto_refresh_on_open or _shop_items.size() != _item_panels.size():
 		_generate_shop_items()
-		Global.shop_first_entered = true
+		_need_auto_refresh_on_open = false
 		did_auto_refresh = true
 	_refresh_display()
 	_save_shop_items_to_save()
@@ -203,7 +208,7 @@ func open_shop() -> void:
 	if not recycle_message.is_empty():
 		_show_tips(recycle_message, 1.2)
 	elif did_auto_refresh:
-		_show_tips("初次进入货摊，已自动刷新一次。", 0.7)
+		_show_tips("本次进入货摊，已自动刷新一次。", 0.7)
 
 func _cache_nodes() -> void:
 	_item_panels = [item1, item2, item3, item4, item5, item6]
@@ -338,10 +343,14 @@ func _reset_info_panel_layout(panel: Panel, desc_min_width: float) -> Dictionary
 	var nodes := _get_info_panel_nodes(panel)
 	var vbox := nodes["vbox"] as VBoxContainer
 	var desc_label := nodes["desc_label"] as Label
+	# 第一次悬浮时，如果提示框还没真正参与过布局计算，自动换行标签的高度有时会被算错。
+	# 这里先把面板放到屏幕外，并给说明文字一个明确宽度，再去计算最终尺寸，就能避免首帧高度异常。
 	panel.size = Vector2.ZERO
 	panel.custom_minimum_size = Vector2.ZERO
+	panel.global_position = Vector2(-10000, -10000)
+	panel.visible = true
 	vbox.size = Vector2.ZERO
-	desc_label.size = Vector2.ZERO
+	desc_label.size = Vector2(desc_min_width, 0)
 	desc_label.custom_minimum_size = Vector2(desc_min_width, 0)
 	return nodes
 
@@ -358,7 +367,8 @@ func _finalize_info_panel_layout(panel: Panel) -> void:
 func _connect_interactions() -> void:
 	for i in range(_item_panels.size()):
 		var panel := _item_panels[i]
-		panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		# 物品依然可以点击，但鼠标保持普通箭头样式，不再显示小手。
+		panel.mouse_default_cursor_shape = Control.CURSOR_ARROW
 		panel.gui_input.connect(_on_item_panel_gui_input.bind(i))
 		panel.mouse_entered.connect(_on_item_panel_mouse_entered.bind(i))
 		panel.mouse_exited.connect(_on_item_panel_mouse_exited)
@@ -968,14 +978,20 @@ func _show_tips(message: String, duration: float = 0.5) -> void:
 	if tips != null and tips.has_method("start_animation"):
 		tips.start_animation(message, duration)
 
-func _on_exit_button_pressed() -> void:
+func prepare_for_close() -> void:
+	# 商店关闭后，下一次重新打开时需要再次执行一次自动刷新判定。
+	_need_auto_refresh_on_open = true
 	_hide_offer_tooltip()
 	_hide_upgrade_info()
+
+func _on_exit_button_pressed() -> void:
+	prepare_for_close()
 	exit_requested.emit()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	if event.is_action_pressed("ui_cancel"):
+		prepare_for_close()
 		exit_requested.emit()
 		get_viewport().set_input_as_handled()
