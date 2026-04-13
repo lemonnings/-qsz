@@ -288,7 +288,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 		tween.tween_property(lv_up_change_b3, "modulate:a", 1.0, 0.5)
 
 # 配置奖励按钮的私有函数
-func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_off: Rect2, rect_on: Rect2, refresh_id: int):
+func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_off: Rect2, rect_on: Rect2, _refresh_id: int):
 	# 配置button内部要显示的数据
 	var lvcb: Sprite2D = button.get_node("Pic")
 	var lvTitle: RichTextLabel = button.get_node("Title")
@@ -425,7 +425,7 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 		now_main_skill_name = ""
 
 # 升级选择完成回调
-func _on_level_up_selection_complete(viewport: Viewport = null) -> void:
+func _on_level_up_selection_complete(_viewport: Viewport = null) -> void:
 	# 清理升级选择时创建的背景变暗效果
 	_cleanup_dark_overlay()
 	# 隐藏升级界面
@@ -474,7 +474,7 @@ func get_required_lv_up_value(level: int) -> float:
 	# todo 测试期间/10
 	var value: float = 1250
 	for i in range(level):
-		value = (value + 400 + 1.25 * (i + 1) * i)
+		value = (value + 750 + 1.35 * (i + 1) * i)
 	return value
 
 # 清理dark_overlay的私有函数

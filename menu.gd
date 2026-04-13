@@ -86,7 +86,7 @@ func exec_pc_hp() -> void:
 	PC.pc_hp = PC.pc_max_hp
 	
 func exec_pc_bullet_size() -> void:
-	PC.bullet_size = 1 + (Global.bullet_size_level * 0.02)
+	PC.set_attack_range_value(1 + (Global.bullet_size_level * 0.02))
 
 func exec_lucky_level() -> void:
 	PC.now_lunky_level = Global.lunky_level
@@ -243,7 +243,8 @@ func _transition_to_layer(target_layer: CanvasLayer, hide_layers: Array, show_co
 				transition_tween.tween_property(child, "modulate:a", 1.0, 0.125).set_delay(0.125)
 	
 
-func _switch_layers(target_layer: CanvasLayer, hide_layers: Array, show_controls: Array, show_controls_immediately: bool) -> void:
+func _switch_layers(_target_layer: CanvasLayer, hide_layers: Array, show_controls: Array, show_controls_immediately: bool) -> void:
+
 	# 隐藏旧层
 	for layer in hide_layers:
 		if layer:

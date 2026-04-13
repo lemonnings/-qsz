@@ -38,6 +38,8 @@ var is_summon_bullet: bool = false # 标记是否为召唤物子弹
 var summon_damage: float = 0.0 # 召唤物子弹伤害
 var extra_damage_multiplier: float = 1.0 # 额外伤害倍率
 var is_extra_attack_flag: bool = false # 是否为额外攻击
+var base_node_scale: Vector2 = Vector2.ONE
+var current_scale_factor: Vector2 = Vector2.ONE
 
 # 剑波痕迹相关变量
 var sword_wave_trace_enabled: bool = false
@@ -249,7 +251,7 @@ func apply_buff_effects_to_damage(base_damage: float, p_is_summon_bullet: bool) 
 
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary: # Returns {"damage": float, "is_crit": bool}
-	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": is_summon_bullet}
+	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": is_summon_bullet, "weapon_tag": "swordqi"}
 
 func is_sword_weapon() -> bool:
 	return true
@@ -360,7 +362,7 @@ func update_collision_shape_size() -> void:
 			circle_shape.radius = original_radius
 
 
-func _create_sword_wave_instance(position: Vector2) -> void:
+func _create_sword_wave_instance(wave_position: Vector2) -> void:
 	if PC.swordQi_penetration_count == 1 or (PC.swordQi_penetration_count > 1 and penetration_count == PC.swordQi_penetration_count):
 		if SwordWaveScene:
 			var sword_wave_instance = SwordWaveScene.instantiate()
@@ -369,7 +371,7 @@ func _create_sword_wave_instance(position: Vector2) -> void:
 				get_parent().call_deferred("add_child", sword_wave_instance)
 				# 调用剑痕的设置方法
 				if sword_wave_instance.has_method("setup_wave"):
-					sword_wave_instance.call_deferred("setup_wave", position)
+					sword_wave_instance.call_deferred("setup_wave", wave_position)
 
 func _get_extra_sword_wave_count() -> int:
 	var count = 0
@@ -381,7 +383,9 @@ func _get_extra_sword_wave_count() -> int:
 
 # 设置子弹缩放并同步更新碰撞形状
 func set_bullet_scale(new_scale: Vector2) -> void:
-	scale = new_scale
+	base_node_scale = scale
+	current_scale_factor = new_scale
+	scale = Vector2(base_node_scale.x * new_scale.x, base_node_scale.y * new_scale.y)
 	update_collision_shape_size()
 
 # 当子弹击中敌人时，生成子级反弹子弹
@@ -393,7 +397,7 @@ func create_rebound() -> void:
 		for i in range(num_bullets):
 			var child_bullet = BulletScene.instantiate()
 			# 设置子级子弹属性
-			child_bullet.set_bullet_scale(scale * PC.rebound_size_multiplier) # 使用新函数同步更新碰撞形状
+			child_bullet.set_bullet_scale(current_scale_factor * PC.rebound_size_multiplier) # 使用新函数同步更新碰撞形状
 			child_bullet.is_rebound = true
 			child_bullet.parent_bullet = false # 标记为子级子弹，防止无限反弹
 			# 随机方向

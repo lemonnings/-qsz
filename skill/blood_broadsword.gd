@@ -120,22 +120,23 @@ func _build_attack_data() -> Dictionary:
 	}
 
 func _apply_range(range_multiplier: float) -> void:
-	sprite.scale = Vector2(base_sprite_scale.x * range_multiplier, base_sprite_scale.y * range_multiplier)
-	collision_shape.scale = Vector2(base_collision_scale.x * range_multiplier, base_collision_scale.y * range_multiplier)
+	var final_range_multiplier = range_multiplier * Global.get_attack_range_multiplier()
+	sprite.scale = Vector2(base_sprite_scale.x * final_range_multiplier, base_sprite_scale.y * final_range_multiplier)
+	collision_shape.scale = Vector2(base_collision_scale.x * final_range_multiplier, base_collision_scale.y * final_range_multiplier)
 
 func _get_effective_radius(range_multiplier: float) -> float:
 	var circle_shape = collision_shape.shape as CircleShape2D
 	var radius = circle_shape.radius
-	return radius * base_collision_scale.x * range_multiplier
+	return radius * base_collision_scale.x * range_multiplier * Global.get_attack_range_multiplier()
 
-func _find_most_dense_center(player_position: Vector2, search_radius: float, cluster_radius: float) -> Vector2:
+func _find_most_dense_center(player_position: Vector2, search_radius_limit: float, cluster_radius: float) -> Vector2:
 	var enemies = get_tree().get_nodes_in_group("enemies")
 	if enemies.is_empty():
 		return player_position
 	
 	var candidates: Array = []
 	for enemy in enemies:
-		if player_position.distance_to(enemy.global_position) <= search_radius:
+		if player_position.distance_to(enemy.global_position) <= search_radius_limit:
 			candidates.append(enemy)
 	
 	if candidates.is_empty():
@@ -172,7 +173,7 @@ func _apply_rotation(player_position: Vector2, target_center: Vector2) -> void:
 	target_direction = direction.normalized()
 	rotation = target_direction.angle() + rotation_offset
 
-func _physics_process(delta: float) -> void:
+func _physics_process(_delta: float) -> void:
 	if not damage_active:
 		return
 	global_position = PC.player_instance.global_position
@@ -215,7 +216,7 @@ func _apply_damage(attack_data: Dictionary) -> Dictionary:
 		
 		area.take_damage(int(damage), is_crit, false, "blood_broadsword")
 		# 击中粒子崩散特效
-		HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "bloodboardsword")
+		HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "blood_broadsword")
 		Faze.on_sword_weapon_hit(area)
 	
 	return {"hit_count": hit_count, "hit_bleed": hit_bleed}

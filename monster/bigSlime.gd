@@ -1,8 +1,7 @@
-extends Area2D
+extends "res://Script/monster/monster_base.gd"
+
 
 @onready var sprite = $AnimatedSprite2D
-var debuff_manager: EnemyDebuffManager
-var is_dead: bool = false
 # 0为从左到右，1为从右向左，2为随机移动，3为靠近角色
 var move_direction: int = 1
 
@@ -14,49 +13,18 @@ var atk: float = SettingMoster.bigSlime("atk")
 var get_point: int = SettingMoster.bigSlime("point")
 var get_exp: int = SettingMoster.bigSlime("exp")
 var get_mechanism: int = SettingMoster.bigSlime("mechanism")
-var health_bar_shown: bool = false
-var health_bar: Node2D
-var progress_bar: ProgressBar
-
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 
-signal debuff_applied(debuff_id: String)
 # 精英怪相关
-var is_elite: bool = false
-var drop_rate_multiplier: float = 1.0
 
 func _ready():
-	debuff_manager = EnemyDebuffManager.new(self )
-	add_child(debuff_manager)
-	debuff_applied.connect(debuff_manager.add_debuff)
-	if is_elite:
-		add_to_group("elite")
+	health_bar_offset = Vector2(-15, -20)
+	setup_monster_base(is_elite)
 	speed = base_speed
 	
 	# 创建脚底阴影（大史莱姆阴影稍大）
 	CharacterEffects.create_shadow(self , 28.0, 9.0, 5.0)
-
-func show_health_bar():
-	if not health_bar_shown:
-		health_bar = preload("res://Scenes/global/hp_bar.tscn").instantiate()
-		add_child(health_bar)
-		health_bar.z_index = 100
-		progress_bar = health_bar.get_node("HPBar")
-		progress_bar.position = global_position + Vector2(-15, -20)
-		health_bar_shown = true
-		progress_bar.top_level = true
-	elif progress_bar and progress_bar.is_inside_tree():
-		progress_bar.position = global_position + Vector2(-15, -20)
-		var target_value_hp = (float(hp / hpMax)) * 100
-		if progress_bar.value != target_value_hp:
-			var tween = create_tween()
-			tween.tween_property(progress_bar, "value", target_value_hp, 0.35)
-
-		
-func free_health_bar():
-	if health_bar != null and health_bar.is_inside_tree():
-		health_bar.queue_free()
 
 func _physics_process(delta: float) -> void:
 	if hp <= 0:
@@ -134,32 +102,13 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 
 
-func _on_body_entered(body: Node2D) -> void:
-	if debuff_manager.is_action_disabled():
-		return
-	if (body is CharacterBody2D and not is_dead and not PC.invincible):
-		Global.emit_signal("player_hit")
-		var damage_before_debuff = atk * (1.0 - PC.damage_reduction_rate)
-		var actual_damage = int(damage_before_debuff * debuff_manager.get_take_damage_multiplier())
-		PC.apply_damage(actual_damage)
-		if PC.pc_hp <= 0:
-			body.game_over()
-
-
 func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:
-	var final_damage = int(damage * debuff_manager.get_damage_multiplier())
 	if damage_type == "sword_wave":
-		var current_time = Time.get_ticks_msec() / 1000.0
-		if current_time - last_sword_wave_damage_time >= SWORD_WAVE_DAMAGE_INTERVAL:
-			hp -= final_damage
-			last_sword_wave_damage_time = current_time
-	else:
-		hp -= final_damage
-		# DoT伤害由EnemyDebuffManager负责显示跳字，避免重复显示白字
-		if damage_type in ["bleed", "burn", "electrified", "corrosion", "corrosion2", "posion"]:
+		if not can_apply_interval_damage("last_sword_wave_damage_time", SWORD_WAVE_DAMAGE_INTERVAL):
 			return
-
-
+		apply_common_take_damage(damage, is_crit, is_summon, damage_type, {"show_damage_popup": false})
+		return
+	apply_common_take_damage(damage, is_crit, is_summon, damage_type)
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
 		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self , false)
@@ -185,9 +134,4 @@ func _on_area_entered(area: Area2D) -> void:
 		else:
 			Global.play_hit_anime(position, is_crit)
 
-func apply_debuff_effect(debuff_id: String):
-	emit_signal("debuff_applied", debuff_id)
 
-func apply_knockback(direction: Vector2, force: float):
-	var tween = create_tween()
-	tween.tween_property(self , "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

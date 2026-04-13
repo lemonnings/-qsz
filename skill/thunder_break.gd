@@ -29,6 +29,8 @@ func _ready() -> void:
 		sprite = get_node_or_null("AnimatedSprite2D")
 	if not collision_shape:
 		collision_shape = get_node_or_null("CollisionShape2D")
+	if sprite and base_scale == Vector2.ZERO:
+		base_scale = sprite.scale
 	
 	# 连接 area_entered 信号
 	if not area_entered.is_connected(_on_area_entered):
@@ -136,6 +138,7 @@ func _add_edge_glow() -> void:
 	var lower_line = Line2D.new()
 	lower_line.points = [Vector2(0, width / 2), Vector2(range_val + 10, width / 2)]
 	lower_line.default_color = line_color
+
 	lower_line.width = line_width
 	add_child(lower_line)
 	
@@ -154,12 +157,15 @@ func _update_collision() -> void:
 	if not collision_shape:
 		return
 		
+	var attack_range_multiplier = Global.get_attack_range_multiplier()
+	var effective_width = width * attack_range_multiplier
+	var effective_range = range_val * attack_range_multiplier
 	var rect = RectangleShape2D.new()
-	rect.size = Vector2(range_val, width)
+	rect.size = Vector2(effective_range, effective_width)
 	collision_shape.shape = rect
 	
 	# 碰撞体中心在 (range/2, 0)
-	collision_shape.position = Vector2(range_val * 0.5, 0)
+	collision_shape.position = Vector2(effective_range * 0.5, 0)
 
 func _check_overlapping_enemies() -> void:
 	var areas = get_overlapping_areas()
@@ -224,7 +230,7 @@ func _deal_damage(enemy: Area2D) -> void:
 	if enemy.has_method("take_damage"):
 		enemy.take_damage(int(final_damage), is_crit, false, "thunder_break")
 		# 击中粒子崩散特效
-		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "thunderbreak")
+		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "thunder_break")
 		
 	# 应用状态效果
 	if apply_electrified:

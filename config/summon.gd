@@ -126,7 +126,7 @@ func _on_fire_timer_timeout() -> void:
 func fire_random_bullet() -> void:
 	# 蓝色召唤物：向左侧或右侧30度发射
 	var side = randi() % 2  # 0为左侧，1为右侧
-	var base_angle = PI if side == 0 else 0  # 左侧180度，右侧0度
+	var base_angle = PI if side == 0 else 0.0  # 左侧180度，右侧0度
 	var random_offset = randf_range(-PI/6, PI/6)  # ±30度范围
 	var final_angle = base_angle + random_offset
 	var direction = Vector2(cos(final_angle), sin(final_angle))
@@ -238,7 +238,7 @@ func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1
 	bullet.penetration_count = 1  # 设置穿透次数
 	
 	# 设置子弹大小
-	var bullet_size = PC.bullet_size * PC.summon_bullet_size_multiplier
+	var bullet_size = Global.get_attack_range_multiplier() * PC.summon_bullet_size_multiplier
 	bullet.set_bullet_scale(Vector2(bullet_size, bullet_size))
 	
 	# 设置子弹速度
@@ -266,7 +266,7 @@ func create_sword_spirit_bullet(direction: Vector2) -> void:
 	var final_damage = PC.pc_atk * damage_multiplier * (1.0 + PC.summon_damage_multiplier)
 	print("最终伤害为，倍率为，召唤倍率为", final_damage, damage_multiplier, PC.summon_damage_multiplier)
 	bullet.summon_damage = final_damage
-	var bullet_size = PC.bullet_size * PC.summon_bullet_size_multiplier
+	var bullet_size = Global.get_attack_range_multiplier() * PC.summon_bullet_size_multiplier
 	bullet.set_bullet_scale(Vector2(bullet_size, bullet_size))
 	if bullet.has_method("set_speed"):
 		bullet.set_speed(bullet.bullet_speed * bullet_speed_multiplier)

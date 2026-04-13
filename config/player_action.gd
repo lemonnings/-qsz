@@ -96,7 +96,11 @@ var mizongbu_visual_tween: Tween = null
 @export var min_zoom: float = 1.4 # 最小缩放（视野最大）
 @export var max_zoom: float = 4.5 # 最大缩放（视野最小）
 @export var zoom_speed: float = 0.05 # 缩放速度
+@export var boss_defeat_focus_time_scale: float = 0.1 # Boss特写阶段的时间流速（降低到10%）
 @onready var camera: Camera2D = $Camera2D
+var boss_defeat_camera_tween: Tween = null
+var boss_defeat_camera_active: bool = false
+var boss_defeat_original_time_scale: float = 1.0
 
 # 主要定义player主体的行为以及部分子弹逻辑
 func _ready() -> void:
@@ -297,8 +301,8 @@ func _input(event: InputEvent) -> void:
 		if virtual_joystick_manager.handle_input_event(event):
 			handled_by_module = true
 	
-	if handled_by_module:
-		return # Event was handled by a module, stop further processing in this function
+	if handled_by_module or boss_defeat_camera_active:
+		return # Event was handled by a module，或当前由Boss击败镜头接管
 
 	# Keep mouse wheel zoom if not handled by pinch_zoom_module or for non-touch devices
 	if event is InputEventMouseButton and not Global.in_synthesis:
@@ -313,9 +317,13 @@ func _input(event: InputEvent) -> void:
 
 
 func _reset_camera() -> void:
+	if boss_defeat_camera_active:
+		return
 	camera.zoom = Vector2(2, 2)
 	
 func _zoom_camera(zoom_delta: float) -> void:
+	if boss_defeat_camera_active:
+		return
 	var new_zoom = camera.zoom.x + zoom_delta
 	# 限制缩放范围
 	new_zoom = clamp(new_zoom, min_zoom, max_zoom)
@@ -338,11 +346,80 @@ func _zoom_camera(zoom_delta: float) -> void:
 	if camera_rect_size.x <= scene_width and camera_rect_size.y <= scene_height:
 		camera.zoom = Vector2(new_zoom, new_zoom)
 
+func _get_clamped_camera_center(target_center: Vector2, zoom_value: float) -> Vector2:
+	var screen_size = get_viewport().get_visible_rect().size
+	var half_viewport_width = screen_size.x / 2.0 / zoom_value
+	var half_viewport_height = screen_size.y / 2.0 / zoom_value
+	var min_x = camera.limit_left + half_viewport_width
+	var max_x = camera.limit_right - half_viewport_width
+	var min_y = camera.limit_top + half_viewport_height
+	var max_y = camera.limit_bottom - half_viewport_height
+	if min_x > max_x:
+		var center_x = (camera.limit_left + camera.limit_right) / 2.0
+		min_x = center_x
+		max_x = center_x
+	if min_y > max_y:
+		var center_y = (camera.limit_top + camera.limit_bottom) / 2.0
+		min_y = center_y
+		max_y = center_y
+	return Vector2(clamp(target_center.x, min_x, max_x), clamp(target_center.y, min_y, max_y))
+
+func play_boss_defeat_camera_focus(boss_position: Vector2, focus_duration: float = 0.35, restore_duration: float = 3.0, zoom_bonus: float = 1.2) -> void:
+	if not is_instance_valid(camera):
+		return
+	if boss_defeat_camera_tween:
+		boss_defeat_camera_tween.kill()
+		Engine.time_scale = boss_defeat_original_time_scale
+	boss_defeat_camera_active = true
+	var original_zoom = camera.zoom
+	var original_offset = camera.offset
+	var original_top_level = camera.top_level
+	var original_position_smoothing = camera.position_smoothing_enabled
+	var original_global_position = _get_clamped_camera_center(camera.global_position, original_zoom.x)
+	var focus_zoom_value = clamp(original_zoom.x + zoom_bonus, min_zoom, max_zoom)
+	var focus_zoom = Vector2(focus_zoom_value, focus_zoom_value)
+	var focus_target_position = _get_clamped_camera_center(boss_position, focus_zoom_value)
+	camera.top_level = true
+	camera.position_smoothing_enabled = false
+	camera.offset = original_offset
+	camera.global_position = original_global_position
+	camera.reset_smoothing()
+	boss_defeat_original_time_scale = Engine.time_scale
+	Engine.time_scale = clamp(boss_defeat_original_time_scale * boss_defeat_focus_time_scale, 0.05, boss_defeat_original_time_scale)
+	boss_defeat_camera_tween = create_tween()
+	boss_defeat_camera_tween.set_ignore_time_scale(true)
+	boss_defeat_camera_tween.set_parallel(true)
+	boss_defeat_camera_tween.tween_property(camera, "global_position", focus_target_position, focus_duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	boss_defeat_camera_tween.tween_property(camera, "zoom", focus_zoom, focus_duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	await boss_defeat_camera_tween.finished
+	Engine.time_scale = boss_defeat_original_time_scale
+	var restore_target_position = _get_clamped_camera_center(global_position, original_zoom.x)
+	boss_defeat_camera_tween = create_tween()
+	boss_defeat_camera_tween.set_parallel(true)
+	boss_defeat_camera_tween.tween_property(camera, "global_position", restore_target_position, restore_duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	boss_defeat_camera_tween.tween_property(camera, "zoom", original_zoom, restore_duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	await boss_defeat_camera_tween.finished
+	Engine.time_scale = boss_defeat_original_time_scale
+	camera.zoom = original_zoom
+	camera.global_position = restore_target_position
+	camera.offset = original_offset
+	camera.top_level = original_top_level
+	camera.position_smoothing_enabled = original_position_smoothing
+	camera.position = Vector2.ZERO
+	camera.reset_smoothing()
+	boss_defeat_camera_active = false
+	boss_defeat_camera_tween = null
+
 func _physics_process(_delta: float) -> void:
 	var missing_hp_ratio = float(PC.pc_max_hp - PC.pc_hp) / float(PC.pc_max_hp)
 	var bloodwave_heal_bonus = missing_hp_ratio * BloodWave.bloodwave_missing_hp_heal_bonus * 100.0
 	PC.heal_multi = Global.heal_multi + bloodwave_heal_bonus
 	
+	if BuffManager.has_buff("stun"):
+		velocity = Vector2.ZERO
+		move_and_slide()
+		return
+
 	if BuffManager.has_buff("burning_fire"):
 		_burning_timer += _delta
 		if _burning_timer >= 1.0:
@@ -452,7 +529,7 @@ func _on_fire_idle() -> void:
 		return
 	pass
 	
-func _on_fire(skill_id: int) -> void:
+func _on_fire(_skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -460,42 +537,42 @@ func _on_fire(skill_id: int) -> void:
 	_on_fire_detail()
 	
 	
-func _on_fire_branch(skill_id: int) -> void:
+func _on_fire_branch(_skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
 		return
 	_on_fire_detail_branch()
 
-func _on_fire_moyan(skill_id: int) -> void:
+func _on_fire_moyan(_skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
 		return
 	_on_fire_detail_moyan()
 
-func _on_fire_riyan(skill_id: int) -> void:
+func _on_fire_riyan(_skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
 		return
 	_on_fire_detail_riyan()
 
-func _on_fire_ringFire(skill_id: int) -> void:
+func _on_fire_ringFire(_skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
 		return
 	_on_fire_detail_ringFire()
 
-func _on_fire_thunder(skill_id: int) -> void:
+func _on_fire_thunder(_skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
 		return
 	_on_fire_detail_thunder()
 
-func _on_fire_bloodwave(skill_id: int) -> void:
+func _on_fire_bloodwave(_skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -504,7 +581,7 @@ func _on_fire_bloodwave(skill_id: int) -> void:
 		return
 	_on_fire_detail_bloodwave()
 
-func _on_fire_bloodboardsword(skill_id: int) -> void:
+func _on_fire_bloodboardsword(_skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -513,7 +590,7 @@ func _on_fire_bloodboardsword(skill_id: int) -> void:
 		return
 	_on_fire_detail_bloodboardsword()
 
-func _on_fire_ice(skill_id: int = 9) -> void:
+func _on_fire_ice(_skill_id: int = 9) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -522,14 +599,14 @@ func _on_fire_ice(skill_id: int = 9) -> void:
 		return
 	_on_fire_detail_ice()
 
-func _on_fire_thunder_break(skill_id: int = 10) -> void:
+func _on_fire_thunder_break(_skill_id: int = 10) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
 		return
 	_on_fire_detail_thunder_break()
 
-func _on_fire_light_bullet(skill_id: int = 11) -> void:
+func _on_fire_light_bullet(_skill_id: int = 11) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -749,7 +826,7 @@ func _build_light_bullet_data() -> Dictionary:
 		"extra_ring_shot": extra_ring_shot
 	}
 
-func _on_fire_water(skill_id: int = 12) -> void:
+func _on_fire_water(_skill_id: int = 12) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -855,7 +932,7 @@ func init_qiankun() -> void:
 	if script:
 		script.init_instances(qiankun_scene, get_tree(), global_position)
 
-func _on_fire_qiankun(skill_id: int = 13) -> void:
+func _on_fire_qiankun(_skill_id: int = 13) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -872,7 +949,7 @@ func _on_fire_detail() -> void:
 	if beastify_active:
 		_beast_claw_attack()
 		return
-	var bullet_node_size = PC.bullet_size
+	var bullet_node_size = Global.get_attack_range_multiplier()
 	var base_direction = Vector2.RIGHT # Default direction
 	var spawn_position = position
 
@@ -925,7 +1002,7 @@ func _on_fire_detail() -> void:
 func fire_extra_attack(damage_multiplier: float) -> void:
 	if PC.is_game_over:
 		return
-	var bullet_node_size = PC.bullet_size
+	var bullet_node_size = Global.get_attack_range_multiplier()
 	var base_direction = Vector2.RIGHT
 	var spawn_position = position
 
@@ -1148,7 +1225,7 @@ func _collect_beast_hits_at_angle(angle: float) -> Array:
 	return hits
 
 func _on_fire_detail_branch() -> void:
-	var bullet_node_size = PC.bullet_size
+	var bullet_node_size = Global.get_attack_range_multiplier()
 	var base_direction = Vector2.RIGHT # Default direction
 	var spawn_position = position
 
@@ -1175,7 +1252,7 @@ func _on_fire_detail_branch() -> void:
 
 
 func _on_fire_detail_moyan() -> void:
-	var bullet_node_size = PC.bullet_size
+	var bullet_node_size = Global.get_attack_range_multiplier()
 	var base_direction = Vector2.RIGHT # Default direction
 	var spawn_position = position
 
@@ -1231,7 +1308,7 @@ func _on_fire_detail_thunder() -> void:
 	for i in range(thunder_data.shot_count):
 		var thunder_instance = thunder_scene.instantiate()
 		get_tree().current_scene.add_child(thunder_instance)
-		thunder_instance.setup_thunder(start_position, end_positions[i], target_enemies[i], thunder_data.damage * thunder_data.shot_damage_multiplier, thunder_data.chain_left, thunder_data.damage_decay, thunder_data.chain_range, thunder_data.paralyze_duration, thunder_data.boss_extra_damage, self )
+		thunder_instance.setup_thunder(start_position, end_positions[i], target_enemies[i], thunder_data.damage, thunder_data.chain_left, thunder_data.damage_decay, thunder_data.chain_range, thunder_data.paralyze_duration, thunder_data.boss_extra_damage, thunder_data.shot_damage_multiplier, self )
 
 func _on_fire_detail_bloodwave() -> void:
 	if not bloodwave_scene:
@@ -1254,7 +1331,7 @@ func _on_fire_detail_ice() -> void:
 		script.fire_skill(ice_flower_scene, global_position, get_tree())
 
 
-func _on_fire_duize(skill_id: int = 14) -> void:
+func _on_fire_duize(_skill_id: int = 14) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -1272,7 +1349,7 @@ func _on_fire_detail_duize() -> void:
 # ==========================================
 # 圣光术逻辑
 # ==========================================
-func _on_fire_holylight(skill_id: int = 18) -> void:
+func _on_fire_holylight(_skill_id: int = 18) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -1382,23 +1459,24 @@ func _build_thunder_break_data() -> Dictionary:
 	}
 
 func _build_thunder_data() -> Dictionary:
-	var damage_ratio = 0.65
+	var base_damage_ratio = 0.7
 	var chain_left = 3
 	var chain_range = 130.0
-	var damage_decay = 0.45
-	var range = PC.thunder_range
+	var damage_decay = 0.65
+	var thunder_range_value = PC.thunder_range
 	var paralyze_duration = 0.0
+
 	var boss_extra_damage = 0.0
 	var shot_count = 1
 	var shot_damage_multiplier = 1.0
 	
 	if PC.selected_rewards.has("Thunder1"):
-		damage_decay = 0.4
+		damage_decay = 0.55
 		chain_left = 5
 	
 	if PC.selected_rewards.has("Thunder2"):
 		shot_count = 2
-		shot_damage_multiplier = 0.6
+		shot_damage_multiplier = 0.55
 	
 	if PC.selected_rewards.has("Thunder3"):
 		chain_range = 195.0
@@ -1408,7 +1486,7 @@ func _build_thunder_data() -> Dictionary:
 		boss_extra_damage = 0.3
 	
 	if PC.selected_rewards.has("Thunder11"):
-		damage_decay = 0.35
+		damage_decay = 0.45
 		chain_left = 7
 	
 	if PC.selected_rewards.has("Thunder22"):
@@ -1417,16 +1495,18 @@ func _build_thunder_data() -> Dictionary:
 	
 	if PC.selected_rewards.has("Thunder33"):
 		shot_count = 3
-		shot_damage_multiplier = 0.5
+		shot_damage_multiplier = 0.4
 	
-	var damage = PC.pc_atk * PC.main_skill_thunder_damage * damage_ratio
+	var thunder_damage_scale = PC.main_skill_thunder_damage / 0.85
+	var damage = PC.pc_atk * base_damage_ratio * thunder_damage_scale
 	
 	return {
 		"damage": damage,
 		"chain_left": chain_left,
 		"chain_range": chain_range,
 		"damage_decay": damage_decay,
-		"range": range,
+		"range": thunder_range_value,
+
 		"paralyze_duration": paralyze_duration,
 		"boss_extra_damage": boss_extra_damage,
 		"shot_count": shot_count,
@@ -1767,7 +1847,7 @@ func update_skill_attack_speeds() -> void:
 	# 风龙杖
 	update_timer_preserve_ratio(dragonwind_fire_speed, 2.5 / total_speed_multiplier)
 
-func _on_fire_xunfeng(skill_id: int) -> void:
+func _on_fire_xunfeng(_skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -1784,7 +1864,7 @@ func _on_fire_detail_xunfeng() -> void:
 	if XunfengScript and XunfengScript.has_method("fire_skill"):
 		XunfengScript.fire_skill(xunfeng_scene, global_position, get_tree())
 
-func _on_fire_genshan(skill_id: int) -> void:
+func _on_fire_genshan(_skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -1855,7 +1935,7 @@ func _fire_wave_bullets() -> void:
 		var wave_bullet = bullet_scene.instantiate()
 		if PC.selected_rewards.has("rebound"):
 			wave_bullet.is_rebound = false
-		wave_bullet.set_bullet_scale(Vector2(PC.bullet_size, PC.bullet_size))
+		wave_bullet.set_bullet_scale(Vector2(Global.get_attack_range_multiplier(), Global.get_attack_range_multiplier()))
 		wave_bullet.set_direction(shot_direction)
 		wave_bullet.position = spawn_position
 		wave_bullet.penetration_count = PC.swordQi_penetration_count
@@ -1869,7 +1949,7 @@ func _fire_wave_bullets() -> void:
 		# 每发间隔0.05秒
 		await get_tree().create_timer(0.02).timeout
 
-func _on_fire_xuanwu(skill_id: int) -> void:
+func _on_fire_xuanwu(_skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -1886,7 +1966,7 @@ func _on_fire_detail_xuanwu() -> void:
 	if script:
 		script.fire_skill(xuanwu_scene, global_position, get_tree())
 
-func _on_fire_qigong(skill_id: int = 19) -> void:
+func _on_fire_qigong(_skill_id: int = 19) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
@@ -1941,7 +2021,7 @@ func _on_fire_detail_qigong() -> void:
 		if i < damage_multipliers.size() - 1:
 			await get_tree().create_timer(0.1).timeout
 
-func _on_fire_dragonwind(skill_id: int = 20) -> void:
+func _on_fire_dragonwind(_skill_id: int = 20) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:

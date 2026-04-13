@@ -17,11 +17,13 @@ extends Node
 @export var crit_chance: float = 0.0 # 局内暴击率
 @export var crit_damage_multi: float = 0.5 # 局内暴击伤害倍率 (例如0.5代表150%伤害)
 @export var damage_reduction_rate: float = 0.0 # 局内减伤率 (例如0.1代表10%减伤)
+@export var damage_deal_multiplier: float = 1.0 # 最终伤害系数 (1.0代表正常伤害，仅用于暗影拘束，别的情况需要使用pc_final_atk)
 @export var point_multi: float = 0 # 额外真气获取率
 @export var exp_multi: float = 0 # 额外exp获取率
 @export var drop_multi: float = 0 # 额外掉落率
 @export var body_size: float = 1 # 体型大小
-@export var bullet_size: float = 0 # 攻击范围
+@export var attack_range: float = 1.0 # 攻击范围
+@export var bullet_size: float = 1.0 # 旧字段兼容，请改用 attack_range
 @export var heal_multi: float = 0 # 额外治疗加成
 @export var sheild_multi: float = 0 # 额外护盾加成
 @export var normal_monster_multi: float = 0 # 对小怪额外伤害
@@ -321,7 +323,7 @@ func reset_player_attr() -> void:
 	
 	exec_pc_atk()
 	exec_pc_hp()
-	exec_pc_bullet_size()
+	exec_pc_attack_range()
 	exec_lucky_level()
 	
 	# 根据已学习的技能初始化剑气等级和伤害
@@ -370,6 +372,7 @@ func reset_player_attr() -> void:
 	PC.crit_damage_multi = 1.5 + (Global.cultivation_liejin_level * 0.01) # 基础暴击伤害倍率 + 局外成长
 	
 	PC.damage_reduction_rate = min(0.0 + (Global.cultivation_huti_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
+	PC.damage_deal_multiplier = 1.0
 	PC.pc_final_atk = 0.0
 	PC.wind_huanfeng_stacks = 0
 	PC.wind_huanfeng_max_stacks = 0
@@ -390,6 +393,7 @@ func reset_player_attr() -> void:
 	PC.exp_multi = Global.exp_multi
 	PC.drop_multi = Global.drop_multi
 	PC.body_size = Global.body_size
+	PC.set_attack_range_value(Global.attack_range)
 	PC.heal_multi = Global.heal_multi
 	PC.sheild_multi = Global.sheild_multi
 	PC.normal_monster_multi = Global.normal_monster_multi
@@ -682,8 +686,15 @@ func exec_pc_hp() -> void:
 	PC.pc_start_max_hp = PC.pc_max_hp
 	PC.pc_hp = PC.pc_max_hp
 	
-func exec_pc_bullet_size() -> void:
-	PC.bullet_size = 1
+func exec_pc_attack_range() -> void:
+	set_attack_range_value(Global.attack_range)
+
+func set_attack_range_value(value: float) -> void:
+	attack_range = max(0.01, value)
+	bullet_size = attack_range
+
+func add_attack_range(delta: float) -> void:
+	set_attack_range_value(attack_range + delta)
 
 func exec_lucky_level() -> void:
 	PC.now_lunky_level = Global.lunky_level
@@ -899,7 +910,7 @@ func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: floa
 func _get_cultivation_bbcode(cultivation_power: int) -> String:
 	# 将修为值转换为字符串
 	var power_str = str(cultivation_power)
-	var result = "[font_size=33][color=#FFD700]修为 [/color]"
+	var result = "[font_size=28][color=#FFD700]修为 [/color]"
 	
 	# 为每个字符应用金红渐变色
 	# 金色(FFD700)

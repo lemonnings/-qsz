@@ -1,8 +1,6 @@
-extends Area2D
+extends "res://Script/monster/monster_base.gd"
 
 @onready var sprite = $BossA
-var debuff_manager: EnemyDebuffManager
-var is_dead: bool = false
 var is_attacking: bool = false
 var is_charging: bool = false # 是否正在冲锋
 var allow_turning: bool = true
@@ -12,7 +10,6 @@ var petal_use_count: int = 0 # 落花已使用次数（0 = 尚未使用，开局
 var attacks_since_last_petal: int = 0 # 上次落花后已释放的随机技能数
 var _petal_loop_generation: int = 0 # 微触发新循环时使旧循环自动退出
 
-signal debuff_applied(debuff_id: String)
 
 # 屏幕边界
 @export var top_boundary: float = 110.0
@@ -32,6 +29,9 @@ var hp: float = hpMax # Boss当前生命值
 var atk: float = SettingMoster.slime_blue("atk") * 0.9 # Boss攻击力，可以调整
 var get_point: int = SettingMoster.slime_blue("point") * 25 # 击败Boss获得的积分
 var get_exp: int = 0 # 击败Boss获得的经验
+
+func _drop_boss_rewards() -> void:
+	drop_items_from_table(SettingMoster.peach_grove_boss("itemdrop"))
 
 var attack_timer: Timer # Boss攻击计时器
 var attack_indicator: Node2D # 攻击范围指示器
@@ -72,9 +72,9 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	hp = hpMax # 初始化当前血量
 	
-	debuff_manager = EnemyDebuffManager.new(self )
-	add_child(debuff_manager)
-	debuff_applied.connect(debuff_manager.add_debuff)
+	setup_monster_base()
+	use_debuff_take_damage_multiplier = false
+	check_action_disabled_on_body_entered = false
 	
 	# 创建脚底阴影（Boss阴影较大）
 	CharacterEffects.create_shadow(self , 45.0, 14.0, 12.0)
@@ -96,10 +96,6 @@ func _ready():
 	attack_timer.wait_time = 2.5
 	attack_timer.timeout.connect(_choose_attack)
 	attack_timer.start()
-
-
-func apply_debuff_effect(debuff_id: String):
-	emit_signal("debuff_applied", debuff_id)
 
 
 func _update_target_position_mode4():
@@ -203,7 +199,8 @@ func _show_attack_indicator(type: int):
 	attack_indicator.global_position = global_position
 
 	var player_pos = PC.player_instance.global_position
-	var dir_to_player = global_position.direction_to(player_pos)
+	var _dir_to_player = global_position.direction_to(player_pos)
+
 
 	match type:
 		3: # 八方向
@@ -497,7 +494,8 @@ func _attack_triple_line():
 		var boss_pos = global_position
 		var attack_range_length = 1600.0
 		var line_width_tolerance = 20
-		var player_damaged_this_round = false
+		var _player_damaged_this_round = false
+
 		
 		# 检查玩家是否在三条攻击直线上
 		for j in range(-1, 2):
@@ -513,7 +511,8 @@ func _attack_triple_line():
 				PC.apply_damage(actual_damage)
 				if PC.pc_hp <= 0:
 					PC.player_instance.game_over()
-				player_damaged_this_round = true
+				_player_damaged_this_round = true
+
 				print("Player hit by triple line attack, damage: ", actual_damage)
 				break # 玩家已受伤，跳出方向循环
 				
@@ -588,7 +587,8 @@ func _attack_eight_directions():
 		var boss_pos = global_position
 		var attack_range_length = 600.0 # 与指示器一致
 		var line_width_tolerance = 32
-		var player_damaged_this_attack = false
+		var _player_damaged_this_attack = false
+
 
 		# 播放射击音效
 		$straight.play()
@@ -610,7 +610,8 @@ func _attack_eight_directions():
 				PC.apply_damage(actual_damage)
 				if PC.pc_hp <= 0:
 					PC.player_instance.game_over()
-				player_damaged_this_attack = true
+				_player_damaged_this_attack = true
+
 				print("Player hit by eight-direction line attack, damage: ", actual_damage)
 				break # 玩家已受伤，跳出方向循环
 
@@ -690,14 +691,6 @@ func _attack_charge():
 		$BossA.play("run")
 		allow_turning = true
 
-
-func _on_body_entered(body: Node2D) -> void:
-	if (body is CharacterBody2D and not is_dead and not PC.invincible):
-		Global.emit_signal("player_hit")
-		var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate)) # Boss也应用减伤
-		PC.apply_damage(actual_damage)
-		if PC.pc_hp <= 0:
-			body.game_over()
 
 # 检查怪物是否在可伤害范围内（超出视野20px才能被伤害）
 func _is_monster_in_damage_range() -> bool:
@@ -796,41 +789,24 @@ func _on_area_entered(area: Area2D) -> void:
 			Global.play_hit_anime(position, is_crit)
 
 func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:
-	if is_dead:
-		return
-	if not _is_monster_in_damage_range():
-		return
-	var final_damage_val = int(damage)
-	
-	# DoT伤害由EnemyDebuffManager负责显示跳字，避免重复显示白字
-	if damage_type in ["bleed", "burn", "electrified", "corrosion", "corrosion2", "posion"]:
-		Global.emit_signal("boss_hp_bar_take_damage", final_damage_val)
-		hp -= final_damage_val
-		if hp <= 0:
-			_die()
-		return
-
-	var damage_offset = Vector2(randf_range(-15, 15), randf_range(-15, 15))
-	if is_summon:
-		Global.emit_signal("monster_damage", 4, final_damage_val, global_position - Vector2(35, 20) + damage_offset, damage_type)
-	elif is_crit:
-		Global.emit_signal("monster_damage", 2, final_damage_val, global_position - Vector2(35, 20) + damage_offset, damage_type)
-	else:
-		Global.emit_signal("monster_damage", 1, final_damage_val, global_position - Vector2(35, 20) + damage_offset, damage_type)
-	Global.emit_signal("boss_hp_bar_take_damage", final_damage_val)
-	hp -= final_damage_val
-	if hp <= 0:
+	var damage_result = apply_common_take_damage(damage, is_crit, is_summon, damage_type, {
+		"use_debuff_multiplier": false,
+		"update_boss_hp_bar": true,
+		"play_hit_animation": true,
+		"randomize_popup_offset": true,
+		"require_damage_range_check": true
+	})
+	if damage_result["applied"] and damage_result["is_lethal"]:
 		_die()
-	else:
-		Global.play_hit_anime(position, is_crit)
-
 func _die():
 	if not is_dead:
-		Global.emit_signal("boss_defeated", get_point)
+		_drop_boss_rewards()
+		Global.emit_signal("boss_defeated", get_point, global_position)
 		Global.emit_signal("monster_killed")
 	is_dead = true
 	remove_from_group("enemies")
 	Global.emit_signal("boss_chant_end")
+	get_tree().call_group("boss_a_petal", "queue_free")
 	var collision_shape = get_node("CollisionShape2D")
 	collision_shape.disabled = true
 	collision_layer = 0
@@ -893,7 +869,8 @@ func _attack_random_barrage():
 	#if health_bar != null and health_bar.is_inside_tree():
 		#health_bar.queue_free()
 
-func apply_knockback(direction: Vector2, force: float):
+func apply_knockback(_direction: Vector2, _force: float):
+
 	# Boss可以有击退抗性，或者完全免疫
 	pass
 
@@ -1285,7 +1262,8 @@ func _start_charge_shake() -> void:
 		camera.offset = base_offset
 
 
-func _screen_shake(intensity: float = 6.0, duration: float = 0.3, frequency: float = 30.0):
+func _screen_shake(intensity: float = 6.0, duration: float = 0.3, _frequency: float = 30.0):
+
 	var camera = get_viewport().get_camera_2d()
 	if not camera:
 		return

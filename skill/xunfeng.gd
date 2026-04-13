@@ -97,11 +97,11 @@ static func _build_data() -> Dictionary:
 	damage_multiplier += (Faze.get_bullet_damage_multiplier(PC.faze_bullet_level) - 1.0) # 弹体法则
 	damage_multiplier += (Faze.get_wind_weapon_damage_multiplier(PC.faze_wind_level) - 1.0) # 风法则
 	
-	var speed = xunfeng_speed
-	var range_val = xunfeng_range
+	var d_speed = xunfeng_speed
+	var d_range_val = xunfeng_range
 	var size_scale = xunfeng_size_scale
-	var penetration_count = xunfeng_penetration_count
-	var pierce_decay = xunfeng_pierce_decay
+	var d_penetration_count = xunfeng_penetration_count
+	var d_pierce_decay = xunfeng_pierce_decay
 	var bullet_range_multiplier = Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
 	
 	var extra_blade_count_threshold = xunfeng_extra_blade_count_threshold
@@ -112,31 +112,33 @@ static func _build_data() -> Dictionary:
 	
 	# 最终伤害倍率是奖励给的独立加成，使用乘法
 	var final_damage = PC.pc_atk * damage_multiplier * xunfeng_final_damage_multi
-	range_val = range_val * bullet_range_multiplier
+	d_range_val = d_range_val * bullet_range_multiplier
 	
 	return {
 		"damage": final_damage,
-		"speed": speed,
-		"range": range_val,
+		"speed": d_speed,
+		"range": d_range_val,
 		"size_scale": size_scale,
-		"penetration_count": penetration_count,
-		"pierce_decay": pierce_decay,
+		"penetration_count": d_penetration_count,
+		"pierce_decay": d_pierce_decay,
 		"extra_blade_count_threshold": extra_blade_count_threshold,
 		"extra_blade_damage_ratio": extra_blade_damage_ratio
 	}
 
 func setup(pos: Vector2, dir: Vector2, p_damage: float, p_speed: float, p_range: float, p_scale: float, p_penetration_count: int, p_pierce_decay: float) -> void:
+	var base_node_scale = scale
 	global_position = pos
 	start_pos = pos
 	direction = dir.normalized()
 	damage = p_damage
 	speed = p_speed
-	range_val = p_range
+	range_val = p_range * Global.get_attack_range_multiplier()
 	penetration_count = p_penetration_count
 	pierce_decay = p_pierce_decay
 	
 	rotation = direction.angle()
-	scale = Vector2(p_scale, p_scale)
+	var final_scale = p_scale * Global.get_attack_range_multiplier()
+	scale = Vector2(base_node_scale.x * final_scale, base_node_scale.y * final_scale)
 
 func _ready() -> void:
 	connect("area_entered", Callable(self , "_on_area_entered"))
@@ -155,16 +157,16 @@ func _process(delta: float) -> void:
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("enemies"):
 		if area.has_method("take_damage"):
-			var is_crit = false
+			var _is_crit = false
 			var final_damage = damage
 			
 			if randf() < PC.crit_chance:
-				is_crit = true
+				_is_crit = true
 				final_damage *= PC.crit_damage_multi
 			if area.is_in_group("elite") or area.is_in_group("boss"):
 				final_damage = final_damage * Faze.get_wind_elite_boss_multiplier(PC.faze_wind_level, PC.wind_huanfeng_stacks)
 				
-			var damage_dealt = area.take_damage(int(final_damage), is_crit, false, "xunfeng")
+			#var damage_dealt = area.take_damage(int(final_damage), is_crit, false, "xunfeng")
 			# 击中粒子崩散特效
 			HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "xunfeng")
 			Faze.on_wind_weapon_hit()

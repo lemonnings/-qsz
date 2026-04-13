@@ -25,6 +25,8 @@ var is_giant_moyan: bool = false # 是否为巨大魔焰
 var scale_increase_multiplier = 1.0
 
 var direction: Vector2
+var base_node_scale: Vector2 = Vector2.ONE
+var current_scale_factor: Vector2 = Vector2.ONE
 
 func _ready() -> void:
 	# 记录子弹起始位置
@@ -132,8 +134,8 @@ func _play_explosion_and_die_deferred() -> void:
 	var explosion = preload("res://Scenes/player/big_fire_bullet.tscn").instantiate()
 	get_tree().current_scene.add_child(explosion)
 	explosion.global_position = global_position
-	# 根据碰撞形状大小调整爆炸动画 大小
-	explosion.scale = Vector2(1 + (PC.bullet_size), 1 + (PC.bullet_size))
+	# 在场景原始缩放基础上乘算全局攻击范围倍率与额外成长倍率
+	explosion.scale = explosion.scale * Global.get_attack_range_multiplier()
 	explosion.scale = explosion.scale * scale_increase_multiplier
 	collision_shape.scale = collision_shape.scale * scale_increase_multiplier
 	if is_giant_moyan:
@@ -148,14 +150,17 @@ func _play_explosion_and_die_deferred() -> void:
 		sound_player.play()
 	
 	if anim_player:
-		anim_player.play()
+		anim_player.stop()
+		anim_player.frame = 0
+		anim_player.frame_progress = 0.0
+		anim_player.play("default")
 		anim_player.connect("animation_finished", explosion.queue_free)
 		
 	# 隐藏子弹并禁用碰撞
 	sprite.visible = false
 	
 	#collision_shape.set_deferred("disabled", true)
-	# 根据PC.bullet_size调整爆炸动画和碰撞形状的大小
+	# 已改为根据全局攻击范围倍率调整爆炸动画和碰撞形状的大小
 
 	# 正确调整 CircleShape2D 的半径
 	var original_radius = 36.4 # 从 moyan_rectShape.tres 获取的原始半径
@@ -181,7 +186,7 @@ func _play_explosion_and_die_deferred() -> void:
 		var area = hit.collider
 		if area is Area2D and area.is_in_group("enemies") and area.has_method("take_damage"):
 			var final_damage = bullet_damage * 0.8
-			area.take_damage(final_damage, false, false, "")
+			area.take_damage(final_damage, false, false, "moyan")
 			if area.has_signal("debuff_applied"):
 				area.emit_signal("debuff_applied", "burn")
 			print("Damage dealt to: ", area.name)
@@ -232,7 +237,7 @@ func initialize_bullet_damage() -> void:
 
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary:
-	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": false}
+	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": false, "weapon_tag": "moyan"}
 
 # 用于防止同一帧内多次处理碰撞
 var collision_processed_this_frame: bool = false
@@ -282,11 +287,13 @@ func set_direction_and_speed(new_direction: Vector2, new_speed: float) -> void:
 func update_collision_shape_size() -> void:
 	if collision_shape and collision_shape.shape:
 		# 获取当前的缩放值
-		var current_scale = scale
+		var _current_scale = scale
 
 # 设置子弹缩放并同步更新碰撞形状
 func set_bullet_scale(new_scale: Vector2) -> void:
-	scale = new_scale
+	base_node_scale = scale
+	current_scale_factor = new_scale
+	scale = Vector2(base_node_scale.x * new_scale.x, base_node_scale.y * new_scale.y)
 	update_collision_shape_size()
 
 # 寻找最近的敌人
@@ -295,7 +302,7 @@ func find_nearest_enemy() -> void:
 	if enemies.is_empty():
 		return
 	
-	var nearest_enemy = null
+	var _nearest_enemy = null
 	var nearest_distance = INF
 	
 	for enemy in enemies:
@@ -303,4 +310,4 @@ func find_nearest_enemy() -> void:
 		if enemy and is_instance_valid(enemy) and enemy.has_method("_on_area_entered"):
 			if distance < nearest_distance:
 				nearest_distance = distance
-				nearest_enemy = enemy
+				_nearest_enemy = enemy

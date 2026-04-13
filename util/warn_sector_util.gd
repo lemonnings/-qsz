@@ -27,6 +27,7 @@ var center_direction: float = 0.0 # 扇形中心方向角度
 var current_alpha: float = 0.0
 var initial_scale: Vector2 = Vector2(0.1, 0.1)
 var grow_time: float = 0.0
+var attacker: Node = null # 攻击者引用，用于player_hit信号
 
 func _ready():
 	# 设置为可暂停模式，升级等暂停期间动画也会暂停
@@ -198,7 +199,7 @@ func deal_damage_to_player():
 		return
 	
 	# 触发受击效果
-	Global.emit_signal("player_hit")
+	Global.emit_signal("player_hit", attacker)
 	
 	# 计算实际伤害（考虑减伤率）
 	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))

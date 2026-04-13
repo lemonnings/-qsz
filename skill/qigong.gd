@@ -31,15 +31,21 @@ var target_enemy: Area2D = null
 var damage: int = 0
 var is_exploding: bool = false
 var start_position: Vector2
+var base_node_scale: Vector2 = Vector2.ONE
+var base_explore_sprite_scale: Vector2 = Vector2.ONE
+var base_explore_collision_scale: Vector2 = Vector2.ONE
 
 func _ready() -> void:
+	base_node_scale = scale
 	# 连接区域进入信号
 	connect("area_entered", Callable(self , "_on_area_entered"))
 	
 	# 初始化时不显示爆炸效果
 	if explore_sprite:
+		base_explore_sprite_scale = explore_sprite.scale
 		explore_sprite.hide()
 	if explore_collision:
+		base_explore_collision_scale = explore_collision.scale
 		explore_collision.disabled = true
 		
 	# 播放飞行子弹动画
@@ -71,11 +77,12 @@ func setup(start_pos: Vector2, direction: Vector2, base_damage: int, damage_mult
 	# 应用射程加成 (修改实例变量，不修改静态变量)
 	# 注意：qigong_range是静态的，我们在process里用。
 	# 这里我们需要一个实例变量 range_limit
-	range_limit = qigong_range * (1.0 + chakra_range_bonus)
+	var attack_range_multiplier = Global.get_attack_range_multiplier()
+	range_limit = qigong_range * (1.0 + chakra_range_bonus) * attack_range_multiplier
 	
 	# 应用大小加成
-	var total_scale = (1.0 + chakra_size_bonus) * qigong_size_scale
-	scale = Vector2(total_scale, total_scale)
+	var total_scale = (1.0 + chakra_size_bonus) * qigong_size_scale * attack_range_multiplier
+	scale = Vector2(base_node_scale.x * total_scale, base_node_scale.y * total_scale)
 
 var range_limit: float = 150.0
 static var per_chakra_damage_rate: float = 0.2
@@ -215,7 +222,7 @@ func _trigger_explosion(direct_hit_target: Area2D) -> void:
 		if qigong_electrified_splash_range_bonus and hit_target_electrified:
 			current_explore_scale *= 1.3
 		
-		explore_sprite.scale = explore_sprite.scale * current_explore_scale
+		explore_sprite.scale = base_explore_sprite_scale * current_explore_scale
 		
 		# 播放爆炸动画
 		explore_sprite.play("default")
@@ -224,7 +231,7 @@ func _trigger_explosion(direct_hit_target: Area2D) -> void:
 		
 		# 启用爆炸范围检测
 		if explore_collision:
-			explore_collision.scale = explore_collision.scale * current_explore_scale
+			explore_collision.scale = base_explore_collision_scale * current_explore_scale
 			explore_collision.set_deferred("disabled", false)
 			
 			# 延迟一帧检测范围内的敌人
@@ -261,7 +268,7 @@ func _check_splash_damage(exclude_target: Area2D, is_electrified_target: bool, m
 			_apply_damage(area.get_parent(), splash_damage, false)
 			_apply_splash_knockback(area.get_parent(), main_target_position)
 
-func _apply_damage(target: Area2D, dmg: int, is_direct_hit: bool) -> void:
+func _apply_damage(target: Area2D, dmg: int, _is_direct_hit: bool) -> void:
 	var final_dmg = dmg
 	
 	# Qigong55: 距离伤害加成
@@ -282,7 +289,7 @@ func _apply_damage(target: Area2D, dmg: int, is_direct_hit: bool) -> void:
 	
 	if target.is_in_group("elite") or target.is_in_group("boss"):
 		final_dmg = int(final_dmg * Faze.get_wind_elite_boss_multiplier(PC.faze_wind_level, PC.wind_huanfeng_stacks))
-	target.take_damage(final_dmg, false, false, "")
+	target.take_damage(final_dmg, false, false, "qigong")
 	# 击中粒子崩散特效
 	HitParticleSpawner.spawn_by_weapon(get_tree(), target.global_position, "qigong")
 	Faze.on_wind_weapon_hit()

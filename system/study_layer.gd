@@ -165,7 +165,7 @@ func update_study_display() -> void:
 	# 获取当前玩家数据
 	var player_data = Global.player_study_data.get(current_player, {})
 	current_study_level = player_data.get("study_level", 0)
-	var learned_skills = player_data.get("learned_skills", [])
+	var _learned_skills = player_data.get("learned_skills", [])
 	var skill_levels = player_data.get("skill_levels", {})
 	
 	# 更新修习等级显示
@@ -216,14 +216,14 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 	var current_level: int
 	var max_level: int
 	var base_cost: int
-	var true_cost: int
+	var _true_cost: int
 	
 	# 更新up1相关
 	if up1 and up1.visible:
 		current_level = skill_levels.get("up1", 0)
 		max_level = max_levels.get("up1", 1)
 		base_cost = point_costs.get("up1", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up1.text = skill_names.get("up1", "up1")
 		up1_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -231,7 +231,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up11", 0)
 		max_level = max_levels.get("up11", 1)
 		base_cost = point_costs.get("up11", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up11.text = skill_names.get("up11", "up11")
 		up11_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -239,7 +239,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up12", 0)
 		max_level = max_levels.get("up12", 1)
 		base_cost = point_costs.get("up12", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up12.text = skill_names.get("up12", "up12")
 		up12_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -248,7 +248,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up2", 0)
 		max_level = max_levels.get("up2", 1)
 		base_cost = point_costs.get("up2", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up2.text = skill_names.get("up2", "up2")
 		up2_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -256,7 +256,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up21", 0)
 		max_level = max_levels.get("up21", 1)
 		base_cost = point_costs.get("up21", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up21.text = skill_names.get("up21", "up21")
 		up21_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -264,7 +264,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up22", 0)
 		max_level = max_levels.get("up22", 1)
 		base_cost = point_costs.get("up22", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up22.text = skill_names.get("up22", "up22")
 		up22_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -273,7 +273,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up3", 0)
 		max_level = max_levels.get("up3", 1)
 		base_cost = point_costs.get("up3", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up3.text = skill_names.get("up3", "up3")
 		up3_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -281,7 +281,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up31", 0)
 		max_level = max_levels.get("up31", 1)
 		base_cost = point_costs.get("up31", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up31.text = skill_names.get("up31", "up31")
 		up31_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -289,7 +289,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up32", 0)
 		max_level = max_levels.get("up32", 1)
 		base_cost = point_costs.get("up32", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up32.text = skill_names.get("up32", "up32")
 		up32_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -298,7 +298,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up4", 0)
 		max_level = max_levels.get("up4", 1)
 		base_cost = point_costs.get("up4", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up4.text = skill_names.get("up4", "up4")
 		up4_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -306,7 +306,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up41", 0)
 		max_level = max_levels.get("up41", 1)
 		base_cost = point_costs.get("up41", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up41.text = skill_names.get("up41", "up41")
 		up41_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -314,7 +314,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up42", 0)
 		max_level = max_levels.get("up42", 1)
 		base_cost = point_costs.get("up42", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up42.text = skill_names.get("up42", "up42")
 		up42_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -323,7 +323,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up5", 0)
 		max_level = max_levels.get("up5", 1)
 		base_cost = point_costs.get("up5", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up5.text = skill_names.get("up5", "up5")
 		up5_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -331,7 +331,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up51", 0)
 		max_level = max_levels.get("up51", 1)
 		base_cost = point_costs.get("up51", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up51.text = skill_names.get("up51", "up51")
 		up51_detail.text = str(current_level) + "/" + str(max_level)
 	
@@ -339,7 +339,7 @@ func update_skill_level_display(skill_levels: Dictionary) -> void:
 		current_level = skill_levels.get("up52", 0)
 		max_level = max_levels.get("up52", 1)
 		base_cost = point_costs.get("up52", 0)
-		true_cost = true_cost_culculate(base_cost, current_level + 1)
+		_true_cost = true_cost_culculate(base_cost, current_level + 1)
 		up52.text = skill_names.get("up52", "up52")
 		up52_detail.text = str(current_level) + "/" + str(max_level)
 
@@ -364,11 +364,12 @@ func update_skill_descriptions() -> void:
 
 func true_cost_culculate(default_cost: int, next_level: int) -> int:
 	for i in range(1, next_level + 1):
-		default_cost *= 1.5
+		default_cost = int(default_cost * 1.5)
 	return default_cost
 
 
 func learn_skill(skill_name: String) -> void:
+	var main_town = get_parent()
 	var player_data = Global.player_study_data.get(current_player, {})
 	var learned_skills = player_data.get("learned_skills", [])
 	var skill_levels = player_data.get("skill_levels", {})
@@ -388,7 +389,7 @@ func learn_skill(skill_name: String) -> void:
 	
 	# 检查技能是否存在配置
 	if not max_levels.has(skill_name) or not point_costs.has(skill_name):
-		var main_town = get_parent()
+		main_town = get_parent()
 		if main_town and main_town.has_method("get") and main_town.tip:
 			main_town.tip.start_animation("技能配置不存在: " + skill_name, 0.5)
 		else:
@@ -400,7 +401,7 @@ func learn_skill(skill_name: String) -> void:
 	
 	# 检查是否已达到最大等级
 	if current_level >= max_level:
-		var main_town = get_parent()
+		main_town = get_parent()
 		if main_town and main_town.has_method("get") and main_town.tip:
 			main_town.tip.start_animation("技能已达到最大等级: " + skill_name, 0.5)
 		else:
@@ -409,7 +410,7 @@ func learn_skill(skill_name: String) -> void:
 	
 	# 检查真气是否足够
 	if Global.total_points < true_cost:
-		var main_town = get_parent()
+		main_town = get_parent()
 		if main_town and main_town.has_method("get") and main_town.tip:
 			main_town.tip.start_animation("真气不足，需要: " + str(true_cost) + "，当前: " + str(Global.total_points), 0.5)
 		else:
@@ -434,7 +435,7 @@ func learn_skill(skill_name: String) -> void:
 	# 更新显示
 	update_study_display()
 	
-	var main_town = get_parent()
+	main_town = get_parent()
 	if main_town and main_town.has_method("get") and main_town.tip:
 		main_town.tip.start_animation("学习技能: " + skill_name + " 等级: " + str(skill_levels[skill_name]) + " 消耗真气: " + str(true_cost), 0.5)
 
@@ -597,14 +598,14 @@ func _on_skill_mouse_entered(skill_name: String) -> void:
 	var stage_config = config.get(config_stage, {})
 	var max_levels = stage_config.get("max_levels", {})
 	var point_costs = stage_config.get("point_costs", {})
-	var descriptions = stage_config.get("descriptions", {})
-	var skill_names = stage_config.get("skill_names", {})
+	var _descriptions = stage_config.get("descriptions", {})
+	var _skill_names = stage_config.get("skill_names", {})
 	
 	var max_level = max_levels.get(skill_name, 1)
 	var base_cost = point_costs.get(skill_name, 0)
-	var true_cost = true_cost_culculate(base_cost, current_level + 1)
-	var description = descriptions.get(skill_name, "")
-	var skill_display_name = skill_names.get(skill_name, skill_name)
+	var _true_cost = true_cost_culculate(base_cost, current_level + 1)
+	#var description = descriptions.get(skill_name, "")
+	#var skill_display_name = skill_names.get(skill_name, skill_name)
 	
 	# 构建技能升级效果文本
 	var effect_text = get_skill_effect_text(skill_name, current_level, max_level)
@@ -613,7 +614,7 @@ func _on_skill_mouse_entered(skill_name: String) -> void:
 	var detail_text = ""
 	if effect_text != "":
 		detail_text += effect_text + "\n\n"
-	detail_text += "消耗真气：\n" + str(true_cost)
+	detail_text += "消耗真气：\n" + str(_true_cost)
 	
 	detail.text = detail_text
 

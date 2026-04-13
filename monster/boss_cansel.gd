@@ -1,8 +1,6 @@
-extends Area2D
+extends "res://Script/monster/monster_base.gd"
 
-@onready var sprite = $BossStone # 使用与 boss_stone 相同的节点结构（如果没有另外提供动画的话）
-var debuff_manager: EnemyDebuffManager
-var is_dead: bool = false
+@onready var sprite = $BossStone # 使用与 boss_stone 相同的节点结构
 var is_attacking: bool = false
 var allow_turning: bool = true
 
@@ -19,11 +17,14 @@ var update_move_timer: Timer
 
 # 属性
 var speed: float = SettingMoster.stone_man("speed") * 1.2
-var hpMax: float = SettingMoster.stone_man("hp") * 150
+var hpMax: float = SettingMoster.stone_man("hp") * 1
 var hp: float = hpMax
 var atk: float = SettingMoster.stone_man("atk") * 1.5
 var get_point: int = SettingMoster.stone_man("point") * 50
 var get_exp: int = 0
+
+func _drop_boss_rewards() -> void:
+	drop_items_from_table(SettingMoster.cave_boss("itemdrop"))
 
 var attack_timer: Timer
 
@@ -34,19 +35,27 @@ var chain_symbols_node: Node2D = null
 
 # 头顶符号绘制
 var symbol_node: Node2D = null
+const SPELL_ICON_TEXTURE: Texture2D = preload("res://AssetBundle/Sprites/SpecialEffects/tripe_spell.png")
+const SPELL_ICON_ORDER := {
+	"fire": 0,
+	"ice": 1,
+	"thunder": 2,
+	"cross": 3,
+	"x": 4,
+}
 
-signal debuff_applied(debuff_id: String)
 
 func _ready():
 	add_to_group("boss")
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	hp = hpMax
 
-	debuff_manager = EnemyDebuffManager.new(self )
-	add_child(debuff_manager)
-	debuff_applied.connect(debuff_manager.add_debuff)
+	setup_monster_base()
+	player_hit_emit_self = true
+	use_debuff_take_damage_multiplier = false
+	check_action_disabled_on_body_entered = false
 
-	CharacterEffects.create_shadow(self , 50.0, 16.0, 14.0)
+	CharacterEffects.create_shadow(self, 50.0, 16.0, 14.0)
 
 	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "Cansel")
 	Global.emit_signal("boss_hp_bar_show")
@@ -65,12 +74,10 @@ func _ready():
 	attack_timer.start()
 	
 	symbol_node = Node2D.new()
-	symbol_node.position = Vector2(0, -100) # Boss头顶
+	symbol_node.position = Vector2(0, -70) # Boss头顶，下移 30 像素
 	symbol_node.z_index = 10
 	add_child(symbol_node)
 
-func apply_debuff_effect(debuff_id: String):
-	emit_signal("debuff_applied", debuff_id)
 
 func _update_target_position():
 	if not is_instance_valid(PC.player_instance): return
@@ -133,7 +140,6 @@ func _choose_attack():
 			phase_skills_pool.shuffle()
 			attack_phase = 1
 		else:
-			# 此段逻辑实际上在phase 1中处理
 			pass
 	elif attack_phase == 1:
 		if phase_skills_pool.size() > 0:
@@ -170,18 +176,33 @@ func _execute_skill(skill_id: int):
 			is_attacking = false
 
 # ================= 辅助绘制 =================
+func _create_spell_icon(symbol_type: String, icon_scale: Vector2 = Vector2.ONE) -> Sprite2D:
+	var icon_sprite := Sprite2D.new()
+	var icon_index = SPELL_ICON_ORDER.get(symbol_type, -1)
+	if icon_index < 0:
+		return icon_sprite
+	var frame_width = int(SPELL_ICON_TEXTURE.get_width() / 5.0)
+	var atlas := AtlasTexture.new()
+	atlas.atlas = SPELL_ICON_TEXTURE
+	atlas.region = Rect2(frame_width * icon_index, 0, frame_width, SPELL_ICON_TEXTURE.get_height())
+	icon_sprite.texture = atlas
+	icon_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	icon_sprite.centered = true
+	icon_sprite.scale = icon_scale
+	return icon_sprite
+
 func _show_symbol(type: String):
 	for child in symbol_node.get_children():
 		child.queue_free()
-	var drawer = _SymbolDrawer.new()
-	drawer.symbol_type = type
-	symbol_node.add_child(drawer)
+	var icon_sprite = _create_spell_icon(type)
+	symbol_node.add_child(icon_sprite)
 	var tw = create_tween()
-	drawer.modulate.a = 0
-	drawer.position.y = 20
+	icon_sprite.modulate.a = 0
+	icon_sprite.position.y = 20
 	tw.set_parallel(true)
-	tw.tween_property(drawer, "modulate:a", 1.0, 0.3)
-	tw.tween_property(drawer, "position:y", 0.0, 0.3)
+	tw.tween_property(icon_sprite, "modulate:a", 1.0, 0.3)
+	tw.tween_property(icon_sprite, "position:y", 0.0, 0.3)
+
 
 func _hide_symbol():
 	for child in symbol_node.get_children():
@@ -219,7 +240,7 @@ class _SymbolDrawer extends Node2D:
 			outline_color = Color(0.6, 0.9, 1.0)
 			draw_funcs = [
 				func(offset, c): draw_rect(Rect2(-2 * P + offset.x, -2 * P + offset.y, 4 * P, 4 * P), c),
-				func(offset, c): draw_rect(Rect2(-3 * P + offset.x, -1 * P + offset.y, 6 * P, 2 * P), c),
+				func(offset, c): draw_rect(Rect2(-3 * P + offset.x, 1 * P + offset.y, 6 * P, 2 * P), c),
 				func(offset, c): draw_rect(Rect2(-1 * P + offset.x, -3 * P + offset.y, 2 * P, 6 * P), c),
 			]
 			inner_funcs = [
@@ -230,7 +251,6 @@ class _SymbolDrawer extends Node2D:
 			base_color = Color(0.5, 0.1, 0.9)
 			outline_color = Color(0.9, 0.7, 1.0)
 			draw_funcs = [
-				# 闪电折线图标
 				func(offset, c): draw_rect(Rect2(0.5 * P + offset.x, -4 * P + offset.y, 1.5 * P, 3 * P), c),
 				func(offset, c): draw_rect(Rect2(-1 * P + offset.x, -1 * P + offset.y, 2.5 * P, 2.5 * P), c),
 				func(offset, c): draw_rect(Rect2(-2 * P + offset.x, 0.5 * P + offset.y, 2.5 * P, 2.5 * P), c),
@@ -272,14 +292,16 @@ class _SymbolDrawer extends Node2D:
 		for f in inner_funcs: f.call(Vector2.ZERO, base_color.lightened(0.4))
 
 # ================= 技能特效与弹幕 =================
-func _create_spark_bullet(is_fire: bool, pos: Vector2, direction: Vector2):
+func _create_spark_bullet(is_fire: bool, pos: Vector2, _direction: Vector2):
+
 	var bullet = Area2D.new()
 	bullet.global_position = pos
+	bullet.z_index = z_index - 1
 	bullet.add_to_group("boss_projectile")
 	
 	var col = CollisionShape2D.new()
 	var shape = CircleShape2D.new()
-	shape.radius = 8.4
+	shape.radius = 12.0 # 增大碰撞半径以便于踩踏
 	col.shape = shape
 	bullet.add_child(col)
 
@@ -291,42 +313,77 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, direction: Vector2):
 	
 	get_tree().current_scene.add_child(bullet)
 	
-	var speed = 250.0
+	var spark_speed = 230.0
 	var bullet_tween = bullet.create_tween()
 	
 	var dest = Vector2(randf_range(left_boundary + 30, right_boundary - 30), randf_range(top_boundary + 30, bottom_boundary - 30))
 			
 	var dist = pos.distance_to(dest)
-	var travel_time = max(dist / speed, 0.2)
-	
-	var is_landed = false
-	var actual_atk = atk
+	var travel_time = max(dist / spark_speed, 0.2)
+
 	
 	var trigger_damage = func(body: Node2D):
-		if body is CharacterBody2D and not PC.invincible:
-			Global.emit_signal("player_hit")
-			var actual_damage = int(actual_atk * 0.8 * (1.0 - PC.damage_reduction_rate))
-			PC.apply_damage(actual_damage)
-			var stacks = 1
+		if body is CharacterBody2D and body.is_in_group("player"):
+			var consumed = false
+			var player_pos = body.global_position
 			if is_fire:
-				if BuffManager.has_buff("burning_fire"):
-					stacks = BuffManager.get_buff_stack("burning_fire") + 1
-				Global.emit_signal("buff_added", "burning_fire", 12.0, stacks)
-			else:
+				# 身上有冰冻：解除冰冻 + 回复最大生命30% + 不受燃烧
 				if BuffManager.has_buff("frozen"):
-					stacks = BuffManager.get_buff_stack("frozen") + 1
-				Global.emit_signal("buff_added", "frozen", 12.0, stacks)
-			if PC.pc_hp <= 0:
-				PC.player_instance.game_over()
-			if is_instance_valid(bullet):
-				bullet.queue_free()
+					var stacks = BuffManager.get_buff_stack("frozen")
+					if stacks > 1:
+						Global.emit_signal("buff_added", "frozen", 12.0, stacks - 1)
+					else:
+						BuffManager.remove_buff("frozen")
+					var heal_amount = int(PC.pc_max_hp * 0.3)
+					PC.pc_hp = min(PC.pc_hp + heal_amount, PC.pc_max_hp)
+					Global.emit_signal("player_heal", float(heal_amount), player_pos)
+					consumed = true
+				else:
+					# 否则：扣除当前生命30% + 叠加燃烧
+					Global.emit_signal("player_hit", self )
+					var actual_damage = int(PC.pc_hp * 0.3)
+					PC.pc_hp -= actual_damage
+					Global.emit_signal("player_take_damage", float(actual_damage), 0.0, player_pos)
+					var stacks = 1
+					if BuffManager.has_buff("burning_fire"):
+						stacks = BuffManager.get_buff_stack("burning_fire") + 1
+					Global.emit_signal("buff_added", "burning_fire", 12.0, stacks)
+					consumed = true
+			else:
+				# 身上有燃烧：解除燃烧 + 回复最大生命30% + 不受冰冻
+				if BuffManager.has_buff("burning_fire"):
+					var stacks = BuffManager.get_buff_stack("burning_fire")
+					if stacks > 1:
+						Global.emit_signal("buff_added", "burning_fire", 12.0, stacks - 1)
+					else:
+						BuffManager.remove_buff("burning_fire")
+					var heal_amount = int(PC.pc_max_hp * 0.3)
+					PC.pc_hp = min(PC.pc_hp + heal_amount, PC.pc_max_hp)
+					Global.emit_signal("player_heal", float(heal_amount), player_pos)
+					consumed = true
+				else:
+					# 否则：扣除当前生命30% + 叠加冰冻
+					Global.emit_signal("player_hit", self )
+					var actual_damage = int(PC.pc_hp * 0.3)
+					PC.pc_hp -= actual_damage
+					Global.emit_signal("player_take_damage", float(actual_damage), 0.0, player_pos)
+					var stacks = 1
+					if BuffManager.has_buff("frozen"):
+						stacks = BuffManager.get_buff_stack("frozen") + 1
+					Global.emit_signal("buff_added", "frozen", 12.0, stacks)
+					consumed = true
+			
+			if consumed:
+				if PC.pc_hp <= 0:
+					PC.player_instance.game_over()
+				if is_instance_valid(bullet):
+					bullet.queue_free()
 	
 	bullet_tween.tween_property(bullet, "global_position", dest, travel_time).set_ease(Tween.EASE_OUT)
 	bullet_tween.tween_callback(func():
-		is_landed = true
 		for body in bullet.get_overlapping_bodies():
 			trigger_damage.call(body)
-		var timer = get_tree().create_timer(120.0)
+		var timer = get_tree().create_timer(45.0)
 		timer.timeout.connect(func():
 			if is_instance_valid(bullet):
 				bullet.queue_free()
@@ -334,7 +391,6 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, direction: Vector2):
 	)
 	
 	bullet.body_entered.connect(func(body: Node2D):
-		if not is_landed: return
 		trigger_damage.call(body)
 	)
 
@@ -350,14 +406,24 @@ class _SparkDrawer extends Node2D:
 		var outline_color = Color(1.0, 0.0, 0.0) if is_fire else Color(0.0, 0.0, 1.0)
 		
 		var draw_funcs = [
-			func(offset, c): draw_rect(Rect2(-1 * P + offset.x, -5 * P + offset.y, 2 * P, 10 * P), c),
-			func(offset, c): draw_rect(Rect2(-5 * P + offset.x, -1 * P + offset.y, 10 * P, 2 * P), c),
+			func(offset, c): draw_rect(Rect2(-1 * P + offset.x, -5 * P + offset.y, 2 * P, 2 * P), c),
+			func(offset, c): draw_rect(Rect2(-2 * P + offset.x, -3 * P + offset.y, 4 * P, 2 * P), c),
+			func(offset, c): draw_rect(Rect2(-5 * P + offset.x, -1 * P + offset.y, 2 * P, 2 * P), c),
+			func(offset, c): draw_rect(Rect2(-3 * P + offset.x, -2 * P + offset.y, 2 * P, 4 * P), c),
 			func(offset, c): draw_rect(Rect2(-2 * P + offset.x, -2 * P + offset.y, 4 * P, 4 * P), c),
+			func(offset, c): draw_rect(Rect2(1 * P + offset.x, -2 * P + offset.y, 2 * P, 4 * P), c),
+			func(offset, c): draw_rect(Rect2(3 * P + offset.x, -1 * P + offset.y, 2 * P, 2 * P), c),
+			func(offset, c): draw_rect(Rect2(-2 * P + offset.x, 1 * P + offset.y, 4 * P, 2 * P), c),
+			func(offset, c): draw_rect(Rect2(-1 * P + offset.x, 3 * P + offset.y, 2 * P, 2 * P), c),
 		]
 		var inner_funcs = [
-			func(offset, c): draw_rect(Rect2(-0.5 * P + offset.x, -3 * P + offset.y, 1 * P, 6 * P), c),
-			func(offset, c): draw_rect(Rect2(-3 * P + offset.x, -0.5 * P + offset.y, 6 * P, 1 * P), c),
+			func(offset, c): draw_rect(Rect2(-1 * P + offset.x, -2 * P + offset.y, 2 * P, 1 * P), c),
+			func(offset, c): draw_rect(Rect2(-2 * P + offset.x, -1 * P + offset.y, 1 * P, 2 * P), c),
+			func(offset, c): draw_rect(Rect2(1 * P + offset.x, -1 * P + offset.y, 1 * P, 2 * P), c),
+			func(offset, c): draw_rect(Rect2(-1 * P + offset.x, 1 * P + offset.y, 2 * P, 1 * P), c),
+			func(offset, c): draw_rect(Rect2(-1 * P + offset.x, -1 * P + offset.y, 2 * P, 2 * P), c),
 		]
+
 
 		for dx in [-1, 0, 1]:
 			for dy in [-1, 0, 1]:
@@ -414,10 +480,12 @@ func _attack_blazing_fire():
 	
 	var player_pos = PC.player_instance.global_position if is_instance_valid(PC.player_instance) else global_position
 	var warn = WarnCircleUtil.new()
-	add_child(warn)
+	warn.attacker = self # 设置攻击者
+	get_tree().current_scene.add_child(warn) # 添加到场景，独立于boss生命周期
+	var fire_radius = 144.0 * 0.9
 	warn.warning_finished.connect(func():
 		if is_instance_valid(warn): warn.cleanup()
-		_spawn_particles(player_pos, Color(1.0, 0.2, 0.0), 60, 144.0)
+		_spawn_particles(player_pos, Color(1.0, 0.2, 0.0), 60, fire_radius)
 		_screen_shake(8.0, 0.3)
 		
 		# 释放6个火花
@@ -425,15 +493,15 @@ func _attack_blazing_fire():
 		for i in range(6):
 			var dir = Vector2.RIGHT.rotated(base_angle + i * (TAU / 6.0))
 			_create_spark_bullet(true, player_pos, dir)
-			
-		_hide_symbol()
-		if is_chain_chanting:
-			_choose_attack()
-		else:
-			is_attacking = false
 	)
-	var warn_dur = chant_time + (1.0 if is_chain_chanting else 0.0)
-	warn.start_warning(player_pos, 1.0, 144.0, warn_dur, atk * 2.5, null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
+	var warn_dur = 2.0 if is_chain_chanting else chant_time
+	warn.start_warning(player_pos, 1.0, fire_radius, warn_dur, atk * 1.2, null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
+	
+	_hide_symbol()
+	if is_chain_chanting:
+		_choose_attack()
+	else:
+		is_attacking = false
 
 func _attack_extreme_ice():
 	_show_symbol("ice")
@@ -442,10 +510,12 @@ func _attack_extreme_ice():
 	
 	var boss_pos = global_position
 	var warn = WarnCircleUtil.new()
-	add_child(warn)
+	warn.attacker = self
+	get_tree().current_scene.add_child(warn)
+	var ice_radius = 200.0 * 0.85
 	warn.warning_finished.connect(func():
 		if is_instance_valid(warn): warn.cleanup()
-		_spawn_particles(boss_pos, Color(0.0, 0.8, 1.0), 80, 200.0)
+		_spawn_particles(boss_pos, Color(0.0, 0.8, 1.0), 80, ice_radius)
 		_screen_shake(8.0, 0.3)
 		
 		var base_angle = randf() * TAU
@@ -459,7 +529,7 @@ func _attack_extreme_ice():
 		else:
 			is_attacking = false
 	)
-	warn.start_warning(boss_pos, 1.0, 200.0, chant_time, atk * 2.5, null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
+	warn.start_warning(boss_pos, 1.0, ice_radius, chant_time, atk * 1.2, null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
 
 func _attack_ring_thunder():
 	_show_symbol("thunder")
@@ -487,8 +557,8 @@ func _attack_ring_thunder():
 		var norm_x = diff.x / 75.0
 		var norm_y = diff.y / 50.0
 		if (norm_x * norm_x + norm_y * norm_y) > 1.0:
-			PC.apply_damage(int(atk * 2.0 * (1.0 - PC.damage_reduction_rate)))
-			Global.emit_signal("player_hit")
+			PC.apply_damage(int(atk * 1.5 * (1.0 - PC.damage_reduction_rate)))
+			Global.emit_signal("player_hit", self )
 			if PC.pc_hp <= 0: PC.player_instance.game_over()
 			
 	_hide_symbol()
@@ -509,8 +579,6 @@ class _RingWarn extends Node2D:
 	func _draw():
 		var alpha = (elapsed / duration) * 0.5
 		var c = Color(0.6, 0.0, 1.0, alpha)
-		# 粗略绘制大范围外的警告，通过画一个超大的矩形中间挖空椭圆来实现不太方便
-		# 采用多边形或者线条密集绘制
 		var pts = PackedVector2Array()
 		var pts2 = PackedVector2Array()
 		for i in range(33):
@@ -526,6 +594,7 @@ class _RingWarn extends Node2D:
 func _attack_ground_fire():
 	Global.emit_signal("boss_chant_start", "耀星", 1.0)
 	var directions = [Vector2.DOWN, Vector2.UP, Vector2.RIGHT, Vector2.LEFT]
+	var size_scale = 1.3
 	directions.shuffle()
 	
 	for round_idx in range(4):
@@ -538,7 +607,7 @@ func _attack_ground_fire():
 		var start_pos2 = Vector2.ZERO
 		
 		if dir == Vector2.DOWN:
-			step_dist = 48.0 # 40 + 8
+			step_dist = 48.0 * size_scale # 40 + 8
 			count = ceil((bottom_boundary - top_boundary) / step_dist)
 			var valid_x = left_boundary + 30.0
 			var max_x = right_boundary - 30.0
@@ -550,7 +619,7 @@ func _attack_ground_fire():
 			start_pos2 = Vector2(x2, top_boundary + 20.0)
 			
 		elif dir == Vector2.UP:
-			step_dist = 48.0
+			step_dist = 48.0 * size_scale
 			count = ceil((bottom_boundary - top_boundary) / step_dist)
 			var valid_x = left_boundary + 30.0
 			var max_x = right_boundary - 30.0
@@ -562,7 +631,7 @@ func _attack_ground_fire():
 			start_pos2 = Vector2(x2, bottom_boundary - 20.0)
 			
 		elif dir == Vector2.RIGHT:
-			step_dist = 68.0 # 60 + 8
+			step_dist = 68.0 * size_scale # 60 + 8
 			count = ceil((right_boundary - left_boundary) / step_dist)
 			var valid_y = top_boundary + 20.0
 			var max_y = bottom_boundary - 20.0
@@ -574,7 +643,7 @@ func _attack_ground_fire():
 			start_pos2 = Vector2(left_boundary + 30.0, y2)
 			
 		elif dir == Vector2.LEFT:
-			step_dist = 68.0
+			step_dist = 68.0 * size_scale
 			count = ceil((right_boundary - left_boundary) / step_dist)
 			var valid_y = top_boundary + 20.0
 			var max_y = bottom_boundary - 20.0
@@ -585,8 +654,8 @@ func _attack_ground_fire():
 			start_pos1 = Vector2(right_boundary - 30.0, y1)
 			start_pos2 = Vector2(right_boundary - 30.0, y2)
 
-		_spawn_ground_fire_line(start_pos1, dir, step_dist, int(count))
-		_spawn_ground_fire_line(start_pos2, dir, step_dist, int(count))
+		_spawn_ground_fire_line(start_pos1, dir, step_dist, int(count), size_scale)
+		_spawn_ground_fire_line(start_pos2, dir, step_dist, int(count), size_scale)
 		
 		await get_tree().create_timer(0.75).timeout
 		
@@ -595,30 +664,26 @@ func _attack_ground_fire():
 	else:
 		is_attacking = false
 
-func _spawn_ground_fire_line(start_pos: Vector2, direction: Vector2, step_dist: float, count: int):
+func _spawn_ground_fire_line(start_pos: Vector2, direction: Vector2, step_dist: float, count: int, size_scale: float = 1.0):
 	var current_pos = start_pos
 	var actual_atk = atk
+	var warning_radius = 20.0 * size_scale
+	var particle_amount = int(ceil(10.0 * size_scale))
+	var particle_radius = 45.0 * size_scale
 	
 	for i in range(count):
 		if is_dead: break
 		var warn = WarnCircleUtil.new()
+		warn.attacker = self # 设置攻击者，用于player_hit信号
 		get_tree().current_scene.add_child(warn)
 		warn.global_position = current_pos
 		var pos_to_damage = current_pos
 		warn.warning_finished.connect(func():
 			if is_instance_valid(warn): warn.cleanup()
-			_spawn_particles(pos_to_damage, Color(1.0, 0.4, 0.0), 10, 45.0)
-			# 判断伤害
-			if is_instance_valid(PC.player_instance) and not PC.invincible:
-				var diff = PC.player_instance.global_position - pos_to_damage
-				var norm_x = diff.x / 30.0 # 60 / 2
-				var norm_y = diff.y / 20.0 # 40 / 2
-				if (norm_x * norm_x + norm_y * norm_y) <= 1.0:
-					PC.apply_damage(int(actual_atk * 1.5 * (1.0 - PC.damage_reduction_rate)))
-					Global.emit_signal("player_hit")
-					if PC.pc_hp <= 0: PC.player_instance.game_over()
+			_spawn_particles(pos_to_damage, Color(1.0, 0.18, 0.08), particle_amount, particle_radius)
 		)
-		warn.start_warning(current_pos, 1.5, 30.0, 1.0, 0.0, null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
+		# 使用内置伤害判定：radius=26, aspect_ratio=1.5 得到 39x26 椭圆
+		warn.start_warning(current_pos, 1.5, warning_radius, 1.0, actual_atk * 1.5, null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
 		
 		await get_tree().create_timer(1.0).timeout
 		current_pos += direction * step_dist
@@ -632,8 +697,8 @@ func _attack_cross_fire():
 	var warn1 = WarnRectUtil.new(); add_child(warn1)
 	var warn2 = WarnRectUtil.new(); add_child(warn2)
 	
-	warn1.start_warning(boss_pos + Vector2(-600, 0), boss_pos + Vector2(600, 0), 80.0, chant_time, atk * 2.0)
-	warn2.start_warning(boss_pos + Vector2(0, -600), boss_pos + Vector2(0, 600), 80.0, chant_time, atk * 2.0)
+	warn1.start_warning(boss_pos + Vector2(-600, 0), boss_pos + Vector2(600, 0), 96.0, chant_time, atk * 2.0)
+	warn2.start_warning(boss_pos + Vector2(0, -600), boss_pos + Vector2(0, 600), 96.0, chant_time, atk * 2.0)
 	
 	await get_tree().create_timer(chant_time).timeout
 	_hide_symbol()
@@ -654,8 +719,8 @@ func _attack_x_ice():
 	var warn1 = WarnRectUtil.new(); add_child(warn1)
 	var warn2 = WarnRectUtil.new(); add_child(warn2)
 	
-	warn1.start_warning(boss_pos + Vector2(-500, -500), boss_pos + Vector2(500, 500), 80.0, chant_time, atk * 2.0)
-	warn2.start_warning(boss_pos + Vector2(-500, 500), boss_pos + Vector2(500, -500), 80.0, chant_time, atk * 2.0)
+	warn1.start_warning(boss_pos + Vector2(-500, -500), boss_pos + Vector2(500, 500), 96.0, chant_time, atk * 2.0)
+	warn2.start_warning(boss_pos + Vector2(-500, 500), boss_pos + Vector2(500, -500), 96.0, chant_time, atk * 2.0)
 	
 	await get_tree().create_timer(chant_time).timeout
 	_hide_symbol()
@@ -671,11 +736,13 @@ func _attack_chain_chant():
 	is_chain_chanting = true
 	Global.emit_signal("boss_chant_start", "三连咏唱", 4.0)
 	
-	var skill_1 = [1, 3][randi() % 2]
+	var first_skill_pool = [1, 3, 5, 6]
+	var skill_1 = first_skill_pool[randi() % first_skill_pool.size()]
 	var skill_2 = [5, 6][randi() % 2]
-	var possible_3 = [1, 2, 3]
-	possible_3.erase(skill_1)
-	var skill_3 = possible_3[randi() % 2]
+	var possible_3 = [2, 3]
+	if possible_3.has(skill_1):
+		possible_3.erase(skill_1)
+	var skill_3 = possible_3[randi() % possible_3.size()]
 	
 	chain_skills_queue = [skill_1, skill_2, skill_3]
 	
@@ -683,10 +750,8 @@ func _attack_chain_chant():
 	
 	for i in range(3):
 		if is_dead: return
-		var mini_symbol = _SymbolDrawer.new()
-		mini_symbol.symbol_type = map_str[chain_skills_queue[i]]
+		var mini_symbol = _create_spell_icon(map_str[chain_skills_queue[i]], Vector2(0.7, 0.7))
 		mini_symbol.position = Vector2((i - 1) * 45, 20)
-		mini_symbol.scale = Vector2(0.7, 0.7)
 		mini_symbol.modulate.a = 0
 		symbol_node.add_child(mini_symbol)
 		
@@ -694,6 +759,7 @@ func _attack_chain_chant():
 		tw.set_parallel(true)
 		tw.tween_property(mini_symbol, "modulate:a", 1.0, 0.3)
 		tw.tween_property(mini_symbol, "position:y", 0.0, 0.3).set_ease(Tween.EASE_OUT)
+
 		
 		await get_tree().create_timer(1.0).timeout
 	
@@ -705,13 +771,6 @@ func _attack_chain_chant():
 	_choose_attack()
 
 # ================= 通用交互 =================
-func _on_body_entered(body: Node2D) -> void:
-	if body is CharacterBody2D and not is_dead and not PC.invincible:
-		Global.emit_signal("player_hit")
-		var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-		PC.apply_damage(actual_damage)
-		if PC.pc_hp <= 0:
-			body.game_over()
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
@@ -733,31 +792,18 @@ func _on_area_entered(area: Area2D) -> void:
 			Global.play_hit_anime(position, is_crit)
 
 func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:
-	if is_dead: return
-	var final_damage_val = int(damage)
-
-	if damage_type in ["bleed", "burn", "electrified", "corrosion", "corrosion2", "posion"]:
-		Global.emit_signal("boss_hp_bar_take_damage", final_damage_val)
-		hp -= final_damage_val
-		if hp <= 0: _die()
-		return
-
-	var damage_offset = Vector2(randf_range(-15, 15), randf_range(-15, 15))
-	var type = 1
-	if is_summon: type = 4
-	elif is_crit: type = 2
-	Global.emit_signal("monster_damage", type, final_damage_val, global_position - Vector2(35, 20) + damage_offset, damage_type)
-	
-	Global.emit_signal("boss_hp_bar_take_damage", final_damage_val)
-	hp -= final_damage_val
-	if hp <= 0:
+	var damage_result = apply_common_take_damage(damage, is_crit, is_summon, damage_type, {
+		"use_debuff_multiplier": false,
+		"update_boss_hp_bar": true,
+		"play_hit_animation": true,
+		"randomize_popup_offset": true
+	})
+	if damage_result["applied"] and damage_result["is_lethal"]:
 		_die()
-	else:
-		Global.play_hit_anime(position, is_crit)
-
 func _die():
 	if not is_dead:
-		Global.emit_signal("boss_defeated", get_point)
+		_drop_boss_rewards()
+		Global.emit_signal("boss_defeated", get_point, global_position)
 		Global.emit_signal("monster_killed")
 	is_dead = true
 	remove_from_group("enemies")

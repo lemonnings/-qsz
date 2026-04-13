@@ -39,7 +39,7 @@ func slime_blue(query: String): # 蓝色史莱姆
 		"exp": 350,
 		"point": 10 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 6,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_002": 0.015 * (1 + (PC.drop_multi)), "item_009": 0.006 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_002": 0.015 * Global.get_effective_drop_multiplier(), "item_009": 0.006 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -51,7 +51,7 @@ func taohua_yao(query: String): # 桃花妖
 		"exp": 450,
 		"point": 15 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_003": 0.03 * (1 + (PC.drop_multi)), "item_014": 0.012 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_003": 0.03 * Global.get_effective_drop_multiplier(), "item_014": 0.012 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -63,7 +63,7 @@ func frog(query: String): # 幼体树精
 		"exp": 500,
 		"point": 20 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 8,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_023": 0.05 * (1 + (PC.drop_multi)), "item_010": 0.015 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_023": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -79,7 +79,7 @@ func lantern(query: String): # 灯笼怪
 		"exp": 450,
 		"point": 14 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 6,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_011": 0.015 * (1 + (PC.drop_multi)), "item_015": 0.006 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_011": 0.015 * Global.get_effective_drop_multiplier(), "item_015": 0.006 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -91,7 +91,7 @@ func paper(query: String): # 宣纸精
 		"exp": 500,
 		"point": 13 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 6,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_011": 0.015 * (1 + (PC.drop_multi)), "item_017": 0.006 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_011": 0.015 * Global.get_effective_drop_multiplier(), "item_017": 0.006 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -103,7 +103,7 @@ func bat(query: String): # 草药怪
 		"exp": 600,
 		"point": 15 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_045": 0.05 * (1 + (PC.drop_multi)), "item_010": 0.015 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_045": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -115,7 +115,7 @@ func slime_grey(query: String): # 灰色史莱姆
 		"exp": 550,
 		"point": 16 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_002": 0.05 * (1 + (PC.drop_multi)), "item_009": 0.015 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_002": 0.05 * Global.get_effective_drop_multiplier(), "item_009": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -131,7 +131,7 @@ func ghost(query: String): # 鬼魂
 		"exp": 500,
 		"point": 18 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_003": 0.02 * (1 + (PC.drop_multi)), "item_017": 0.0075 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_003": 0.02 * Global.get_effective_drop_multiplier(), "item_017": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -143,7 +143,7 @@ func armor_stone(query: String): # 甲石
 		"exp": 400,
 		"point": 19 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_044": 0.02 * (1 + (PC.drop_multi)), "item_014": 0.0075 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_044": 0.02 * Global.get_effective_drop_multiplier(), "item_014": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -155,7 +155,7 @@ func stone_man(query: String): # 石人
 		"exp": 550,
 		"point": 22 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 8,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_044": 0.05 * (1 + (PC.drop_multi)), "item_014": 0.015 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_044": 0.05 * Global.get_effective_drop_multiplier(), "item_014": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -167,7 +167,7 @@ func slime_green(query: String): # 绿色史莱姆
 		"exp": 550,
 		"point": 16 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 8,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_002": 0.05 * (1 + (PC.drop_multi)), "item_009": 0.015 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_002": 0.05 * Global.get_effective_drop_multiplier(), "item_009": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -183,7 +183,7 @@ func shen(query: String): # 参精怪
 		"exp": 450,
 		"point": 24 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_045": 0.02 * (1 + (PC.drop_multi)), "item_015": 0.0075 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_045": 0.02 * Global.get_effective_drop_multiplier(), "item_015": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -195,7 +195,7 @@ func frog_new(query: String): # 新蛙
 		"exp": 600,
 		"point": 22 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_003": 0.02 * (1 + (PC.drop_multi)), "item_010": 0.0075 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_003": 0.02 * Global.get_effective_drop_multiplier(), "item_010": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
 	return data.get(query, null)
 
@@ -207,6 +207,54 @@ func ball(query: String): # 弹跳兽
 		"exp": 500,
 		"point": 26 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 8,
-		"itemdrop": {"item_001": 0.015 * (1 + (PC.drop_multi)), "item_046": 0.05 * (1 + (PC.drop_multi)), "item_010": 0.015 * (1 + (PC.drop_multi)), "item_007": 0.005 * (1 + (PC.drop_multi)), "item_004": 0.005 * (1 + (PC.drop_multi))}
+		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_046": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
+	}
+	return data.get(query, null)
+
+func peach_grove_boss(query: String):
+	var data = {
+		"itemdrop": {
+			"item_097": {"chance": 0.5 * Global.get_effective_drop_multiplier(), "quantity": 1},
+			"item_098": {"chance": 0.5 * Global.get_effective_drop_multiplier(), "quantity": 1},
+			"item_009": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_010": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_015": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_017": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_014": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_023": {"chance": 0.4 * Global.get_effective_drop_multiplier(), "quantity": 3},
+			"item_003": {"chance": 0.4 * Global.get_effective_drop_multiplier(), "quantity": 3}
+		}
+	}
+	return data.get(query, null)
+
+func ruin_boss(query: String):
+	var data = {
+		"itemdrop": {
+			"item_099": {"chance": 0.5 * Global.get_effective_drop_multiplier(), "quantity": 1},
+			"item_100": {"chance": 0.5 * Global.get_effective_drop_multiplier(), "quantity": 1},
+			"item_009": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_010": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_015": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_017": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_014": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_044": {"chance": 0.4 * Global.get_effective_drop_multiplier(), "quantity": 3},
+			"item_002": {"chance": 0.4 * Global.get_effective_drop_multiplier(), "quantity": 3}
+		}
+	}
+	return data.get(query, null)
+
+func cave_boss(query: String):
+	var data = {
+		"itemdrop": {
+			"item_097": {"chance": 0.5 * Global.get_effective_drop_multiplier(), "quantity": 1},
+			"item_101": {"chance": 0.5 * Global.get_effective_drop_multiplier(), "quantity": 1},
+			"item_009": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_010": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_015": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_017": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_014": {"chance": 0.2 * Global.get_effective_drop_multiplier(), "quantity": 2},
+			"item_011": {"chance": 0.4 * Global.get_effective_drop_multiplier(), "quantity": 3},
+			"item_003": {"chance": 0.4 * Global.get_effective_drop_multiplier(), "quantity": 3}
+		}
 	}
 	return data.get(query, null)

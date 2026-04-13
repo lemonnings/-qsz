@@ -23,12 +23,18 @@ var hit_targets: Dictionary = {}
 var travelled_distance: float = 0.0
 var reached_max_range: bool = false
 var fade_out_duration: float = 0.4
+var base_sprite_scale: Vector2 = Vector2.ONE
+var base_collision_scale: Vector2 = Vector2.ONE
 
 func _ready() -> void:
 	if not sprite:
 		sprite = get_node_or_null("AnimatedSprite2D")
 	if not collision_shape:
 		collision_shape = get_node_or_null("CollisionShape2D")
+	if sprite:
+		base_sprite_scale = sprite.scale
+	if collision_shape:
+		base_collision_scale = collision_shape.scale
 	
 	if sprite:
 		sprite.play("default")
@@ -47,8 +53,12 @@ func setup_light_bullet(pos: Vector2, dir: Vector2, p_damage: float, p_range: fl
 	var life_range_multiplier = Faze.get_life_range_multiplier(PC.faze_life_level)
 	var bullet_range_multiplier = Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
 	damage = p_damage
-	range_val = p_range * life_range_multiplier * bullet_range_multiplier
+	range_val = p_range * life_range_multiplier * bullet_range_multiplier * Global.get_attack_range_multiplier()
 	penetration_count = p_penetration
+	if sprite:
+		sprite.scale = base_sprite_scale * Global.get_attack_range_multiplier()
+	if collision_shape:
+		collision_shape.scale = base_collision_scale * Global.get_attack_range_multiplier()
 	
 	# 读取特殊选项
 	apply_light_accumulation = options.get("apply_light_accumulation", false)
@@ -121,7 +131,7 @@ func _deal_damage(enemy: Area2D) -> void:
 	if enemy.has_method("take_damage"):
 		enemy.take_damage(int(final_damage), is_crit, false, "light_bullet")
 		# 击中粒子崩散特效
-		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "lightbullet")
+		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "light_bullet")
 		
 	# 施加蓄光debuff
 	if apply_light_accumulation:

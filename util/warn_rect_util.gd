@@ -25,6 +25,7 @@ var rect_length: float = 0.0  # 矩形长度（从起始点到目标点的距离
 var rect_angle: float = 0.0   # 矩形角度
 var start_position: Vector2 = Vector2.ZERO
 var grow_time: float = 0.0
+var attacker: Node = null # 攻击者引用，用于player_hit信号
 
 func _ready():
 	# 获取玩家引用
@@ -165,9 +166,25 @@ func is_player_in_range() -> bool:
 
 func deal_damage_to_player():
 	"""对玩家造成伤害"""
-	if player_ref and player_ref.has_method("take_damage"):
-		player_ref.take_damage(damage)
-		damage_dealt.emit(damage)
+	if not player_ref or not is_instance_valid(player_ref):
+		return
+	
+	# 检查无敌状态
+	if PC.invincible:
+		return
+	
+	# 触发受击效果
+	Global.emit_signal("player_hit", attacker)
+	
+	# 计算实际伤害（考虑减伤率）
+	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))
+	PC.apply_damage(actual_damage)
+	
+	# 检查死亡
+	if PC.pc_hp <= 0:
+		PC.player_instance.game_over()
+	
+	damage_dealt.emit(float(actual_damage))
 
 func play_animation():
 	"""播放预警结束后的动画"""

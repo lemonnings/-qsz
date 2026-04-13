@@ -74,7 +74,7 @@ const DYNAMIC_BALANCE_HP_MIN_REDUCTION: float = 0.1 # 最小HP削减10%
 const DYNAMIC_BALANCE_HP_MAX_REDUCTION: float = 0.3 # 最大HP削减30%
 
 # UI子场景引用
-@export var layer_ui: CanvasLayer
+@export var layer_ui: BattleCanvasLayer
 
 # ============== 初始化 ==============
 func _ready() -> void:
@@ -87,7 +87,7 @@ func _ready() -> void:
 	
 	map_mechanism_num = 0
 	# map_mechanism_num_max = 1080
-	map_mechanism_num_max = 29000
+	map_mechanism_num_max = 29
 	
 	DpsManager.reset_dps_counter()
 	GU.reset_kill_count()
@@ -177,14 +177,16 @@ func _on_warning_finished() -> void:
 	
 	Global.emit_signal("boss_bgm", 1)
 	
-	var boss_node = boss_robot_scene.instantiate()
+	# 实例化新的石碑Boss
+	var boss_scene = preload("res://Scenes/moster/boss_stele.tscn")
+	var boss_node = boss_scene.instantiate()
 	
 	# 逐步缩放相机
 	for i in range(7):
 		Global.emit_signal("zoom_camera", -0.08)
 		await get_tree().create_timer(0.2).timeout
 
-	boss_node.position = Vector2(-370, randf_range(185, 259))
+	boss_node.position = Vector2(0, 100)
 	get_tree().current_scene.add_child(boss_node)
 	_clear_non_boss_enemies()
 
@@ -514,11 +516,11 @@ void fragment() {
 	COLOR = mix(body_color, line_color, outline - tex_color.a);
 }
 """
-		var material = ShaderMaterial.new()
+		var shader_material = ShaderMaterial.new()
 		var shader = Shader.new()
 		shader.code = shader_code
-		material.shader = shader
-		sprite.material = material
+		shader_material.shader = shader
+		sprite.material = shader_material
 	
 	# 给怪物添加精英怪标记
 	monster_node.set_meta("is_elite_monster", true)
@@ -540,7 +542,7 @@ func show_game_over():
 	Global.emit_signal("normal_bgm")
 	SceneChange.change_scene("res://Scenes/main_town.tscn", true)
 
-func _on_boss_defeated(get_point: int):
+func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 	if not PC.is_game_over:
 		# 标记游戏结束状态，防止后续逻辑触发
 		PC.is_game_over = true
@@ -557,8 +559,10 @@ func _on_boss_defeated(get_point: int):
 		player.stop_all_skill_cooldowns()
 		layer_ui.stop_all_skill_cooldowns()
 		var item_control = get_node("ItemControl")
-		item_control.start_victory_collect(player, 225.0)
+		item_control.start_victory_collect(player, 225.0, 3.0)
+		Global.add_shop_battle_refresh(1)
 		Global.save_game()
+		await player.play_boss_defeat_camera_focus(boss_position)
 
 		await layer_ui.play_victory_sequence()
 

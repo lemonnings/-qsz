@@ -198,7 +198,6 @@ func get_damage_multiplier() -> float:
 	for debuff_id in active_debuffs:
 		debuff_count += active_debuffs[debuff_id]["stacks"]
 	
-	var debuff_bonus = 0.0
 	if debuff_count > 0:
 		var bonus_per_stack = 0.0
 		if PC.selected_rewards.has("UR33"): bonus_per_stack = 0.12
@@ -411,7 +410,7 @@ func _apply_dot_damage(debuff_id: String, damage: float) -> void:
 			continue
 		if area.is_in_group("enemies"):
 			var neighbor_multiplier = EnemyDebuffManager.get_debuff_elite_boss_damage_multiplier(debuff_id, area)
-			var neighbor_damage = damage * neighbor_multiplier
+			var neighbor_damage = Global.apply_enemy_damage_bonus(damage * neighbor_multiplier, area)
 			area.take_damage(int(neighbor_damage), false, false, debuff_id)
 			Global.emit_signal("monster_damage", damage_type_int, neighbor_damage, area.global_position)
 

@@ -63,14 +63,14 @@ const ELITE_DROP_MULTIPLIER: float = 15.0 # 掉落率15倍
 var current_wave_hp_reduction: float = 0.0 # 当前波的HP削减比例
 const DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD: float = 0.3 # 出怪增量低阈值（30%以下）
 const DYNAMIC_BALANCE_SPAWN_HIGH_THRESHOLD: float = 0.6 # 出怪增量高阈值（60%时0%增量）
-const DYNAMIC_BALANCE_SPAWN_MAX_BONUS: float = 1.0 # 最大出怪增量100%
+const DYNAMIC_BALANCE_SPAWN_MAX_BONUS: float = 5.0 # 最大出怪增量100%
 const DYNAMIC_BALANCE_HP_LOW_THRESHOLD: float = 0.7 # HP削减低阈值（70%开始削弱）
 const DYNAMIC_BALANCE_HP_HIGH_THRESHOLD: float = 1.0 # HP削减高阈值（100%最大削弱）
 const DYNAMIC_BALANCE_HP_MIN_REDUCTION: float = 0.1 # 最小HP削减10%
 const DYNAMIC_BALANCE_HP_MAX_REDUCTION: float = 0.3 # 最大HP削减30%
 
 # UI子场景引用
-@export var layer_ui: CanvasLayer
+@export var layer_ui: BattleCanvasLayer
 
 # ============== 初始化 ==============
 func _ready() -> void:
@@ -462,11 +462,11 @@ void fragment() {
 	COLOR = mix(body_color, line_color, outline - tex_color.a);
 }
 """
-		var material = ShaderMaterial.new()
+		var shader_material = ShaderMaterial.new()
 		var shader = Shader.new()
 		shader.code = shader_code
-		material.shader = shader
-		sprite.material = material
+		shader_material.shader = shader
+		sprite.material = shader_material
 	monster_node.set_meta("is_elite_monster", true)
 
 # ============== 游戏结果 ==============
@@ -482,7 +482,7 @@ func show_game_over():
 	Global.emit_signal("normal_bgm")
 	SceneChange.change_scene("res://Scenes/main_town.tscn", true)
 
-func _on_boss_defeated(get_point: int):
+func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 	if not PC.is_game_over:
 		PC.is_game_over = true
 		EmblemManager.clear_all_emblems()
@@ -493,8 +493,11 @@ func _on_boss_defeated(get_point: int):
 		player.stop_all_skill_cooldowns()
 		layer_ui.stop_all_skill_cooldowns()
 		var item_control = get_node("ItemControl")
-		item_control.start_victory_collect(player, 225.0)
+		item_control.start_victory_collect(player, 225.0, 3.0)
+		Global.add_shop_battle_refresh(1)
 		Global.save_game()
+		await player.play_boss_defeat_camera_focus(boss_position)
+
 		await layer_ui.play_victory_sequence()
 		Global.emit_signal("normal_bgm")
 		Global.in_menu = true

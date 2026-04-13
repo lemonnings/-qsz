@@ -31,6 +31,8 @@ var corrosion_extra_damage_duize11: float = 0.3 # Duize11 额外增伤
 
 # 范围内的敌人
 var enemies_in_range: Array = []
+var base_sprite_scale: Vector2 = Vector2.ZERO
+var base_collision_scale: Vector2 = Vector2.ZERO
 
 # 静态方法处理发射逻辑
 static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree) -> void:
@@ -127,11 +129,11 @@ func setup(pos: Vector2, p_damage: float, p_range: float) -> void:
 	# 默认 scale x1.0 y1.285
 	# 默认 collision x3.155 y1.645
 	# 基础范围 60. 现在的 range 已经是计算过加成的 duize_range
-	# 使用传入的 p_range 计算缩放
-	var scale_multiplier = (p_range / 60.0) * 3.0
+	# 使用传入的 p_range 计算缩放，并叠加全局攻击范围倍率
+	var scale_multiplier = (p_range / 60.0) * 3.0 * Global.get_attack_range_multiplier()
 
-	var target_sprite_scale = Vector2(1.0, 1.285) * scale_multiplier
-	var target_collision_scale = Vector2(3.155, 1.645) * scale_multiplier
+	var target_sprite_scale = base_sprite_scale * scale_multiplier
+	var target_collision_scale = base_collision_scale * scale_multiplier
 	
 	if sprite:
 		# 初始状态：极小，但可见
@@ -199,7 +201,15 @@ func _apply_slow(enemy: Area2D) -> void:
 		enemy.debuff_manager.add_debuff("slow")
 
 func _remove_slow(enemy: Area2D) -> void:
-	pass
+	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("remove_debuff"):
+		enemy.debuff_manager.remove_debuff("slow")
+
+func _exit_tree() -> void:
+	# 销毁时，移除所有仍在范围内且尚未释放的敌人的缓速效果
+	for enemy in enemies_in_range:
+		if is_instance_valid(enemy):
+			_remove_slow(enemy)
+
 
 func _apply_corrosion(enemy: Area2D) -> void:
 	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("add_debuff"):
@@ -244,7 +254,7 @@ func _deal_single_damage(enemy: Area2D) -> void:
 		final_damage *= PC.crit_damage_multi
 		
 	if enemy.has_method("take_damage"):
-		var damage_dealt = enemy.take_damage(int(final_damage), is_crit, false, "duize")
+		var _damage_dealt = enemy.take_damage(int(final_damage), is_crit, false, "duize")
 		
 		# 八卦法则推衍度
 		# 击中+1，击杀+5（击杀由take_damage返回值判断？通常take_damage返回实际伤害，或者是否有击杀）
@@ -261,8 +271,3 @@ func _deal_single_damage(enemy: Area2D) -> void:
 		# 可以在 take_damage 后检查 enemy.hp <= 0 ? 
 		if not is_instance_valid(enemy) or enemy.hp <= 0:
 			Faze.add_bagua_progress(5, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
-
-func _exit_tree() -> void:
-	# 销毁时，移除所有敌人的缓速效果
-	for enemy in enemies_in_range:
-		_remove_slow(enemy)

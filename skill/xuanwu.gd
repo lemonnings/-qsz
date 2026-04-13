@@ -46,6 +46,7 @@ var return_start_dist = 0.0 # Distance to player when starting return
 var return_traveled_dist = 0.0
 var miss_dist = 150.0
 var miss_traveled = 0.0
+var base_node_scale: Vector2 = Vector2.ONE
 
 var hit_abnormal = false # Track if we hit an enemy with abnormal status
 
@@ -99,11 +100,11 @@ static func _build_data() -> Dictionary:
 	var shield_bonus_damage = xuanwu_shield_bonus_damage
 	var final_damage_multi = xuanwu_final_damage_multi
 	
-	var slow_duration = xuanwu_slow_duration
-	var vulnerable_duration = xuanwu_vulnerable_duration
+	var d_slow_duration = xuanwu_slow_duration
+	var d_vulnerable_duration = xuanwu_vulnerable_duration
 	var shield_base_bonus = xuanwu_shield_base_bonus
-	var return_shield_bonus = xuanwu_return_shield_bonus
-	var shield_duration = xuanwu_shield_duration
+	var d_return_shield_bonus = xuanwu_return_shield_bonus
+	var d_shield_duration = xuanwu_shield_duration
 	
 	# Upgrades
 	if PC.selected_rewards.has("Xuanwu2"):
@@ -113,7 +114,7 @@ static func _build_data() -> Dictionary:
 		width_scale = 1.5
 		
 	if PC.selected_rewards.has("Xuanwu22"):
-		return_shield_bonus = 0.3
+		d_return_shield_bonus = 0.3
 
 	
 	var atk_dmg = PC.pc_atk * damage_multiplier
@@ -143,13 +144,14 @@ static func _build_data() -> Dictionary:
 		"range": range_val,
 		"width_scale": width_scale,
 		"shield_gain": shield_gain_val,
-		"slow_duration": slow_duration,
-		"vulnerable_duration": vulnerable_duration,
-		"return_shield_bonus": return_shield_bonus,
-		"shield_duration": shield_duration
+		"slow_duration": d_slow_duration,
+		"vulnerable_duration": d_vulnerable_duration,
+		"return_shield_bonus": d_return_shield_bonus,
+		"shield_duration": d_shield_duration
 	}
 
 func _ready():
+	base_node_scale = scale
 	connect("body_entered", Callable(self , "_on_body_entered"))
 	connect("area_entered", Callable(self , "_on_area_entered"))
 	
@@ -163,9 +165,11 @@ func setup(pos: Vector2, target_pos: Vector2, data: Dictionary = {}):
 	if data.has("damage"):
 		damage = data.damage
 	if data.has("range"):
-		max_dist = data.range
-	if data.has("width_scale") and data.width_scale != 1.0:
-		scale *= Vector2(data.width_scale, data.width_scale)
+		max_dist = data.range * Global.get_attack_range_multiplier()
+	var width_scale = Global.get_attack_range_multiplier()
+	if data.has("width_scale"):
+		width_scale *= data.width_scale
+	scale = Vector2(base_node_scale.x * width_scale, base_node_scale.y * width_scale)
 	if data.has("shield_gain"):
 		shield_gain = data.shield_gain
 	if data.has("slow_duration"):

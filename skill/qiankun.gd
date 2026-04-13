@@ -105,12 +105,12 @@ func _process(delta: float) -> void:
 	# 如果仍然没有玩家引用，暂时不执行逻辑（除了冷却）
 	if not player_ref:
 		# 依然要处理冷却，防止内存泄漏
-		var to_remove = []
+		var pending_remove_ids = []
 		for id in hit_targets:
 			hit_targets[id] -= delta
 			if hit_targets[id] <= 0:
-				to_remove.append(id)
-		for id in to_remove:
+				pending_remove_ids.append(id)
+		for id in pending_remove_ids:
 			hit_targets.erase(id)
 		return
 
@@ -129,10 +129,6 @@ func _process(delta: float) -> void:
 			var target_pos = player_ref.global_position + idle_offset
 			global_position = global_position.lerp(target_pos, 5.0 * delta)
 			
-			# 待机时的朝向
-			# 假设贴图默认朝向：均为右上(-45度)
-			# 目标：剑尖朝上(-90度)
-			# 因此都需要逆时针旋转 45 度，即 rotation = -45
 			var target_rot = deg_to_rad(-45)
 				
 			rotation = lerp_angle(rotation, target_rot, 10.0 * delta) # 增加插值速度确保能看到变化

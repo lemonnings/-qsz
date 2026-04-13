@@ -58,11 +58,9 @@ func _setup_instance() -> void:
 	call_deferred("_apply_effects")
 
 func _apply_range_scale() -> void:
-	var scale_value = dragonwind_range_scale
-	base_sprite_scale = base_sprite_scale * scale_value
-	sprite.scale = base_sprite_scale
-	base_collision_scale = base_collision_scale * scale_value
-	collision.scale = base_collision_scale
+	var scale_value = dragonwind_range_scale * Global.get_attack_range_multiplier()
+	sprite.scale = base_sprite_scale * scale_value
+	collision.scale = base_collision_scale * scale_value
 
 func _find_cluster_center(player_position: Vector2) -> Vector2:
 	var enemies = get_tree().get_nodes_in_group("enemies")

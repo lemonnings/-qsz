@@ -17,8 +17,8 @@ func get_kill_count() -> int:
 func _on_monster_killed() -> void:
 	add_kill_count(1)
 
-func parse_rect_from_func_string(str: String) -> Rect2:
-	var clean = str.replace("Rect2(", "").replace(")", "")
+func parse_rect_from_func_string(rect_str: String) -> Rect2:
+	var clean = rect_str.replace("Rect2(", "").replace(")", "")
 	var parts = clean.split(",")
 	if parts.size() == 4:
 		return Rect2(

@@ -44,7 +44,7 @@ func _on_area_entered(area: Area2D) -> void:
 			# 造成伤害
 			if area.has_method("take_damage"):
 				var final_damage = damage
-				area.take_damage(final_damage, false, false, "")
+				area.take_damage(final_damage, false, false, "ringFire")
 				
 				if PC.selected_rewards.has("RingFire4"):
 					if area.has_signal("debuff_applied"):

@@ -2,7 +2,7 @@ extends Camera2D
 # Camera2D 边界限制脚本（Godot 4.6 兼容）
 # 挂在 Camera2D 节点上
 
-func _process(delta):
+func _process(_delta):
 	# 获取当前渲染视口的实际像素尺寸（考虑 stretch 设置）
 	var screen_size = get_viewport().get_visible_rect().size
 

@@ -159,6 +159,24 @@ static func _init_buff_configs():
 		"降低移动速度10%"
 	)
 
+	buff_configs["stun"] = BuffData.new(
+		"stun",
+		"眩晕",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.TEMPORARY,
+		1,
+		"眩晕中，无法移动"
+	)
+	
+	buff_configs["restrained"] = BuffData.new(
+		"restrained",
+		"拘束",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.PERMANENT,
+		1,
+		"受到暗影拘束，减伤率提升至80%，但造成的伤害降低80%"
+	)
+
 static func get_buff_data(buff_id: String) -> BuffData:
 	if buff_configs.is_empty():
 		_init_buff_configs()

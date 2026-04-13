@@ -8,7 +8,7 @@ var collision_shape: CollisionShape2D
 var lifetime_timer: Timer
 var damage_timer: Timer
 
-var SWORD_WAVE_WIDTH = 0.9 * PC.bullet_size # 剑痕的宽度，可能作为Y轴的缩放值或绝对像素值
+var SWORD_WAVE_WIDTH = 0.9 * Global.get_attack_range_multiplier() # 剑痕的宽度，可能作为Y轴的缩放值或绝对像素值
 
 func _ready():
 	add_to_group("sword_wave_trace")
@@ -113,7 +113,7 @@ func _on_damage_timer_timeout():
 			# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
 			var damage_multiplier = PC.main_skill_swordQi_damage + (Faze.get_bullet_damage_multiplier(PC.faze_bullet_level) - 1.0)
 			var damage = PC.pc_atk * damage_multiplier * tick_ratio
-			body.take_damage(damage, false, false, "sword_wave") # 参数: 伤害值, 是否暴击, 是否召唤物伤害, 伤害类型
+			body.take_damage(damage, false, false, "swordqi") # 参数: 伤害值, 是否暴击, 是否召唤物伤害, 伤害类型
 
 # _physics_process 通常用于每帧更新，如果剑痕创建后是静态的，则此函数可以为空或移除
 # func _physics_process(delta):

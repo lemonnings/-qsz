@@ -1,8 +1,6 @@
-extends Area2D
+extends "res://Script/monster/monster_base.gd"
 
 @onready var sprite = $AnimatedSprite2D
-var debuff_manager: EnemyDebuffManager
-var is_dead: bool = false
 
 # 状态机
 enum State {SEEKING_PLAYER, ATTACKING, FIRING, FLEEING}
@@ -16,10 +14,6 @@ var atk: float = SettingMoster.frog_new("atk")
 var get_point: int = SettingMoster.frog_new("point")
 var get_exp: int = SettingMoster.frog_new("exp")
 var get_mechanism: int = SettingMoster.frog_new("mechanism")
-var health_bar_shown: bool = false
-var health_bar: Node2D
-var progress_bar: ProgressBar
-
 var target_position: Vector2 # 用于存储移动目标位置
 var attack_cooldown_timer: Timer # 攻击间隔计时器 (替换旧的 attack_timer)
 var action_timer: Timer # 用于攻击前摇和逃跑计时
@@ -31,21 +25,16 @@ var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 
 # 精英怪相关
-var is_elite: bool = false
-var drop_rate_multiplier: float = 1.0
 
 # 攻击方向锁定
 var locked_attack_direction: Vector2 = Vector2.ZERO # 锁定的攻击方向
 var is_direction_locked: bool = false # 是否锁定方向（用于禁止翻转）
 
-signal debuff_applied(debuff_id: String)
 
 func _ready() -> void:
-	debuff_manager = EnemyDebuffManager.new(self )
-	add_child(debuff_manager)
-	debuff_applied.connect(debuff_manager.add_debuff)
-	if is_elite:
-		add_to_group("elite")
+	player_hit_emit_self = true
+	health_bar_tween_duration = 0.15
+	setup_monster_base(is_elite)
 	speed = base_speed # Initialize speed
 	
 	# 创建脚底阴影
@@ -143,27 +132,6 @@ func _update_target_position_seeking():
 	if PC.player_instance:
 		target_position = PC.player_instance.global_position
 
-func show_health_bar():
-	if not health_bar_shown:
-		health_bar = preload("res://Scenes/global/hp_bar.tscn").instantiate()
-		add_child(health_bar)
-		health_bar.z_index = 100
-		progress_bar = health_bar.get_node("HPBar")
-		progress_bar.position = global_position + Vector2(-15, -10)
-		health_bar_shown = true
-		progress_bar.top_level = true
-	elif progress_bar and progress_bar.is_inside_tree():
-		progress_bar.position = global_position + Vector2(-15, -10)
-		var target_value_hp = (float(hp / hpMax)) * 100
-		if progress_bar.value != target_value_hp:
-			var tween = create_tween()
-			tween.tween_property(progress_bar, "value", target_value_hp, 0.15)
-		
-func free_health_bar():
-	if health_bar != null and health_bar.is_inside_tree():
-		health_bar.queue_free()
-		
-		
 func _move_pattern(delta: float):
 	var direction_to_target = global_position.direction_to(target_position)
 	var distance_to_target = global_position.distance_to(target_position)
@@ -268,38 +236,14 @@ func _physics_process(delta: float) -> void:
 	if hp < hpMax and hp > 0:
 		show_health_bar()
 	
-func _on_body_entered(body: Node2D) -> void:
-	if debuff_manager.is_action_disabled():
-		return
-	if (body is CharacterBody2D and not is_dead and not PC.invincible):
-		Global.emit_signal("player_hit", self )
-		var damage_before_debuff = atk * (1.0 - PC.damage_reduction_rate)
-		var actual_damage = int(damage_before_debuff * debuff_manager.get_take_damage_multiplier())
-		PC.apply_damage(actual_damage)
-		if PC.pc_hp <= 0:
-			body.game_over()
 
 func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:
-	var damage_offset = Vector2(35, 20)
-	var final_damage = int(damage * debuff_manager.get_damage_multiplier())
 	if damage_type == "sword_wave":
-		var current_time = Time.get_ticks_msec() / 1000.0
-		if current_time - last_sword_wave_damage_time >= SWORD_WAVE_DAMAGE_INTERVAL:
-			hp -= final_damage
-			last_sword_wave_damage_time = current_time
-	else:
-		if damage_type in ["bleed", "burn", "electrified", "corrosion", "corrosion2", "posion"]:
-			hp -= final_damage
+		if not can_apply_interval_damage("last_sword_wave_damage_time", SWORD_WAVE_DAMAGE_INTERVAL):
 			return
-		hp -= final_damage
-		var damage_type_int = 1
-		if is_summon:
-			damage_type_int = 4
-		elif is_crit:
-			damage_type_int = 2
-		Global.emit_signal("monster_damage", damage_type_int, final_damage, global_position - damage_offset)
-
-
+		apply_common_take_damage(damage, is_crit, is_summon, damage_type, {"show_damage_popup": false})
+		return
+	apply_common_take_damage(damage, is_crit, is_summon, damage_type)
 func _on_area_entered(area: Area2D) -> void:
 	if is_dead:
 		return
@@ -327,9 +271,4 @@ func _on_area_entered(area: Area2D) -> void:
 		else:
 			Global.play_hit_anime(position, is_crit)
 
-func apply_knockback(direction: Vector2, force: float):
-	var tween = create_tween()
-	tween.tween_property(self , "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
-func apply_debuff_effect(debuff_id: String):
-	emit_signal("debuff_applied", debuff_id)

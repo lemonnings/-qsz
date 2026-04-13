@@ -287,7 +287,8 @@ func _transition_to_layer(target_layer: CanvasLayer, hide_layers: Array) -> void
 				child.modulate.a = 0.0
 				transition_tween.tween_property(child, "modulate:a", 1.0, 0.125).set_delay(0.125)
 
-func _switch_to_cultivation_layer(target_layer: CanvasLayer, hide_layers: Array) -> void:
+func _switch_to_cultivation_layer(_target_layer: CanvasLayer, hide_layers: Array) -> void:
+
 	# 隐藏旧层
 	for layer in hide_layers:
 		if layer:

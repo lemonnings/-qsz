@@ -82,10 +82,10 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 	bloodwave_instance.setup_blood_wave(origin_pos, base_direction, data.range, data.damage, data.apply_bleed, data.extra_crit_chance, data.extra_crit_damage)
 
 static func _build_data() -> Dictionary:
-	var base_damage = PC.pc_atk * main_skill_bloodwave_damage
+	var _base_damage = PC.pc_atk * main_skill_bloodwave_damage
 	
 	var damage_multiplier = main_skill_bloodwave_damage
-	var base_range = bloodwave_range
+	var base_wave_range = bloodwave_range
 	
 	var missing_hp_ratio = 0.0
 	if PC.pc_max_hp > 0:
@@ -105,7 +105,7 @@ static func _build_data() -> Dictionary:
 	var wide_damage_mult = Faze.get_wide_damage_multiplier(range_bonus_ratio) # 这里range_bonus_ratio是血气波自身的范围加成
 	
 	var final_damage = (PC.pc_atk * damage_multiplier) * (1.0 + damage_bonus_ratio) * wide_damage_mult
-	var final_range = base_range * (1.0 + range_bonus_ratio) * wide_range_mult
+	var final_range = base_wave_range * (1.0 + range_bonus_ratio) * wide_range_mult * Global.get_attack_range_multiplier()
 	
 	return {
 		"damage": final_damage,
@@ -178,6 +178,6 @@ func _apply_damage() -> void:
 			hit_targets[body_id] = true
 			body.take_damage(int(final_damage), is_crit, false, "blood_wave")
 			# 击中粒子崩散特效
-			HitParticleSpawner.spawn_by_weapon(get_tree(), body.global_position, "bloodwave")
+			HitParticleSpawner.spawn_by_weapon(get_tree(), body.global_position, "blood_wave")
 			if apply_bleed:
 				body.emit_signal("debuff_applied", "bleed")

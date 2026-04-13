@@ -45,6 +45,8 @@ var ui_tweens: Dictionary = {}
 var ui_states: Dictionary = {}
 
 var player: CharacterBody2D
+const SHOP_LAYER_SCENE := preload("res://Scenes/town/shop_layer.tscn")
+var shopLayer: CanvasLayer
 
 
 func _ready() -> void:
@@ -74,6 +76,7 @@ func setup_audio_buses() -> void:
 	ui_states["cystalTips"] = false
 	ui_states["levelUpManTips"] = false
 	ui_states["levelUpMan2Tips"] = false
+	ui_states["merchantTips"] = false
 	ui_states["danluTips"] = false
 	ui_states["portalTips"] = false
 	ui_states["dark_overlay"] = false
@@ -85,6 +88,8 @@ func setup_audio_buses() -> void:
 	levelUpManTips.modulate.a = 0.0
 	levelUpMan2Tips.visible = false
 	levelUpMan2Tips.modulate.a = 0.0
+	merchantTips.visible = false
+	merchantTips.modulate.a = 0.0
 	danluTips.visible = false
 	danluTips.modulate.a = 0.0
 	portalTips.visible = false
@@ -116,8 +121,41 @@ func setup_audio_buses() -> void:
 	Global.connect("press_g", Callable(self , "press_interact2"))
 	Global.connect("press_h", Callable(self , "press_interact3"))
 	heroLayer.exit_button.pressed.connect(_on_exit_pressed)
+	_ensure_shop_layer()
 
 # UI动画处理函数
+func _ensure_shop_layer() -> void:
+	if is_instance_valid(shopLayer):
+		return
+	shopLayer = SHOP_LAYER_SCENE.instantiate()
+	shopLayer.visible = false
+	add_child(shopLayer)
+	if shopLayer.has_signal("exit_requested") and not shopLayer.exit_requested.is_connected(_on_exit_pressed):
+		shopLayer.exit_requested.connect(_on_exit_pressed)
+
+func _open_shop_layer() -> void:
+	_ensure_shop_layer()
+	PC.movement_disabled = true
+	defaultLayer.visible = false
+	if dark_overlay:
+		if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
+			ui_tweens["dark_overlay"].kill()
+		ui_tweens["dark_overlay"] = create_tween()
+		dark_overlay.visible = true
+		dark_overlay.modulate.a = 0.0
+		ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
+	if ui_tweens.has("shopLayer") and ui_tweens["shopLayer"]:
+		ui_tweens["shopLayer"].kill()
+	ui_tweens["shopLayer"] = create_tween()
+	ui_tweens["shopLayer"].set_parallel(true)
+	shopLayer.visible = true
+	if shopLayer.has_method("open_shop"):
+		shopLayer.open_shop()
+	for child in shopLayer.get_children():
+		if child.has_method("set_modulate"):
+			child.modulate.a = 0.0
+			ui_tweens["shopLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
+
 func animate_ui_element(ui_element: Control, ui_name: String, should_show: bool) -> void:
 	# 如果状态没有改变，直接返回
 	if ui_states[ui_name] == should_show:
@@ -143,7 +181,7 @@ func animate_ui_element(ui_element: Control, ui_name: String, should_show: bool)
 		ui_tweens[ui_name].tween_property(ui_element, "modulate:a", 0.0, 0.15)
 		ui_tweens[ui_name].tween_callback(func(): ui_element.visible = false)
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if not is_instance_valid(player):
 		return
 
@@ -176,6 +214,14 @@ func _process(delta: float) -> void:
 		levelUpMan2Tips.change_label2_text("交谈 [G]")
 	else:
 		animate_ui_element(levelUpMan2Tips, "levelUpMan2Tips", false)
+	
+	if player.global_position.distance_to(merchant.global_position) < interaction_distance + 10:
+		animate_ui_element(merchantTips, "merchantTips", true)
+		merchantTips.change_name("坤
+		<货摊>")
+		merchantTips.change_label1_text("交易 [F]")
+	else:
+		animate_ui_element(merchantTips, "merchantTips", false)
 	
 				
 	if player.global_position.distance_to(danlu.global_position) < interaction_distance + 20:
@@ -228,6 +274,9 @@ func press_interact():
 			if child.has_method("set_modulate"):
 				child.modulate.a = 0.0
 				ui_tweens["heroLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
+	
+	if player.global_position.distance_to(merchant.global_position) < interaction_distance + 10:
+		_open_shop_layer()
 	
 	if player.global_position.distance_to(portal.global_position) < interaction_distance:
 		PC.movement_disabled = true
@@ -427,6 +476,17 @@ func _on_exit_pressed() -> void:
 		exit_tween.tween_callback(func():
 			heroLayer.visible = false
 			for child in heroLayer.get_children():
+				if child.has_method("set_modulate"):
+					child.modulate.a = 1.0
+		).set_delay(0.2)
+	
+	if is_instance_valid(shopLayer) and shopLayer.visible:
+		for child in shopLayer.get_children():
+			if child.has_method("set_modulate"):
+				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)
+		exit_tween.tween_callback(func():
+			shopLayer.visible = false
+			for child in shopLayer.get_children():
 				if child.has_method("set_modulate"):
 					child.modulate.a = 1.0
 		).set_delay(0.2)

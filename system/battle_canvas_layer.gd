@@ -1,4 +1,5 @@
 extends CanvasLayer
+class_name BattleCanvasLayer
 
 # ============== UI 组件引用 ==============
 @export var hp_bar: ProgressBar
@@ -820,7 +821,7 @@ func _on_skill_icon_mouse_entered(skill_index: int) -> void:
 	if PC.player_instance:
 		show_skill_label(skill_index, PC.player_instance)
 
-func _on_skill_icon_mouse_exited(skill_index: int) -> void:
+func _on_skill_icon_mouse_exited(_skill_index: int) -> void:
 	hide_skill_label()
 
 ## 连接主动技能图标鼠标事件信号
@@ -1131,7 +1132,7 @@ func update_mechanism_bar(current_value: float, max_value: float, is_boss_trigge
 ## 更新时间显示
 func update_time_display(real_time: float) -> void:
 	if now_time:
-		var minutes = int(real_time) / 60
+		var minutes = int(real_time / 60.0)
 		var seconds = int(real_time) % 60
 		now_time.text = "%02d : %02d" % [minutes, seconds]
 
@@ -1153,8 +1154,8 @@ func update_score_display(point: int) -> void:
 ## 更新DPS显示
 func update_dps_display() -> void:
 	var current_dps = DpsManager.get_current_total_dps()
-	var formatted_dps = "%.1f" % current_dps
-	#current_multi.text = "DPS: " + formatted_dps
+	var _formatted_dps = "%.1f" % current_dps
+	#current_multi.text = "DPS: " + _formatted_dps
 
 ## 更新升级选择UI可见性
 func update_lv_up_visibility() -> void:
@@ -1364,90 +1365,6 @@ func _on_skill_attack_speed_updated() -> void:
 # 属性标签过渡动画 Tween
 var attr_label_tween: Tween = null
 
-# 开悟ID到中文名的映射
-const REWARD_NAMES: Dictionary = {
-	"R01": "血气", "SR01": "血气", "SSR01": "血气", "UR01": "血气",
-	"R02": "破阵", "SR02": "破阵", "SSR02": "破阵", "UR02": "破阵",
-	"R03": "惊鸿", "SR03": "惊鸿", "SSR03": "惊鸿", "UR03": "惊鸿",
-	"R04": "踏风", "SR04": "踏风", "SSR04": "踏风", "UR04": "踏风",
-	"R05": "沉静", "SR05": "沉静", "SSR05": "沉静", "UR05": "沉静",
-	"R06": "炼体", "SR06": "炼体", "SSR06": "炼体", "UR06": "炼体",
-	"R07": "健步", "SR07": "健步", "SSR07": "健步", "UR07": "健步",
-	"R08": "蛮力", "SR08": "蛮力", "SSR08": "蛮力", "UR08": "蛮力",
-	"R09": "天命", "SR09": "天命", "SSR09": "天命", "UR09": "天命",
-	"R10": "融会贯通", "SR10": "融会贯通", "SSR10": "融会贯通", "UR10": "融会贯通",
-	"R11": "行云", "SR11": "行云", "SSR11": "行云", "UR11": "行云",
-	"R12": "加护", "SR12": "加护", "SSR12": "加护", "UR12": "加护",
-	"R13": "归元", "SR13": "归元", "SSR13": "归元", "UR13": "归元",
-	"R14": "精准", "SR14": "精准", "SSR14": "精准", "UR14": "精准",
-	"R15": "致命", "SR15": "致命", "SSR15": "致命", "UR15": "致命",
-	"R16": "优雅", "SR16": "优雅", "SSR16": "优雅", "UR16": "优雅",
-	"R17": "凝势", "SR17": "凝势", "SSR17": "凝势", "UR17": "凝势",
-	"R18": "破血", "SR18": "破血", "SSR18": "破血", "UR18": "破血",
-	"R19": "坚守", "SR19": "坚守", "SSR19": "坚守", "UR19": "坚守",
-	"R20": "唤物·幻灵", "SR20": "唤物·浮灵", "SSR20": "唤物·追魂", "UR20": "唤物·双极",
-	"SR21": "唤物·愈灵", "SSR21": "唤物·护灵", "UR21": "唤物·生灵",
-	"SR22": "唤物·谐灵", "SSR22": "唤物·灵律", "UR22": "唤物·灵枢",
-	"R23": "唤物强化", "SR23": "唤物强化", "SSR23": "唤物强化", "UR23": "唤物强化",
-	"R24": "唤物巨化", "SR24": "唤物巨化", "SSR24": "唤物巨化", "UR24": "唤物巨化",
-	"R25": "唤物注能", "SR25": "唤物注能", "SSR25": "唤物注能", "UR25": "唤物注能",
-	"SR26": "唤物扩充", "SSR26": "唤物扩充", "UR26": "唤物扩充",
-	"SR27": "技艺·环", "SR30": "技艺·浪",
-	"R28": "环·增伤", "SR28": "环·增伤", "SSR28": "环·增伤", "UR28": "环·增伤",
-	"R29": "环·起势", "SR29": "环·起势", "SSR29": "环·起势", "UR29": "环·起势",
-	"R31": "浪·增伤", "SR31": "浪·增伤", "SSR31": "浪·增伤", "UR31": "浪·增伤",
-	"R32": "浪·起势", "SR32": "浪·起势", "SSR32": "浪·起势", "UR32": "浪·起势",
-	"RSwordQi": "剑气强化", "SRSwordQi": "剑气强化", "SSRSwordQi": "剑气强化", "URSwordQi": "剑气强化",
-	"SplitSwordQi1": "分光剑气", "SplitSwordQi2": "无上剑痕", "SplitSwordQi3": "穿云剑气", "SplitSwordQi4": "追踪剑气",
-	"SplitSwordQi11": "分光剑气-逆", "SplitSwordQi12": "分光剑气-裂", "SplitSwordQi13": "分光剑气-环",
-	"SplitSwordQi21": "无上剑痕-精", "SplitSwordQi22": "无上剑痕-复", "SplitSwordQi23": "无上剑痕-囚",
-	"SplitSwordQi31": "穿云剑气-透", "SplitSwordQi32": "穿云剑气-利", "SplitSwordQi33": "穿云剑气-伤",
-	"Branch": "世界树之枝", "Moyan": "魔焰", "RingFire": "炎轮", "Riyan": "赤曜",
-	"RBranch": "树枝强化", "SRBranch": "树枝强化", "SSRBranch": "树枝强化", "URBranch": "树枝强化",
-	"Rmoyan": "魔焰强化", "SRmoyan": "魔焰强化", "SSRmoyan": "魔焰强化", "URmoyan": "魔焰强化",
-	"RRingFire": "炎轮强化", "SRRingFire": "炎轮强化", "SSRRingFire": "炎轮强化", "URRingFire": "炎轮强化",
-	"RRiyan": "赤曜强化", "SRRiyan": "赤曜强化", "SSRRiyan": "赤曜强化", "URRiyan": "赤曜强化",
-	"Branch1": "多重分裂", "Branch2": "冲势渐强", "Branch3": "枝繁叶茂", "Branch4": "重型树枝",
-	"Branch11": "多重分裂-返", "Branch12": "多重分裂-刺", "Branch21": "冲势渐强-继", "Branch22": "冲势渐强-利", "Branch31": "枝繁叶茂-复",
-	"Moyan1": "蓄能火球", "Moyan2": "速爆火球", "Moyan3": "巨大魔焰",
-	"Moyan12": "速爆火球-极", "Moyan13": "蓄能火球-伤", "Moyan23": "巨大魔焰-速",
-	"RingFire1": "分炎", "RingFire2": "轮转", "RingFire3": "灵焰", "RingFire4": "爆炎",
-	"RingFire11": "分炎-暴", "RingFire44": "爆炎-破",
-	"Riyan1": "炎甲", "Riyan2": "心能", "Riyan3": "生蕴", "Riyan4": "炎潮",
-	"Riyan11": "炎甲-护", "Riyan22": "心能-极",
-	"Holylight": "圣光术",
-	"RHolylight": "圣光术强化", "SRHolylight": "圣光术强化", "SSRHolylight": "圣光术强化", "URHolylight": "圣光术强化",
-	"Holylight1": "辉光", "Holylight2": "炫光", "Holylight3": "愈光", "Holylight4": "耀光",
-	"Holylight11": "辉光-炫光", "Holylight22": "愈光-耀光", "Holylight33": "炫光-耀光"
-}
-
-## 获取开悟的中文名列表
-func _get_reward_chinese_names() -> String:
-	var names: Array[String] = []
-	for reward_id in PC.selected_rewards:
-		if reward_id == "":
-			continue
-		if REWARD_NAMES.has(reward_id):
-			var name = REWARD_NAMES[reward_id]
-			if not names.has(name): # 避免重复名称
-				names.append(name)
-			else:
-				# 相同名称的统计次数
-				var count = 0
-				for r_id in PC.selected_rewards:
-					if REWARD_NAMES.has(r_id) and REWARD_NAMES[r_id] == name:
-						count += 1
-				if count > 1:
-					# 更新为带数量的名称
-					var idx = names.find(name)
-					if idx >= 0:
-						names[idx] = name + "x" + str(count)
-		else:
-			names.append(reward_id) # 未知的ID直接显示
-	if names.is_empty():
-		return "无"
-	return ", ".join(names)
-
 func show_attr_label() -> void:
 	# 停止之前的动画
 	if attr_label_tween and attr_label_tween.is_valid():
@@ -1466,11 +1383,10 @@ func show_attr_label() -> void:
 	text += "暴击伤害：" + str(int(PC.crit_damage_multi * 100)) + "%\n"
 	text += "减伤率：" + str(int(PC.damage_reduction_rate * 100)) + "%    "
 	text += "天命：" + str(PC.now_lunky_level) + "\n"
-	text += "[color=#FF6B6B]DPS：%.1f[/color]\n" % DpsManager.get_current_total_dps()
 	
 	# ===== 次要属性 =====
 	text += "[font_size=17][color=#98FB98]═══ 次要属性 ═══[/color][/font_size]\n"
-	text += "攻击范围：+" + str(int(PC.bullet_size * 100)) + "%    "
+	text += "攻击范围：+" + str(int((Global.get_attack_range_multiplier() - 1.0) * 100)) + "%    "
 	text += "体型大小：" + str(int(PC.body_size * 100)) + "%\n"
 	text += "真气获取：+" + str(int(PC.point_multi * 100)) + "%    "
 	text += "经验获取：+" + str(int(PC.exp_multi * 100)) + "%\n"
@@ -1508,10 +1424,6 @@ func show_attr_label() -> void:
 		text += "弹体大小：" + str(int(PC.summon_bullet_size_multiplier * 100)) + "%    "
 		text += "攻击间隔倍率：" + str(int(PC.summon_interval_multiplier * 100)) + "%\n"
 	
-	# ===== 开悟获取 =====
-	text += "[font_size=17][color=#FFA500]═══ 开悟获取 ═══[/color][/font_size]\n"
-	text += _get_reward_chinese_names()
-	
 	attr_label.text = text
 	
 	# 设置初始透明度并显示
@@ -1537,7 +1449,7 @@ func hide_attr_label() -> void:
 
 func show_skill_label(skill_index: int, player_node: Node) -> void:
 	var skill_data = {
-		1: {"name": "剑气", "level_prop": "main_skill_swordQi", "damage_prop": "main_skill_swordQi_damage", "speed_node": "fire_speed", "tag": "sword_wave", "reward_prefixes": ["SplitSwordQi", "RSwordQi", "SRSwordQi", "SSRSwordQi", "URSwordQi"]},
+		1: {"name": "剑气", "level_prop": "main_skill_swordQi", "damage_prop": "main_skill_swordQi_damage", "speed_node": "fire_speed", "tag": "swordqi", "reward_prefixes": ["SplitSwordQi", "RSwordQi", "SRSwordQi", "SSRSwordQi", "URSwordQi"]},
 		2: {"name": "世界树之枝", "level_prop": "main_skill_branch", "damage_prop": "main_skill_branch_damage", "speed_node": "branch_fire_speed", "tag": "branch", "reward_prefixes": ["Branch", "RBranch", "SRBranch", "SSRBranch", "URBranch"]},
 		3: {"name": "魔焰", "level_prop": "main_skill_moyan", "damage_prop": "main_skill_moyan_damage", "speed_node": "moyan_fire_speed", "tag": "moyan", "reward_prefixes": ["Moyan", "Rmoyan", "SRmoyan", "SSRmoyan", "URmoyan"]},
 		4: {"name": "赤曜", "level_prop": "main_skill_riyan", "damage_prop": "main_skill_riyan_damage", "speed_node": "riyan_fire_speed", "tag": "riyan", "reward_prefixes": ["Riyan", "RRiyan", "SRRiyan", "SSRRiyan", "URRiyan"]},
@@ -1566,6 +1478,8 @@ func show_skill_label(skill_index: int, player_node: Node) -> void:
 	
 	var level = PC.get(data.level_prop) if PC.get(data.level_prop) != null else 1
 	var damage_multi = PC.get(data.damage_prop)
+	if data.tag == "thunder":
+		damage_multi = 0.7 * (PC.main_skill_thunder_damage / 0.85)
 	if damage_multi == null:
 		# 尝试从单例获取或使用默认值1.0
 		if data.tag == "blood_wave" and ClassDB.class_exists("BloodWave"):
@@ -1580,18 +1494,19 @@ func show_skill_label(skill_index: int, player_node: Node) -> void:
 	
 	var w_dps = Global.get_weapon_dps().get(data.tag, 0.0)
 	
-	var text = "[font_size=17]" + data.name + "  LV. " + str(level) + "[/font_size]"
+	var text = "" + data.name + "  LV. " + str(level) + ""
 	text += "\n基本伤害倍率： " + str(int(damage_multi * 100)) + "%"
 	text += "\n基本攻击速度：" + str("%.2f" % speed) + "秒/次"
-	text += "\n秒伤(DPS)：[color=orange]" + str(int(w_dps)) + "[/color]"
+	text += "\n秒伤：[color=orange]" + str(int(w_dps)) + "[/color]"
 	
 	text += "\n附加效果/进化："
 	var has_evolution = false
 	for reward_id in PC.selected_rewards:
 		for prefix in data.reward_prefixes:
 			if str(reward_id).begins_with(prefix):
-				if REWARD_NAMES.has(reward_id):
-					text += "\n" + REWARD_NAMES[reward_id]
+				var reward_name = _get_reward_name(reward_id)
+				if reward_name != "":
+					text += "\n" + reward_name
 					has_evolution = true
 				break
 	
@@ -1603,6 +1518,15 @@ func show_skill_label(skill_index: int, player_node: Node) -> void:
 
 func hide_skill_label() -> void:
 	skill_label1.visible = false
+
+func _get_reward_name(reward_id: String) -> String:
+	# 从 LvUp 单例的 all_rewards_list 中查找奖励名称
+	if LvUp and LvUp.has_method("get") and LvUp.get("all_rewards_list"):
+		var reward_list = LvUp.get("all_rewards_list")
+		for reward in reward_list:
+			if reward.id == reward_id:
+				return reward.reward_name
+	return ""
 
 # 兼容旧代码
 func show_skill1_label(player_node: Node) -> void:
@@ -1842,7 +1766,7 @@ func handle_refresh_button(button_id: int) -> void:
 		_update_refresh_lock_display()
 
 func get_required_lv_up_value(level: int) -> int:
-	return level_up_manager.get_required_lv_up_value(level)
+	return int(level_up_manager.get_required_lv_up_value(level))
 
 func add_pending_level_up() -> void:
 	level_up_manager.add_pending_level_up()
@@ -1901,7 +1825,7 @@ func play_warning_animation() -> void:
 	warning_node.visible = true
 	
 	var tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	tween.set_process_mode(1)
+	tween.set_process_mode(Tween.TWEEN_PROCESS_IDLE)
 	tween.tween_property(warning_node, "modulate:a", 1.0, 0.5)
 	tween.tween_interval(2.0)
 	tween.tween_property(warning_node, "modulate:a", 0.0, 0.5)

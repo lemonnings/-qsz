@@ -55,7 +55,7 @@ func _process(delta: float) -> void:
 		electrified_timer -= electrified_interval
 		_trigger_electrified("auto")
 
-func _on_player_hit(attacker: Node2D = null) -> void:
+func _on_player_hit(_attacker: Node2D = null) -> void:
 	if PC.is_game_over:
 		return
 	if PC.faze_blood_level < 4:

@@ -8,15 +8,15 @@ class_name HitParticleSpawner
 static var _pixel_tex: ImageTexture = null
 
 # ====== 可调参数 ======
-const DEFAULT_AMOUNT: int = 6 # 默认粒子数量
-const PARTICLE_LIFETIME: float = 0.55 # 粒子存活时间(秒)
+const DEFAULT_AMOUNT: int = 7 # 默认粒子数量
+const PARTICLE_LIFETIME: float = 0.5 # 粒子存活时间(秒)
 const VELOCITY_MIN: float = 210.0 # 初始飞散速度下限
 const VELOCITY_MAX: float = 270.0 # 初始飞散速度上限
 const DAMPING_MIN: float = 220.0 # 阻尼下限（使粒子减速）
 const DAMPING_MAX: float = 300.0 # 阻尼上限
 const GRAVITY: Vector2 = Vector2(0, 240) # 重力（轻微向下）
-const SCALE_MIN: float = 1.4 # 粒子最小缩放
-const SCALE_MAX: float = 2.15 # 粒子最大缩放
+const SCALE_MIN: float = 1.3 # 粒子最小缩放
+const SCALE_MAX: float = 2 # 粒子最大缩放
 const ANGLE_VEL_MIN: float = 60.0 # 粒子自旋速度下限（度/秒）
 const ANGLE_VEL_MAX: float = 240.0 # 粒子自旋速度上限（度/秒）
 const DEFAULT_COLOR: Color = Color(1.0, 0.45, 0.4, 1.0) # 默认浅红色（swordQi）
@@ -24,18 +24,19 @@ const DEFAULT_COLOR: Color = Color(1.0, 0.45, 0.4, 1.0) # 默认浅红色（swor
 # ====== 武器粒子配置映射 ======
 # 格式: "weapon_tag": {"color": Color, "amount": int}
 const WEAPON_PARTICLE_CONFIG: Dictionary = {
-	"branch": {"color": Color(0.6, 0.4, 0.3, 1.0), "amount": 4}, # 褐色
-	"riyan": {"color": Color(1.0, 0.6, 0.2, 1.0), "amount": 4}, # 橙色
-	"thunderbreak": {"color": Color(0.5, 0.7, 1.0, 1.0), "amount": 6}, # 浅蓝色
-	"water": {"color": Color(0.4, 0.7, 1.0, 1.0), "amount": 4}, # 淡蓝色
-	"bloodwave": {"color": Color(1.0, 0.2, 0.2, 1.0), "amount": 4}, # 红色
-	"bloodboardsword": {"color": Color(1.0, 0.2, 0.2, 1.0), "amount": 5}, # 红色
-	"lightbullet": {"color": Color(1.0, 0.9, 0.3, 1.0), "amount": 4}, # 黄色
-	"xuanwu": {"color": Color(0.5, 0.6, 0.65, 1.0), "amount": 5}, # 青灰色
-	"xunfeng": {"color": Color(0.5, 1.0, 0.5, 1.0), "amount": 6}, # 浅绿色
-	"genshan": {"color": Color(0.6, 0.4, 0.3, 1.0), "amount": 6}, # 褐色
-	"qigong": {"color": Color(0.5, 1.0, 0.5, 1.0), "amount": 6}, # 浅绿色
-	"ice": {"color": Color(0.6, 0.85, 1.0, 1.0), "amount": 6}, # 浅蓝色
+	"branch": {"color": Color(0.6, 0.4, 0.3, 1.0), "amount": 5}, # 褐色
+	"riyan": {"color": Color(1.0, 0.6, 0.2, 1.0), "amount": 5}, # 橙色
+	"thunder": {"color": Color(1.0, 0.78, 0.24, 1.0), "amount": 5}, # 偏橙黄
+	"thunder_break": {"color": Color(0.5, 0.7, 1.0, 1.0), "amount": 7}, # 浅蓝色
+	"water": {"color": Color(0.4, 0.7, 1.0, 1.0), "amount": 5}, # 淡蓝色
+	"blood_wave": {"color": Color(1.0, 0.2, 0.2, 1.0), "amount": 5}, # 红色
+	"blood_broadsword": {"color": Color(1.0, 0.2, 0.2, 1.0), "amount": 6}, # 红色
+	"light_bullet": {"color": Color(1.0, 0.9, 0.3, 1.0), "amount": 5}, # 黄色
+	"xuanwu": {"color": Color(0.5, 0.6, 0.65, 1.0), "amount": 6}, # 青灰色
+	"xunfeng": {"color": Color(0.5, 1.0, 0.5, 1.0), "amount": 7}, # 浅绿色
+	"genshan": {"color": Color(0.6, 0.4, 0.3, 1.0), "amount": 7}, # 褐色
+	"qigong": {"color": Color(0.5, 1.0, 0.5, 1.0), "amount": 7}, # 浅绿色
+	"ice_flower": {"color": Color(0.6, 0.85, 1.0, 1.0), "amount": 7}, # 浅蓝色
 }
 
 

@@ -16,7 +16,7 @@ func _ready() -> void:
 	else:
 		printerr("Global signal 'drop_exp_orb' not found!")
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if not victory_attracting:
 		return
 	

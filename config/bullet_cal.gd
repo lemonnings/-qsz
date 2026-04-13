@@ -55,6 +55,8 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 	
 	# 应用全局buff效果
 	final_damage_val = apply_global_buff_effects(final_damage_val)
+	final_damage_val *= PC.damage_deal_multiplier # 应用最终伤害系数（如暗影拘束）
+	final_damage_val = Global.apply_enemy_damage_bonus(final_damage_val, enemy)
 	
 	if weapon_tag == "treasure" or weapon_tag == "branch":
 		if enemy.is_in_group("elite") or enemy.is_in_group("boss"):

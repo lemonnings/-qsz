@@ -50,7 +50,7 @@ func setup_water(pos: Vector2, p_damage: float, p_range: float, p_heal: int, opt
 	# 伤害仅由奖励直接累加（main_skill_water_damage），不再叠加生灵法则乘数，避免奖励加成 × 法则加成的双重放大
 	var life_range_multiplier = Faze.get_life_range_multiplier(PC.faze_life_level)
 	damage = p_damage
-	range_val = p_range * life_range_multiplier
+	range_val = p_range * life_range_multiplier * Global.get_attack_range_multiplier()
 	heal_amount = p_heal
 	player_ref = get_tree().get_first_node_in_group("player")
 	
@@ -272,15 +272,7 @@ func _deal_damage(enemy: Area2D, deal_circle: bool, deal_sector: bool) -> void:
 			final_damage *= PC.water_final_damage_multi
 			
 		if enemy.has_method("take_damage"):
-			# 这里 source 传 "water" 或 "water_sector" 都可以，或者组合
-			var source = "water"
-			if deal_sector and not deal_circle:
-				source = "water_sector"
-			elif deal_sector and deal_circle:
-				source = "water_combined"
-				
-			enemy.take_damage(int(final_damage), is_crit, false, source)
-		# 击中粒子崩散特效
+			enemy.take_damage(int(final_damage), is_crit, false, "water")		# 击中粒子崩散特效
 		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "water")
 			
 		# Water2: 迟滞 - 减速 (只要造成伤害且开启了减速)

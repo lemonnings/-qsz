@@ -26,6 +26,8 @@ var direction: Vector2
 var is_rebound: bool = false # 标记是否为反弹子弹
 var parent_bullet: bool = true # 标记是否为父级子弹，默认为true
 var grandson_bullet: bool = false # 标记是否为孙级子弹
+var base_node_scale: Vector2 = Vector2.ONE
+var current_scale_factor: Vector2 = Vector2.ONE
 
 func _ready() -> void:
 	# 记录子弹起始位置
@@ -84,14 +86,14 @@ func _physics_process(delta: float) -> void:
 		# 树枝12: 分裂的子枝在达到最大射程后，会向随机方向再射出一个孙枝，造成同等伤害但不会触发分裂与多重分裂-返
 		elif PC.selected_rewards.has("Branch12") and not parent_bullet and not grandson_bullet:
 			# 创建孙枝
-			var grandson_bullet = BranchScene.instantiate()
-			grandson_bullet.direction = Vector2.from_angle(randf() * 2 * PI) # 随机方向
-			grandson_bullet.global_position = global_position
-			grandson_bullet.parent_bullet = false # 孙枝也不会分裂
-			grandson_bullet.is_rebound = true # 避免多重分裂-返效果
-			grandson_bullet.bullet_damage = bullet_damage # 继承当前伤害
-			grandson_bullet.grandson_bullet = true # 标记为孙级子弹
-			get_parent().add_child(grandson_bullet)
+			var spawned_grandson_bullet = BranchScene.instantiate()
+			spawned_grandson_bullet.direction = Vector2.from_angle(randf() * 2 * PI) # 随机方向
+			spawned_grandson_bullet.global_position = global_position
+			spawned_grandson_bullet.parent_bullet = false # 孙枝也不会分裂
+			spawned_grandson_bullet.is_rebound = true # 避免多重分裂-返效果
+			spawned_grandson_bullet.bullet_damage = bullet_damage # 继承当前伤害
+			spawned_grandson_bullet.grandson_bullet = true # 标记为孙级子弹
+			get_parent().add_child(spawned_grandson_bullet)
 			start_fade_out()
 		else:
 			start_fade_out()
@@ -217,10 +219,10 @@ func set_speed(new_speed: float) -> void:
 func update_collision_shape_size() -> void:
 	if collision_shape and collision_shape.shape:
 		# 获取当前的缩放值
-		var current_scale = scale
+		var _current_scale = scale
 
 
-func _create_sword_wave_instance(position: Vector2) -> void:
+func _create_sword_wave_instance(spawn_position: Vector2) -> void:
 	if parent_bullet:
 		var split_count = PC.branch_split_count
 		if PC.selected_rewards.has("Branch3"):
@@ -235,7 +237,7 @@ func _create_sword_wave_instance(position: Vector2) -> void:
 			var new_bullet = BranchScene.instantiate()
 			var random_angle = base_angle - angle_range / 2 + randf() * angle_range
 			new_bullet.direction = Vector2.from_angle(random_angle)
-			new_bullet.global_position = position
+			new_bullet.global_position = spawn_position
 			new_bullet.parent_bullet = false # 子弹不再分裂
 			
 			# 树枝12: 分裂出的子树枝也会继承这个加成
@@ -246,17 +248,19 @@ func _create_sword_wave_instance(position: Vector2) -> void:
 
 # 设置子弹缩放并同步更新碰撞形状
 func set_bullet_scale(new_scale: Vector2) -> void:
-	scale = new_scale
+	base_node_scale = scale
+	current_scale_factor = new_scale
+	scale = Vector2(base_node_scale.x * new_scale.x, base_node_scale.y * new_scale.y)
 	update_collision_shape_size()
 
-func _create_aoe_damage(position: Vector2) -> void:
+func _create_aoe_damage(aoe_position: Vector2) -> void:
 	var aoe_area = Area2D.new()
 	var aoe_shape = CircleShape2D.new()
 	aoe_shape.radius = 20 # 小范围半径
-	var collision_shape = CollisionShape2D.new()
-	collision_shape.shape = aoe_shape
-	aoe_area.add_child(collision_shape)
-	aoe_area.global_position = position
+	var aoe_collision_shape = CollisionShape2D.new()
+	aoe_collision_shape.shape = aoe_shape
+	aoe_area.add_child(aoe_collision_shape)
+	aoe_area.global_position = aoe_position
 	get_parent().add_child(aoe_area)
 
 	await get_tree().create_timer(0.1).timeout
@@ -273,7 +277,7 @@ func find_nearest_enemy() -> void:
 	if enemies.is_empty():
 		return
 	
-	var nearest_enemy = null
+	var _nearest_enemy = null
 	var nearest_distance = INF
 	
 	for enemy in enemies:
@@ -281,7 +285,7 @@ func find_nearest_enemy() -> void:
 		if enemy and is_instance_valid(enemy) and enemy.has_method("_on_area_entered"):
 			if distance < nearest_distance:
 				nearest_distance = distance
-				nearest_enemy = enemy
+				_nearest_enemy = enemy
 
 # 当与其他区域进入碰撞时
 func _on_area_entered(area: Area2D) -> void:

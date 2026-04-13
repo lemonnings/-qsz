@@ -80,15 +80,15 @@ static func _spawn_genshan(scene: PackedScene, tree: SceneTree, origin_pos: Vect
 	var instance = scene.instantiate()
 	tree.current_scene.add_child(instance)
 	
-	var damage = PC.pc_atk * main_skill_genshan_damage * genshan_final_damage_multi
+	var spawn_damage = PC.pc_atk * main_skill_genshan_damage * genshan_final_damage_multi
 	
 	# 八卦法则伤害加成
-	damage *= Faze.get_bagua_damage_multiplier()
+	spawn_damage *= Faze.get_bagua_damage_multiplier()
 	
-	# 从 PC.bullet_size 获取基础 scale
-	var base_scale = 1.0 + PC.bullet_size
+	# 从全局攻击范围倍率获取基础 scale
+	var base_scale = Global.get_attack_range_multiplier()
 	
-	instance.setup(origin_pos, dir, damage, genshan_range, multiplier, base_scale, should_apply_shield)
+	instance.setup(origin_pos, dir, spawn_damage, genshan_range * Global.get_attack_range_multiplier(), multiplier, base_scale, should_apply_shield)
 
 func setup(pos: Vector2, dir: Vector2, p_damage: float, p_range: float, p_multiplier: float, p_base_scale: float, p_can_apply_shield: bool) -> void:
 	global_position = pos
@@ -178,7 +178,7 @@ func _add_next_sprite() -> void:
 	# 硬编码的原始比例
 	var hardcoded_scale = Vector2(3.265, 1.44)
 	# 原始宽度 43 (假设是 texture 宽度，或者 base_sprite_size.x)
-	var base_width = 43.0
+	var _base_width = 43.0
 	
 	# 如果是第一次生成
 	if created_sprites.is_empty():
@@ -342,13 +342,13 @@ func _apply_shield() -> void:
 	
 	var base_shield = 60
 	var hp_ratio = 0.03
-	var duration = 7.0
+	var shield_duration = 7.0
 	
 	# Genshan11 (震山-护山): 护盾提升50%，持续10秒
 	if PC.selected_rewards.has("Genshan11"):
 		base_shield = int(base_shield * 1.5)
 		hp_ratio *= 1.5
-		duration = 10.0
+		shield_duration = 10.0
 		
 	var shield_val = base_shield + (PC.pc_max_hp * hp_ratio)
-	PC.add_shield(int(shield_val), duration)
+	PC.add_shield(int(shield_val), shield_duration)

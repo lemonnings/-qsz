@@ -229,7 +229,7 @@ func _update_items_display():
 	
 	# 计算当前页的物品范围
 	var start_index = (current_page - 1) * ITEMS_PER_PAGE
-	var end_index = min(start_index + ITEMS_PER_PAGE, sorted_items.size())
+	var _end_index = min(start_index + ITEMS_PER_PAGE, sorted_items.size())
 	
 	# 更新每个格子
 	for i in range(ITEMS_PER_PAGE):
@@ -248,8 +248,22 @@ func _update_items_display():
 func _get_sorted_items() -> Array:
 	var items = []
 	
+	var lingshi_count = Global.get_item_count(Global.LINGSHI_ITEM_ID)
+	var lingshi_data = ItemManager.get_item_all_data(Global.LINGSHI_ITEM_ID)
+	if !lingshi_data.is_empty():
+		var lingshi_type = lingshi_data.get("item_type", "")
+		if current_tab == "all" or (current_tab == "special" and (lingshi_type == "special" or lingshi_type == "equip")):
+			items.append({
+				"item_id": Global.LINGSHI_ITEM_ID,
+				"count": lingshi_count,
+				"item_type": lingshi_type,
+				"item_data": lingshi_data
+			})
+	
 	# 遍历玩家背包
 	for item_id in Global.player_inventory.keys():
+		if item_id == Global.LINGSHI_ITEM_ID:
+			continue
 		var count = Global.player_inventory[item_id]
 		if count <= 0:
 			continue
@@ -275,13 +289,18 @@ func _get_sorted_items() -> Array:
 			"item_data": item_data
 		})
 	
-	# 排序：消耗 > 材料 > 特殊
+	# 排序：灵石优先，其余按类型和 ID
 	items.sort_custom(_compare_items)
 	
 	return items
 
 # 物品排序比较函数
 func _compare_items(a: Dictionary, b: Dictionary) -> bool:
+	if a.item_id == Global.LINGSHI_ITEM_ID and b.item_id != Global.LINGSHI_ITEM_ID:
+		return true
+	if b.item_id == Global.LINGSHI_ITEM_ID and a.item_id != Global.LINGSHI_ITEM_ID:
+		return false
+	
 	var type_order = {
 		"consumable": 0,
 		"immediate": 1,
@@ -339,7 +358,9 @@ func _setup_slot(slot: Panel, item_data: Dictionary):
 		icon_node.texture = null
 	
 	# 设置数量
-	if item_data.count > 1:
+	if item_data.item_id == Global.LINGSHI_ITEM_ID:
+		count_label.text = str(item_data.count)
+	elif item_data.count > 1:
 		count_label.text = str(item_data.count)
 	else:
 		count_label.text = ""
@@ -611,7 +632,7 @@ func _on_slot_double_click(slot_index: int):
 		return
 	
 	var item_id = slot.get_meta("item_id")
-	var item_data = slot.get_meta("item_data")
+	var _item_data = slot.get_meta("item_data")
 	
 	# 检查是否可以使用
 	if !ItemManager.can_use_item(item_id):
@@ -634,7 +655,7 @@ func _on_slot_mouse_entered(slot_index: int):
 	_show_tooltip(slot_index)
 
 # 鼠标离开格子
-func _on_slot_mouse_exited(slot_index: int):
+func _on_slot_mouse_exited(_slot_index: int):
 	_hide_tooltip()
 
 # 显示消息提示

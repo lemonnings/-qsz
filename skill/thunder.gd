@@ -14,11 +14,12 @@ var damage_decay: float = 0.3
 var chain_range: float = 130.0
 var paralyze_duration: float = 0.0
 var boss_extra_damage: float = 0.0
+var final_damage_multiplier: float = 1.0
 var duration: float = 0.1
 var sprite_base_scale: Vector2
 var follow_node: Node
 
-func setup_thunder(p_start_position: Vector2, p_end_position: Vector2, p_target_enemy: Node, p_damage: float, p_chain_left: int, p_damage_decay: float, p_chain_range: float, p_paralyze_duration: float, p_boss_extra_damage: float, p_follow_node: Node = null) -> void:
+func setup_thunder(p_start_position: Vector2, p_end_position: Vector2, p_target_enemy: Node, p_damage: float, p_chain_left: int, p_damage_decay: float, p_chain_range: float, p_paralyze_duration: float, p_boss_extra_damage: float, p_final_damage_multiplier: float = 1.0, p_follow_node: Node = null) -> void:
 	start_position = p_start_position
 	end_position = p_end_position
 	target_enemy = p_target_enemy
@@ -28,6 +29,7 @@ func setup_thunder(p_start_position: Vector2, p_end_position: Vector2, p_target_
 	chain_range = p_chain_range
 	paralyze_duration = p_paralyze_duration
 	boss_extra_damage = p_boss_extra_damage
+	final_damage_multiplier = p_final_damage_multiplier
 	sprite_base_scale = sprite.scale
 	follow_node = p_follow_node
 	
@@ -49,7 +51,7 @@ func _apply_visual() -> void:
 	var circle_shape = collision_shape.shape as CircleShape2D
 	circle_shape.radius = distance * 0.5
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	if follow_node and is_instance_valid(follow_node):
 		start_position = follow_node.global_position
 		_apply_visual()
@@ -67,7 +69,7 @@ func _apply_damage_and_chain() -> void:
 			var next_damage = thunder_damage * (1.0 - damage_decay)
 			var thunder_instance = thunder_scene.instantiate()
 			get_tree().current_scene.add_child(thunder_instance)
-			thunder_instance.setup_thunder(target_position, next_enemy.global_position, next_enemy, next_damage, chain_left - 1, damage_decay, chain_range, paralyze_duration, boss_extra_damage, null)
+			thunder_instance.setup_thunder(target_position, next_enemy.global_position, next_enemy, next_damage, chain_left - 1, damage_decay, chain_range, paralyze_duration, boss_extra_damage, final_damage_multiplier, null)
 	
 	await get_tree().create_timer(duration).timeout
 	queue_free()
@@ -88,7 +90,9 @@ func _apply_damage_to_enemy(enemy: Node) -> void:
 	
 	if is_boss and boss_extra_damage > 0.0:
 		final_damage *= (1.0 + boss_extra_damage)
+	final_damage *= final_damage_multiplier
 	enemy.take_damage(int(final_damage), false, false, "thunder")
+	HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "thunder")
 	
 	# 八卦法则推衍度
 	Faze.add_bagua_progress(1, enemy.is_in_group("elite") or enemy.is_in_group("boss"))

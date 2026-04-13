@@ -21,7 +21,10 @@ class Reward: # Reward 类定义了单个奖励所包含的所有属性。
 	var tags: String # 标签，用于分类或筛选奖励。多个标签用逗号分隔。
 
 
+@warning_ignore("unused_signal")
 signal player_lv_up_over
+
+@warning_ignore("unused_signal")
 signal lucky_level_up
 
 func _ready():
@@ -423,7 +426,7 @@ func check_no_other_advance() -> bool:
 
 # 检查指定主技能的进阶池是否为空（用于升级界面判断是否需要填充精进）
 func is_advance_pool_empty(main_skill_name: String) -> bool:
-	var filtered_rewards: Array[Reward] = []
+	#var filtered_rewards: Array[Reward] = []
 	for reward_item in all_rewards_list:
 		if reward_item.if_advance == true and reward_item.faction == main_skill_name and reward_item.id != "NoAdvance":
 			# 检查前置条件和最大获取次数
@@ -459,9 +462,9 @@ func check_not_have_SR27() -> bool:
 func check_not_have_SR30() -> bool:
 	return not PC.selected_rewards.has("wave_bullet")
 
-# 检查子弹大小是否小于等于2.0 (通用子弹大小相关技能的前置条件)
+# 检查攻击范围是否小于等于2.0（通用范围相关技能的前置条件）
 func check_bullet_size_condition() -> bool:
-	return PC.bullet_size <= 2.0
+	return Global.get_attack_range_multiplier() <= 2.0
 
 func check_Branch_condition() -> bool:
 	return PC.selected_rewards.has("Branch")
@@ -1195,22 +1198,22 @@ func reward_UR16():
 	_level_up_action()
 
 func reward_R17():
-	PC.bullet_size += 0.1
+	PC.add_attack_range(0.1)
 	PC.pc_atk_speed += 0.08
 	_level_up_action()
 
 func reward_SR17():
-	PC.bullet_size += 0.1
+	PC.add_attack_range(0.1)
 	PC.pc_atk_speed += 0.11
 	_level_up_action()
 
 func reward_SSR17():
-	PC.bullet_size += 0.15
+	PC.add_attack_range(0.15)
 	PC.pc_atk_speed += 0.12
 	_level_up_action()
 
 func reward_UR17():
-	PC.bullet_size += 0.15
+	PC.add_attack_range(0.15)
 	PC.pc_atk_speed += 0.16
 	_level_up_action()
 
@@ -1282,7 +1285,7 @@ func reward_fiveway():
 	Global.emit_signal("buff_added", "five_way", -1, 1) # 添加五向攻击buff
 	PC.pc_atk = int(PC.pc_atk * 0.9) # 攻击降低10% (相对于当前值，若之前有三向，则是在三向基础上再乘0.9)
 	PC.pc_atk_speed -= 0.15 # 攻击速度降低15%
-	PC.bullet_size -= 0.2 # 子弹大小减少0.2
+	PC.add_attack_range(-0.2) # 攻击范围减少0.2
 	_level_up_action()
 
 func reward_Ice():

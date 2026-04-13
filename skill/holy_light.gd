@@ -40,6 +40,7 @@ var dot_damage: float = 0.0
 var range_scale: float = 1.0
 var vulnerable_damage_bonus: float = 0.0
 var vulnerable_crit: bool = false
+var base_collision_scale: Vector2 = Vector2.ONE
 
 var elapsed_time: float = 0.0 # 填充进度计时器
 var draw_rotation: float = 0.0 # 仅十字架旋转，椭圆外形保持不动
@@ -109,32 +110,32 @@ static func _build_data() -> Dictionary:
 	var life_range_multiplier = Faze.get_life_range_multiplier(PC.faze_life_level)
 	# 伤害仅由奖励直接累加（main_skill_holylight_damage），不再叠加生灵法则乘数，避免奖励加成 × 法则加成的双重放大
 	var damage_multiplier = main_skill_holylight_damage * holylight_final_damage_multi
-	var range_scale = holylight_range_scale * holylight_size_multiplier * life_range_multiplier
-	var duration = holylight_duration
-	var heal_base = holylight_heal_base
-	var heal_ratio = holylight_heal_ratio
-	var center_extra_damage = holylight_center_extra_damage
+	var build_range_scale = holylight_range_scale * holylight_size_multiplier * life_range_multiplier
+	var build_duration = holylight_duration
+	var build_heal_base = holylight_heal_base
+	var build_heal_ratio = holylight_heal_ratio
+	var build_center_extra_damage = holylight_center_extra_damage
 	var dot_damage_ratio = holylight_dot_damage
-	var vulnerable_damage_bonus = holylight_vulnerable_damage_bonus
-	var vulnerable_crit = holylight_vulnerable_crit
+	var build_vulnerable_damage_bonus = holylight_vulnerable_damage_bonus
+	var build_vulnerable_crit = holylight_vulnerable_crit
 	
-	var damage = PC.pc_atk * damage_multiplier
-	var dot_damage = PC.pc_atk * dot_damage_ratio
+	var build_damage = PC.pc_atk * damage_multiplier
+	var build_dot_damage = PC.pc_atk * dot_damage_ratio
 	
 	# 估算半径用于索敌 (假设基础半径100)
-	var radius = 100.0 * range_scale
+	var build_radius = 100.0 * build_range_scale
 	
 	return {
-		"damage": damage,
-		"range_scale": range_scale,
-		"duration": duration,
-		"heal_base": heal_base,
-		"heal_ratio": heal_ratio,
-		"center_extra_damage": center_extra_damage,
-		"dot_damage": dot_damage,
-		"vulnerable_damage_bonus": vulnerable_damage_bonus,
-		"vulnerable_crit": vulnerable_crit,
-		"radius": radius
+		"damage": build_damage,
+		"range_scale": build_range_scale,
+		"duration": build_duration,
+		"heal_base": build_heal_base,
+		"heal_ratio": build_heal_ratio,
+		"center_extra_damage": build_center_extra_damage,
+		"dot_damage": build_dot_damage,
+		"vulnerable_damage_bonus": build_vulnerable_damage_bonus,
+		"vulnerable_crit": build_vulnerable_crit,
+		"radius": build_radius
 	}
 
 func setup(pos: Vector2, p_damage: float, p_heal_base: int, p_heal_ratio: float, p_duration: float, p_range_scale: float, options: Dictionary = {}) -> void:
@@ -143,7 +144,7 @@ func setup(pos: Vector2, p_damage: float, p_heal_base: int, p_heal_ratio: float,
 	heal_base = p_heal_base
 	heal_ratio = p_heal_ratio
 	duration = p_duration
-	range_scale = p_range_scale # _build_data() 已包含 holylight_size_multiplier，此处不再二次应用
+	range_scale = p_range_scale * Global.get_attack_range_multiplier() # 统一叠加全局攻击范围倍率
 	
 	center_extra_damage = options.get("center_extra_damage", 0.0)
 	dot_damage = options.get("dot_damage", 0.0)
@@ -152,12 +153,14 @@ func setup(pos: Vector2, p_damage: float, p_heal_base: int, p_heal_ratio: float,
 	
 	if not collision:
 		collision = get_node_or_null("CollisionShape2D")
+	if collision:
+		base_collision_scale = collision.scale
 	
 	if collision and collision.shape is CircleShape2D:
 		radius = collision.shape.radius * range_scale + 5 # Y半径（碰撞范围+5px）
 		x_radius = collision.shape.radius * range_scale * 1.3 + 5 # X半径（X轴1.3倍）
 		# 椭圆碰撞体：X轴拉伸1.3倍
-		collision.scale = Vector2(range_scale * 1.3, range_scale)
+		collision.scale = Vector2(base_collision_scale.x * range_scale * 1.3, base_collision_scale.y * range_scale)
 	else:
 		radius = 100.0 * range_scale + 5
 		x_radius = 100.0 * range_scale * 1.3 + 5

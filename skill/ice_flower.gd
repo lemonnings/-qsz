@@ -34,6 +34,7 @@ var pierce_decay: float = 0.0
 
 var sprite_base_scale: Vector2
 var collision_base_scale: Vector2
+var base_node_scale: Vector2 = Vector2.ONE
 var base_range: float = 0.0
 var default_range: float = 120.0
 var travel_speed: float = 300.0
@@ -72,7 +73,7 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 		data.damage,
 		data.penetration_count,
 		data.pierce_decay,
-		data.base_scale * PC.bullet_size
+		data.base_scale * Global.get_attack_range_multiplier()
 	)
 	
 	# 发射小冰刺
@@ -86,7 +87,7 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 		tree.current_scene.add_child(small_ice)
 		
 		var small_damage = data.damage * data.small_damage_ratio
-		var small_scale = data.base_scale * data.small_scale_ratio * PC.bullet_size
+		var small_scale = data.base_scale * data.small_scale_ratio * Global.get_attack_range_multiplier()
 		
 		# 小冰刺也继承穿透和衰减
 		small_ice.setup_ice_flower(
@@ -108,8 +109,8 @@ static func _build_data() -> Dictionary:
 	var small_damage_ratio = ice_flower_small_damage_ratio
 	var spread_angle = ice_flower_spread_angle
 	var small_count = ice_flower_extra_small_count
-	var penetration_count = ice_flower_penetration_count
-	var pierce_decay = ice_flower_pierce_decay
+	var local_penetration_count = ice_flower_penetration_count
+	var local_pierce_decay = ice_flower_pierce_decay
 	var base_scale = ice_flower_base_scale
 	var small_scale_ratio = ice_flower_small_scale_ratio
 	var range_val = ice_flower_range
@@ -131,8 +132,8 @@ static func _build_data() -> Dictionary:
 		
 	if PC.selected_rewards.has("Ice4"):
 		damage_multiplier += 0.2
-		penetration_count += 1
-		pierce_decay = 0.4 # 衰减40%
+		local_penetration_count += 1
+		local_pierce_decay = 0.4 # 衰减40%
 		
 	if PC.selected_rewards.has("Ice5"):
 		damage_multiplier += 0.4
@@ -150,7 +151,7 @@ static func _build_data() -> Dictionary:
 		
 	if PC.selected_rewards.has("Ice33"):
 		damage_multiplier += 0.2
-		pierce_decay = max(0.0, pierce_decay - 0.1) # 每次伤害衰减降低5%
+		local_pierce_decay = max(0.0, local_pierce_decay - 0.1) # 每次伤害衰减降低5%
 		
 	if PC.selected_rewards.has("Ice44"):
 		damage_multiplier += 0.7
@@ -160,8 +161,8 @@ static func _build_data() -> Dictionary:
 		
 	if PC.selected_rewards.has("Ice55"):
 		damage_multiplier += 0.6
-		penetration_count += 2
-		pierce_decay = max(0.0, pierce_decay - 0.05)
+		local_penetration_count += 2
+		local_pierce_decay = max(0.0, local_pierce_decay - 0.05)
 	
 	range_val = range_val * bullet_range_multiplier
 	
@@ -172,8 +173,8 @@ static func _build_data() -> Dictionary:
 		"range": range_val,
 		"spread_angle": spread_angle,
 		"small_count": small_count,
-		"penetration_count": penetration_count,
-		"pierce_decay": pierce_decay,
+		"penetration_count": local_penetration_count,
+		"pierce_decay": local_pierce_decay,
 		"base_scale": base_scale,
 		"small_damage_ratio": small_damage_ratio,
 		"small_scale_ratio": small_scale_ratio
@@ -218,6 +219,7 @@ func _process(delta: float) -> void:
 		queue_free()
 
 func setup_ice_flower(p_start_position: Vector2, p_direction: Vector2, p_range: float, p_damage: float, p_penetration_count: int, p_pierce_decay: float, p_scale: float) -> void:
+	base_node_scale = scale
 	start_position = p_start_position
 	ice_direction = p_direction.normalized()
 	ice_range = p_range
@@ -231,7 +233,7 @@ func setup_ice_flower(p_start_position: Vector2, p_direction: Vector2, p_range: 
 	travel_duration = ice_range / travel_speed
 	
 	# 应用缩放
-	scale = Vector2(p_scale, p_scale)
+	scale = Vector2(base_node_scale.x * p_scale, base_node_scale.y * p_scale)
 	
 	_apply_visual()
 
@@ -266,7 +268,7 @@ func _on_area_entered(area: Area2D) -> void:
 	if area.has_method("take_damage"):
 		area.take_damage(int(final_damage), is_crit, false, "ice_flower")
 		# 击中粒子崩散特效
-		HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "ice")
+		HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "ice_flower")
 		Faze.on_bullet_hit()
 		
 		if penetration_count > 0:

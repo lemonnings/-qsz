@@ -70,7 +70,7 @@ func _on_rect_input_event(_viewport: Node, event: InputEvent, _shape_idx: int, b
 				button.pressed.emit()
 
 # 渐入效果
-func _fade_in(button: Button, rect: Area2D) -> void:
+func _fade_in(button: Button, _rect: Area2D) -> void:
 	if _is_showing.get(button, false):
 		return # 已经在显示状态，跳过
 	_is_showing[button] = true
@@ -88,7 +88,7 @@ func _fade_in(button: Button, rect: Area2D) -> void:
 
 
 # 渐出效果
-func _fade_out(button: Button, rect: Area2D) -> void:
+func _fade_out(button: Button, _rect: Area2D) -> void:
 	if not _is_showing.get(button, false):
 		return # 已经在隐藏状态，跳过
 	_is_showing[button] = false

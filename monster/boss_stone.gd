@@ -1,4 +1,4 @@
-extends Area2D
+extends "res://Script/monster/monster_base.gd"
 
 ## ========================================================
 ## Boss Stone — 石巨人Boss
@@ -12,8 +12,6 @@ extends Area2D
 ## ========================================================
 
 @onready var sprite = $BossStone
-var debuff_manager: EnemyDebuffManager
-var is_dead: bool = false
 var is_attacking: bool = false
 var is_charging: bool = false
 var is_stunned: bool = false
@@ -25,7 +23,6 @@ var _is_first_attack: bool = true
 var _skill_queue: Array = [] # 当前循环剩余技能组
 var _combo_step: int = 0 # 落石组合技内部步骤: 0=落石, 1=拍击/掙地, 2=冲锋
 
-signal debuff_applied(debuff_id: String)
 
 # 屏幕边界
 @export var top_boundary: float = 250.0
@@ -45,6 +42,9 @@ var hp: float = hpMax
 var atk: float = SettingMoster.stone_man("atk") * 1.0
 var get_point: int = SettingMoster.stone_man("point") * 30
 var get_exp: int = 0
+
+func _drop_boss_rewards() -> void:
+	drop_items_from_table(SettingMoster.ruin_boss("itemdrop"))
 
 var attack_timer: Timer
 var stun_timer: Timer
@@ -102,9 +102,9 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	hp = hpMax
 
-	debuff_manager = EnemyDebuffManager.new(self )
-	add_child(debuff_manager)
-	debuff_applied.connect(debuff_manager.add_debuff)
+	setup_monster_base()
+	use_debuff_take_damage_multiplier = false
+	check_action_disabled_on_body_entered = false
 
 	CharacterEffects.create_shadow(self , 50.0, 16.0, 14.0)
 
@@ -126,8 +126,6 @@ func _ready():
 	attack_timer.timeout.connect(_choose_attack)
 	attack_timer.start()
 
-func apply_debuff_effect(debuff_id: String):
-	emit_signal("debuff_applied", debuff_id)
 
 func _update_target_position():
 	var player_pos = PC.player_instance.global_position
@@ -308,9 +306,10 @@ func _spawn_rolling_stone(start_pos: Vector2, end_pos: Vector2, warn_node: Node)
 
 	get_tree().current_scene.add_child(stone)
 
-	var direction = (end_pos - start_pos).normalized()
+	var _direction = (end_pos - start_pos).normalized()
 	var travel_distance = start_pos.distance_to(end_pos)
 	var travel_time = travel_distance / ROLLING_STONE_SPEED
+
 
 	# 滚石移动
 	var tween = stone.create_tween()
@@ -756,7 +755,8 @@ class _QuakeParticle extends Node2D:
 
 	func _draw():
 		var total = cells * cell_size
-		var offset = - total / 2
+		var offset = -float(total) / 2.0
+
 		for cy in cells:
 			for cx in cells:
 				draw_rect(Rect2(offset + cx * cell_size, offset + cy * cell_size, cell_size, cell_size), color)
@@ -919,13 +919,6 @@ class _MudPoolDrawer extends Node2D:
 # ========================================================
 # 碰撞 / 受伤 / 死亡
 # ========================================================
-func _on_body_entered(body: Node2D) -> void:
-	if body is CharacterBody2D and not is_dead and not PC.invincible:
-		Global.emit_signal("player_hit")
-		var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-		PC.apply_damage(actual_damage)
-		if PC.pc_hp <= 0:
-			body.game_over()
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
@@ -949,36 +942,19 @@ func _on_area_entered(area: Area2D) -> void:
 			Global.play_hit_anime(position, is_crit)
 
 func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:
-	if is_dead:
-		return
-	if not _is_monster_in_damage_range():
-		return
-	var final_damage_val = int(damage)
-
-	if damage_type in ["bleed", "burn", "electrified", "corrosion", "corrosion2", "posion"]:
-		Global.emit_signal("boss_hp_bar_take_damage", final_damage_val)
-		hp -= final_damage_val
-		if hp <= 0:
-			_die()
-		return
-
-	var damage_offset = Vector2(randf_range(-15, 15), randf_range(-15, 15))
-	if is_summon:
-		Global.emit_signal("monster_damage", 4, final_damage_val, global_position - Vector2(35, 20) + damage_offset, damage_type)
-	elif is_crit:
-		Global.emit_signal("monster_damage", 2, final_damage_val, global_position - Vector2(35, 20) + damage_offset, damage_type)
-	else:
-		Global.emit_signal("monster_damage", 1, final_damage_val, global_position - Vector2(35, 20) + damage_offset, damage_type)
-	Global.emit_signal("boss_hp_bar_take_damage", final_damage_val)
-	hp -= final_damage_val
-	if hp <= 0:
+	var damage_result = apply_common_take_damage(damage, is_crit, is_summon, damage_type, {
+		"use_debuff_multiplier": false,
+		"update_boss_hp_bar": true,
+		"play_hit_animation": true,
+		"randomize_popup_offset": true,
+		"require_damage_range_check": true
+	})
+	if damage_result["applied"] and damage_result["is_lethal"]:
 		_die()
-	else:
-		Global.play_hit_anime(position, is_crit)
-
 func _die():
 	if not is_dead:
-		Global.emit_signal("boss_defeated", get_point)
+		_drop_boss_rewards()
+		Global.emit_signal("boss_defeated", get_point, global_position)
 		Global.emit_signal("monster_killed")
 	is_dead = true
 	remove_from_group("enemies")
@@ -1007,7 +983,8 @@ func apply_knockback(_direction: Vector2, _force: float):
 	pass # Boss免疫击退
 
 # 屏幕震颤效果
-func _screen_shake(intensity: float = 6.0, duration: float = 0.3, frequency: float = 30.0):
+func _screen_shake(intensity: float = 6.0, duration: float = 0.3, _frequency: float = 30.0):
+
 	var camera = get_viewport().get_camera_2d()
 	if not camera:
 		return
@@ -1214,19 +1191,21 @@ func _build_stone_impact_frames() -> SpriteFrames:
 					continue
 				# 粒子散射图案 — 密度翻倍
 				var ring = d / max_dist
-				var gxi = int(r) + int(c)
-				var draw = false
+				var _gxi = int(r) + int(c)
+				var should_draw = false
+
 				var color := col_mid
 				if ring > 0.7:
-					draw = true # 原来 gxi%2==0，现在全填
+					should_draw = true # 原来 gxi%2==0，现在全填
 					color = col_dark
 				elif ring > 0.4:
-					draw = true # 原来 gxi%3!=2，现在全填
+					should_draw = true # 原来 gxi%3!=2，现在全填
 					color = col_mid
 				else:
-					draw = true # 原来 gxi%2==0，现在全填
+					should_draw = true # 原来 gxi%2==0，现在全填
 					color = col_hi
-				if draw:
+				if should_draw:
+
 					var final_color = Color(color.r, color.g, color.b, color.a * alpha * 0.5)
 					for py in P:
 						for px in P:

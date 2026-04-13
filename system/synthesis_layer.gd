@@ -80,6 +80,18 @@ var recipes_data = {
 			{"item_id": "item_021", "min_count": 3, "max_count": 3, "probability": 1.0}
 		]
 	},
+	"recipe_027": {
+		"recipe_name": "灵石",
+		"recipe_description": "3个灵髓碎片合成为10个灵石",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/juling.png",
+		"category": "yijie",
+		"required_items": [
+			{"item_id": "item_007", "count": 3}
+		],
+		"result_items": [
+			{"item_id": "item_084", "min_count": 10, "max_count": 10, "probability": 1.0}
+		]
+	},
 	# ============== 一阶丹药 ==============
 	"recipe_014": {
 		"recipe_name": "破阵散",
@@ -188,7 +200,7 @@ var recipes_data = {
 	# ============== 其他一阶配方 ==============
 	"recipe_005": {
 		"recipe_name": "回春露",
-		"recipe_description": "果实回复效果提升10%（最多10次）",
+		"recipe_description": "愈疗气息回复效果提升10%（最多10次）",
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huichunlu.png",
 		"category": "yijie",
 		"required_items": [
@@ -204,7 +216,7 @@ var recipes_data = {
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/qizhi.png",
 		"category": "yijie",
 		"required_items": [
-			{"item_id": "item_011", "count": 5},
+			{"item_id": "item_011", "count": 10},
 			{"item_id": "item_020", "count": 5}
 		],
 		"result_items": [
@@ -468,7 +480,7 @@ func _update_synthesis_detail():
 	# 已持有数量（显示第一个结果物品的持有数量）
 	if recipe.result_items.size() > 0:
 		var result_item_id = recipe.result_items[0].item_id
-		var owned_count = Global.player_inventory.get(result_item_id, 0)
+		var owned_count = Global.get_item_count(result_item_id)
 		detail_text += "\n已持有 " + str(owned_count) + "\n\n"
 	
 	# 合成材料需求
@@ -476,7 +488,7 @@ func _update_synthesis_detail():
 	for required_item in recipe.required_items:
 		var item_id = required_item.item_id
 		var needed_count = required_item.count * craft_count
-		var owned_count = Global.player_inventory.get(item_id, 0)
+		var owned_count = Global.get_item_count(item_id)
 		var item_name = ItemManager.get_item_property(item_id, "item_name")
 		if item_name == null:
 			item_name = item_id
@@ -555,11 +567,7 @@ func can_craft(recipe_id: String, craft_count: int = 1) -> bool:
 	for required_item in recipe.required_items:
 		var item_id = required_item.item_id
 		var needed_count = required_item.count * craft_count
-		
-		# 检查玩家背包中是否有足够的物品
-		if !Global.player_inventory.has(item_id):
-			return false
-		if Global.player_inventory[item_id] < needed_count:
+		if Global.get_item_count(item_id) < needed_count:
 			return false
 	
 	return true
@@ -592,11 +600,9 @@ func craft_items(recipe_id: String, craft_count: int = 1) -> Dictionary:
 	for required_item in recipe.required_items:
 		var item_id = required_item.item_id
 		var consume_count = required_item.count * craft_count
-		Global.player_inventory[item_id] -= consume_count
-		
-		# 如果物品数量为0，从背包中移除
-		if Global.player_inventory[item_id] <= 0:
-			Global.player_inventory.erase(item_id)
+		if !Global.consume_item_count(item_id, consume_count):
+			result.message = "材料不足"
+			return result
 	
 	# 执行合成并获得物品
 	var total_obtained_items = []
@@ -604,15 +610,11 @@ func craft_items(recipe_id: String, craft_count: int = 1) -> Dictionary:
 		var obtained_items = _process_craft_results(recipe.result_items)
 		total_obtained_items.append_array(obtained_items)
 	
-	# 将获得的物品添加到背包
+	# 将获得的物品添加到背包/货币
 	for item_info in total_obtained_items:
 		var item_id = item_info.item_id
 		var count = item_info.count
-		
-		if !Global.player_inventory.has(item_id):
-			Global.player_inventory[item_id] = count
-		else:
-			Global.player_inventory[item_id] += count
+		Global.add_item_count(item_id, count)
 	
 	result.success = true
 	result.message = "合成成功"
