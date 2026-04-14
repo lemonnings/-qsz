@@ -29,7 +29,9 @@ const RARITY_COLORS := {
 	"red": Color(1.0, 0.45, 0.45, 1)
 }
 const LINGSHI_PRICE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
+const LINGSHI_PRICE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const ZHENQI_PRICE_COLOR := Color(0.68, 0.88, 1.0, 1.0)
+
 
 const SOLD_OUT_TEXT_COLOR := Color(0.72, 0.72, 0.72, 1.0)
 
@@ -41,17 +43,23 @@ class QualityGlow:
 	const PIXEL_SIZE := 4.0
 	const GLOW_SCALE := 0.8
 
+	const GLOW_SCALE := 0.8
+
 
 	var glow_rarity: String = ""
 	var glow_alpha_scale := 1.0
 	var _time := 0.0
 	# 这几个数组会在品质变化时重建一次：
+	# 这几个数组会在品质变化时重建一次：
 	# - `_ray_directions` 负责记录每一根主光束的朝向
 	# - `_ray_length_factors` 负责记录每一根光束自己的长度倍率
+	# - `_ray_thickness_factors` 负责记录每一根光束自己的粗细倍率
 	# - `_ray_thickness_factors` 负责记录每一根光束自己的粗细倍率
 	# 这样既能做到“看起来有点随机”，又不会每一帧抖动。
 	var _ray_directions: Array[Vector2] = []
 	var _ray_length_factors: Array[float] = []
+	var _ray_thickness_factors: Array[float] = []
+
 	var _ray_thickness_factors: Array[float] = []
 
 
@@ -108,6 +116,7 @@ class QualityGlow:
 			pulse *= clampf(0.94 + sin(_time * 4.2) * 0.16 + sin(_time * 8.4) * 0.05, 0.74, 1.2)
 			rotation = _time * 0.36
 		var center := size * 0.5
+		_draw_center_bloom(center, style, pulse, visual_scale)
 		_draw_center_bloom(center, style, pulse, visual_scale)
 		# 这里两层都沿用同一组方向：
 		# - 主层负责“炸开”的大光束
@@ -183,18 +192,8 @@ class QualityGlow:
 		])
 		draw_colored_polygon(points, color)
 
-	func _draw_tip_sparks(center: Vector2, style: Dictionary, rotation: float, size_scale: float, pulse: float) -> void:
-		var spark_size := float(style.get("spark_size", 8.0)) * size_scale
-		var spark_length := float(style.get("spark_length", 92.0)) * size_scale
-		var spark_alpha := float(style.get("spark_alpha", 0.12)) * pulse * glow_alpha_scale
-		var spark_color: Color = style["spark_color"]
-		for ray_index in range(_ray_directions.size()):
-			var direction: Vector2 = _ray_directions[ray_index].rotated(rotation)
-			var spark_length_factor: float = _get_ray_length_factor(ray_index)
-			var varied_spark_length: float = spark_length * spark_length_factor
-			var spark_center := _snap_to_pixel(center + direction * varied_spark_length)
-			_draw_center_square(spark_center, spark_size, spark_color, spark_alpha)
-			_draw_center_square(_snap_to_pixel(center + direction * (varied_spark_length * 0.82)), spark_size * 0.72, spark_color, spark_alpha * 0.75)
+
+
 
 	func _rebuild_ray_layout() -> void:
 		_ray_directions.clear()
@@ -205,7 +204,10 @@ class QualityGlow:
 		var ray_count: int = _get_rarity_ray_count(glow_rarity)
 		var rng := RandomNumberGenerator.new()
 		rng.seed = _get_layout_seed(glow_rarity)
-		var angle_list: Array[float] = _build_irregular_ray_angles(ray_count, 30.0, rng)
+		# 最小夹角仍然保持大于 30 度，
+		# 但把基础随机离散度再拉大一点，让整圈看起来更不规整。
+		var angle_list: Array[float] = _build_irregular_ray_angles(ray_count, 32.0, rng)
+
 		for angle_deg in angle_list:
 			_ray_directions.append(Vector2.RIGHT.rotated(deg_to_rad(angle_deg)))
 		_ray_length_factors = _build_ray_length_factors(ray_count, rng)
@@ -245,8 +247,10 @@ class QualityGlow:
 		var extra_total: float = 360.0 - min_gap_deg * float(ray_count)
 		for _index in range(ray_count):
 			# 权重越大，分到的夹角就越大。
-			# 这里故意只做“适度随机”，避免出现特别夸张的大空缺。
-			var weight: float = rng.randf_range(0.45, 1.55)
+			# 这次把范围再放宽一些，让角度差异更明显，
+			# 视觉上就不会那么“像均匀平分出来的”。
+			var weight: float = rng.randf_range(0.18, 2.35)
+
 			weights.append(weight)
 			weight_total += weight
 		var current_angle: float = rng.randf_range(-180.0, 180.0)
@@ -275,6 +279,19 @@ class QualityGlow:
 			var thickness_factor: float = lerpf(0.76, 1.0, length_ratio) * random_offset
 			factors.append(clampf(thickness_factor, 0.72, 1.04))
 		return factors
+
+func _build_ray_thickness_factors(length_factors: Array[float]) -> Array[float]:
+	var factors: Array[float] = []
+	for length_factor in length_factors:
+		# 粗细现在完全跟着长度走：
+		# - 最长的保持当前粗细不变（倍率 1.0）
+		# - 最短的缩到当前的一半（倍率 0.5）
+		# 这样“长度变短，粗细也同步变细”的关系会更明显。
+		var length_ratio: float = inverse_lerp(0.62, 1.08, float(length_factor))
+		var thickness_factor: float = lerpf(0.5, 1.0, length_ratio)
+		factors.append(thickness_factor)
+	return factors
+
 
 	func _get_ray_length_factor(ray_index: int) -> float:
 		if _ray_length_factors.is_empty():
@@ -532,6 +549,8 @@ const SHOP_UPGRADE_COSTS := {
 @export var refresh_num: RichTextLabel
 @export var shop_level_up_button: Button
 
+@export var recycle_button: Button
+
 @export var tips: Panel
 
 var _now_ls_label: RichTextLabel
@@ -572,8 +591,9 @@ func open_shop() -> void:
 	_load_shop_items_from_save()
 	_hide_offer_tooltip()
 	_hide_upgrade_info()
-	var recycle_message := _recycle_obsolete_pills()
 	var did_auto_refresh := false
+	# 丹药回收现在改成手动点击 `recycle_button` 执行，
+	# 所以进入商店时只刷新界面和按钮状态，不再自动回收。
 	# 只有当前存档第一次进入货摊时才自动刷新。
 	# 之后再次进入时，继续显示上次保存下来的货物；除非玩家手动点击刷新。
 	if not Global.shop_first_entered:
@@ -584,17 +604,24 @@ func open_shop() -> void:
 	_save_shop_items_to_save()
 	_refresh_external_ui()
 	Global.save_game()
-	if not recycle_message.is_empty():
-		_show_tips(recycle_message, 1.2)
-	elif did_auto_refresh:
-		_show_tips("首次进入货摊，已自动刷新一次。", 0.7)
+
 
 func _cache_nodes() -> void:
 	_item_panels = [item1, item2, item3, item4, item5, item6]
 	# 这个标签是你后来新加的，所以这里不用导出变量强绑，
 	# 而是运行时按名字查找；只要节点名叫 `now_ls` 就能自动接上。
 	_now_ls_label = find_child("now_ls", true, false) as RichTextLabel
+	# 这两个节点都优先使用导出绑定；
+	# 如果你在场景里只是新建了同名节点、还没手动拖进导出槽，
+	# 这里也会自动按名字查找接上。
+	if now_ls == null:
+		now_ls = find_child("now_ls", true, false) as RichTextLabel
+	if recycle_button == null:
+		recycle_button = find_child("recycle_button", true, false) as Button
+	_now_ls_label = now_ls
 	_detail_labels = [
+
+
 
 		get_node("item1_detail"),
 		get_node("item1_detail2"),
@@ -769,7 +796,12 @@ func _connect_interactions() -> void:
 	shop_level_up_button.pressed.connect(_on_shop_level_up_pressed)
 	shop_level_up_button.mouse_entered.connect(_on_shop_level_up_mouse_entered)
 	shop_level_up_button.mouse_exited.connect(_on_shop_level_up_mouse_exited)
+	if recycle_button != null:
+		recycle_button.focus_mode = Control.FOCUS_NONE
+		recycle_button.mouse_default_cursor_shape = Control.CURSOR_ARROW
+		recycle_button.pressed.connect(_on_recycle_button_pressed)
 	_exit_button.pressed.connect(_on_exit_button_pressed)
+
 
 func _ensure_glow_node(panel: Panel):
 	var glow_node = panel.get_node_or_null("QualityGlow")
@@ -981,7 +1013,9 @@ func _refresh_display() -> void:
 	_sync_dynamic_offer_data()
 	_update_shop_header()
 	_update_refresh_label()
+	_update_recycle_button_state()
 	for i in range(_item_panels.size()):
+
 		var panel := _item_panels[i]
 		var detail_label := _detail_labels[i]
 		var price_label := _price_labels[i]
@@ -1053,6 +1087,7 @@ func _update_now_ls_label() -> void:
 
 
 func _update_refresh_label() -> void:
+
 	var battle_refresh := Global.shop_battle_refresh_count
 	var shipping_refresh := Global.get_item_count("item_059")
 	refresh_num.text = "刷新（%d）" % (battle_refresh + shipping_refresh)
@@ -1373,9 +1408,21 @@ func _on_shop_level_up_pressed() -> void:
 	Global.save_game()
 	_show_tips("货摊升级成功！当前等级：Lv.%d" % Global.shop_level, 0.6)
 
-func _recycle_obsolete_pills() -> String:
-	var recycled_lines: Array[String] = []
-	var total_lingshi := 0
+func _on_recycle_button_pressed() -> void:
+	var recycle_message := _recycle_obsolete_pills()
+	_refresh_display()
+	_refresh_external_ui()
+	if recycle_message.is_empty():
+		_show_tips("当前没有可回收的溢出丹药。", 0.5)
+		return
+	Global.save_game()
+	_show_tips(recycle_message, 1.2)
+
+func _has_recyclable_obsolete_pills() -> bool:
+	return not _get_recyclable_pill_entries().is_empty()
+
+func _get_recyclable_pill_entries() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
 	var inventory_keys: Array = Global.player_inventory.keys().duplicate()
 	for key in inventory_keys:
 		var item_id := str(key)
@@ -1391,15 +1438,34 @@ func _recycle_obsolete_pills() -> String:
 		var count := int(Global.player_inventory.get(item_id, 0))
 		if count <= 0:
 			continue
+		entries.append({
+			"item_id": item_id,
+			"count": count,
+			"gain": count * unit_price,
+			"item_name": str(ItemManager.get_item_property(item_id, "item_name"))
+		})
+	return entries
+
+func _recycle_obsolete_pills() -> String:
+	var recycle_entries := _get_recyclable_pill_entries()
+	if recycle_entries.is_empty():
+		return ""
+	var recycled_lines: Array[String] = []
+	var total_lingshi := 0
+	for entry in recycle_entries:
+		var item_id := str(entry.get("item_id", ""))
+		var count := int(entry.get("count", 0))
+		var gain := int(entry.get("gain", 0))
+		if count <= 0 or gain <= 0:
+			continue
 		Global.player_inventory.erase(item_id)
-		var gain := count * unit_price
 		total_lingshi += gain
-		recycled_lines.append(str(ItemManager.get_item_property(item_id, "item_name")) + "×" + str(count) + "（+" + str(gain) + "灵石）")
+		recycled_lines.append(str(entry.get("item_name", item_id)) + "×" + str(count) + "（+" + str(gain) + "灵石）")
 	if total_lingshi <= 0:
 		return ""
 	Global.add_item_count(Global.LINGSHI_ITEM_ID, total_lingshi)
-	Global.save_game()
 	return "丹药回收：\n" + "\n".join(recycled_lines) + "\n共获得 " + str(total_lingshi) + " 灵石"
+
 
 func _get_item_max_uses(item_id: String) -> int:
 	var cfg: Dictionary = ItemManager.pill_config.get(item_id, {})
