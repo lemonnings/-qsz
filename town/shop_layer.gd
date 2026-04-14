@@ -29,7 +29,9 @@ const RARITY_COLORS := {
 	"red": Color(1.0, 0.45, 0.45, 1)
 }
 const LINGSHI_PRICE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
+const LINGSHI_PRICE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const ZHENQI_PRICE_COLOR := Color(0.68, 0.88, 1.0, 1.0)
+
 
 const SOLD_OUT_TEXT_COLOR := Color(0.72, 0.72, 0.72, 1.0)
 
@@ -41,17 +43,23 @@ class QualityGlow:
 	const PIXEL_SIZE := 4.0
 	const GLOW_SCALE := 0.8
 
+	const GLOW_SCALE := 0.8
+
 
 	var glow_rarity: String = ""
 	var glow_alpha_scale := 1.0
 	var _time := 0.0
 	# 这几个数组会在品质变化时重建一次：
+	# 这几个数组会在品质变化时重建一次：
 	# - `_ray_directions` 负责记录每一根主光束的朝向
 	# - `_ray_length_factors` 负责记录每一根光束自己的长度倍率
+	# - `_ray_thickness_factors` 负责记录每一根光束自己的粗细倍率
 	# - `_ray_thickness_factors` 负责记录每一根光束自己的粗细倍率
 	# 这样既能做到“看起来有点随机”，又不会每一帧抖动。
 	var _ray_directions: Array[Vector2] = []
 	var _ray_length_factors: Array[float] = []
+	var _ray_thickness_factors: Array[float] = []
+
 	var _ray_thickness_factors: Array[float] = []
 
 
@@ -109,13 +117,14 @@ class QualityGlow:
 			rotation = _time * 0.36
 		var center := size * 0.5
 		_draw_center_bloom(center, style, pulse, visual_scale)
+		_draw_center_bloom(center, style, pulse, visual_scale)
 		# 这里两层都沿用同一组方向：
 		# - 主层负责“炸开”的大光束
 		# - 次层只是同方向的短一点、淡一点的补光
 		# 这样视觉上仍然是 4/5/6 根主射线，不会变成一圈过度规整的小刺。
 		_draw_ray_group(center, style["ray_color"], float(style.get("main_length", 80.0)) * visual_scale, float(style.get("main_width", 14.0)) * visual_scale, float(style.get("main_alpha", 0.25)) * pulse, rotation, 7, 1.0)
 		_draw_ray_group(center, style["ray_color"], float(style.get("sub_length", 58.0)) * visual_scale, float(style.get("sub_width", 8.0)) * visual_scale, float(style.get("sub_alpha", 0.16)) * pulse, rotation, 5, 0.82)
-
+		_draw_tip_sparks(center, style, rotation, visual_scale, pulse)
 
 
 
@@ -202,8 +211,7 @@ class QualityGlow:
 		for angle_deg in angle_list:
 			_ray_directions.append(Vector2.RIGHT.rotated(deg_to_rad(angle_deg)))
 		_ray_length_factors = _build_ray_length_factors(ray_count, rng)
-		_ray_thickness_factors = _build_ray_thickness_factors(_ray_length_factors)
-
+		_ray_thickness_factors = _build_ray_thickness_factors(_ray_length_factors, rng)
 
 
 	func _get_rarity_ray_count(rarity: String) -> int:
@@ -584,6 +592,9 @@ func open_shop() -> void:
 
 func _cache_nodes() -> void:
 	_item_panels = [item1, item2, item3, item4, item5, item6]
+	# 这个标签是你后来新加的，所以这里不用导出变量强绑，
+	# 而是运行时按名字查找；只要节点名叫 `now_ls` 就能自动接上。
+	_now_ls_label = find_child("now_ls", true, false) as RichTextLabel
 	# 这两个节点都优先使用导出绑定；
 	# 如果你在场景里只是新建了同名节点、还没手动拖进导出槽，
 	# 这里也会自动按名字查找接上。
@@ -593,6 +604,7 @@ func _cache_nodes() -> void:
 		recycle_button = find_child("recycle_button", true, false) as Button
 	_now_ls_label = now_ls
 	_detail_labels = [
+
 
 
 		get_node("item1_detail"),
@@ -806,14 +818,13 @@ func _ensure_icon_node(panel: Panel) -> TextureRect:
 	icon_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon_node.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	icon_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	# 在上一次缩小的基础上，再整体缩小 20%。
-	# 现在图标占格子的 64% 左右，但仍然保持居中，
-	# 所以格子本身大小和下面的光效范围都不会被改动。
-	icon_node.anchor_left = 0.18
-	icon_node.anchor_top = 0.18
-	icon_node.anchor_right = 0.82
-	icon_node.anchor_bottom = 0.82
-
+	# 图标整体缩小 20%，但格子本身大小不变。
+	# 这里直接把锚点收成 10% ~ 90%，这样图标始终保持在格子中心，
+	# 同时无论面板尺寸是多少，视觉上都会是稳定的 80% 大小。
+	icon_node.anchor_left = 0.1
+	icon_node.anchor_top = 0.1
+	icon_node.anchor_right = 0.9
+	icon_node.anchor_bottom = 0.9
 	icon_node.offset_left = 0
 	icon_node.offset_top = 0
 	icon_node.offset_right = 0
@@ -1067,15 +1078,6 @@ func _update_now_ls_label() -> void:
 		return
 	# 这里的“真气”沿用商店购买灵石包时使用的 point 资源，也就是 `Global.total_points`。
 	_now_ls_label.text = "灵石 %d   真气 %d" % [Global.lingshi, Global.total_points]
-
-func _update_recycle_button_state() -> void:
-	if recycle_button == null:
-		recycle_button = find_child("recycle_button", true, false) as Button
-	if recycle_button == null:
-		return
-	var has_recyclable_pills := _has_recyclable_obsolete_pills()
-	recycle_button.visible = has_recyclable_pills
-	recycle_button.disabled = not has_recyclable_pills
 
 
 func _update_refresh_label() -> void:
