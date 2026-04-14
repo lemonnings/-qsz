@@ -28,8 +28,9 @@ const RARITY_COLORS := {
 	"gold": Color(1.0, 0.87, 0.36, 1),
 	"red": Color(1.0, 0.45, 0.45, 1)
 }
-const LINGSHI_PRICE_COLOR := Color(1.0, 0.9, 0.62, 1.0)
+const LINGSHI_PRICE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const ZHENQI_PRICE_COLOR := Color(0.68, 0.88, 1.0, 1.0)
+
 const SOLD_OUT_TEXT_COLOR := Color(0.72, 0.72, 0.72, 1.0)
 
 # 每个商品格子下面都会放一个独立的像素光效控件。
@@ -38,16 +39,21 @@ class QualityGlow:
 	extends Control
 
 	const PIXEL_SIZE := 4.0
+	const GLOW_SCALE := 0.8
+
 
 	var glow_rarity: String = ""
 	var glow_alpha_scale := 1.0
 	var _time := 0.0
-	# 这两个数组会在品质变化时重建一次：
+	# 这几个数组会在品质变化时重建一次：
 	# - `_ray_directions` 负责记录每一根主光束的朝向
 	# - `_ray_length_factors` 负责记录每一根光束自己的长度倍率
+	# - `_ray_thickness_factors` 负责记录每一根光束自己的粗细倍率
 	# 这样既能做到“看起来有点随机”，又不会每一帧抖动。
 	var _ray_directions: Array[Vector2] = []
 	var _ray_length_factors: Array[float] = []
+	var _ray_thickness_factors: Array[float] = []
+
 
 
 	func _ready() -> void:
@@ -91,6 +97,8 @@ class QualityGlow:
 		var breath_progress: float = (sin(_time * 2.4) + 1.0) * 0.5
 		var size_scale: float = lerpf(0.9, 1.0, breath_progress)
 		var pulse: float = lerpf(0.5, 1.0, breath_progress)
+		var visual_scale: float = size_scale * GLOW_SCALE
+
 		var rotation := 0.0
 		if glow_rarity == "gold":
 			# 金色保留更亮的闪烁感，但基础呼吸仍然存在。
@@ -100,14 +108,15 @@ class QualityGlow:
 			pulse *= clampf(0.94 + sin(_time * 4.2) * 0.16 + sin(_time * 8.4) * 0.05, 0.74, 1.2)
 			rotation = _time * 0.36
 		var center := size * 0.5
-		_draw_center_bloom(center, style, pulse, size_scale)
+		_draw_center_bloom(center, style, pulse, visual_scale)
 		# 这里两层都沿用同一组方向：
 		# - 主层负责“炸开”的大光束
 		# - 次层只是同方向的短一点、淡一点的补光
 		# 这样视觉上仍然是 4/5/6 根主射线，不会变成一圈过度规整的小刺。
-		_draw_ray_group(center, style["ray_color"], float(style.get("main_length", 80.0)) * size_scale, float(style.get("main_width", 14.0)) * size_scale, float(style.get("main_alpha", 0.25)) * pulse, rotation, 7, 1.0)
-		_draw_ray_group(center, style["ray_color"], float(style.get("sub_length", 58.0)) * size_scale, float(style.get("sub_width", 8.0)) * size_scale, float(style.get("sub_alpha", 0.16)) * pulse, rotation, 5, 0.82)
-		_draw_tip_sparks(center, style, rotation, size_scale, pulse)
+		_draw_ray_group(center, style["ray_color"], float(style.get("main_length", 80.0)) * visual_scale, float(style.get("main_width", 14.0)) * visual_scale, float(style.get("main_alpha", 0.25)) * pulse, rotation, 7, 1.0)
+		_draw_ray_group(center, style["ray_color"], float(style.get("sub_length", 58.0)) * visual_scale, float(style.get("sub_width", 8.0)) * visual_scale, float(style.get("sub_alpha", 0.16)) * pulse, rotation, 5, 0.82)
+		_draw_tip_sparks(center, style, rotation, visual_scale, pulse)
+
 
 
 
@@ -136,16 +145,22 @@ class QualityGlow:
 	func _draw_ray_group(center: Vector2, base_color: Color, beam_length: float, beam_width: float, beam_alpha: float, rotation: float, segment_count: int, group_length_scale: float) -> void:
 		for ray_index in range(_ray_directions.size()):
 			var direction: Vector2 = _ray_directions[ray_index]
-			var ray_length_factor: float = _get_ray_length_factor(ray_index) * group_length_scale
+			var base_length_factor: float = _get_ray_length_factor(ray_index)
+			var ray_length_factor: float = base_length_factor * group_length_scale
+			var ray_thickness_factor: float = _get_ray_thickness_factor(ray_index)
 			var varied_beam_length: float = beam_length * ray_length_factor
+			# 基础粗细先整体缩到原来的 75%，
+			# 再乘上每根光束自己的粗细倍率。
+			var scaled_beam_width: float = beam_width * 0.75 * ray_thickness_factor
 			var tail_length_factor: float = float(max(0.82, ray_length_factor * 0.92))
 			for segment in range(segment_count):
 				var t: float = float(segment) / float(max(float(segment_count - 1), 1.0))
 				var distance := lerpf(PIXEL_SIZE * 2.0, varied_beam_length, t)
 				var length := lerpf(beam_width * 5.6 * ray_length_factor, beam_width * 1.3 * tail_length_factor, t)
-				var thickness := lerpf(beam_width, float(max(PIXEL_SIZE, beam_width * 0.38)), t)
+				var thickness := lerpf(scaled_beam_width, float(max(PIXEL_SIZE, scaled_beam_width * 0.38)), t)
 				var alpha_scale := beam_alpha * pow(1.0 - t, 0.45)
 				_draw_ray_segment(center, direction, distance, length, thickness, base_color, alpha_scale, rotation)
+
 
 
 	func _draw_ray_segment(center: Vector2, direction: Vector2, distance: float, length: float, thickness: float, base_color: Color, alpha_scale: float, rotation: float) -> void:
@@ -184,20 +199,18 @@ class QualityGlow:
 	func _rebuild_ray_layout() -> void:
 		_ray_directions.clear()
 		_ray_length_factors.clear()
+		_ray_thickness_factors.clear()
 		if glow_rarity.is_empty():
 			return
 		var ray_count: int = _get_rarity_ray_count(glow_rarity)
 		var rng := RandomNumberGenerator.new()
-		# 这里用“品质 + 当前控件实例”做种子：
-		# - 同一个商品格子的光束布局会保持稳定
-		# - 不同格子、不同品质又会略有差异
-		# - 不会在每一帧重算时闪来闪去
-		# 这样既满足“别太规整”，也不会影响像素风的稳定感。
 		rng.seed = _get_layout_seed(glow_rarity)
 		var angle_list: Array[float] = _build_irregular_ray_angles(ray_count, 30.0, rng)
 		for angle_deg in angle_list:
 			_ray_directions.append(Vector2.RIGHT.rotated(deg_to_rad(angle_deg)))
 		_ray_length_factors = _build_ray_length_factors(ray_count, rng)
+		_ray_thickness_factors = _build_ray_thickness_factors(_ray_length_factors, rng)
+
 
 	func _get_rarity_ray_count(rarity: String) -> int:
 		match rarity:
@@ -205,6 +218,8 @@ class QualityGlow:
 				return 4
 			"blue":
 				return 5
+			"red":
+				return 7
 			_:
 				return 6
 
@@ -245,7 +260,20 @@ class QualityGlow:
 		var factors: Array[float] = []
 		for _index in range(ray_count):
 			# 每根光束给一个自己的长度倍率，避免整圈看起来像复制粘贴。
-			factors.append(rng.randf_range(0.82, 1.18))
+			factors.append(rng.randf_range(0.62, 1.08))
+		return factors
+
+	func _build_ray_thickness_factors(length_factors: Array[float], rng: RandomNumberGenerator) -> Array[float]:
+		var factors: Array[float] = []
+		for length_factor in length_factors:
+			# 粗细和长度挂钩：
+			# - 长光束更粗一点
+			# - 短光束更细一点
+			# 再叠一层很轻微的随机，避免所有“同长度”看起来也一样粗。
+			var length_ratio: float = inverse_lerp(0.62, 1.08, float(length_factor))
+			var random_offset: float = rng.randf_range(0.94, 1.06)
+			var thickness_factor: float = lerpf(0.76, 1.0, length_ratio) * random_offset
+			factors.append(clampf(thickness_factor, 0.72, 1.04))
 		return factors
 
 	func _get_ray_length_factor(ray_index: int) -> float:
@@ -253,7 +281,13 @@ class QualityGlow:
 			return 1.0
 		return float(_ray_length_factors[ray_index % _ray_length_factors.size()])
 
+	func _get_ray_thickness_factor(ray_index: int) -> float:
+		if _ray_thickness_factors.is_empty():
+			return 1.0
+		return float(_ray_thickness_factors[ray_index % _ray_thickness_factors.size()])
+
 	func _snap_scalar(value: float) -> float:
+
 
 
 		return round(value / PIXEL_SIZE) * PIXEL_SIZE
@@ -494,10 +528,14 @@ const SHOP_UPGRADE_COSTS := {
 @export var item5_price: RichTextLabel
 @export var item6_price: RichTextLabel
 
+@export var now_ls: RichTextLabel
 @export var refresh_num: RichTextLabel
 @export var shop_level_up_button: Button
 
 @export var tips: Panel
+
+var _now_ls_label: RichTextLabel
+
 
 var _item_panels: Array[Panel] = []
 var _detail_labels: Array[RichTextLabel] = []
@@ -553,7 +591,11 @@ func open_shop() -> void:
 
 func _cache_nodes() -> void:
 	_item_panels = [item1, item2, item3, item4, item5, item6]
+	# 这个标签是你后来新加的，所以这里不用导出变量强绑，
+	# 而是运行时按名字查找；只要节点名叫 `now_ls` 就能自动接上。
+	_now_ls_label = find_child("now_ls", true, false) as RichTextLabel
 	_detail_labels = [
+
 		get_node("item1_detail"),
 		get_node("item1_detail2"),
 		get_node("item1_detail3"),
@@ -753,12 +795,19 @@ func _ensure_icon_node(panel: Panel) -> TextureRect:
 	icon_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon_node.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	icon_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon_node.set_anchors_preset(Control.PRESET_FULL_RECT)
-	icon_node.offset_left = 6
-	icon_node.offset_top = 6
-	icon_node.offset_right = -6
-	icon_node.offset_bottom = -6
+	# 图标整体缩小 20%，但格子本身大小不变。
+	# 这里直接把锚点收成 10% ~ 90%，这样图标始终保持在格子中心，
+	# 同时无论面板尺寸是多少，视觉上都会是稳定的 80% 大小。
+	icon_node.anchor_left = 0.1
+	icon_node.anchor_top = 0.1
+	icon_node.anchor_right = 0.9
+	icon_node.anchor_bottom = 0.9
+	icon_node.offset_left = 0
+	icon_node.offset_top = 0
+	icon_node.offset_right = 0
+	icon_node.offset_bottom = 0
 	return icon_node
+
 
 func _ensure_shop_state() -> void:
 	Global.shop_level = clampi(Global.shop_level, 1, SHOP_LEVEL_CAP)
@@ -982,6 +1031,7 @@ func _refresh_display() -> void:
 
 func _update_shop_header() -> void:
 	_shop_level_label.text = _build_shop_header_text()
+	_update_now_ls_label()
 	if Global.shop_level >= SHOP_LEVEL_CAP:
 		shop_level_up_button.text = "货摊已满级"
 		shop_level_up_button.disabled = true
@@ -992,6 +1042,15 @@ func _update_shop_header() -> void:
 		shop_level_up_button.text = "后续等级未开放"
 	else:
 		shop_level_up_button.text = "货摊升级"
+
+func _update_now_ls_label() -> void:
+	if _now_ls_label == null:
+		_now_ls_label = find_child("now_ls", true, false) as RichTextLabel
+	if _now_ls_label == null:
+		return
+	# 这里的“真气”沿用商店购买灵石包时使用的 point 资源，也就是 `Global.total_points`。
+	_now_ls_label.text = "灵石 %d   真气 %d" % [Global.lingshi, Global.total_points]
+
 
 func _update_refresh_label() -> void:
 	var battle_refresh := Global.shop_battle_refresh_count
