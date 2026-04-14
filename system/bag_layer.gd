@@ -477,7 +477,62 @@ func _create_tooltip():
 	
 	add_child(tooltip_panel)
 
+func _get_tooltip_nodes() -> Dictionary:
+	var vbox = tooltip_panel.get_node("VBox") as VBoxContainer
+	var header = vbox.get_node("Header") as HBoxContainer
+	return {
+		"vbox": vbox,
+		"header": header,
+		"icon": header.get_node("Icon") as TextureRect,
+		"name_label": header.get_node("NameLabel") as Label,
+		"type_label": vbox.get_node("TypeLabel") as Label,
+		"desc_label": vbox.get_node("DescLabel") as Label,
+		"price_label": vbox.get_node("PriceLabel") as Label,
+		"use_hint_label": vbox.get_node("UseHintLabel") as Label
+	}
+
+func _reset_tooltip_layout(desc_min_width: float) -> Dictionary:
+	var nodes = _get_tooltip_nodes()
+	var vbox = nodes["vbox"] as VBoxContainer
+	var header = nodes["header"] as HBoxContainer
+	var name_label = nodes["name_label"] as Label
+	var type_label = nodes["type_label"] as Label
+	var desc_label = nodes["desc_label"] as Label
+	var price_label = nodes["price_label"] as Label
+	var use_hint_label = nodes["use_hint_label"] as Label
+	
+	# 关键修复：重置时不只清空最外层面板，
+	# 还要把标题行和内部标签的尺寸一起清掉。
+	# 否则先看长标题，再切到短标题时，旧的宽度可能会被继续沿用。
+	tooltip_panel.size = Vector2.ZERO
+	tooltip_panel.custom_minimum_size = Vector2.ZERO
+	tooltip_panel.global_position = Vector2(-10000, -10000)
+	tooltip_panel.visible = true
+	vbox.size = Vector2.ZERO
+	header.size = Vector2.ZERO
+	name_label.size = Vector2.ZERO
+	type_label.size = Vector2.ZERO
+	desc_label.size = Vector2.ZERO
+	price_label.size = Vector2.ZERO
+	use_hint_label.size = Vector2.ZERO
+	desc_label.custom_minimum_size = Vector2(desc_min_width, 0)
+	return nodes
+
+func _finalize_tooltip_layout() -> void:
+	var nodes = _get_tooltip_nodes()
+	var vbox = nodes["vbox"] as VBoxContainer
+	
+	# 等待两帧，让 Godot 先完成旧布局清空，再根据新内容重新排版。
+	await get_tree().process_frame
+	await get_tree().process_frame
+	
+	var content_size = vbox.get_combined_minimum_size()
+	var panel_size = content_size + Vector2(20, 16)
+	tooltip_panel.custom_minimum_size = panel_size
+	tooltip_panel.size = panel_size
+
 # 显示悬浮提示
+
 func _show_tooltip(slot_index: int):
 	var slot = bag_slots[slot_index]
 	if !slot or !slot.has_meta("item_data"):
@@ -487,22 +542,14 @@ func _show_tooltip(slot_index: int):
 	var item_data = slot.get_meta("item_data")
 	var item_info = item_data.item_data
 	
-	# 获取提示框内容节点
-	var vbox = tooltip_panel.get_node("VBox")
-	var header = vbox.get_node("Header")
-	var icon = header.get_node("Icon")
-	var name_label = header.get_node("NameLabel")
-	var type_label = vbox.get_node("TypeLabel")
-	var desc_label = vbox.get_node("DescLabel")
-	var price_label = vbox.get_node("PriceLabel")
-	var use_hint_label = vbox.get_node("UseHintLabel")
-	
-	# 先重置所有控件的大小，避免上一次的布局影响新的计算
-	tooltip_panel.size = Vector2.ZERO
-	tooltip_panel.custom_minimum_size = Vector2.ZERO
-	vbox.size = Vector2.ZERO
-	desc_label.size = Vector2.ZERO
-	desc_label.custom_minimum_size = Vector2(200, 0) # 重新设置最小宽度
+	var nodes = _reset_tooltip_layout(200.0)
+	var icon = nodes["icon"] as TextureRect
+	var name_label = nodes["name_label"] as Label
+	var type_label = nodes["type_label"] as Label
+	var desc_label = nodes["desc_label"] as Label
+	var price_label = nodes["price_label"] as Label
+	var use_hint_label = nodes["use_hint_label"] as Label
+
 	
 	# 设置图标
 	var icon_path = item_info.get("item_icon", "")
@@ -540,18 +587,8 @@ func _show_tooltip(slot_index: int):
 	else:
 		use_hint_label.visible = false
 	
-	# 等待两帧让布局完全更新
-	# 第一帧：重置生效
-	await get_tree().process_frame
-	# 第二帧：新内容布局计算完成
-	await get_tree().process_frame
-	
-	# 获取VBox的实际内容大小
-	var content_size = vbox.get_combined_minimum_size()
-	# 加上边距 (10+10, 8+8)
-	var panel_size = content_size + Vector2(20, 16)
-	tooltip_panel.custom_minimum_size = panel_size
-	tooltip_panel.size = panel_size
+	await _finalize_tooltip_layout()
+
 	
 	# 将提示框放在格子旁边
 	var slot_global_pos = slot.global_position

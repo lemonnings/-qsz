@@ -44,7 +44,17 @@ func _ready() -> void:
 	exit_button.pressed.connect(_on_exit_pressed)
 	_setup_panels()
 	_create_tooltip()
+	# 这个界面需要在拖拽期间持续检查鼠标状态，
+	# 这样才能把 Godot 内置拖拽想切换的鼠标样式重新压回默认箭头。
+	set_process(true)
 	open_layer()
+
+func _process(_delta: float) -> void:
+	# Godot 在 UI 拖拽时，可能会自动把鼠标切成“可放下/不可放下”等样式。
+	# 这里统一强制回默认箭头，满足“拖动技能时不要变换鼠标样式”的需求。
+	if get_viewport().gui_is_dragging():
+		Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+
 
 func _setup_static_ui_input_filter() -> void:
 	var panel_root = get_node("Panel")
@@ -74,6 +84,9 @@ func _setup_panels() -> void:
 
 func _setup_single_panel(panel: Panel, can_drag: bool) -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	# 保持面板始终使用默认箭头鼠标，避免拖拽技能时变成其他样式。
+	# 这里用最小改动处理，只影响技能配置界面的这些面板。
+	panel.mouse_default_cursor_shape = Control.CURSOR_ARROW
 	var icon = _get_or_create_icon(panel)
 	panel_icons[panel] = icon
 	panel.mouse_entered.connect(_on_panel_mouse_entered.bind(panel))
@@ -83,6 +96,7 @@ func _setup_single_panel(panel: Panel, can_drag: bool) -> void:
 		panel.set_drag_forwarding(_get_panel_drag_data.bind(panel), _can_panel_drop_data.bind(panel), _drop_panel_data.bind(panel))
 	else:
 		panel.set_drag_forwarding(_empty_drag_data, _can_panel_drop_data.bind(panel), _drop_panel_data.bind(panel))
+
 
 func _get_or_create_icon(panel: Panel) -> TextureRect:
 	var icon = panel.get_node_or_null("SkillIcon") as TextureRect

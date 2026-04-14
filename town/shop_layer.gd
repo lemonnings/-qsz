@@ -259,18 +259,17 @@ class QualityGlow:
 			factors.append(rng.randf_range(0.62, 1.08))
 		return factors
 
-func _build_ray_thickness_factors(length_factors: Array[float]) -> Array[float]:
-	var factors: Array[float] = []
-	for length_factor in length_factors:
-		# 粗细现在完全跟着长度走：
-		# - 最长的保持当前粗细不变（倍率 1.0）
-		# - 最短的缩到当前的一半（倍率 0.5）
-		# 这样“长度变短，粗细也同步变细”的关系会更明显。
-		var length_ratio: float = inverse_lerp(0.62, 1.08, float(length_factor))
-		var thickness_factor: float = lerpf(0.5, 1.0, length_ratio)
-		factors.append(thickness_factor)
-	return factors
-
+	func _build_ray_thickness_factors(length_factors: Array[float]) -> Array[float]:
+		var factors: Array[float] = []
+		for length_factor in length_factors:
+			# 粗细现在完全跟着长度走：
+			# - 最长的保持当前粗细不变（倍率 1.0）
+			# - 最短的缩到当前的一半（倍率 0.5）
+			# 这样“长度变短，粗细也同步变细”的关系会更明显。
+			var length_ratio: float = inverse_lerp(0.62, 1.08, float(length_factor))
+			var thickness_factor: float = lerpf(0.5, 1.0, length_ratio)
+			factors.append(thickness_factor)
+		return factors
 
 	func _get_ray_length_factor(ray_index: int) -> float:
 		if _ray_length_factors.is_empty():
@@ -283,9 +282,6 @@ func _build_ray_thickness_factors(length_factors: Array[float]) -> Array[float]:
 		return float(_ray_thickness_factors[ray_index % _ray_thickness_factors.size()])
 
 	func _snap_scalar(value: float) -> float:
-
-
-
 		return round(value / PIXEL_SIZE) * PIXEL_SIZE
 
 	func _snap_to_pixel(value: Vector2) -> Vector2:
@@ -395,6 +391,7 @@ func _build_ray_thickness_factors(length_factors: Array[float]) -> Array[float]:
 				}
 			_:
 				return _get_glow_style("white")
+
 
 
 const LINGSHI_PACK_QUANTITY := {
@@ -607,11 +604,18 @@ func _cache_nodes() -> void:
 	]
 	_name_labels = [item1_name, item2_name, item3_name, item4_name, item5_name, item6_name]
 	_price_labels = [item1_price, item2_price, item3_price, item4_price, item5_price, item6_price]
-	_shop_level_label = get_node("shop_level")
-	_shop_level_label.bbcode_enabled = true
-	_shop_level_label.add_theme_font_size_override("normal_font_size", 22)
-	_shop_level_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_shop_level_label.scroll_active = false
+	# `shop_level` 之前是当前层的直接子节点。
+	# 如果后来把它挪进别的容器，原来的 `get_node("shop_level")` 就会拿不到。
+	# 这里改成递归查找，让层级变化后也能自动接上。
+	_shop_level_label = find_child("shop_level", true, false) as RichTextLabel
+	if _shop_level_label != null:
+		_shop_level_label.bbcode_enabled = true
+		_shop_level_label.add_theme_font_size_override("normal_font_size", 22)
+		_shop_level_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_shop_level_label.scroll_active = false
+	else:
+		# 如果这里还能为空，通常就说明节点名字改了，或者节点类型不再是 RichTextLabel。
+		push_warning("shop_layer.gd: 没有找到名为 shop_level 的 RichTextLabel，请检查节点名称、类型或层级是否变动。")
 	_glow_nodes.clear()
 	_icon_nodes.clear()
 	for panel in _item_panels:
@@ -1040,7 +1044,10 @@ func _refresh_display() -> void:
 
 
 func _update_shop_header() -> void:
-	_shop_level_label.text = _build_shop_header_text()
+	# 这里也要做一次保护。
+	# 原因很简单：就算初始化时没找到 `shop_level`，刷新界面时也不能继续对空对象写入文本。
+	if _shop_level_label != null:
+		_shop_level_label.text = _build_shop_header_text()
 	_update_now_ls_label()
 	if Global.shop_level >= SHOP_LEVEL_CAP:
 		shop_level_up_button.text = "货摊已满级"
@@ -1199,11 +1206,11 @@ func _show_offer_tooltip(index: int) -> void:
 		var item_rare := str(ItemManager.get_item_property(item_id, "item_rare"))
 		name_label.text = "  " + item_name
 		name_label.add_theme_color_override("font_color", _get_rare_color(item_rare))
-		type_label.text = "【%s】 %s" % [SHOP_RARITY_DISPLAY_NAMES.get(rarity, rarity), _get_item_type_display_name(item_id)]
+		type_label.text = "%s" % [_get_item_type_display_name(item_id)]
 		desc_label.text = _build_offer_detail_text(offer)
 		price_label.text = "售价: " + _format_offer_price(offer)
 		price_label.add_theme_color_override("font_color", _get_offer_price_color(offer))
-		hint_label.text = "\n点击购买商品"
+		hint_label.text = "\n双击购买商品"
 		hint_label.visible = true
 
 	await _finalize_info_panel_layout(_offer_tooltip_panel)
@@ -1270,8 +1277,10 @@ func _hide_upgrade_info() -> void:
 func _on_item_panel_gui_input(event: InputEvent, index: int) -> void:
 	if event is InputEventMouseButton:
 		var mouse_event := event as InputEventMouseButton
-		if mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed:
+		# 只有左键双击才会购买，单击现在只负责选中/查看，不再直接触发购买。
+		if mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed and mouse_event.double_click:
 			_try_buy_offer(index)
+
 
 func _on_item_panel_mouse_entered(index: int) -> void:
 	_show_offer_tooltip(index)
