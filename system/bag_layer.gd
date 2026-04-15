@@ -63,9 +63,21 @@ var sorted_items: Array = []
 # 悬浮提示框
 var tooltip_panel: Panel = null
 var tooltip_visible: bool = false
+# 记录当前鼠标停留的是哪一个背包格子。
+# 这个值不是拿来做复杂逻辑的，而是用来在异步显示提示框时，
+# 再确认一次：鼠标是不是还停留在同一个格子上。
+var hovered_slot_index: int = -1
+# 这个编号专门用于“提示框显示请求”的防串线。
+# 因为 `_show_tooltip()` 里面会等待两帧布局，
+# 如果鼠标移动很快，可能刚进入格子就立刻离开了。
+# 这时旧的显示流程恢复执行后，不能再把提示框重新显示出来。
+# 所以每次进入、离开、主动隐藏提示框时，都更新一次编号；
+# 只有最新编号对应的那次请求，才允许真正显示提示框。
+var tooltip_request_id: int = 0
 
 # 次要属性面板
 var secondary_attr_panel: Panel = null
+
 var secondary_attr_tween: Tween = null # 次要属性面板动画
 
 # 双击检测
@@ -533,7 +545,7 @@ func _finalize_tooltip_layout() -> void:
 
 # 显示悬浮提示
 
-func _show_tooltip(slot_index: int):
+func _show_tooltip(slot_index: int, request_id: int):
 	var slot = bag_slots[slot_index]
 	if !slot or !slot.has_meta("item_data"):
 		_hide_tooltip()
@@ -588,8 +600,16 @@ func _show_tooltip(slot_index: int):
 		use_hint_label.visible = false
 	
 	await _finalize_tooltip_layout()
+	# 这里要在等待布局之后，再次确认这次显示请求仍然有效。
+	# 因为玩家鼠标移动得很快时，可能在这两帧里已经离开当前格子了。
+	# 如果不拦一下，旧的异步流程恢复执行后，就会把本该消失的提示框重新显示出来。
+	if request_id != tooltip_request_id:
+		return
+	if hovered_slot_index != slot_index:
+		return
+	if !slot or !slot.has_meta("item_data"):
+		return
 
-	
 	# 将提示框放在格子旁边
 	var slot_global_pos = slot.global_position
 	var tooltip_pos = slot_global_pos + Vector2(slot.size.x + 10, 0)
@@ -607,6 +627,11 @@ func _show_tooltip(slot_index: int):
 
 # 隐藏悬浮提示
 func _hide_tooltip():
+	# 每次隐藏时都让旧的显示请求失效。
+	# 这样即使之前某次 `_show_tooltip()` 还在等待布局，
+	# 它恢复执行后也会因为编号过期而直接退出。
+	tooltip_request_id += 1
+	hovered_slot_index = -1
 	if tooltip_panel:
 		tooltip_panel.visible = false
 	tooltip_visible = false
@@ -689,7 +714,10 @@ func _on_slot_double_click(slot_index: int):
 
 # 鼠标进入格子
 func _on_slot_mouse_entered(slot_index: int):
-	_show_tooltip(slot_index)
+	hovered_slot_index = slot_index
+	tooltip_request_id += 1
+	var request_id = tooltip_request_id
+	_show_tooltip(slot_index, request_id)
 
 # 鼠标离开格子
 func _on_slot_mouse_exited(_slot_index: int):
