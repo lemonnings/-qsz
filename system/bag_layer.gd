@@ -507,26 +507,23 @@ func _reset_tooltip_layout(desc_min_width: float) -> Dictionary:
 	var nodes = _get_tooltip_nodes()
 	var vbox = nodes["vbox"] as VBoxContainer
 	var header = nodes["header"] as HBoxContainer
-	var name_label = nodes["name_label"] as Label
-	var type_label = nodes["type_label"] as Label
 	var desc_label = nodes["desc_label"] as Label
-	var price_label = nodes["price_label"] as Label
-	var use_hint_label = nodes["use_hint_label"] as Label
 	
-	# 关键修复：重置时不只清空最外层面板，
-	# 还要把标题行和内部标签的尺寸一起清掉。
-	# 否则先看长标题，再切到短标题时，旧的宽度可能会被继续沿用。
+	# 这里不能把 `NameLabel`、`PriceLabel` 这些子控件的尺寸都强行清成 `0`。
+	# 在 Godot 4.7 里，容器会根据子控件的“最小尺寸”重新排版；
+	# 如果把标题标签本体也硬清零，有时会让标题行的宽度缓存进入不稳定状态。
+	# 这样就会出现你说的现象：
+	# 先看 6 个字名字的物品，再看 4 个字名字的物品时，
+	# 提示框反而被算得过窄，导致文字跑到面板外面。
+	# 所以这里改成和商店提示框同样的思路：
+	# 只重置外层面板 / 容器，并明确给说明文字一个本次要使用的宽度。
 	tooltip_panel.size = Vector2.ZERO
 	tooltip_panel.custom_minimum_size = Vector2.ZERO
 	tooltip_panel.global_position = Vector2(-10000, -10000)
 	tooltip_panel.visible = true
 	vbox.size = Vector2.ZERO
 	header.size = Vector2.ZERO
-	name_label.size = Vector2.ZERO
-	type_label.size = Vector2.ZERO
-	desc_label.size = Vector2.ZERO
-	price_label.size = Vector2.ZERO
-	use_hint_label.size = Vector2.ZERO
+	desc_label.size = Vector2(desc_min_width, 0)
 	desc_label.custom_minimum_size = Vector2(desc_min_width, 0)
 	return nodes
 
