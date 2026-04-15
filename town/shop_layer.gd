@@ -29,11 +29,12 @@ const RARITY_COLORS := {
 	"red": Color(1.0, 0.45, 0.45, 1)
 }
 const LINGSHI_PRICE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
-const LINGSHI_PRICE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const ZHENQI_PRICE_COLOR := Color(0.68, 0.88, 1.0, 1.0)
 
-
 const SOLD_OUT_TEXT_COLOR := Color(0.72, 0.72, 0.72, 1.0)
+# 你已经确认单个商品格子的判定尺寸就是 88×88。
+# 这里单独提成常量，后面鼠标悬浮判定会直接用它，避免写死魔法数字。
+const ITEM_HITBOX_SIZE := Vector2(88, 88)
 
 # 每个商品格子下面都会放一个独立的像素光效控件。
 # 这次把它做成“从中心往外炸开”的放射束效果，尽量接近你截图里那种光芒四射的感觉。
@@ -43,23 +44,16 @@ class QualityGlow:
 	const PIXEL_SIZE := 4.0
 	const GLOW_SCALE := 0.8
 
-	const GLOW_SCALE := 0.8
-
-
 	var glow_rarity: String = ""
 	var glow_alpha_scale := 1.0
 	var _time := 0.0
 	# 这几个数组会在品质变化时重建一次：
-	# 这几个数组会在品质变化时重建一次：
 	# - `_ray_directions` 负责记录每一根主光束的朝向
 	# - `_ray_length_factors` 负责记录每一根光束自己的长度倍率
-	# - `_ray_thickness_factors` 负责记录每一根光束自己的粗细倍率
 	# - `_ray_thickness_factors` 负责记录每一根光束自己的粗细倍率
 	# 这样既能做到“看起来有点随机”，又不会每一帧抖动。
 	var _ray_directions: Array[Vector2] = []
 	var _ray_length_factors: Array[float] = []
-	var _ray_thickness_factors: Array[float] = []
-
 	var _ray_thickness_factors: Array[float] = []
 
 
@@ -117,7 +111,6 @@ class QualityGlow:
 			rotation = _time * 0.36
 		var center := size * 0.5
 		_draw_center_bloom(center, style, pulse, visual_scale)
-		_draw_center_bloom(center, style, pulse, visual_scale)
 		# 这里两层都沿用同一组方向：
 		# - 主层负责“炸开”的大光束
 		# - 次层只是同方向的短一点、淡一点的补光
@@ -170,9 +163,23 @@ class QualityGlow:
 				var alpha_scale := beam_alpha * pow(1.0 - t, 0.45)
 				_draw_ray_segment(center, direction, distance, length, thickness, base_color, alpha_scale, rotation)
 
-
+	func _draw_tip_sparks(center: Vector2, style: Dictionary, rotation: float, visual_scale: float, pulse: float) -> void:
+		# 在每根主光束的末端再补一个小亮点，
+		# 让光效看起来更像“炸开”的感觉。
+		var spark_color: Color = style.get("spark_color", Color(1.0, 1.0, 1.0, 1.0))
+		var spark_alpha: float = float(style.get("spark_alpha", 0.08)) * pulse * glow_alpha_scale
+		if spark_alpha <= 0.01:
+			return
+		var spark_distance: float = float(style.get("spark_length", 70.0)) * visual_scale
+		var spark_size: float = float(style.get("spark_size", 6.0)) * visual_scale
+		for ray_index in range(_ray_directions.size()):
+			var direction := _ray_directions[ray_index].normalized().rotated(rotation)
+			var distance := spark_distance * _get_ray_length_factor(ray_index)
+			var spark_center := _snap_to_pixel(center + direction * distance)
+			_draw_center_square(spark_center, spark_size, spark_color, spark_alpha)
 
 	func _draw_ray_segment(center: Vector2, direction: Vector2, distance: float, length: float, thickness: float, base_color: Color, alpha_scale: float, rotation: float) -> void:
+
 
 		var color := base_color
 		color.a *= alpha_scale * glow_alpha_scale
@@ -211,7 +218,8 @@ class QualityGlow:
 		for angle_deg in angle_list:
 			_ray_directions.append(Vector2.RIGHT.rotated(deg_to_rad(angle_deg)))
 		_ray_length_factors = _build_ray_length_factors(ray_count, rng)
-		_ray_thickness_factors = _build_ray_thickness_factors(_ray_length_factors, rng)
+		# 粗细倍率直接根据长度倍率计算，不需要再额外传随机数。
+		_ray_thickness_factors = _build_ray_thickness_factors(_ray_length_factors)
 
 
 	func _get_rarity_ray_count(rarity: String) -> int:
@@ -555,6 +563,17 @@ var _upgrade_info_panel: Panel
 var _exit_button: Button
 var _tooltip_font: Font = null
 var _setting_monster = SETTING_MONSTER_SCRIPT.new()
+# 记录当前鼠标停留的是哪一个商品格子。
+# 这里仍然保留索引，是因为 `mouse_exited` 之后我们会延后一帧再判断。
+# 这样可以避免“刚离开时 UI 还没更新完”带来的误判。
+# 但最终是否继续显示提示框，只以商品格子本体是否还被鼠标覆盖为准。
+var _hovered_offer_index := -1
+# 这个编号专门用来处理提示框的异步显示。
+# 因为 `_show_offer_tooltip()` 里会等待两帧布局，
+# 如果鼠标先离开了，旧的显示流程不能在稍后“复活”出来。
+# 所以每次进入/离开商品时，都更新一次编号；
+# 只有最新编号对应的那次显示请求，才允许真正把提示框显示出来。
+var _offer_tooltip_request_id := 0
 
 
 func _ready() -> void:
@@ -591,28 +610,60 @@ func open_shop() -> void:
 
 
 func _cache_nodes() -> void:
+	# 这几个商品格子和文字节点，原先很多都是直接挂在当前层上的。
+	# 现在层级调整过以后，导出槽可能还没完全重新绑定，
+	# 所以这里统一做“导出优先，名字兜底”的兼容处理。
+	if item1 == null:
+		item1 = find_child("item1", true, false) as Panel
+	if item2 == null:
+		item2 = find_child("item2", true, false) as Panel
+	if item3 == null:
+		item3 = find_child("item3", true, false) as Panel
+	if item4 == null:
+		item4 = find_child("item4", true, false) as Panel
+	if item5 == null:
+		item5 = find_child("item5", true, false) as Panel
+	if item6 == null:
+		item6 = find_child("item6", true, false) as Panel
+	if item1_name == null:
+		item1_name = find_child("item1_name", true, false) as RichTextLabel
+	if item2_name == null:
+		item2_name = find_child("item2_name", true, false) as RichTextLabel
+	if item3_name == null:
+		item3_name = find_child("item3_name", true, false) as RichTextLabel
+	if item4_name == null:
+		item4_name = find_child("item4_name", true, false) as RichTextLabel
+	if item5_name == null:
+		item5_name = find_child("item5_name", true, false) as RichTextLabel
+	if item6_name == null:
+		item6_name = find_child("item6_name", true, false) as RichTextLabel
+	if item1_price == null:
+		item1_price = find_child("item1_price", true, false) as RichTextLabel
+	if item2_price == null:
+		item2_price = find_child("item2_price", true, false) as RichTextLabel
+	if item3_price == null:
+		item3_price = find_child("item3_price", true, false) as RichTextLabel
+	if item4_price == null:
+		item4_price = find_child("item4_price", true, false) as RichTextLabel
+	if item5_price == null:
+		item5_price = find_child("item5_price", true, false) as RichTextLabel
+	if item6_price == null:
+		item6_price = find_child("item6_price", true, false) as RichTextLabel
 	_item_panels = [item1, item2, item3, item4, item5, item6]
-	# 这个标签是你后来新加的，所以这里不用导出变量强绑，
-	# 而是运行时按名字查找；只要节点名叫 `now_ls` 就能自动接上。
-	_now_ls_label = find_child("now_ls", true, false) as RichTextLabel
-	# 这两个节点都优先使用导出绑定；
-	# 如果你在场景里只是新建了同名节点、还没手动拖进导出槽，
-	# 这里也会自动按名字查找接上。
 	if now_ls == null:
 		now_ls = find_child("now_ls", true, false) as RichTextLabel
+	if refresh_num == null:
+		refresh_num = find_child("refresh_num", true, false) as RichTextLabel
 	if recycle_button == null:
 		recycle_button = find_child("recycle_button", true, false) as Button
 	_now_ls_label = now_ls
 	_detail_labels = [
-
-
-
-		get_node("item1_detail"),
-		get_node("item1_detail2"),
-		get_node("item1_detail3"),
-		get_node("item1_detail4"),
-		get_node("item1_detail5"),
-		get_node("item1_detail6")
+		find_child("item1_detail", true, false) as RichTextLabel,
+		find_child("item1_detail2", true, false) as RichTextLabel,
+		find_child("item1_detail3", true, false) as RichTextLabel,
+		find_child("item1_detail4", true, false) as RichTextLabel,
+		find_child("item1_detail5", true, false) as RichTextLabel,
+		find_child("item1_detail6", true, false) as RichTextLabel
 	]
 	_name_labels = [item1_name, item2_name, item3_name, item4_name, item5_name, item6_name]
 	_price_labels = [item1_price, item2_price, item3_price, item4_price, item5_price, item6_price]
@@ -631,6 +682,10 @@ func _cache_nodes() -> void:
 	_glow_nodes.clear()
 	_icon_nodes.clear()
 	for panel in _item_panels:
+		if panel == null:
+			_glow_nodes.append(null)
+			_icon_nodes.append(null)
+			continue
 		_glow_nodes.append(_ensure_glow_node(panel))
 		_icon_nodes.append(_ensure_icon_node(panel))
 	_configure_item_hit_areas_and_labels()
@@ -774,24 +829,29 @@ func _finalize_info_panel_layout(panel: Panel) -> void:
 func _connect_interactions() -> void:
 	for i in range(_item_panels.size()):
 		var panel := _item_panels[i]
+		if panel == null:
+			continue
 		# 物品依然可以点击，但鼠标保持普通箭头样式，不再显示小手。
 		panel.mouse_default_cursor_shape = Control.CURSOR_ARROW
 		panel.gui_input.connect(_on_item_panel_gui_input.bind(i))
 		panel.mouse_entered.connect(_on_item_panel_mouse_entered.bind(i))
-		panel.mouse_exited.connect(_on_item_panel_mouse_exited)
+		panel.mouse_exited.connect(_on_item_panel_mouse_exited.bind(i))
 
-	refresh_num.mouse_filter = Control.MOUSE_FILTER_STOP
-	refresh_num.mouse_default_cursor_shape = Control.CURSOR_ARROW
-	refresh_num.gui_input.connect(_on_refresh_gui_input)
+	if refresh_num != null:
+		refresh_num.mouse_filter = Control.MOUSE_FILTER_STOP
+		refresh_num.mouse_default_cursor_shape = Control.CURSOR_ARROW
+		refresh_num.gui_input.connect(_on_refresh_gui_input)
 
-	shop_level_up_button.pressed.connect(_on_shop_level_up_pressed)
-	shop_level_up_button.mouse_entered.connect(_on_shop_level_up_mouse_entered)
-	shop_level_up_button.mouse_exited.connect(_on_shop_level_up_mouse_exited)
+	if shop_level_up_button != null:
+		shop_level_up_button.pressed.connect(_on_shop_level_up_pressed)
+		shop_level_up_button.mouse_entered.connect(_on_shop_level_up_mouse_entered)
+		shop_level_up_button.mouse_exited.connect(_on_shop_level_up_mouse_exited)
 	if recycle_button != null:
 		recycle_button.focus_mode = Control.FOCUS_NONE
 		recycle_button.mouse_default_cursor_shape = Control.CURSOR_ARROW
 		recycle_button.pressed.connect(_on_recycle_button_pressed)
-	_exit_button.pressed.connect(_on_exit_button_pressed)
+	if _exit_button != null:
+		_exit_button.pressed.connect(_on_exit_button_pressed)
 
 
 func _ensure_glow_node(panel: Panel):
@@ -816,6 +876,8 @@ func _ensure_icon_node(panel: Panel) -> TextureRect:
 	# 不管图标节点是不是场景里原本就存在，都统一设置为不拦截鼠标。
 	# 这样鼠标放在图标、名称或价格区域时，都能命中整块商品并弹出详情。
 	icon_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_node.visible = true
+	icon_node.z_index = 1
 	icon_node.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	icon_node.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	# 图标整体缩小 20%，但格子本身大小不变。
@@ -1006,17 +1068,24 @@ func _refresh_display() -> void:
 	_update_refresh_label()
 	_update_recycle_button_state()
 	for i in range(_item_panels.size()):
-
 		var panel := _item_panels[i]
 		var detail_label := _detail_labels[i]
 		var price_label := _price_labels[i]
 		var icon_node := _icon_nodes[i]
 		var glow_node = _glow_nodes[i] if i < _glow_nodes.size() else null
+		# 图标和格子本体是最核心的显示节点。
+		# 只要它们还在，就先把商品图标刷新出来；
+		# 即使某个文字标签暂时没接上，也不要让整格商品空白。
+		if panel == null or icon_node == null:
+			continue
 		if i >= _shop_items.size():
-			detail_label.text = "未上架"
-			price_label.text = ""
+			if detail_label != null:
+				detail_label.text = "未上架"
+			if price_label != null:
+				price_label.text = ""
 			_apply_name_color_to_slot(i, Color.WHITE)
-			price_label.modulate = LINGSHI_PRICE_COLOR
+			if price_label != null:
+				price_label.modulate = LINGSHI_PRICE_COLOR
 			icon_node.texture = null
 			panel.modulate = Color(1, 1, 1, 1)
 			icon_node.modulate = Color(1, 1, 1, 1)
@@ -1028,30 +1097,37 @@ func _refresh_display() -> void:
 		var rarity := str(offer.get("rarity", "white"))
 		var item_id := str(offer.get("item_id", ""))
 		var item_name := str(ItemManager.get_item_property(item_id, "item_name"))
-		var item_icon = ItemManager.get_item_property(item_id, "item_icon")
+		var item_icon_path := str(ItemManager.get_item_property(item_id, "item_icon"))
 		var name_color := _get_rare_color(str(ItemManager.get_item_property(item_id, "item_rare")))
 		var price_color := _get_offer_price_color(offer)
+		var icon_texture = load(item_icon_path) if not item_icon_path.is_empty() and ResourceLoader.exists(item_icon_path) else null
 		panel.modulate = Color(1, 1, 1, 1)
+		icon_node.visible = true
 		icon_node.modulate = Color(1, 1, 1, 1)
+		icon_node.texture = icon_texture
 		_apply_name_color_to_slot(i, name_color)
-		price_label.modulate = price_color
+		if price_label != null:
+			price_label.modulate = price_color
 		if glow_node != null:
 			glow_node.set_glow_rarity(rarity)
 			glow_node.set_glow_alpha_scale(1.0)
 		if bool(offer.get("sold", false)):
-			detail_label.text = "已售罄"
-			price_label.text = ""
+			if detail_label != null:
+				detail_label.text = "已售罄"
+			if price_label != null:
+				price_label.text = ""
 			_apply_name_color_to_slot(i, SOLD_OUT_TEXT_COLOR)
-			price_label.modulate = SOLD_OUT_TEXT_COLOR
-			icon_node.texture = load(str(ItemManager.get_item_property(item_id, "item_icon"))) if ItemManager.get_item_property(item_id, "item_icon") != null else null
+			if price_label != null:
+				price_label.modulate = SOLD_OUT_TEXT_COLOR
 			icon_node.modulate = Color(0.35, 0.35, 0.35, 0.8)
 			panel.modulate = Color(0.75, 0.75, 0.75, 1)
 			if glow_node != null:
 				glow_node.set_glow_alpha_scale(0.45)
 			continue
-		icon_node.texture = load(str(item_icon)) if item_icon != null else null
-		detail_label.text = item_name + " ×" + str(offer.get("quantity", 0))
-		price_label.text = _format_offer_price(offer)
+		if detail_label != null:
+			detail_label.text = item_name + " ×" + str(offer.get("quantity", 0))
+		if price_label != null:
+			price_label.text = _format_offer_price(offer)
 
 
 func _update_shop_header() -> void:
@@ -1081,10 +1157,23 @@ func _update_now_ls_label() -> void:
 
 
 func _update_refresh_label() -> void:
-
+	if refresh_num == null:
+		refresh_num = find_child("refresh_num", true, false) as RichTextLabel
+		if refresh_num == null:
+			return
 	var battle_refresh := Global.shop_battle_refresh_count
 	var shipping_refresh := Global.get_item_count("item_059")
 	refresh_num.text = "刷新（%d）" % (battle_refresh + shipping_refresh)
+
+func _update_recycle_button_state() -> void:
+	if recycle_button == null:
+		recycle_button = find_child("recycle_button", true, false) as Button
+	if recycle_button == null:
+		return
+	var has_recyclable := _has_recyclable_obsolete_pills()
+	recycle_button.disabled = not has_recyclable
+	# 按钮文字保持不变，只通过置灰提示当前有没有可回收内容。
+	recycle_button.modulate = Color(1, 1, 1, 1) if has_recyclable else Color(0.7, 0.7, 0.7, 1)
 
 func _build_shop_header_text() -> String:
 	return "[font_size=%d]货摊级别：%d[/font_size]\n\n%s" % [SHOP_HEADER_FONT_SIZE, Global.shop_level, _format_probability_text(Global.shop_level)]
@@ -1177,7 +1266,7 @@ func _build_offer_detail_text(offer: Dictionary) -> String:
 		detail_text += "\n\n[来源] " + item_source
 	return detail_text
 
-func _show_offer_tooltip(index: int) -> void:
+func _show_offer_tooltip(index: int, request_id: int) -> void:
 	if index < 0 or index >= _shop_items.size():
 		_hide_offer_tooltip()
 		return
@@ -1216,7 +1305,20 @@ func _show_offer_tooltip(index: int) -> void:
 		hint_label.visible = true
 
 	await _finalize_info_panel_layout(_offer_tooltip_panel)
+	# 这里必须再次确认：
+	# - 这次显示请求仍然是最新的一次；
+	# - 鼠标此时还停留在同一个商品格子上。
+	# 否则说明玩家已经移开了，或者已经切到别的商品，
+	# 旧的异步流程就不能再把提示框显示出来。
+	if request_id != _offer_tooltip_request_id:
+		return
+	if _hovered_offer_index != index:
+		return
+	if index < 0 or index >= _item_panels.size():
+		return
 	var hovered_panel := _item_panels[index]
+	if hovered_panel == null:
+		return
 	var tooltip_pos := hovered_panel.global_position + Vector2(hovered_panel.size.x + 10, 0)
 	var viewport_size := get_viewport().get_visible_rect().size
 	if tooltip_pos.x + _offer_tooltip_panel.size.x > viewport_size.x:
@@ -1227,6 +1329,10 @@ func _show_offer_tooltip(index: int) -> void:
 	_offer_tooltip_panel.visible = true
 
 func _hide_offer_tooltip() -> void:
+	# 每次隐藏时都顺手让旧请求失效。
+	# 这样即使之前某次 `_show_offer_tooltip()` 还在 await，
+	# 它恢复执行后也会因为编号过期而直接退出。
+	_offer_tooltip_request_id += 1
 	if _offer_tooltip_panel != null:
 		_offer_tooltip_panel.visible = false
 
@@ -1285,10 +1391,46 @@ func _on_item_panel_gui_input(event: InputEvent, index: int) -> void:
 
 
 func _on_item_panel_mouse_entered(index: int) -> void:
-	_show_offer_tooltip(index)
+	_hovered_offer_index = index
+	_offer_tooltip_request_id += 1
+	var request_id := _offer_tooltip_request_id
+	_show_offer_tooltip(index, request_id)
 
-func _on_item_panel_mouse_exited() -> void:
+func _on_item_panel_mouse_exited(index: int) -> void:
+	# 不直接立刻关闭，而是延后一拍再检查一次。
+	# 原因很简单：鼠标刚离开时，Godot 的界面事件和绘制更新可能还在同一帧里。
+	# 延后一拍后再判断，会更稳定。
+	call_deferred("_handle_item_panel_mouse_exit", index)
+
+func _handle_item_panel_mouse_exit(index: int) -> void:
+	if _hovered_offer_index != index:
+		return
+	# 这里按你的需求改成“只认 item 格子本体”。
+	# 也就是说：
+	# 1. 鼠标在提示框上，不算还停留在商品上。
+	# 2. 鼠标在格子外扩的红光/特效上，也不算还停留在商品上。
+	# 3. 只有鼠标还在商品 panel 的矩形里，提示框才继续显示。
+	if _is_mouse_over_offer_panel(index):
+		return
+	_hovered_offer_index = -1
 	_hide_offer_tooltip()
+
+func _is_mouse_over_offer_panel(index: int) -> bool:
+	if index < 0 or index >= _item_panels.size():
+		return false
+	var panel := _item_panels[index]
+	if panel == null:
+		return false
+	var mouse_pos := get_viewport().get_mouse_position()
+	# 这里故意不用 `panel.get_global_rect()`。
+	# 原因是场景里的 `Panel` 实际矩形有可能比你肉眼看到的格子更大，
+	# 那样就会出现“看起来已经离开格子了，但代码还判定在格子里”的问题。
+	# 现在直接以你确认过的商品格子尺寸 `88×88` 作为唯一命中范围：
+	# - 左上角：沿用当前 panel 的全局位置
+	# - 大小：固定 88×88
+	# 这样提示框的消失就会严格跟着格子本体走。
+	var item_rect := Rect2(panel.global_position, ITEM_HITBOX_SIZE)
+	return item_rect.has_point(mouse_pos)
 
 func _try_buy_offer(index: int) -> void:
 	if index < 0 or index >= _shop_items.size():
@@ -1339,9 +1481,13 @@ func _configure_item_hit_areas_and_labels() -> void:
 		var panel := _item_panels[i]
 		var detail_label := _detail_labels[i]
 		var price_label := _price_labels[i]
+		if panel == null:
+			continue
 		panel.mouse_filter = Control.MOUSE_FILTER_STOP
-		detail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if detail_label != null:
+			detail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if price_label != null:
+			price_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if i < _icon_nodes.size() and _icon_nodes[i] != null:
 			_icon_nodes[i].mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for extra_name_label in [item1_name, item2_name, item3_name, item4_name, item5_name, item6_name]:

@@ -7,17 +7,17 @@ var is_attacking: bool = false
 
 # 属性配置
 var speed: float = 0.0 # 石碑不移动
-var hpMax: float = SettingMoster.stone_man("hp") * 180
+var hpMax: float = SettingMoster.stone_man("hp") * 20
 var hp: float = hpMax
 var atk: float = SettingMoster.stone_man("atk") * 1.2
 var get_point: int = SettingMoster.stone_man("point") * 75
 var get_exp: int = 0
 
 # 屏幕边界
-@export var top_boundary: float = 250.0
-@export var bottom_boundary: float = 750.0
-@export var left_boundary: float = -205.0
-@export var right_boundary: float = 210.0
+@export var top_boundary: float = 50.0
+@export var bottom_boundary: float = 550.0
+@export var left_boundary: float = -300.0
+@export var right_boundary: float = 300.0
 
 var allow_turning: bool = true
 var attack_timer: Timer
@@ -36,6 +36,30 @@ var skill_queue: Array = []
 @onready var sprite = $BossStone # 使用与 boss_stone 相同的节点结构
 var phase1_next_skill_is_ray: bool = true
 
+var disable_contact_damage: bool = false
+var restrainer_player_count: int = 0
+var restrainer_applied_dr_delta: float = 0.0
+
+func _on_body_entered(body: Node2D) -> void:
+	if disable_contact_damage: return
+	super._on_body_entered(body)
+
+func add_restrainer_buff():
+	restrainer_player_count += 1
+	if restrainer_player_count == 1:
+		restrainer_applied_dr_delta = max(0.0, 0.9 - PC.damage_reduction_rate)
+		PC.damage_reduction_rate += restrainer_applied_dr_delta
+		PC.damage_deal_multiplier *= 0.2
+		Global.emit_signal("buff_added", "restrained", 0.0, 1)
+
+func remove_restrainer_buff():
+	restrainer_player_count -= 1
+	if restrainer_player_count <= 0:
+		restrainer_player_count = 0
+		PC.damage_reduction_rate -= restrainer_applied_dr_delta
+		PC.damage_deal_multiplier /= 0.2
+		restrainer_applied_dr_delta = 0.0
+		Global.emit_signal("buff_removed", "restrained")
 
 func _ready():
 	add_to_group("boss")
@@ -102,6 +126,7 @@ func _finish_skill():
 			return
 		
 		# 瞬移到玩家周围 80~120 像素的位置
+		disable_contact_damage = true
 		var p_pos = PC.player_instance.global_position
 		var valid_pos = global_position
 		for i in range(15):
@@ -117,6 +142,9 @@ func _finish_skill():
 		var tw2 = create_tween()
 		tw2.tween_property(sprite, "modulate:a", 1.0, 0.3)
 		await tw2.finished
+		
+		await get_tree().create_timer(0.2).timeout
+		disable_contact_damage = false
 		
 	is_attacking = false
 
@@ -194,6 +222,7 @@ func _skill_corrosive_storm():
 			is_attacking = false
 			return
 		
+		disable_contact_damage = true
 		var p_pos = PC.player_instance.global_position
 		var valid_pos = global_position
 		for i in range(15):
@@ -208,6 +237,10 @@ func _skill_corrosive_storm():
 		var tw_in = create_tween()
 		tw_in.tween_property(sprite, "modulate:a", 1.0, 0.2)
 		await tw_in.finished
+		
+		await get_tree().create_timer(0.2).timeout
+		disable_contact_damage = false
+		
 		if is_dead:
 			is_attacking = false
 			return
@@ -245,20 +278,22 @@ func _skill_corrosive_slam():
 	
 	var w1 = WarnSectorUtil.new(); get_tree().current_scene.add_child(w1); var w2 = WarnSectorUtil.new(); get_tree().current_scene.add_child(w2)
 	w1.attacker = self; w2.attacker = self
+	w1.warning_finished.connect(w1.queue_free); w2.warning_finished.connect(w2.queue_free)
 	w1.start_warning(global_position, global_position + first_vecs[0].normalized() * range_dist, 90.0, 1.0, atk)
 	w2.start_warning(global_position, global_position + first_vecs[1].normalized() * range_dist, 90.0, 1.0, atk)
 	await get_tree().create_timer(1.0).timeout
 	if is_dead: return
-	_spawn_particles_in_sectors(global_position, [first_vecs[0].angle(), first_vecs[1].angle()], Color(0.05, 0.3, 0.05), 600, range_dist)
+	_spawn_particles_in_sectors(global_position, [first_vecs[0].angle(), first_vecs[1].angle()], Color(0.05, 0.3, 0.05), 60, range_dist)
 	_screen_shake(4.0, 0.3)
 	
 	var w3 = WarnSectorUtil.new(); get_tree().current_scene.add_child(w3); var w4 = WarnSectorUtil.new(); get_tree().current_scene.add_child(w4)
 	w3.attacker = self; w4.attacker = self
+	w3.warning_finished.connect(w3.queue_free); w4.warning_finished.connect(w4.queue_free)
 	w3.start_warning(global_position, global_position + second_vecs[0].normalized() * range_dist, 90.0, 1.0, atk)
 	w4.start_warning(global_position, global_position + second_vecs[1].normalized() * range_dist, 90.0, 1.0, atk)
 	await get_tree().create_timer(1.0).timeout
 	if is_dead: return
-	_spawn_particles_in_sectors(global_position, [second_vecs[0].angle(), second_vecs[1].angle()], Color(0.05, 0.3, 0.05), 600, range_dist)
+	_spawn_particles_in_sectors(global_position, [second_vecs[0].angle(), second_vecs[1].angle()], Color(0.05, 0.3, 0.05), 60, range_dist)
 	_screen_shake(4.0, 0.3)
 	_finish_skill()
 
@@ -272,7 +307,7 @@ func _skill_shadow_tornado():
 		if is_dead: break
 		var p_pos = PC.player_instance.global_position if is_instance_valid(PC.player_instance) else global_position
 		var tornado = _ShadowTornado.new()
-		tornado.global_position = p_pos; tornado.attacker = self; tornado.damage_val = atk * 1.5; tornado.scale = Vector2(0.70, 0.70)
+		tornado.global_position = p_pos; tornado.attacker = self; tornado.damage_val = atk * 1.5; tornado.scale = Vector2(0.49, 0.49)
 		get_tree().current_scene.add_child(tornado)
 	_finish_skill()
 
@@ -295,6 +330,7 @@ func _skill_shadow_displacement():
 	if is_instance_valid(ring_warn): ring_warn.queue_free()
 	if is_dead or not is_instance_valid(target_r): _finish_skill(); return	
 	
+	disable_contact_damage = true
 	global_position = target_r.global_position; _screen_shake(8.0, 0.5)
 	var original_mask = collision_mask
 	collision_mask = 0
@@ -313,6 +349,8 @@ func _skill_shadow_displacement():
 	
 	await get_tree().create_timer(0.6).timeout
 	collision_mask = original_mask
+	await get_tree().create_timer(0.2).timeout
+	disable_contact_damage = false
 	_finish_skill()
 
 ## 7. 暗影共鸣 (爆炸范围提升50%，读条延长0.8秒)
@@ -364,7 +402,7 @@ func _get_active_restrainers() -> Array:
 
 func _spawn_restrainer():
 	var spawn_pos = global_position
-	var restrainer = _ShadowRestrainer.new(); restrainer.global_position = spawn_pos; get_tree().current_scene.add_child(restrainer)
+	var restrainer = _ShadowRestrainer.new(); restrainer.boss = self; restrainer.global_position = spawn_pos; get_tree().current_scene.add_child(restrainer)
 	_spawn_particles(spawn_pos, Color(0.35, 0.0, 0.5), 24, 80.0); _screen_shake(3.0, 0.15)
 	for other in _get_active_restrainers():
 		if other != restrainer and spawn_pos.distance_to(other.global_position) < RESTRAINER_MIN_GAP:
@@ -476,8 +514,16 @@ class _DisplacementRingWarn extends Node2D:
 	func _draw():
 		var alpha = 0.08 + clamp(elapsed / max(duration, 0.01), 0.0, 1.0) * 0.18
 		
-		# 暗紫色背景层
-		draw_circle(Vector2.ZERO, outer_radius, Color(0.1, 0.0, 0.15, 0.2 * modulate.a))
+		# 暗紫色背景层（仅在安全区外绘制）
+		var bg_color = Color(0.1, 0.0, 0.15, 0.2 * modulate.a)
+		var points = PackedVector2Array()
+		for i in range(65):
+			var angle = i * TAU / 64.0
+			points.append(Vector2(cos(angle), sin(angle)) * outer_radius)
+		for i in range(64, -1, -1):
+			var angle = i * TAU / 64.0
+			points.append(Vector2(cos(angle) * inner_rx, sin(angle) * inner_ry))
+		draw_polygon(points, PackedColorArray([bg_color]))
 		
 		var step = 6
 		for x in range(-int(outer_radius), int(outer_radius) + 1, step):
@@ -487,8 +533,6 @@ class _DisplacementRingWarn extends Node2D:
 				var grid_id = int(abs(x) / step + abs(y) / step)
 				if not inside_safe and dist <= outer_radius:
 					if grid_id % 2 == 0: draw_rect(Rect2(x - step * 0.5, y - step * 0.5, step, step), Color(0.55, 0.0, 0.8, alpha))
-				elif inside_safe and grid_id % 3 == 0:
-					draw_rect(Rect2(x - 3.0, y - 3.0, 6.0, 6.0), Color(0.2, 0.0, 0.3, 0.08 + alpha * 0.35))
 		for i in range(64):
 			var angle = i * TAU / 64.0
 			var outer_pos = Vector2(cos(angle), sin(angle)) * outer_radius
@@ -497,7 +541,8 @@ class _DisplacementRingWarn extends Node2D:
 			draw_rect(Rect2(round(inner_pos.x / 4.0) * 4.0 - 4.0, round(inner_pos.y / 4.0) * 4.0 - 4.0, 8.0, 8.0), Color(0.95, 0.75, 1.0, alpha + 0.12))
 
 class _ShadowRestrainer extends Node2D:
-	var p_in = false; var applied_dr_delta := 0.0; var applied_damage_factor := 1.0; var rx := 20.0; var ry := 15.0; var dot_timer := 0.0
+	var boss: Node
+	var p_in = false; var rx := 20.0; var ry := 15.0; var dot_timer := 0.0
 	func _draw():
 		var c = Color(0.4, 0.0, 0.6, 0.4 + 0.1 * sin(Time.get_ticks_msec()*0.01)); var border_c = Color(0.8, 0.3, 1.0)
 		for x in range(-20, 22, 2):
@@ -512,18 +557,16 @@ class _ShadowRestrainer extends Node2D:
 		var d = PC.player_instance.global_position - global_position
 		if (pow(d.x / rx, 2) + pow(d.y / ry, 2)) <= 1.0:
 			if not p_in:
-				applied_dr_delta = 0.9 - PC.damage_reduction_rate; PC.damage_reduction_rate += applied_dr_delta
-				applied_damage_factor = 0.2; PC.damage_deal_multiplier *= applied_damage_factor
-				Global.emit_signal("buff_added", "restrained", 0.0, 1); p_in = true
+				p_in = true
+				if is_instance_valid(boss): boss.add_restrainer_buff()
 			dot_timer += delta
 			if dot_timer >= 1.0:
 				dot_timer -= 1.0; PC.apply_damage(max(1, int(PC.pc_max_hp * 0.01)))
 		elif p_in: _clear_restrain_effect()
 	func _exit_tree(): if p_in: _clear_restrain_effect()
 	func _clear_restrain_effect():
-		PC.damage_reduction_rate -= applied_dr_delta
-		if applied_damage_factor != 0.0: PC.damage_deal_multiplier /= applied_damage_factor
-		Global.emit_signal("buff_removed", "restrained"); applied_dr_delta = 0.0; applied_damage_factor = 1.0; p_in = false; dot_timer = 0.0
+		p_in = false; dot_timer = 0.0
+		if is_instance_valid(boss): boss.remove_restrainer_buff()
 
 class _ShadowTornado extends Node2D:
 	var attacker: Node; var damage_val: float; var t := 0.0; var active := false; var fading_out := false; var has_hit := false
@@ -538,6 +581,7 @@ class _ShadowTornado extends Node2D:
 				PC.apply_damage(int(damage_val * (1.0 - PC.damage_reduction_rate)))
 				Global.emit_signal("player_hit", attacker); Global.emit_signal("buff_added", "stun", 2.0, 1)
 				if PC.pc_hp <= 0: PC.player_instance.game_over()
+				queue_free()
 		if t > 20.0 and not fading_out:
 			fading_out = true
 			var tw = create_tween(); tw.tween_property(self, "modulate:a", 0.0, 1.0); tw.tween_callback(self.queue_free)
@@ -546,9 +590,11 @@ class _ShadowTornado extends Node2D:
 		filter.color = Color(0.4, 0.0, 0.6, 0.4); canvas.add_child(filter); get_tree().current_scene.add_child(canvas)
 		var tw = create_tween(); tw.tween_property(filter, "color:a", 0.0, 0.5); tw.tween_callback(canvas.queue_free)
 	func _draw():
-		var rot = Time.get_ticks_msec() * 0.015
+		var frame = int(t * 8.0)
+		var rot = frame * 1000.0 / 8.0 * 0.015
 		for y in range(-20, 20, 4):
-			var radius = 10.0 + (y + 20) * 0.4; var ang = rot * (1.0 + y * 0.05); var offset_x = cos(ang) * radius
+			var flipped_y = -y - 4
+			var radius = 10.0 + (flipped_y + 20) * 0.4; var ang = rot * (1.0 + flipped_y * 0.05); var offset_x = cos(ang) * radius
 			draw_rect(Rect2(offset_x, y, 4, 4), Color(0.2, 0.0, 0.3)); draw_rect(Rect2(-offset_x, y, 4, 4), Color(0.4, 0.1, 0.6))
 
 class _TargetIcon extends Node2D:
@@ -556,7 +602,7 @@ class _TargetIcon extends Node2D:
 	func _draw():
 		var y_off = round((sin(Time.get_ticks_msec() * 0.01) * 10.0 - 50.0) / 2.0) * 2.0
 		var c = Color.RED; var outline = Color.BLACK
-		draw_rect(Rect2(-4, y_off + 4, 8, 16), outline); draw_rect(Rect2(-4, y_off - 4, 8, 6), outline); draw_rect(Rect2(-2, y_off + 6, 4, 12), c); draw_rect(Rect2(-2, y_off - 2, 4, 4), c)
+		draw_rect(Rect2(-4, y_off - 18, 8, 16), outline); draw_rect(Rect2(-4, y_off, 8, 6), outline); draw_rect(Rect2(-2, y_off - 16, 4, 12), c); draw_rect(Rect2(-2, y_off + 2, 4, 4), c)
 
 func _screen_shake(intensity: float = 6.0, duration: float = 0.3):
 	var camera = get_viewport().get_camera_2d()
