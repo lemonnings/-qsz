@@ -424,7 +424,7 @@ func _wrap_item_name_every_four_chars(item_name: String) -> String:
 	var start_index := 0
 	while start_index < item_name.length():
 		if not wrapped_name.is_empty():
-			wrapped_name += "\n"
+			wrapped_name += "\n"+" "
 		wrapped_name += item_name.substr(start_index, 4)
 		start_index += 4
 	return wrapped_name
@@ -593,7 +593,7 @@ func _show_tooltip(slot_index: int, request_id: int):
 	var item_rare = item_info.get("item_rare", "common")
 	# 这里把超过 4 个字的名称强制分行，
 	# 这样提示框宽度就不会再被一整行超长名字撑出错误结果。
-	name_label.text = "  " + _wrap_item_name_every_four_chars(item_name)
+	name_label.text = " " + _wrap_item_name_every_four_chars(item_name)
 	name_label.add_theme_color_override("font_color", _get_rare_color(item_rare))
 	
 	# 设置分类
