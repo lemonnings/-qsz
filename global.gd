@@ -4,6 +4,60 @@ extends Node
 const CONFIG_PATH = "user://game_config.cfg"
 const LINGSHI_ITEM_ID := "item_084"
 
+# 关卡难度ID常量。
+# 这里统一用英文ID存数据，显示时再转换成中文，
+# 这样后续存档和代码判断会更稳定，不容易因为中文改字而出问题。
+const STAGE_DIFFICULTY_SHALLOW := "shallow"
+const STAGE_DIFFICULTY_DEEP := "deep"
+const STAGE_DIFFICULTY_CORE := "core"
+const STAGE_DIFFICULTY_POETRY := "poetry"
+
+# 关卡ID列表。
+# 这里只先接你当前提出的 4 个正式关卡。
+const STAGE_ID_LIST := ["peach_grove", "ruin", "cave", "forest"]
+
+# 各关卡在不同难度下的属性倍率。
+# - 浅层固定为 1.0。
+# - 深层/核心按你给的百分比做乘算。
+# - 诗想目前你还没有给出额外倍率，所以先暂时与核心保持一致，
+#   这样功能可以先完整跑通，之后你如果想继续加难度，只需要改这里。
+const STAGE_DIFFICULTY_MULTIPLIERS := {
+	"peach_grove": {
+		STAGE_DIFFICULTY_SHALLOW: 1.0,
+		STAGE_DIFFICULTY_DEEP: 1.75,
+		STAGE_DIFFICULTY_CORE: 1.75 * 1.7821,
+		STAGE_DIFFICULTY_POETRY: 1.75 * 1.7821
+	},
+	"ruin": {
+		STAGE_DIFFICULTY_SHALLOW: 1.0,
+		STAGE_DIFFICULTY_DEEP: 1.75,
+		STAGE_DIFFICULTY_CORE: 1.75 * 1.9524,
+		STAGE_DIFFICULTY_POETRY: 1.75 * 1.9524
+	},
+	"cave": {
+		STAGE_DIFFICULTY_SHALLOW: 1.0,
+		STAGE_DIFFICULTY_DEEP: 1.9417,
+		STAGE_DIFFICULTY_CORE: 1.9417 * 1.5794,
+		STAGE_DIFFICULTY_POETRY: 1.9417 * 1.5794
+	},
+	"forest": {
+		STAGE_DIFFICULTY_SHALLOW: 1.0,
+		STAGE_DIFFICULTY_DEEP: 1.6132,
+		STAGE_DIFFICULTY_CORE: 1.6132 * 1.3267,
+		STAGE_DIFFICULTY_POETRY: 1.6132 * 1.3267
+	}
+}
+
+# 每个关卡用于计算“推荐修为”的基础血量。
+# 这里按你指定的“普通怪1基础血量”来算：
+# 桃林 40、废墟 60、洞窟 90、森林 148。
+const STAGE_BASE_MONSTER_HP := {
+	"peach_grove": 40.0,
+	"ruin": 60.0,
+	"cave": 90.0,
+	"forest": 148.0
+}
+
 # 合成界面状态 - 用于禁用缩放等操作
 var in_synthesis: bool = false
 
@@ -75,7 +129,48 @@ var player_inventory: Dictionary = {}
 @export var shop_first_entered: bool = false
 # 当前货摊商品列表会保存在存档里，保证再次进入时仍显示上次的货物状态。
 var shop_saved_items: Array = []
+
+# 关卡难度通关记录。
+# 这里只记录“某一层是否已经通关”，
+# 更高难度能否进入，则通过下面的辅助函数按顺序判断。
+@export var stage_difficulty_clear_progress: Dictionary = {
+	"peach_grove": {
+		STAGE_DIFFICULTY_SHALLOW: false,
+		STAGE_DIFFICULTY_DEEP: false,
+		STAGE_DIFFICULTY_CORE: false,
+		STAGE_DIFFICULTY_POETRY: false
+	},
+	"ruin": {
+		STAGE_DIFFICULTY_SHALLOW: false,
+		STAGE_DIFFICULTY_DEEP: false,
+		STAGE_DIFFICULTY_CORE: false,
+		STAGE_DIFFICULTY_POETRY: false
+	},
+	"cave": {
+		STAGE_DIFFICULTY_SHALLOW: false,
+		STAGE_DIFFICULTY_DEEP: false,
+		STAGE_DIFFICULTY_CORE: false,
+		STAGE_DIFFICULTY_POETRY: false
+	},
+	"forest": {
+		STAGE_DIFFICULTY_SHALLOW: false,
+		STAGE_DIFFICULTY_DEEP: false,
+		STAGE_DIFFICULTY_CORE: false,
+		STAGE_DIFFICULTY_POETRY: false
+	}
+}
+
+# 当前在关卡选择界面里选中的难度。
+# 这个值不需要存档，只要在本次运行中记住即可。
+var selected_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
+
+# 当前真正进入战斗的关卡ID与难度。
+# 怪物配置会读这里，决定本次战斗应该套用哪一个倍率。
+var current_stage_id: String = ""
+var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
+
 @export var recipe_unlock_progress: Dictionary = {
+
 
 
 
@@ -415,7 +510,124 @@ func consume_shop_battle_refresh(count: int = 1) -> bool:
 	shop_battle_refresh_count -= count
 	return true
 
+# 把外部传进来的难度ID校正成可识别的值。
+# 这样就算按钮配置错了，或者旧数据里写了别的字符串，
+# 也会自动回退到“浅层”，不至于把逻辑跑崩。
+func validate_stage_difficulty_id(difficulty_id: String) -> String:
+	match difficulty_id:
+		STAGE_DIFFICULTY_SHALLOW, STAGE_DIFFICULTY_DEEP, STAGE_DIFFICULTY_CORE, STAGE_DIFFICULTY_POETRY:
+			return difficulty_id
+		_:
+			return STAGE_DIFFICULTY_SHALLOW
+
+func get_stage_difficulty_display_name(difficulty_id: String) -> String:
+	match validate_stage_difficulty_id(difficulty_id):
+		STAGE_DIFFICULTY_SHALLOW:
+			return "浅层"
+		STAGE_DIFFICULTY_DEEP:
+			return "深层"
+		STAGE_DIFFICULTY_CORE:
+			return "核心"
+		STAGE_DIFFICULTY_POETRY:
+			return "诗想"
+		_:
+			return "浅层"
+
+# 返回进入某一层之前，必须先通关的前置层。
+# 比如：想进“深层”，就必须先通关“浅层”。
+func get_required_stage_clear_difficulty(difficulty_id: String) -> String:
+	match validate_stage_difficulty_id(difficulty_id):
+		STAGE_DIFFICULTY_DEEP:
+			return STAGE_DIFFICULTY_SHALLOW
+		STAGE_DIFFICULTY_CORE:
+			return STAGE_DIFFICULTY_DEEP
+		STAGE_DIFFICULTY_POETRY:
+			return STAGE_DIFFICULTY_CORE
+		_:
+			return ""
+
+# 旧存档里可能没有新字段，这里统一补齐。
+func _normalize_stage_difficulty_clear_progress() -> void:
+	if typeof(stage_difficulty_clear_progress) != TYPE_DICTIONARY:
+		stage_difficulty_clear_progress = {}
+	for stage_id in STAGE_ID_LIST:
+		if typeof(stage_difficulty_clear_progress.get(stage_id, {})) != TYPE_DICTIONARY:
+			stage_difficulty_clear_progress[stage_id] = {}
+		var stage_progress: Dictionary = stage_difficulty_clear_progress[stage_id]
+		for difficulty_id in [STAGE_DIFFICULTY_SHALLOW, STAGE_DIFFICULTY_DEEP, STAGE_DIFFICULTY_CORE, STAGE_DIFFICULTY_POETRY]:
+			stage_progress[difficulty_id] = bool(stage_progress.get(difficulty_id, false))
+		stage_difficulty_clear_progress[stage_id] = stage_progress
+
+func set_selected_stage_difficulty(difficulty_id: String) -> void:
+	selected_stage_difficulty = validate_stage_difficulty_id(difficulty_id)
+
+func is_stage_difficulty_cleared(stage_id: String, difficulty_id: String) -> bool:
+	_normalize_stage_difficulty_clear_progress()
+	if not stage_difficulty_clear_progress.has(stage_id):
+		return false
+	var stage_progress = stage_difficulty_clear_progress.get(stage_id, {})
+	if typeof(stage_progress) != TYPE_DICTIONARY:
+		return false
+	return bool(stage_progress.get(validate_stage_difficulty_id(difficulty_id), false))
+
+# 判断当前选择的难度是否已经解锁。
+func can_enter_stage_difficulty(stage_id: String, difficulty_id: String) -> bool:
+	var valid_difficulty := validate_stage_difficulty_id(difficulty_id)
+	if valid_difficulty == STAGE_DIFFICULTY_SHALLOW:
+		return true
+	var required_difficulty := get_required_stage_clear_difficulty(valid_difficulty)
+	if required_difficulty.is_empty():
+		return true
+	return is_stage_difficulty_cleared(stage_id, required_difficulty)
+
+# 战斗胜利时调用，用来解锁下一层难度。
+func mark_stage_difficulty_cleared(stage_id: String, difficulty_id: String) -> void:
+	_normalize_stage_difficulty_clear_progress()
+	if not stage_difficulty_clear_progress.has(stage_id):
+		return
+	var stage_progress = stage_difficulty_clear_progress.get(stage_id, {})
+	if typeof(stage_progress) != TYPE_DICTIONARY:
+		stage_progress = {}
+	stage_progress[validate_stage_difficulty_id(difficulty_id)] = true
+	stage_difficulty_clear_progress[stage_id] = stage_progress
+
+# 取得某个关卡在某个难度下的倍率。
+# 如果不传参数，就默认读取“当前已进入关卡”的上下文。
+func get_stage_difficulty_stat_multiplier(stage_id: String = "", difficulty_id: String = "") -> float:
+	var resolved_stage_id := stage_id
+	if resolved_stage_id.is_empty():
+		resolved_stage_id = current_stage_id
+	var resolved_difficulty_id := difficulty_id
+	if resolved_difficulty_id.is_empty():
+		resolved_difficulty_id = current_stage_difficulty
+	resolved_difficulty_id = validate_stage_difficulty_id(resolved_difficulty_id)
+	if not STAGE_DIFFICULTY_MULTIPLIERS.has(resolved_stage_id):
+		return 1.0
+	var stage_multiplier_data = STAGE_DIFFICULTY_MULTIPLIERS.get(resolved_stage_id, {})
+	if typeof(stage_multiplier_data) != TYPE_DICTIONARY:
+		return 1.0
+	return float(stage_multiplier_data.get(resolved_difficulty_id, 1.0))
+
+func get_current_stage_stat_multiplier() -> float:
+	return get_stage_difficulty_stat_multiplier(current_stage_id, current_stage_difficulty)
+
+# 把数值向下取整到 100。
+# 例如：4198 会变成 4100。
+func floor_to_hundred(value: float) -> int:
+	if value <= 0.0:
+		return 0
+	return int(floor(value / 100.0) * 100.0)
+
+# 按“普通怪1基础血量 × 难度倍率 × 120”计算推荐修为。
+func get_stage_recommended_power(stage_id: String, difficulty_id: String) -> int:
+	if not STAGE_BASE_MONSTER_HP.has(stage_id):
+		return 0
+	var base_hp := float(STAGE_BASE_MONSTER_HP.get(stage_id, 0.0))
+	var stat_multiplier := get_stage_difficulty_stat_multiplier(stage_id, difficulty_id)
+	return floor_to_hundred(base_hp * stat_multiplier * 120.0)
+
 func _get_effective_normal_monster_bonus() -> float:
+
 
 	if typeof(PC) != TYPE_NIL:
 		return PC.normal_monster_multi
@@ -595,6 +807,12 @@ func load_game():
 		shop_saved_items = (loaded_shop_items as Array).duplicate(true)
 	else:
 		shop_saved_items = []
+	var loaded_stage_clear_progress = config.get_value("save", "stage_difficulty_clear_progress", stage_difficulty_clear_progress)
+	if typeof(loaded_stage_clear_progress) == TYPE_DICTIONARY:
+		stage_difficulty_clear_progress = (loaded_stage_clear_progress as Dictionary).duplicate(true)
+	else:
+		stage_difficulty_clear_progress = stage_difficulty_clear_progress.duplicate(true)
+	_normalize_stage_difficulty_clear_progress()
 	if player_inventory.has(LINGSHI_ITEM_ID):
 		lingshi += int(player_inventory[LINGSHI_ITEM_ID])
 		player_inventory.erase(LINGSHI_ITEM_ID)
@@ -694,19 +912,4 @@ func _on_player_take_damage(damage_val: float, shield_val: float, world_position
 
 func _create_damage_label() -> Node2D:
 	if _active_damage_label_count >= MAX_DAMAGE_LABELS: return null
-	var instance = _damage_label_scene.instantiate()
-	add_child(instance)
-	instance.z_index = 100
-	_active_damage_label_count += 1
-	instance.tree_exiting.connect(func(): _active_damage_label_count -= 1)
-	return instance
-
-func get_current_dps() -> float: return current_dps
-func get_weapon_dps() -> Dictionary: return weapon_dps
-
-# 兼容旧逻辑函数
-func reset_dps_counter() -> void:
-	dps_damage_records.clear(); current_dps = 0.0; weapon_dps.clear()
-	if dps_timer: dps_timer.start()
-func stop_dps_counter() -> void:
-	if dps_timer: dps_timer.stop()
+	var instance = _damage_label_scene.

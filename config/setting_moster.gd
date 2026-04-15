@@ -1,11 +1,33 @@
 extends Node
 
+# 这个文件负责“怪物静态配置”。
+# 现在这里的思路改得更直白一些：
+# 1. 你在配置表里写下去的 `atk` / `hp`，先当成“浅层基础值”；
+# 2. 真正进入战斗时，只额外乘当前关卡难度倍率；
+# 3. 不再叠加时间、玩家等级、世界倍率、新武器这些额外系数。
+#
+# 这样一来会更容易估算：
+# - 如果你填 `40` 血，浅层进图就是 `40`；
+# - 桃林深层就是 `40 × 1.75 = 70`；
+# - 之后如果想改怪强度，只看这里和 `global.gd` 里的难度倍率表就够了。
+
+func _get_current_stage_multiplier() -> float:
+	# 当前没有进入正式关卡时，倍率默认回到 1.0。
+	# 这样在主城、菜单或直接打开脚本时，不会因为缺少上下文导致数值异常。
+	if typeof(Global) == TYPE_NIL:
+		return 1.0
+	return max(Global.get_current_stage_stat_multiplier(), 1.0)
+
+func _calc_stage_scaled_value(base_value: float) -> float:
+	# 怪物基础值现在只吃“当前关卡难度倍率”。
+	# 这样配置更直观，你看到多少基础值，就能直接推算出进图后的结果。
+	return base_value * _get_current_stage_multiplier()
+
 func _calc_atk(base_atk: float) -> float:
 	var t = PC.real_time
-	return (6.67 * base_atk + t) / 7.5 * (1 + ((Global.world_level_multiple - 1) / 3)) * 10.0 * pow(1.02, PC.pc_lv - 1)
+	return base_atk + (1.33*t) * pow(1.02, PC.pc_lv - 1) * _get_current_stage_multiplier()
 
 # 计算新武器带来的怪物血量加成
-# 前4把新武器分别提升 30%/20%/15%/10%
 func _get_new_weapon_hp_multiplier() -> float:
 	var count = PC.new_weapon_obtained_count
 	var multiplier = 1.0
@@ -23,193 +45,214 @@ func _get_new_weapon_hp_multiplier() -> float:
 
 func _calc_hp(base_hp: float) -> float:
 	var t = PC.real_time
-	var lv_bonus = pow(1.1, PC.pc_lv - 1) # 玩家每升1级，怪物血量提升10%
+	var lv_bonus = pow(1.11, PC.pc_lv - 1) # 玩家每升1级，怪物血量提升11%
 	var new_weapon_bonus = _get_new_weapon_hp_multiplier() # 新武器带来的血量加成
-	return 1.45 * (base_hp + t / 3.0) * (1.0 + 5 * t / 8000.0 + t * t / 60000.0) * Global.world_level_multiple * lv_bonus * new_weapon_bonus
+	return (base_hp + t / 3.0) * (1.0 + 5 * t / 8000.0 + t * t / 60000.0) * lv_bonus * new_weapon_bonus * _get_current_stage_multiplier()
+
+func _finalize_monster_data(data: Dictionary, query: String):
+	# 所有怪物的 mechanism 统一翻倍。
+	# 这里收口在一个函数里，后面如果你想再改成 ×1.5 或 ×3，
+	# 只需要改这一处，不用逐个怪去找。
+	if data.has("mechanism"):
+		data["mechanism"] = int(data.get("mechanism", 0)) * 2
+	return data.get(query, null)
 
 # ============== 关卡1 桃林(PEACH_GROVE) ==============
-# slime_blue(5), taohua_yao(2), frog(1)
-# ATK/HP 基准值(×1.0)
+# 基准血量参考：
+# - 普通怪1：40
+# - 普通怪2：44（普通怪1 的 110%）
+# - 远程怪：32（普通怪1 的 80%）
+# - 特殊怪：本关暂不使用
 
-func slime_blue(query: String): # 蓝色史莱姆
+func slime_blue(query: String): # 蓝色史莱姆 / 普通怪1
 	var data = {
-		"atk": _calc_atk(13),
-		"hp": _calc_hp(25),
+		"atk": _calc_atk(150),
+		"hp": _calc_hp(40),
 		"speed": 42,
 		"exp": 350,
 		"point": 10 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 6,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_002": 0.015 * Global.get_effective_drop_multiplier(), "item_009": 0.006 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
-func taohua_yao(query: String): # 桃花妖
+func taohua_yao(query: String): # 桃花妖 / 普通怪2
 	var data = {
-		"atk": _calc_atk(18),
-		"hp": _calc_hp(30),
+		"atk": _calc_atk(180),
+		"hp": _calc_hp(44),
 		"speed": 36,
 		"exp": 450,
 		"point": 15 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_003": 0.03 * Global.get_effective_drop_multiplier(), "item_014": 0.012 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
-func frog(query: String): # 幼体树精
+func frog(query: String): # 幼体树精 / 远程怪
 	var data = {
-		"atk": _calc_atk(10),
-		"hp": _calc_hp(22),
+		"atk": _calc_atk(140),
+		"hp": _calc_hp(32),
 		"speed": 35,
 		"exp": 500,
 		"point": 20 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 8,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_023": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
 # ============== 关卡2 废墟(RUIN) ==============
-# lantern(4), paper(4), bat(1), slime_grey(1)
-# ATK/HP 比关卡1提升50%(×1.5)
+# 基准血量参考：
+# - 普通怪1：60（你指定纸人）
+# - 普通怪2：66
+# - 远程怪：48
+# - 特殊怪：75
 
-func lantern(query: String): # 灯笼怪
+func lantern(query: String): # 灯笼怪 / 普通怪2
 	var data = {
-		"atk": _calc_atk(25),
-		"hp": _calc_hp(45),
+		"atk": _calc_atk(225),
+		"hp": _calc_hp(66),
 		"speed": 38,
 		"exp": 450,
 		"point": 14 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 6,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_011": 0.015 * Global.get_effective_drop_multiplier(), "item_015": 0.006 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
-func paper(query: String): # 宣纸精
+func paper(query: String): # 宣纸精 / 普通怪1
 	var data = {
-		"atk": _calc_atk(19),
-		"hp": _calc_hp(38),
+		"atk": _calc_atk(245),
+		"hp": _calc_hp(60),
 		"speed": 42,
 		"exp": 500,
 		"point": 13 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 6,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_011": 0.015 * Global.get_effective_drop_multiplier(), "item_017": 0.006 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
-func bat(query: String): # 草药怪
+func bat(query: String): # 草药怪 / 远程怪
 	var data = {
-		"atk": _calc_atk(19),
-		"hp": _calc_hp(45),
+		"atk": _calc_atk(215),
+		"hp": _calc_hp(48),
 		"speed": 36,
 		"exp": 600,
 		"point": 15 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_045": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
-func slime_grey(query: String): # 灰色史莱姆
+func slime_grey(query: String): # 灰色史莱姆 / 特殊怪
 	var data = {
-		"atk": _calc_atk(23),
-		"hp": _calc_hp(38),
+		"atk": _calc_atk(245),
+		"hp": _calc_hp(75),
 		"speed": 36,
 		"exp": 550,
 		"point": 16 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_002": 0.05 * Global.get_effective_drop_multiplier(), "item_009": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
 # ============== 关卡3 洞窟(CAVE) ==============
-# ghost(4), armor_stone(4), stone_man(1), slime_green(1)
-# ATK/HP 比关卡1提升125%(×2.25)
+# 基准血量参考：
+# - 普通怪1：90（你指定 armor）
+# - 普通怪2：99
+# - 远程怪：72
+# - 特殊怪：113
 
-func ghost(query: String): # 鬼魂
+func ghost(query: String): # 鬼魂 / 远程怪
 	var data = {
-		"atk": _calc_atk(34),
-		"hp": _calc_hp(56),
+		"atk": _calc_atk(335),
+		"hp": _calc_hp(72),
 		"speed": 45,
 		"exp": 500,
 		"point": 18 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_003": 0.02 * Global.get_effective_drop_multiplier(), "item_017": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
-func armor_stone(query: String): # 甲石
+func armor_stone(query: String): # 甲石 / 普通怪1
 	var data = {
-		"atk": _calc_atk(40),
-		"hp": _calc_hp(68),
+		"atk": _calc_atk(365),
+		"hp": _calc_hp(90),
 		"speed": 32,
 		"exp": 400,
 		"point": 19 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_044": 0.02 * Global.get_effective_drop_multiplier(), "item_014": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
-func stone_man(query: String): # 石人
+func stone_man(query: String): # 石人 / 特殊怪
 	var data = {
-		"atk": _calc_atk(40),
-		"hp": _calc_hp(68),
+		"atk": _calc_atk(365),
+		"hp": _calc_hp(113),
 		"speed": 28,
 		"exp": 550,
 		"point": 22 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 8,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_044": 0.05 * Global.get_effective_drop_multiplier(), "item_014": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
-func slime_green(query: String): # 绿色史莱姆
+func slime_green(query: String): # 绿色史莱姆 / 普通怪2
 	var data = {
-		"atk": _calc_atk(34),
-		"hp": _calc_hp(56),
+		"atk": _calc_atk(345),
+		"hp": _calc_hp(99),
 		"speed": 42,
 		"exp": 550,
 		"point": 16 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 8,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_002": 0.05 * Global.get_effective_drop_multiplier(), "item_009": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
 # ============== 关卡4 森林(FOREST) ==============
-# shen(6), frog_new(2), slime_green(3), ball(3)
-# ATK/HP 比关卡1提升237.5%(×3.375)
+# 基准血量参考：
+# - 普通怪1：148（你指定草药精）
+# - 远程怪：118
+# - 特殊怪：185
+# 说明：本关仍复用 `slime_green` 这只共用怪物，因此它沿用前面的通用配置；
+# 真正代表本关基准强度的锚点怪，则按你指定的 `shen = 148` 来定。
 
-func shen(query: String): # 参精怪
+func shen(query: String): # 参精怪 / 普通怪1
 	var data = {
-		"atk": _calc_atk(51),
-		"hp": _calc_hp(84),
+		"atk": _calc_atk(600),
+		"hp": _calc_hp(148),
 		"speed": 42,
 		"exp": 450,
 		"point": 24 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_045": 0.02 * Global.get_effective_drop_multiplier(), "item_015": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
-func frog_new(query: String): # 新蛙
+func frog_new(query: String): # 新蛙 / 远程怪
 	var data = {
-		"atk": _calc_atk(41),
-		"hp": _calc_hp(74),
+		"atk": _calc_atk(580),
+		"hp": _calc_hp(118),
 		"speed": 35,
 		"exp": 600,
 		"point": 22 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 7,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_003": 0.02 * Global.get_effective_drop_multiplier(), "item_010": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
-func ball(query: String): # 弹跳兽
+func ball(query: String): # 弹跳兽 / 特殊怪
 	var data = {
-		"atk": _calc_atk(60),
-		"hp": _calc_hp(101),
+		"atk": _calc_atk(660),
+		"hp": _calc_hp(185),
 		"speed": 50,
 		"exp": 500,
 		"point": 26 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 8,
 		"itemdrop": {"item_001": 0.015 * Global.get_effective_drop_multiplier(), "item_046": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.005 * Global.get_effective_drop_multiplier(), "item_004": 0.005 * Global.get_effective_drop_multiplier()}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
 func peach_grove_boss(query: String):
 	var data = {
@@ -225,7 +268,7 @@ func peach_grove_boss(query: String):
 			"item_003": {"chance": 0.4 * Global.get_effective_drop_multiplier(), "quantity": 3}
 		}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
 func ruin_boss(query: String):
 	var data = {
@@ -241,7 +284,7 @@ func ruin_boss(query: String):
 			"item_002": {"chance": 0.4 * Global.get_effective_drop_multiplier(), "quantity": 3}
 		}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)
 
 func cave_boss(query: String):
 	var data = {
@@ -257,4 +300,4 @@ func cave_boss(query: String):
 			"item_003": {"chance": 0.4 * Global.get_effective_drop_multiplier(), "quantity": 3}
 		}
 	}
-	return data.get(query, null)
+	return _finalize_monster_data(data, query)

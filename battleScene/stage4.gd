@@ -494,6 +494,7 @@ func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 		layer_ui.stop_all_skill_cooldowns()
 		var item_control = get_node("ItemControl")
 		item_control.start_victory_collect(player, 225.0, 3.0)
+		Global.mark_stage_difficulty_cleared(STAGE_ID, Global.current_stage_difficulty)
 		Global.add_shop_battle_refresh(1)
 		Global.save_game()
 		await player.play_boss_defeat_camera_focus(boss_position)

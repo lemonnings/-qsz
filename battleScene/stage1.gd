@@ -1,5 +1,7 @@
 extends Node2D
 
+const STAGE_ID := "peach_grove"
+
 # ============== 关卡配置 ==============
 @export var slime_scene: PackedScene
 @export var peach_yao_scene: PackedScene

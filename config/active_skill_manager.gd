@@ -309,10 +309,26 @@ var key_states: Dictionary = {
 # 乱击技能的协程控制
 var random_strike_active: bool = false
 
+# 闪避反馈参数。
+# 这里按你的要求做成：
+# - 轻微震屏
+# - 0.5 秒慢动作
+# - 时间流速降到 0.2
+# 数值都单独提出来，后面如果你试玩后想再微调，会比较方便。
+const DODGE_SHAKE_INTENSITY: float = 2.2
+const DODGE_SHAKE_DURATION: float = 0.18
+const DODGE_SLOW_TIME_SCALE: float = 0.2
+const DODGE_SLOW_DURATION: float = 0.5
+# 用请求编号防止旧的慢动作恢复逻辑把新的状态覆盖掉。
+# 虽然闪避本身有冷却，正常不太会重叠，
+# 但这样写更稳，后面即使你调整冷却或做特殊连闪，也不容易出问题。
+var dodge_slow_motion_request_id: int = 0
+
 # 信号
 signal skill_used(skill_id: String)
 signal skill_cooldown_started(skill_id: String, cooldown_time: float)
 signal skill_cooldown_finished(skill_id: String)
+
 
 func _ready():
 	# 初始化技能
@@ -531,8 +547,16 @@ func execute_dodge_skill(dodge_skill: DodgeSkill):
 	# 计算目标位置
 	var target_position = player.global_position + dash_direction * dodge_skill.dash_distance
 	
+	# 闪避手感增强：
+	# 1. 先给一个轻微震屏，强化“蹬地闪开”的瞬间反馈。
+	# 2. 再给 0.5 秒慢动作，时间流速降到 0.2。
+	# 注意这里的慢动作恢复，后面会用“忽略 time_scale 的计时器”处理，
+	# 否则 0.5 秒会被错误地拖长。
+	_play_dodge_feedback()
+	
 	# 开始冲刺
 	start_dash(target_position, dodge_skill)
+
 
 func execute_random_strike_skill(rs_skill: RandomStrikeSkill):
 	"""执行乱击技能 - 向随机方向射出剑气"""
@@ -704,6 +728,51 @@ func start_dash(target_position: Vector2, dodge_skill: DodgeSkill):
 	# 冲刺完成后的处理
 	tween.tween_callback(func(): on_dash_complete(dodge_skill))
 
+func _play_dodge_feedback() -> void:
+	_start_dodge_screen_shake(DODGE_SHAKE_INTENSITY, DODGE_SHAKE_DURATION)
+	_start_dodge_slow_motion(DODGE_SLOW_TIME_SCALE, DODGE_SLOW_DURATION)
+
+func _start_dodge_screen_shake(intensity: float, duration: float) -> void:
+	var camera := get_viewport().get_camera_2d()
+	if camera == null:
+		return
+	# 轻微震屏只做一个很小的偏移抖动，
+	# 让闪避起手更有“蹬地发力”的反馈，但不会影响瞄准和看清画面。
+	var original_offset := camera.offset
+	var start_time_usec := Time.get_ticks_usec()
+	var duration_usec := int(duration * 1000000.0)
+	while is_instance_valid(camera):
+		var elapsed_usec := Time.get_ticks_usec() - start_time_usec
+		if elapsed_usec >= duration_usec:
+			break
+		var progress := float(elapsed_usec) / float(duration_usec)
+		var strength := intensity * (1.0 - progress)
+		camera.offset = original_offset + Vector2(
+			randf_range(-strength, strength),
+			randf_range(-strength, strength)
+		)
+		await get_tree().process_frame
+	if is_instance_valid(camera):
+		camera.offset = original_offset
+
+func _start_dodge_slow_motion(target_time_scale: float, duration: float) -> void:
+	dodge_slow_motion_request_id += 1
+	var request_id := dodge_slow_motion_request_id
+	var original_time_scale := Engine.time_scale
+	# 如果当前已经比 0.2 还慢，就保持更慢的那个值，避免反向把时间流速抬高。
+	var applied_time_scale := min(original_time_scale, target_time_scale)
+	Engine.time_scale = applied_time_scale
+	_restore_dodge_time_scale(duration, request_id, original_time_scale)
+
+func _restore_dodge_time_scale(duration: float, request_id: int, original_time_scale: float) -> void:
+	# 这里显式忽略 `Engine.time_scale`。
+	# 所以写 0.5 秒，就真的是现实时间里的 0.5 秒，
+	# 不会因为时间流速降到 0.2 而被拉长成 2.5 秒。
+	await get_tree().create_timer(duration, true, false, true).timeout
+	if request_id != dodge_slow_motion_request_id:
+		return
+	Engine.time_scale = original_time_scale
+
 func _set_player_ghost_effect(enabled: bool):
 	"""设置玩家半虚化效果"""
 	if not player:
@@ -766,8 +835,10 @@ func _create_afterimage(source_sprite: AnimatedSprite2D):
 
 func on_dash_complete(dodge_skill: DodgeSkill):
 	"""冲刺完成处理"""
-	# 延迟结束无敌状态和虚化效果
-	get_tree().create_timer(dodge_skill.invincible_duration).timeout.connect(
+	# 这里也改成忽略 time_scale。
+	# 否则闪避期间如果正在慢动作，无敌时间会被额外拉长，
+	# 造成技能数值和面板说明对不上。
+	get_tree().create_timer(dodge_skill.invincible_duration, true, false, true).timeout.connect(
 		func():
 			PC.invincible = false
 			_set_player_ghost_effect(false)

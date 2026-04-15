@@ -296,6 +296,8 @@ func press_interact():
 		
 		ui_tweens["levelChangeLayer"] = create_tween()
 		ui_tweens["levelChangeLayer"].set_parallel(true)
+		if levelChangeLayer != null and levelChangeLayer.has_method("prepare_for_open"):
+			levelChangeLayer.prepare_for_open()
 		levelChangeLayer.visible = true
 		
 		# 对CanvasLayer的所有子节点进行动画
@@ -493,23 +495,31 @@ func _on_exit_pressed() -> void:
 					child.modulate.a = 1.0
 		).set_delay(0.2)
 	
-func _on_stage_1_pressed() -> void:
+func _enter_stage(stage_scene_path: String, stage_id: String) -> void:
+	if stage_scene_path.is_empty():
+		if tip != null and tip.has_method("start_animation"):
+			tip.start_animation("该关卡场景尚未配置", 0.5)
+		if has_node("Buzzer"):
+			$Buzzer.play()
+		return
+	Global.current_stage_id = stage_id
+	Global.current_stage_difficulty = Global.validate_stage_difficulty_id(Global.selected_stage_difficulty)
 	Global.in_town = false
 	PC.movement_disabled = false
 	PC.reset_player_attr()
-	SceneChange.change_scene(battle_scene, true)
+	SceneChange.change_scene(stage_scene_path, true)
+
+func _on_stage_1_pressed() -> void:
+	_enter_stage(battle_scene, "peach_grove")
 	
 func _on_stage_2_pressed() -> void:
-	Global.in_town = false
-	PC.movement_disabled = false
-	PC.reset_player_attr()
-	SceneChange.change_scene(battle_scene_stage2, true)
+	_enter_stage(battle_scene_stage2, "ruin")
 	
 func _on_stage_3_pressed() -> void:
-	Global.in_town = false
-	PC.movement_disabled = false
-	PC.reset_player_attr()
-	SceneChange.change_scene(battle_scene_stage3, true)
+	_enter_stage(battle_scene_stage3, "cave")
+
+func _on_stage_4_pressed() -> void:
+	_enter_stage(battle_scene_stage4, "forest")
 	
 func refresh_point() -> void:
 	point_label.text = "真气 " + str(Global.total_points)
