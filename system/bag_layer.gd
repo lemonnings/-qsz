@@ -408,6 +408,27 @@ func _setup_label_style(label: Label, font_color: Color = Color.WHITE):
 	label.add_theme_color_override("font_outline_color", Color.BLACK)
 	label.add_theme_constant_override("outline_size", 3)
 
+# 把道具名按每 4 个字手动换一行。
+# 这样做的目的很直接：
+# 不再完全依赖 Godot 4.7 对标题宽度的自动测量，
+# 而是主动把名字的最大单行宽度限制住。
+# 例如：
+# - “回春灵液” -> 不换行
+# - “玄冰护心丹” -> “玄冰护心\n丹”
+# - “赤炎镇魂宝符” -> “赤炎镇魂\n宝符”
+func _wrap_item_name_every_four_chars(item_name: String) -> String:
+	if item_name.length() <= 4:
+		return item_name
+	
+	var wrapped_name := ""
+	var start_index := 0
+	while start_index < item_name.length():
+		if not wrapped_name.is_empty():
+			wrapped_name += "\n"
+		wrapped_name += item_name.substr(start_index, 4)
+		start_index += 4
+	return wrapped_name
+
 # 创建悬浮提示框
 func _create_tooltip():
 	tooltip_panel = Panel.new()
