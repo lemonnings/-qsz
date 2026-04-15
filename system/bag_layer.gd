@@ -568,9 +568,11 @@ func _show_tooltip(slot_index: int, request_id: int):
 		icon.texture = null
 	
 	# 设置名称（根据品质设置颜色）
-	var item_name = item_info.get("item_name", item_data.item_id)
+	var item_name = str(item_info.get("item_name", item_data.item_id))
 	var item_rare = item_info.get("item_rare", "common")
-	name_label.text = "  " + item_name
+	# 这里把超过 4 个字的名称强制分行，
+	# 这样提示框宽度就不会再被一整行超长名字撑出错误结果。
+	name_label.text = "  " + _wrap_item_name_every_four_chars(item_name)
 	name_label.add_theme_color_override("font_color", _get_rare_color(item_rare))
 	
 	# 设置分类
