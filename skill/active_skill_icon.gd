@@ -115,6 +115,7 @@ func _get_skill_cooldown(skill_id: String) -> float:
 	## 根据技能ID和等级计算冷却时间
 	var skill_data = Global.player_active_skill_data.get(skill_id, {})
 	var level = skill_data.get("level", 1)
+	var cooldown_multiplier = 1.0 - Global.get_total_skill_cooldown_reduction()
 	
 	match skill_id:
 		"dodge":
@@ -125,7 +126,7 @@ func _get_skill_cooldown(skill_id: String) -> float:
 				if level >= lv:
 					cd_reduction += 0.5
 			cd_reduction = cd_reduction * PC.cooldown_multi * PC.dodge_multi
-			return max(1.0, base_cd - cd_reduction)
+			return max(1.0, base_cd - cd_reduction) * cooldown_multiplier
 		"mizongbu":
 			var base_cd = 9.5
 			var cd_reduction = 0.0
@@ -133,7 +134,8 @@ func _get_skill_cooldown(skill_id: String) -> float:
 				if level >= lv:
 					cd_reduction += 0.5
 			cd_reduction = cd_reduction * PC.cooldown_multi
-			return max(2.0, base_cd - cd_reduction)
+			return max(2.0, base_cd - cd_reduction) * cooldown_multiplier * cooldown_multiplier
+
 		"huanling":
 			var base_cd = 20.0
 			var cd_reduction = 0.0
@@ -141,7 +143,8 @@ func _get_skill_cooldown(skill_id: String) -> float:
 				if level >= lv:
 					cd_reduction += 1.0
 			cd_reduction = cd_reduction * PC.cooldown_multi
-			return max(4.0, base_cd - cd_reduction)
+			return max(4.0, base_cd - cd_reduction) * cooldown_multiplier
+
 		"random_strike":
 			# 乱击：基础冷却20秒，等级4，7，10，13时冷却-1秒
 			var base_cd = 20.0
@@ -150,7 +153,7 @@ func _get_skill_cooldown(skill_id: String) -> float:
 				if level >= lv:
 					cd_reduction += 1.0
 			cd_reduction = cd_reduction * PC.cooldown_multi * PC.random_strike_multi
-			return max(5.0, base_cd - cd_reduction)
+			return max(5.0, base_cd - cd_reduction) * cooldown_multiplier
 		_:
 			return 10.0
 

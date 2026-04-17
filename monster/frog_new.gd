@@ -1,4 +1,4 @@
-extends "res://Script/monster/monster_base.gd"
+﻿extends "res://Script/monster/monster_base.gd"
 
 @onready var sprite = $AnimatedSprite2D
 
@@ -139,11 +139,11 @@ func _move_pattern(delta: float):
 	match current_state:
 		State.SEEKING_PLAYER:
 			if distance_to_target > 5: # 避免抖动
-				speed = base_speed * debuff_manager.get_speed_multiplier()
+				speed = get_effective_move_speed(base_speed)
 				position += direction_to_target * speed * delta
 		State.FLEEING:
 			if distance_to_target > 5:
-				speed = base_speed * debuff_manager.get_speed_multiplier()
+				speed = get_effective_move_speed(base_speed)
 				position += direction_to_target * speed * delta
 				if target_position.x > global_position.x + 0.1: # 目标在右边 (0.1为小容差)
 					sprite.flip_h = false # 面向右
@@ -254,7 +254,7 @@ func _on_area_entered(area: Area2D) -> void:
 			area.queue_free()
 			
 		var base_bullet_damage = collision_result["final_damage"]
-		var final_damage_val = int(base_bullet_damage * debuff_manager.get_damage_multiplier())
+		var final_damage_val = get_common_bullet_damage_value(base_bullet_damage)
 		var is_crit = collision_result["is_crit"]
 		
 		hp -= int(final_damage_val)
@@ -270,5 +270,6 @@ func _on_area_entered(area: Area2D) -> void:
 				$AnimatedSprite2D.play("death")
 		else:
 			Global.play_hit_anime(position, is_crit)
+
 
 

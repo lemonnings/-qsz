@@ -62,9 +62,10 @@ const ELITE_DROP_MULTIPLIER: float = 15.0 # 掉落率15倍
 
 # 动态平衡配置
 var current_wave_hp_reduction: float = 0.0 # 当前波的HP削减比例
-const DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD: float = 0.4 # 出怪增量低阈值（30%以下）
+const DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD: float = 0.4 # 出怪增量低阈值（40%以下）
 const DYNAMIC_BALANCE_SPAWN_HIGH_THRESHOLD: float = 0.6 # 出怪增量高阈值（60%时0%增量）
-const DYNAMIC_BALANCE_SPAWN_MAX_BONUS: float = 5.0 # 最大出怪增量100%
+const DYNAMIC_BALANCE_SPAWN_MAX_BONUS: float = 1.0 # 最大出怪增量100%
+const LOW_POPULATION_FORCE_WAVE_MIN_TIME_LEFT: float = 1.25 # 场上怪过少且离下次刷怪还很久时，提前补下一波
 const DYNAMIC_BALANCE_HP_LOW_THRESHOLD: float = 0.7 # HP削减低阈值（70%开始削弱）
 const DYNAMIC_BALANCE_HP_HIGH_THRESHOLD: float = 1.0 # HP削减高阈值（100%最大削弱）
 const DYNAMIC_BALANCE_HP_MIN_REDUCTION: float = 0.1 # 最小HP削减10%
@@ -332,6 +333,15 @@ func _apply_dynamic_hp_reduction(monster_node: Node) -> void:
 	monster_node.hpMax *= reduction_multiplier
 
 
+func _should_force_low_population_wave() -> bool:
+	if boss_event_triggered or monster_spawn_timer == null or not is_instance_valid(monster_spawn_timer):
+		return false
+	if current_monster_count <= 0:
+		return true
+	var low_population_threshold: int = max(1, int(floor(float(max_monster_limit) * DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD)))
+	return current_monster_count <= low_population_threshold and monster_spawn_timer.time_left > LOW_POPULATION_FORCE_WAVE_MIN_TIME_LEFT
+
+
 func _spawn_single_slime() -> void:
 	var slime_node = slime_scene.instantiate()
 	var spawn_edge = randi_range(0, 3)
@@ -431,7 +441,8 @@ func _on_monster_defeated():
 	current_monster_count -= 1
 	# 确保计数器不会变为负数
 	current_monster_count = max(0, current_monster_count)
-	if current_monster_count == 0 and not boss_event_triggered:
+	if _should_force_low_population_wave():
+		monster_spawn_timer.stop()
 		_spawn_wave()
 
 ## 尝试将怪物升级为精英怪（5%概率）
@@ -541,6 +552,7 @@ func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 		layer_ui.stop_all_skill_cooldowns()
 		var item_control = get_node("ItemControl")
 		item_control.start_victory_collect(player, 225.0, 3.0)
+		Global.mark_stage_difficulty_cleared(STAGE_ID, Global.current_stage_difficulty)
 		Global.add_shop_battle_refresh(1)
 		Global.save_game()
 		await player.play_boss_defeat_camera_focus(boss_position)

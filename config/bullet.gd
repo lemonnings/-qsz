@@ -215,36 +215,9 @@ func initialize_bullet_damage() -> void:
 func apply_buff_effects_to_damage(base_damage: float, p_is_summon_bullet: bool) -> float:
 	var final_damage = base_damage
 	
-	# 如果是召唤物子弹，不应用武器攻击相关的buff
-	if not p_is_summon_bullet:
-		# 血气：基础武器攻击附带2*层数%当前HP的伤害
-		if EmblemManager.has_emblem("xueqi"):
-			var xueqi_stack = EmblemManager.get_emblem_stack("xueqi")
-			var hp_percent_damage = PC.pc_hp * 0.02 * xueqi_stack
-			final_damage += hp_percent_damage
-		
-		# 破阵：基础武器攻击有5*层数%概率直击，额外造成30%无视敌方减伤的伤害
-		if EmblemManager.has_emblem("pozhen"):
-			var pozhen_stack = EmblemManager.get_emblem_stack("pozhen")
-			var direct_hit_chance = 0.05 * pozhen_stack
-			if randf() < direct_hit_chance:
-				# 标记为直击伤害，在bullet_cal.gd中处理
-				set_meta("direct_hit", true)
-		
-		# 惊鸿：基础武器每攻击3次，额外攻击1次，该次攻击造成15*层数%的伤害
-		if EmblemManager.has_emblem("jinghong") and not is_extra_attack_flag:
-			PC.jinghong_attack_count += 1
-			if PC.jinghong_attack_count % 3 == 0:
-				var jinghong_stack = EmblemManager.get_emblem_stack("jinghong")
-				var multiplier = 0.15 * jinghong_stack
-				
-				# 延迟0.05秒执行额外攻击
-				if PC.player_instance and PC.player_instance.has_method("fire_extra_attack"):
-					var timer = get_tree().create_timer(0.1)
-					timer.timeout.connect(func():
-						if PC.player_instance:
-							PC.player_instance.fire_extra_attack(multiplier)
-					)
+	# 如果是召唤物子弹，不应用基础武器纹章
+	if not p_is_summon_bullet and not if_summon and not is_ring_bullet and not is_wave_bullet:
+		final_damage = PC.apply_base_weapon_emblem_damage_bonus(final_damage, "swordqi", is_extra_attack_flag)
 	
 	return final_damage
 

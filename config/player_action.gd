@@ -10,6 +10,12 @@ extends CharacterBody2D
 var last_move_time: float = -1.0 # -1表示未初始化
 var chenjing_effect: Node2D = null # 沉静纹章的脚底光圈效果
 var _burning_timer: float = 0.0 # 燃火Buff计时器
+var _last_applied_pozhen_crit_damage_bonus: float = 0.0
+var _last_applied_emblem_atk_bonus: float = 0.0
+var _last_applied_emblem_hp_bonus: float = 0.0
+var _last_applied_tafeng_cooldown_bonus: float = 0.0
+var _pending_tiegu_reflect_damage: int = 0
+
 
 #@export var joystick_left : VirtualJoystick
 #
@@ -115,7 +121,11 @@ func _ready() -> void:
 	
 	hp = PC.pc_hp
 	maxHP = PC.pc_max_hp
+	PC.player_instance = self
 	Global.connect("player_hit", Callable(self , "_on_player_hit"))
+
+	Global.connect("player_take_damage", Callable(self, "_on_player_take_damage"))
+
 	Global.connect("player_healed", Callable(self , "_on_player_healed"))
 	Global.connect("zoom_camera", Callable(self , "_zoom_camera"))
 	Global.connect("reset_camera", Callable(self , "_reset_camera"))
@@ -192,7 +202,14 @@ func _set_active_hero(hero_key: String) -> void:
 	sprite = hero_sprite
 	sprite_direction_right = not animator.flip_h
 
+func _set_all_player_sprites_idle() -> void:
+	var all_player_sprites: Array[AnimatedSprite2D] = [yiqiu_sprite, moning_sprite, noam_sprite, kansel_sprite, qujie_sprite]
+	for hero_sprite in all_player_sprites:
+		if hero_sprite:
+			hero_sprite.play("idle")
+
 func _cache_beastify_hitbox() -> void:
+
 	var temp = beastify_effect_scene.instantiate()
 	var col: CollisionShape2D = temp.get_node("CollisionShape2D")
 	beastify_hit_shape = col.shape.duplicate()
@@ -260,6 +277,8 @@ func _process(_delta: float) -> void:
 	else:
 		move_speed = 120.0 * (1 + (Global.cultivation_zhuifeng_level * 0.01) + PC.pc_speed + bloodwave_speed_bonus)
 		
+	_update_dynamic_emblem_effects()
+	
 	if velocity == Vector2.ZERO or PC.is_game_over:
 		$RunningSound.stop()
 	elif not $RunningSound.playing:
@@ -428,7 +447,7 @@ func _physics_process(_delta: float) -> void:
 			if stacks > 0:
 				var dmg = int(PC.pc_max_hp * 0.01 * stacks)
 				if dmg < 1: dmg = 1
-				PC.apply_damage(dmg)
+				PC.apply_damage(dmg, "燃烧")
 				if PC.pc_hp <= 0:
 					game_over()
 	else:
@@ -496,8 +515,11 @@ func game_over():
 func enter_victory_state() -> void:
 	PC.movement_disabled = true
 	velocity = Vector2.ZERO
-	animator.play("idle")
+	if sprite:
+		animator = sprite
+	_set_all_player_sprites_idle()
 	$RunningSound.stop()
+
 
 func stop_all_skill_cooldowns() -> void:
 	fire_speed.stop()
@@ -749,11 +771,13 @@ func _fire_light_bullet_ring(data: Dictionary) -> void:
 				get_tree().current_scene.add_child(instance)
 				
 				var options = {
-					"apply_light_accumulation": data.apply_light_accumulation,
-					"accumulation_max_stacks_bonus": data.accumulation_max_stacks_bonus
-				}
+			"apply_light_accumulation": data.apply_light_accumulation,
+			"accumulation_max_stacks_bonus": data.accumulation_max_stacks_bonus,
+			"apply_base_weapon_emblems": false
+		}
 				
 				instance.setup_light_bullet(spawn_position, dir, data.damage * damage_mult, data.range, data.penetration_count, options)
+
 		
 		# 等待间隔
 		await get_tree().create_timer(interval).timeout
@@ -999,41 +1023,98 @@ func _on_fire_detail() -> void:
 		if PC.selected_rewards.has("rebound"): back_bullet.is_rebound = false
 		get_tree().current_scene.add_child(back_bullet)
 	
-func fire_extra_attack(damage_multiplier: float) -> void:
-	if PC.is_game_over:
-		return
-	var bullet_node_size = Global.get_attack_range_multiplier()
+func _get_base_weapon_direction() -> Vector2:
 	var base_direction = Vector2.RIGHT
-	var spawn_position = position
-
-	# 直接攻击最近的敌人，不再使用预测瞄准
 	var nearest_enemy = find_nearest_enemy()
 	if nearest_enemy:
-		# 计算朝向最近敌人的方向
 		base_direction = (nearest_enemy.position - position).normalized()
-	else:
-		# 没有敌人时使用角色朝向
-		if not sprite_direction_right:
-			base_direction = Vector2.LEFT
-		else:
-			base_direction = Vector2.RIGHT
+	elif not sprite_direction_right:
+		base_direction = Vector2.LEFT
+	return base_direction
 
-	# Play sound
+func _sync_qigong_runtime_data() -> void:
+	Qigong.sync_reward_modifiers()
+	var other_weapon_count = 0
+	if PC.selected_rewards.has("Qigong5") or PC.selected_rewards.has("Qigong11"):
+		other_weapon_count = PC.current_weapon_num - 1
+	Qigong.qigong_chakra_count = other_weapon_count
+
+func _fire_extra_sword_attack(damage_multiplier: float) -> void:
+	if not bullet_scene:
+		return
+	var bullet_node_size = Global.get_attack_range_multiplier()
+	var base_direction = _get_base_weapon_direction()
+	var spawn_position = position
 	$FireSound.play()
-
-	# Instantiate bullets
-	# Default bullet
 	var main_bullet = bullet_scene.instantiate()
 	main_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
 	main_bullet.set_direction(base_direction)
 	main_bullet.position = spawn_position
 	main_bullet.penetration_count = PC.swordQi_penetration_count
-	# Set extra damage multiplier
 	main_bullet.extra_damage_multiplier = damage_multiplier
 	main_bullet.is_extra_attack_flag = true
-	
-	if PC.selected_rewards.has("rebound"): main_bullet.is_rebound = false
+	if PC.selected_rewards.has("rebound"):
+		main_bullet.is_rebound = false
 	get_tree().current_scene.add_child(main_bullet)
+
+func _fire_extra_qigong_attack(damage_multiplier: float) -> void:
+	if not qigong_scene:
+		return
+	_sync_qigong_runtime_data()
+	$FireSound.play()
+	_spawn_qigong(_get_base_weapon_direction(), Vector2.ZERO, damage_multiplier, {"is_emblem_extra_attack": true})
+
+func _fire_extra_light_bullet_attack(damage_multiplier: float) -> void:
+	if not light_bullet_scene:
+		return
+	var data = _build_light_bullet_data()
+	var instance = light_bullet_scene.instantiate()
+	get_tree().current_scene.add_child(instance)
+	$FireSound.play()
+	instance.setup_light_bullet(
+		global_position,
+		_get_base_weapon_direction(),
+		data.damage * damage_multiplier,
+		data.range,
+		data.penetration_count,
+		{
+			"apply_light_accumulation": data.apply_light_accumulation,
+			"accumulation_max_stacks_bonus": data.accumulation_max_stacks_bonus,
+			"is_emblem_extra_attack": true
+		}
+	)
+
+func _fire_extra_ice_attack(damage_multiplier: float) -> void:
+	if not ice_flower_scene:
+		return
+	var data = IceFlower._build_data()
+	var instance = ice_flower_scene.instantiate()
+	get_tree().current_scene.add_child(instance)
+	$FireSound.play()
+	instance.setup_ice_flower(
+		global_position,
+		_get_base_weapon_direction(),
+		data.range,
+		data.damage * damage_multiplier,
+		data.penetration_count,
+		data.pierce_decay,
+		data.base_scale * Global.get_attack_range_multiplier(),
+		true
+	)
+
+func fire_extra_attack(damage_multiplier: float) -> void:
+	if PC.is_game_over:
+		return
+	match PC.get_base_weapon_attack_id():
+		"qigong":
+			_fire_extra_qigong_attack(damage_multiplier)
+		"light_bullet":
+			_fire_extra_light_bullet_attack(damage_multiplier)
+		"ice":
+			_fire_extra_ice_attack(damage_multiplier)
+		_:
+			_fire_extra_sword_attack(damage_multiplier)
+
 	
 func start_beastify(duration: float, atk_bonus: float, atk_speed_bonus: float, move_bonus: float, claw_damage_ratio: float) -> void:
 	if beastify_active:
@@ -1074,7 +1155,11 @@ func end_beastify() -> void:
 		sprite = beastify_prev_sprite
 	elif qujie_sprite:
 		qujie_sprite.visible = false
+	if PC.movement_disabled or PC.is_game_over:
+		_set_all_player_sprites_idle()
+		$RunningSound.stop()
 	beastify_claw_ratio = 0.0
+
 
 func _fade_swap_sprite(from_sprite: AnimatedSprite2D, to_sprite: AnimatedSprite2D, duration: float) -> void:
 	if to_sprite == null:
@@ -1534,7 +1619,61 @@ func find_nearest_enemies_for_thunder(from_position: Vector2, max_range: float, 
 	return results
 
 
+
+func _update_dynamic_emblem_effects() -> void:
+	var emblem_scale = Global.get_emblem_effect_multiplier()
+	
+	var pozhen_bonus = 0.0
+	if EmblemManager.has_emblem("pozhen"):
+		var pozhen_stack = EmblemManager.get_emblem_stack("pozhen")
+		var crit_chance_percent = max(0.0, PC.crit_chance * 100.0)
+		pozhen_bonus = crit_chance_percent * 0.0025 * pozhen_stack * emblem_scale
+	if not is_equal_approx(pozhen_bonus, _last_applied_pozhen_crit_damage_bonus):
+		PC.crit_damage_multi = max(0.0, PC.crit_damage_multi - _last_applied_pozhen_crit_damage_bonus + pozhen_bonus)
+		_last_applied_pozhen_crit_damage_bonus = pozhen_bonus
+	
+	var total_emblem_stat_bonus = 0.0
+	if EmblemManager.has_emblem("jianbu"):
+		var jianbu_stack = EmblemManager.get_emblem_stack("jianbu")
+		var speed_groups = int(max(0.0, PC.pc_speed * 100.0) / 4.0)
+		if speed_groups > 0:
+			total_emblem_stat_bonus += speed_groups * 0.005 * jianbu_stack * emblem_scale
+	if EmblemManager.has_emblem("jiahu"):
+		var jiahu_stack = EmblemManager.get_emblem_stack("jiahu")
+		var extra_lucky = max(0, PC.now_lunky_level - PC.battle_start_lunky_level)
+		if extra_lucky > 0:
+			total_emblem_stat_bonus += extra_lucky * 0.003 * jiahu_stack * emblem_scale
+	if EmblemManager.has_emblem("guiyuan"):
+		var guiyuan_stack = EmblemManager.get_emblem_stack("guiyuan")
+		var extra_atk_speed_percent = max(0.0, (PC.pc_atk_speed - PC.battle_start_atk_speed) * 100.0)
+		var atk_speed_groups = int(extra_atk_speed_percent / 5.0)
+		if atk_speed_groups > 0:
+			total_emblem_stat_bonus += atk_speed_groups * 0.003 * guiyuan_stack * emblem_scale
+	if not is_equal_approx(total_emblem_stat_bonus, _last_applied_emblem_atk_bonus):
+		var base_atk = float(PC.pc_atk) / max(0.0001, 1.0 + _last_applied_emblem_atk_bonus)
+		PC.pc_atk = int(round(base_atk * (1.0 + total_emblem_stat_bonus)))
+		_last_applied_emblem_atk_bonus = total_emblem_stat_bonus
+	if not is_equal_approx(total_emblem_stat_bonus, _last_applied_emblem_hp_bonus):
+		var base_max_hp = float(PC.pc_max_hp) / max(0.0001, 1.0 + _last_applied_emblem_hp_bonus)
+		PC.pc_max_hp = int(round(base_max_hp * (1.0 + total_emblem_stat_bonus)))
+		if PC.pc_hp > PC.pc_max_hp:
+			PC.pc_hp = PC.pc_max_hp
+		hp = PC.pc_hp
+		maxHP = PC.pc_max_hp
+		_last_applied_emblem_hp_bonus = total_emblem_stat_bonus
+	
+	var tafeng_bonus = 0.0
+	if EmblemManager.has_emblem("tafeng"):
+		var tafeng_stack = EmblemManager.get_emblem_stack("tafeng")
+		var move_speed_bonus_percent = max(0.0, PC.pc_speed * 100.0)
+		tafeng_bonus = min(0.30, (move_speed_bonus_percent / 10.0) * 0.005 * tafeng_stack * emblem_scale)
+	if not is_equal_approx(tafeng_bonus, _last_applied_tafeng_cooldown_bonus):
+		var base_cooldown = clampf(PC.cooldown - _last_applied_tafeng_cooldown_bonus, 0.0, 0.5)
+		PC.cooldown = clampf(base_cooldown + tafeng_bonus, 0.0, 0.5)
+		_last_applied_tafeng_cooldown_bonus = tafeng_bonus
+
 func reload_scene() -> void:
+
 	if Global.main_menu_instance != null:
 		Global.emit_signal("normal_bgm")
 		# 设置菜单状态
@@ -1545,24 +1684,34 @@ func reload_scene() -> void:
 func _on_player_hit(attacker: Node2D = null) -> void:
 	if PC.is_game_over:
 		return
-	# 处理铁骨纹章的反弹效果
-	if EmblemManager.has_emblem("tiegu"):
-		var tiegu_stack = EmblemManager.get_emblem_stack("tiegu")
-		var reflected_damage = PC.pc_max_hp * 0.25 * tiegu_stack
-		# 找到攻击者并反弹伤害
+	var reflected_damage = _pending_tiegu_reflect_damage
+	_pending_tiegu_reflect_damage = 0
+	if reflected_damage > 0:
 		if attacker and is_instance_valid(attacker) and attacker.has_method("take_damage"):
-			attacker.take_damage(int(reflected_damage), false, false, "reflection")
+			attacker.take_damage(reflected_damage, false, false, "reflection")
 		else:
-			# 如果没有指定攻击者，查找最近的敌人
 			var nearest_enemy = find_nearest_enemy()
 			if nearest_enemy and is_instance_valid(nearest_enemy) and nearest_enemy.has_method("take_damage"):
-				nearest_enemy.take_damage(int(reflected_damage), false, false, "reflection")
+				nearest_enemy.take_damage(reflected_damage, false, false, "reflection")
 
 	PC.invincible = true
 	invincible_time.start(0.0)
 	if PC.pc_hp > 0:
 		$HitSound.play()
 		sprite.modulate = Color(1, 0.5, 0.5)
+
+func _on_player_take_damage(damage_val: float, shield_val: float, _world_position: Vector2, _source_name: String = "攻击") -> void:
+	_pending_tiegu_reflect_damage = 0
+	if not EmblemManager.has_emblem("tiegu"):
+		return
+	var post_reduction_damage = max(0.0, damage_val + shield_val)
+	var damage_reduction_rate = clampf(PC.damage_reduction_rate, 0.0, 0.95)
+	if post_reduction_damage <= 0.0 or damage_reduction_rate <= 0.0:
+		return
+	var prevented_damage = post_reduction_damage * damage_reduction_rate / max(0.0001, 1.0 - damage_reduction_rate)
+	var tiegu_stack = EmblemManager.get_emblem_stack("tiegu")
+	var reflect_ratio = Global.get_scaled_emblem_value(0.75 * tiegu_stack)
+	_pending_tiegu_reflect_damage = int(round(prevented_damage * reflect_ratio))
 
 
 # 添加新召唤物（当获得召唤物奖励时调用）
@@ -1979,23 +2128,11 @@ func _on_fire_detail_qigong() -> void:
 	if not qigong_scene:
 		return
 		
-	Qigong.sync_reward_modifiers()
+	_sync_qigong_runtime_data()
 		
-	var base_direction = Vector2.RIGHT
-	var nearest_enemy = find_nearest_enemy()
-	if nearest_enemy:
-		base_direction = (nearest_enemy.position - position).normalized()
-	else:
-		if not sprite_direction_right:
-			base_direction = Vector2.LEFT
-		else:
-			base_direction = Vector2.RIGHT
+	var base_direction = _get_base_weapon_direction()
 			
-	var other_weapon_count = 0
-	if PC.selected_rewards.has("Qigong5") or PC.selected_rewards.has("Qigong11"):
-		other_weapon_count = PC.current_weapon_num - 1
-	Qigong.qigong_chakra_count = other_weapon_count
-			
+
 	# 计算连发
 	var double_hit = false
 	var triple_hit = false
@@ -2037,8 +2174,9 @@ func _on_fire_detail_dragonwind() -> void:
 	if script and script.has_method("fire_skill"):
 		script.fire_skill(dragonwind_scene, global_position, get_tree())
 
-func _spawn_qigong(direction: Vector2, offset: Vector2 = Vector2.ZERO, damage_multiplier: float = 1.0) -> void:
+func _spawn_qigong(direction: Vector2, offset: Vector2 = Vector2.ZERO, damage_multiplier: float = 1.0, options: Dictionary = {}) -> void:
 	var qigong_instance = qigong_scene.instantiate()
 	get_tree().current_scene.add_child(qigong_instance)
-	# setup(start_pos: Vector2, direction: Vector2, base_damage: int, damage_multiplier: float = 1.0)
-	qigong_instance.setup(global_position + offset, direction, PC.pc_atk, damage_multiplier)
+	# setup(start_pos: Vector2, direction: Vector2, base_damage: int, damage_multiplier: float = 1.0, options: Dictionary = {})
+	qigong_instance.setup(global_position + offset, direction, PC.pc_atk, damage_multiplier, options)
+

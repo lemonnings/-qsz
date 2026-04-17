@@ -1,5 +1,7 @@
 extends Node2D
 
+const STAGE_ID := "forest"
+
 # ============== 关卡配置 ==============
 @export var slime_scene: PackedScene
 @export var bat_scene: PackedScene

@@ -97,7 +97,6 @@ func _ready():
 
 	# 初始化读条 UI 为隐藏状态
 	_set_chant_ui_visible(false)
-	set_process(false)
 
 	# 设置读条进度条样式：褐色外框+白色微黄填充+褐色外发光
 	if is_instance_valid(chant_bar):
@@ -113,9 +112,9 @@ func _ready():
 		fill_style.border_width_top = 1
 		fill_style.border_width_right = 1
 		fill_style.border_width_bottom = 1
-		fill_style.border_color = Color(0.55, 0.40, 0.22, 0.9)
+		fill_style.border_color = Color(0.45, 0.30, 0.12, 0.9)
 		# 褐色外发光效果
-		fill_style.shadow_color = Color(0.55, 0.40, 0.22, 0.45)
+		fill_style.shadow_color = Color(0.45, 0.30, 0.12, 0.45)
 		fill_style.shadow_size = 4
 		chant_bar.add_theme_stylebox_override("fill", fill_style)
 		# 背景样式：褐色外框半透明背景
@@ -159,15 +158,33 @@ func _create_and_configure_bars():
 			if child is ProgressBar:
 				child.queue_free()
 
-	var bar_height = custom_minimum_size.y # 使用此Control节点的高度作为bar的高度
-	var bar_width = custom_minimum_size.x # 使用此Control节点的宽度作为bar的宽度
+	# 使用 CanvasGroup 包装进度条，这样修改透明度时多层血条就不会发生重叠叠加发灰的问题
+	var canvas_group = parent_node.get_node_or_null("BarsCanvasGroup")
+	if not is_instance_valid(canvas_group):
+		canvas_group = CanvasGroup.new()
+		canvas_group.name = "BarsCanvasGroup"
+		parent_node.add_child(canvas_group)
+		parent_node.move_child(canvas_group, 0)
+	else:
+		for child in canvas_group.get_children():
+			if child is ProgressBar:
+				child.queue_free()
+
+	var bar_width = 800.0
+	var bar_height = 40.0
+	if parent_node is Control:
+		bar_width = parent_node.size.x if parent_node.size.x > 0 else (parent_node.custom_minimum_size.x if parent_node.custom_minimum_size.x > 0 else 800)
+		bar_height = parent_node.size.y if parent_node.size.y > 0 else (parent_node.custom_minimum_size.y if parent_node.custom_minimum_size.y > 0 else 40)
+	elif parent_node == self:
+		bar_width = size.x if size.x > 0 else (custom_minimum_size.x if custom_minimum_size.x > 0 else 800)
+		bar_height = size.y if size.y > 0 else (custom_minimum_size.y if custom_minimum_size.y > 0 else 40)
 
 	# 从最上层（视觉上的顶层，数组中的高索引）开始创建，以便绘制顺序正确（后加的在上面）
 	# 但为了逻辑上从底层血条开始算，我们按索引顺序创建，然后在_update_display中处理显示逻辑
 	for i in range(hp_bar_num):
 		var bar_node = ProgressBar.new()
 		_progress_bars_nodes.append(bar_node)
-		parent_node.add_child(bar_node)
+		canvas_group.add_child(bar_node)
 
 		# --- 配置ProgressBar --- #
 		bar_node.name = "HPBarLayer_" + str(i) # 方便调试
@@ -176,28 +193,33 @@ func _create_and_configure_bars():
 		bar_node.show_percentage = false # 不显示百分比文本
 		
 		# 设置大小和位置使其堆叠
-		# ProgressBar作为Control节点，其大小和位置受父节点影响
-		# 如果父节点是此Control，它们将填充此Control的区域
-		# 如果父节点是health_bar_container (Node2D)，需要手动设置size
 		bar_node.anchor_right = 1.0
 		bar_node.anchor_bottom = 1.0
 		bar_node.offset_left = 0
 		bar_node.offset_top = 0
 		bar_node.offset_right = 0
 		bar_node.offset_bottom = 0
-		# 如果父节点是Node2D，则需要设置size
-		if parent_node is Node2D:
-			bar_node.size = Vector2(bar_width, bar_height)
-			bar_node.position = Vector2(0, 0) # Node2D的子节点位置相对于Node2D
+		# 因为 CanvasGroup 是 Node2D，所以我们必须手动设置子节点的大小和位置
+		# 向上扩展5像素以增加厚度
+		bar_node.size = Vector2(bar_width, bar_height + 5.0)
+		bar_node.position = Vector2(0, -5.0)
 
 		# 设置前景（填充）颜色和样式
 		var fill_style = StyleBoxFlat.new()
 		fill_style.bg_color = BAR_COLORS[i % BAR_COLORS.size()] # 循环使用颜色
 
-		fill_style.corner_radius_top_left = 10
-		fill_style.corner_radius_top_right = 10
-		fill_style.corner_radius_bottom_right = 10
-		fill_style.corner_radius_bottom_left = 10
+		fill_style.corner_radius_top_left = 16
+		fill_style.corner_radius_top_right = 16
+		fill_style.corner_radius_bottom_right = 16
+		fill_style.corner_radius_bottom_left = 16
+		
+		# 使用透明边框给背景边框让位，避免填充遮挡外边框
+		fill_style.border_width_left = 4
+		fill_style.border_width_top = 4
+		fill_style.border_width_right = 4
+		fill_style.border_width_bottom = 4
+		fill_style.border_color = Color(0, 0, 0, 0)
+		
 		bar_node.add_theme_stylebox_override("fill", fill_style)
 		
 		# 设置背景样式（包括描边和圆角，背景色透明）
@@ -206,10 +228,19 @@ func _create_and_configure_bars():
 			background_style.bg_color = Color(0, 0, 0, 0.3) # 背景完全透明
 		else:
 			background_style.bg_color = Color(0, 0, 0, 0) # 背景完全透明
-		background_style.corner_radius_top_left = 10
-		background_style.corner_radius_top_right = 10
-		background_style.corner_radius_bottom_right = 10
-		background_style.corner_radius_bottom_left = 10
+			
+		background_style.corner_radius_top_left = 16
+		background_style.corner_radius_top_right = 16
+		background_style.corner_radius_bottom_right = 16
+		background_style.corner_radius_bottom_left = 16
+		
+		# 4像素描边，颜色与读条外框保持一致
+		background_style.border_width_left = 4
+		background_style.border_width_top = 4
+		background_style.border_width_right = 4
+		background_style.border_width_bottom = 4
+		background_style.border_color = Color(0.35, 0.20, 0.02, 0.9)
+		
 		bar_node.add_theme_stylebox_override("background", background_style)
 
 	# 如果ProgressBar是直接子节点，确保它们按添加顺序堆叠（后添加的在上面）
@@ -352,6 +383,7 @@ func _update_labels_and_ui():
 
 ## 隐藏并销毁血条的函数
 func _hide_and_destroy_hp_bar():
+	health_bar_shown = false
 	# 创建淡出动画
 	var tween = get_tree().create_tween()
 	tween.tween_property(self , "modulate:a", 0.0, 0.3).set_trans(Tween.TRANS_LINEAR)
@@ -397,11 +429,6 @@ func _on_boss_hp_bar_show():
 	if is_instance_valid(_boss_name_label): _boss_name_label.visible = true
 	if is_instance_valid(_bar_count_label): _bar_count_label.visible = true
 	
-	var tween = get_tree().create_tween()
-	tween.tween_property(self , "modulate:a", 0.8, 0.5).from(0.0) # 从完全透明渐变到0.8透明度
-	# _update_display() 应该在动画开始前或动画逻辑中被调用，以确保内容正确
-	# 如果_update_display本身会改变visible状态，需要小心处理
-	# 这里假设_update_display主要是更新血条的值和文本，而不是整体可见性动画
 	_update_display() # 更新内容，但不直接控制这里的动画透明度
 
 func _on_boss_hp_bar_hide():
@@ -447,7 +474,6 @@ func _on_boss_chant_start(skill_display_name: String, chant_duration: float):
 		chant_time.text = str(snapped(chant_duration, 0.1)) + "s"
 
 	_set_chant_ui_visible(true)
-	set_process(true)
 	if _chant_timer and not _chant_timer.is_stopped():
 		_chant_timer.stop()
 	if _chant_timer:
@@ -455,24 +481,35 @@ func _on_boss_chant_start(skill_display_name: String, chant_duration: float):
 
 func _on_boss_chant_end():
 	_chant_active = false
-	set_process(false)
 	if _chant_timer and not _chant_timer.is_stopped():
 		_chant_timer.stop()
 	_set_chant_ui_visible(false)
 
-# 每帧平滑更新进度条填充
+# 每帧平滑更新进度条填充和防遮挡检测
 func _process(delta: float):
-	if not _chant_active:
-		return
-	_chant_elapsed += delta
-	if is_instance_valid(chant_bar):
-		chant_bar.value = min(_chant_elapsed, _chant_total_time)
-	if _chant_elapsed >= _chant_total_time:
-		_chant_active = false
-		set_process(false)
-		if _chant_timer and not _chant_timer.is_stopped():
-			_chant_timer.stop()
-		_set_chant_ui_visible(false)
+	if _chant_active:
+		_chant_elapsed += delta
+		if is_instance_valid(chant_bar):
+			chant_bar.value = min(_chant_elapsed, _chant_total_time)
+		if _chant_elapsed >= _chant_total_time:
+			_chant_active = false
+			if _chant_timer and not _chant_timer.is_stopped():
+				_chant_timer.stop()
+			_set_chant_ui_visible(false)
+			
+	# 防遮挡检测：如果boss在血条范围内，将透明度降低至50%左右(这里设为0.4防遮挡)
+	if health_bar_shown:
+		var target_alpha = 0.8
+		var boss = get_tree().get_first_node_in_group("boss")
+		if is_instance_valid(boss) and boss is Node2D:
+			var boss_screen_pos = boss.get_global_transform_with_canvas().origin
+			# 稍微扩大一点判定范围
+			var check_rect = get_global_rect().grow(75.0)
+			# 检测boss中心或者偏上部位是否遮挡
+			if check_rect.has_point(boss_screen_pos) or check_rect.has_point(boss_screen_pos + Vector2(0, -80)):
+				target_alpha = 0.4
+				
+		modulate.a = lerp(modulate.a, target_alpha, 8.0 * delta)
 
 # Timer 仅负责每 0.1 秒刷新剩余时间文字
 func _on_chant_timer_tick():

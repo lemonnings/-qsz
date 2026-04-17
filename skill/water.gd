@@ -124,7 +124,7 @@ func _process(delta: float) -> void:
 		
 	# 跟随玩家移动
 	if player_ref:
-		global_position = player_ref.global_position + Vector2(0, 12)
+		global_position = player_ref.global_position + Vector2(0, 8)
 		
 		# 更新扇形朝向以跟随锁定的敌人（如果敌人还活着）
 		if enable_sector and locked_enemy_ref and locked_enemy_ref.get_ref():

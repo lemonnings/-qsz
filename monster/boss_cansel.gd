@@ -17,7 +17,7 @@ var update_move_timer: Timer
 
 # 属性
 var speed: float = SettingMoster.stone_man("speed") * 1.2
-var hpMax: float = SettingMoster.stone_man("hp") * 1
+var hpMax: float = SettingMoster.stone_man("hp") * 30
 var hp: float = hpMax
 var atk: float = SettingMoster.stone_man("atk") * 1.5
 var get_point: int = SettingMoster.stone_man("point") * 50
@@ -43,7 +43,16 @@ const SPELL_ICON_ORDER := {
 	"cross": 3,
 	"x": 4,
 }
-
+const CHAIN_CHANT_COMBINATIONS := [
+	[5, 6, 3], # 十字火 + x形冰 + 环雷
+	[1, 5, 3], # 爆炎 + 十字火 + 环雷
+	[3, 1, 5], # 环雷 + 爆炎 + 十字火
+	[3, 1, 6], # 环雷 + 爆炎 + x形冰
+	[5, 3, 2], # 十字火 + 环雷 + 极冰
+	[6, 3, 2], # x形冰 + 环雷 + 极冰
+	[5, 1, 6], # 十字火 + 爆炎 + x形冰
+	[6, 1, 5], # x形冰 + 爆炎 + 十字火
+]
 
 func _ready():
 	add_to_group("boss")
@@ -57,7 +66,7 @@ func _ready():
 
 	CharacterEffects.create_shadow(self, 50.0, 16.0, 14.0)
 
-	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "Cansel")
+	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "坎塞尔")
 	Global.emit_signal("boss_hp_bar_show")
 
 	update_move_timer = Timer.new()
@@ -557,7 +566,7 @@ func _attack_ring_thunder():
 		var norm_x = diff.x / 75.0
 		var norm_y = diff.y / 50.0
 		if (norm_x * norm_x + norm_y * norm_y) > 1.0:
-			PC.apply_damage(int(atk * 1.5 * (1.0 - PC.damage_reduction_rate)))
+			PC.apply_damage(int(atk * 1.5 * (1.0 - PC.damage_reduction_rate)), "极冰风暴")
 			Global.emit_signal("player_hit", self )
 			if PC.pc_hp <= 0: PC.player_instance.game_over()
 			
@@ -736,15 +745,8 @@ func _attack_chain_chant():
 	is_chain_chanting = true
 	Global.emit_signal("boss_chant_start", "三连咏唱", 4.0)
 	
-	var first_skill_pool = [1, 3, 5, 6]
-	var skill_1 = first_skill_pool[randi() % first_skill_pool.size()]
-	var skill_2 = [5, 6][randi() % 2]
-	var possible_3 = [2, 3]
-	if possible_3.has(skill_1):
-		possible_3.erase(skill_1)
-	var skill_3 = possible_3[randi() % possible_3.size()]
-	
-	chain_skills_queue = [skill_1, skill_2, skill_3]
+	var selected_combo: Array = CHAIN_CHANT_COMBINATIONS[randi() % CHAIN_CHANT_COMBINATIONS.size()]
+	chain_skills_queue = selected_combo.duplicate()
 	
 	var map_str = {1: "fire", 2: "ice", 3: "thunder", 5: "cross", 6: "x"}
 	
@@ -775,7 +777,7 @@ func _attack_chain_chant():
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
 		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self , true)
-		var final_damage_val = collision_result["final_damage"]
+		var final_damage_val = get_common_bullet_damage_value(collision_result["final_damage"])
 		var is_crit = collision_result["is_crit"]
 
 		Global.emit_signal("boss_hp_bar_take_damage", final_damage_val)

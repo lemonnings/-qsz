@@ -115,10 +115,41 @@ func _spawn_drop_group(group_entries: Array) -> void:
 			var icon_texture = load(spawn_job["item_data"].item_icon)
 			sprite.texture = icon_texture
 		if dropped_item_instance.has_node("ItemNameLabel"):
-			var name_label = dropped_item_instance.get_node("ItemNameLabel")
+			var name_label = dropped_item_instance.get_node("ItemNameLabel") as Label
+			var item_name_color = _get_item_drop_name_color(spawn_job["item_data"])
 			name_label.text = spawn_job["item_data"].item_name
+			name_label.add_theme_color_override("font_color", item_name_color)
+			if name_label.label_settings:
+				var label_settings = name_label.label_settings.duplicate() as LabelSettings
+				label_settings.font_color = item_name_color
+				name_label.label_settings = label_settings
 		current_scene.add_child(dropped_item_instance)
 		apply_drop_animation(dropped_item_instance, drop_data)
+
+func _get_item_drop_name_color(item_data: Dictionary) -> Color:
+	var rare_color = _get_rare_color(str(item_data.get("item_rare", "common")))
+	var item_color = item_data.get("item_color", null)
+	if item_color is Color:
+		return item_color
+	if item_color is String and not String(item_color).strip_edges().is_empty():
+		return Color.from_string(String(item_color), rare_color)
+	return rare_color
+
+func _get_rare_color(rare: String) -> Color:
+	match rare.to_lower():
+		"common", "1":
+			return Color(1.0, 1.0, 1.0)
+		"rare", "2":
+			return Color(0.2, 0.5, 1.0)
+		"epic", "3":
+			return Color(0.7, 0.3, 0.9)
+		"legend", "legendary", "4":
+			return Color(1.0, 0.8, 0.0)
+		"artifact", "5":
+			return Color(1.0, 0.2, 0.2)
+		_:
+			return Color(1.0, 1.0, 1.0)
+
 
 func _build_drop_spread_data(drop_count: int) -> Array:
 	if drop_count <= 1:

@@ -19,12 +19,20 @@ var player_hit_emit_self: bool = false
 var use_debuff_take_damage_multiplier: bool = true
 var check_action_disabled_on_body_entered: bool = true
 
+const OFFSCREEN_SPEED_MARGIN_PIXELS: float = 20.0
+const OFFSCREEN_SPEED_MULTIPLIER: float = 4.0 # 超出视野20像素后，移动速度额外提升300%
+const RANDOM_SPEED_VARIATION_MIN: float = 0.95
+const RANDOM_SPEED_VARIATION_MAX: float = 1.05
+
+var movement_speed_variation_multiplier: float = 1.0
+
 signal debuff_applied(debuff_id: String)
 
 func setup_monster_base(add_elite_group: bool = false) -> void:
 	if add_elite_group:
 		add_to_group("elite")
 	_setup_debuff_manager()
+	_setup_common_movement_data()
 
 func _setup_debuff_manager() -> void:
 	if debuff_manager != null and is_instance_valid(debuff_manager):
@@ -34,6 +42,52 @@ func _setup_debuff_manager() -> void:
 	var debuff_callable = Callable(debuff_manager, "add_debuff")
 	if not debuff_applied.is_connected(debuff_callable):
 		debuff_applied.connect(debuff_callable)
+
+func _setup_common_movement_data() -> void:
+	_randomize_base_speed_if_available()
+
+func _has_property(property_name: String) -> bool:
+	for property_info in get_property_list():
+		if String(property_info.get("name", "")) == property_name:
+			return true
+	return false
+
+func _randomize_base_speed_if_available() -> void:
+	if is_in_group("boss") or not _has_property("base_speed"):
+		return
+	movement_speed_variation_multiplier = randf_range(RANDOM_SPEED_VARIATION_MIN, RANDOM_SPEED_VARIATION_MAX)
+	var randomized_base_speed: float = float(get("base_speed")) * movement_speed_variation_multiplier
+	set("base_speed", randomized_base_speed)
+	if _has_property("speed"):
+		set("speed", randomized_base_speed)
+
+func _is_beyond_camera_margin(margin_pixels: float = OFFSCREEN_SPEED_MARGIN_PIXELS) -> bool:
+	if is_in_group("boss"):
+		return false
+	var camera := get_viewport().get_camera_2d()
+	if camera == null:
+		return false
+	var viewport_size := get_viewport().get_visible_rect().size
+	var zoom := camera.zoom
+	var half_visible_size := viewport_size / zoom / 2.0
+	var margin_x := margin_pixels / zoom.x if zoom.x != 0.0 else 0.0
+	var margin_y := margin_pixels / zoom.y if zoom.y != 0.0 else 0.0
+	var monster_pos := global_position
+	var camera_pos := camera.global_position
+	return (
+		monster_pos.x < camera_pos.x - half_visible_size.x - margin_x
+		or monster_pos.x > camera_pos.x + half_visible_size.x + margin_x
+		or monster_pos.y < camera_pos.y - half_visible_size.y - margin_y
+		or monster_pos.y > camera_pos.y + half_visible_size.y + margin_y
+	)
+
+func get_effective_move_speed(base_speed_value: float, extra_multiplier: float = 1.0, apply_offscreen_boost: bool = true) -> float:
+	var speed_multiplier := extra_multiplier
+	if debuff_manager != null and is_instance_valid(debuff_manager):
+		speed_multiplier *= debuff_manager.get_speed_multiplier()
+	if apply_offscreen_boost and _is_beyond_camera_margin():
+		speed_multiplier *= OFFSCREEN_SPEED_MULTIPLIER
+	return base_speed_value * speed_multiplier
 
 func apply_debuff_effect(debuff_id: String):
 	emit_signal("debuff_applied", debuff_id)
@@ -83,7 +137,7 @@ func handle_common_body_entered(body: Node2D) -> void:
 		var actual_damage = float(get("atk")) * (1.0 - PC.damage_reduction_rate)
 		if use_debuff_take_damage_multiplier and debuff_manager != null and is_instance_valid(debuff_manager):
 			actual_damage *= debuff_manager.get_take_damage_multiplier()
-		PC.apply_damage(int(actual_damage))
+		PC.apply_damage(int(actual_damage), "攻击")
 		if PC.pc_hp <= 0:
 			body.game_over()
 
@@ -135,11 +189,32 @@ func can_take_common_damage(require_damage_range_check: bool = false) -> bool:
 			return false
 	return true
 
+func get_player_total_damage_multiplier() -> float:
+	var damage_deal_multiplier := 1.0
+	if typeof(PC) != TYPE_NIL and PC != null:
+		damage_deal_multiplier = PC.damage_deal_multiplier
+	return Faze.get_final_damage_multiplier() * damage_deal_multiplier
+
+func apply_common_final_damage_multipliers(damage: float) -> float:
+	if damage <= 0.0:
+		return 0.0
+	var final_damage = BulletCalculator.apply_global_buff_effects(damage)
+	final_damage *= get_player_total_damage_multiplier()
+	return final_damage
+
+func get_common_bullet_damage_value(base_damage: float) -> int:
+	var final_damage = apply_common_final_damage_multipliers(base_damage)
+	if debuff_manager != null and is_instance_valid(debuff_manager):
+		final_damage *= debuff_manager.get_damage_multiplier()
+	return int(final_damage)
+
 func get_non_bullet_damage_value(damage: float, use_debuff_multiplier: bool = true) -> int:
 	var final_damage = Global.apply_enemy_damage_bonus(damage, self)
+	final_damage = apply_common_final_damage_multipliers(final_damage)
 	if use_debuff_multiplier and debuff_manager != null and is_instance_valid(debuff_manager):
 		final_damage *= debuff_manager.get_damage_multiplier()
 	return int(final_damage)
+
 
 func can_apply_interval_damage(last_time_property: String, interval: float, time_scale: float = 1.0) -> bool:
 	var current_time = (Time.get_ticks_msec() / 1000.0) * time_scale

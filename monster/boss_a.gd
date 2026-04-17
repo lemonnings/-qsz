@@ -23,7 +23,7 @@ var target_position: Vector2 # 用于存储移动目标位置
 var update_move_timer: Timer # 移动模式计时器
 
 var speed: float = SettingMoster.slime_blue("speed") * 1 # Boss移动速度，可以调整
-var hpMax: float = SettingMoster.slime_blue("hp") * 90 # Boss最大生命值，可以调整
+var hpMax: float = SettingMoster.slime_blue("hp") * 12 # Boss最大生命值，可以调整
 #var hpMax : float = SettingMoster.slime("hp") * 0.1 # Boss最大生命值，可以调整
 var hp: float = hpMax # Boss当前生命值
 var atk: float = SettingMoster.slime_blue("atk") * 0.9 # Boss攻击力，可以调整
@@ -66,8 +66,25 @@ const SECTOR_WARNING_TIME: float = 1.5 # 扇形预警时间(x秒)
 const SECTOR_RADIUS: float = 2000.0 # 扇形半径(超出场地画幅)
 const MULTI_SECTOR_ROUNDS: int = 4 # 连续扇形轮数
 
+const DETOX_BUFF_ID := "boss_a_detox"
+const DEEP_METEOR_SIZE_MULTIPLIER: float = 1.3
+const CORE_PETAL_SPEED_MULTIPLIER: float = 1.25
+const GOLDEN_PETAL_CHANCE: float = 0.06
+const GOLDEN_PETAL_SCALE_MULTIPLIER: float = 1.25
+const POETRY_BARRAGE_DENSITY_MULTIPLIER: float = 1.3
+const POETRY_EXTRA_METEOR_MIN_COUNT: int = 3
+const POETRY_EXTRA_METEOR_MAX_COUNT: int = 4
+const POETRY_EXTRA_METEOR_MIN_DISTANCE: float = 46.0
+const POETRY_EXTRA_METEOR_MAX_DISTANCE: float = 120.0
+
+var stage_difficulty: String = Global.STAGE_DIFFICULTY_SHALLOW
+var forced_poison_attack_index: int = -1
+
 func _ready():
+
 	add_to_group("boss")
+	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
+	hpMax *= _get_difficulty_hp_multiplier()
 	# 防止boss升级期间打人（但没生效，子弹会在暂停期间积累到一起全射出来）
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	hp = hpMax # 初始化当前血量
@@ -98,7 +115,132 @@ func _ready():
 	attack_timer.start()
 
 
+func _is_deep_or_harder() -> bool:
+	return stage_difficulty in [Global.STAGE_DIFFICULTY_DEEP, Global.STAGE_DIFFICULTY_CORE, Global.STAGE_DIFFICULTY_POETRY]
+
+
+func _is_core_or_harder() -> bool:
+	return stage_difficulty in [Global.STAGE_DIFFICULTY_CORE, Global.STAGE_DIFFICULTY_POETRY]
+
+
+func _is_poetry() -> bool:
+	return stage_difficulty == Global.STAGE_DIFFICULTY_POETRY
+
+
+func _uses_forced_poison_cycle() -> bool:
+	return stage_difficulty in [Global.STAGE_DIFFICULTY_DEEP, Global.STAGE_DIFFICULTY_POETRY]
+
+
+func _reset_interval_attack_plan() -> void:
+	forced_poison_attack_index = randi_range(1, 4) if _uses_forced_poison_cycle() else -1
+
+
+func _get_next_random_attack_type() -> int:
+	if _uses_forced_poison_cycle() and attacks_since_last_petal == forced_poison_attack_index:
+		return 7
+	return randi_range(1, 6) if _uses_forced_poison_cycle() else randi_range(1, 7)
+
+
+func _get_difficulty_hp_multiplier() -> float:
+	match stage_difficulty:
+		Global.STAGE_DIFFICULTY_DEEP:
+			return 1.2
+		Global.STAGE_DIFFICULTY_CORE:
+			return 1.4
+		Global.STAGE_DIFFICULTY_POETRY:
+			return 1.5
+		_:
+			return 1.0
+
+
+func _get_meteor_radius() -> float:
+	return METEOR_RADIUS * (DEEP_METEOR_SIZE_MULTIPLIER if _is_deep_or_harder() else 1.0)
+
+
+func _get_poison_circle_scale() -> Vector2:
+	var meteor_radius := _get_meteor_radius()
+	return Vector2(meteor_radius * 1.2 / 15.0, meteor_radius / 15.0)
+
+
+func _get_petal_spawn_count() -> int:
+	var count := petal_use_count * 2 + 2
+	if _is_deep_or_harder():
+		count += 2
+	if _is_poetry():
+		count += 1 + max(0, petal_use_count - 1)
+	return count
+
+
+func _get_petal_speed_multiplier() -> float:
+	return CORE_PETAL_SPEED_MULTIPLIER if _is_core_or_harder() else 1.0
+
+
+func _get_random_barrage_bullet_count() -> int:
+	if _is_poetry():
+		return int(ceil(RANDOM_BARRAGE_BULLET_COUNT * POETRY_BARRAGE_DENSITY_MULTIPLIER))
+	return RANDOM_BARRAGE_BULLET_COUNT
+
+
+func _get_random_barrage_duration() -> float:
+	return RANDOM_BARRAGE_BULLET_COUNT * RANDOM_BARRAGE_INTERVAL
+
+
+func _clamp_position_to_arena(world_pos: Vector2, padding: float = 16.0) -> Vector2:
+	return Vector2(
+		clamp(world_pos.x, left_boundary + padding, right_boundary - padding),
+		clamp(world_pos.y, top_boundary + padding, bottom_boundary - padding)
+	)
+
+
+func _get_random_player_side_meteor_position(player_pos: Vector2, min_distance: float, max_distance: float) -> Vector2:
+	var angle := randf() * TAU
+	var distance := randf_range(min_distance, max_distance)
+	return _clamp_position_to_arena(player_pos + Vector2.RIGHT.rotated(angle) * distance, 28.0)
+
+
+func _spawn_meteor_warning_at(spawn_pos: Vector2, persistent: bool = false) -> void:
+	var warning_circle := WarnCircleUtil.new()
+	add_child(warning_circle)
+	var meteor_radius := _get_meteor_radius()
+	var clamped_spawn_pos := _clamp_position_to_arena(spawn_pos, meteor_radius)
+	if persistent:
+		warning_circle.warning_finished.connect(
+			_on_meteor_persistent_warning_finished.bind(clamped_spawn_pos, warning_circle)
+		)
+	else:
+		warning_circle.warning_finished.connect(_on_meteor_warning_finished.bind(clamped_spawn_pos, warning_circle))
+		warning_circle.damage_dealt.connect(_on_meteor_damage_dealt)
+	warning_circle.start_warning(
+		clamped_spawn_pos,
+		1.2,
+		meteor_radius,
+		METEOR_WARNING_TIME,
+		0.0 if persistent else atk * 1.5,
+		null,
+		WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE
+	)
+
+
+func _spawn_poetry_extra_meteors() -> void:
+	if not _is_poetry() or not is_instance_valid(PC.player_instance):
+		return
+	var player_pos: Vector2 = PC.player_instance.global_position
+
+	for i in range(randi_range(POETRY_EXTRA_METEOR_MIN_COUNT, POETRY_EXTRA_METEOR_MAX_COUNT)):
+		var spawn_pos := _get_random_player_side_meteor_position(
+			player_pos,
+			POETRY_EXTRA_METEOR_MIN_DISTANCE,
+			POETRY_EXTRA_METEOR_MAX_DISTANCE
+		)
+		_spawn_meteor_warning_at(spawn_pos)
+
+
+func _should_spawn_golden_petal() -> bool:
+	return _is_core_or_harder() and randf() <= GOLDEN_PETAL_CHANCE
+
+
 func _update_target_position_mode4():
+
 	var player_pos = PC.player_instance.global_position
 	var x_offset = 90
 	if global_position.x < player_pos.x:
@@ -151,13 +293,15 @@ func _choose_attack():
 	# 正常随机技能（计数 +1）
 	attacks_since_last_petal += 1
 
-	var attack_type = randi_range(1, 7)
+	var attack_type := _get_next_random_attack_type()
 	print("Boss chooses attack: ", attack_type)
 
 	# 显示攻击范围
 	if [3, 4].has(attack_type):
 		var chant_name = "荆棘遍布" if attack_type == 3 else "冲锋"
 		Global.emit_signal("boss_chant_start", chant_name, 1.0)
+		if attack_type == 3:
+			_spawn_poetry_extra_meteors()
 		_show_attack_indicator(attack_type)
 		await get_tree().create_timer(1.0).timeout
 		Global.emit_signal("boss_chant_end")
@@ -315,12 +459,15 @@ func _show_attack_indicator(type: int):
 func _attack_straight_line():
 	# 连续射击5次
 	for i in range(5):
+
 		# 每次射击前重新瞄准玩家
 		var current_player_pos = PC.player_instance.global_position
 		var current_direction = global_position.direction_to(current_player_pos)
 		
 		# 读条
 		Global.emit_signal("boss_chant_start", "荆棘之刺" + str(i + 1), 0.75)
+		if i == 0 or i == 3:
+			_spawn_poetry_extra_meteors()
 		
 		# 显示攻击指示器
 		_show_attack_indicator_for_straight_line(current_direction)
@@ -353,7 +500,7 @@ func _attack_straight_line():
 		if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
 			Global.emit_signal("player_hit")
 			var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-			PC.apply_damage(actual_damage)
+			PC.apply_damage(actual_damage, "飞花")
 			if PC.pc_hp <= 0:
 				PC.player_instance.game_over()
 			print("Player hit by straight line attack, damage: ", actual_damage)
@@ -460,6 +607,7 @@ func _attack_triple_line():
 	print("Attack: Triple Line")
 	
 	# 连续射击3次
+
 	for i in range(3):
 		# 每次射击前重新瞄准玩家
 		var current_player_pos = PC.player_instance.global_position
@@ -467,6 +615,8 @@ func _attack_triple_line():
 		
 		# 读条
 		Global.emit_signal("boss_chant_start", "分裂荆棘" + str(i + 1), 0.75)
+		if i == 0:
+			_spawn_poetry_extra_meteors()
 		
 		# 显示攻击指示器（带生成动画）
 		_show_attack_indicator_for_triple_line(base_direction)
@@ -508,7 +658,7 @@ func _attack_triple_line():
 			if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
 				Global.emit_signal("player_hit")
 				var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-				PC.apply_damage(actual_damage)
+				PC.apply_damage(actual_damage, "落花")
 				if PC.pc_hp <= 0:
 					PC.player_instance.game_over()
 				_player_damaged_this_round = true
@@ -581,6 +731,7 @@ func _attack_eight_directions():
 	print("Attack: Eight Directions")
 
 	# 检查玩家是否在攻击范围内并造成伤害
+
 	var player_node = PC.player_instance
 	if player_node:
 		var player_pos = player_node.global_position
@@ -607,7 +758,7 @@ func _attack_eight_directions():
 			if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
 				Global.emit_signal("player_hit")
 				var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-				PC.apply_damage(actual_damage)
+				PC.apply_damage(actual_damage, "花雨")
 				if PC.pc_hp <= 0:
 					PC.player_instance.game_over()
 				_player_damaged_this_attack = true
@@ -745,7 +896,7 @@ func _on_area_entered(area: Area2D) -> void:
 		
 		# 使用BulletCalculator处理完整的子弹碰撞逻辑
 		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self , true)
-		var final_damage_val = collision_result["final_damage"]
+		var final_damage_val = get_common_bullet_damage_value(collision_result["final_damage"])
 		var is_crit = collision_result["is_crit"]
 		
 		# Boss血条更新
@@ -761,30 +912,7 @@ func _on_area_entered(area: Area2D) -> void:
 			area.queue_free()
 			
 		if hp <= 0:
-			#free_health_bar()
-			# $AnimatedSprite2D.play("death") # Boss死亡动画
-			if not is_dead:
-				# $death.play() # Boss死亡音效
-				Global.emit_signal("boss_defeated", get_point) # 发送Boss被击败信号
-				Global.emit_signal("monster_killed")
-				
-			is_dead = true
-			remove_from_group("enemies")
-			var collision_shape = get_node("CollisionShape2D")
-			collision_shape.disabled = true
-			collision_layer = 0
-			collision_mask = 0
-			monitoring = false
-			monitorable = false
-			# 隐藏阴影
-			var shadow = get_node_or_null("Shadow")
-			if shadow:
-				shadow.visible = false
-			attack_timer.stop()
-			# await get_tree().create_timer(1.0).timeout # 等待死亡动画
-			# 清除全部花瓣
-			get_tree().call_group("boss_a_petal", "queue_free")
-			queue_free()
+			_die()
 		else:
 			Global.play_hit_anime(position, is_crit)
 
@@ -807,7 +935,9 @@ func _die():
 	remove_from_group("enemies")
 	Global.emit_signal("boss_chant_end")
 	get_tree().call_group("boss_a_petal", "queue_free")
+	get_tree().call_group("boss_a_poison_circle", "queue_free")
 	var collision_shape = get_node("CollisionShape2D")
+
 	collision_shape.disabled = true
 	collision_layer = 0
 	collision_mask = 0
@@ -838,10 +968,12 @@ func _point_to_line_distance(point: Vector2, line_start: Vector2, line_end: Vect
 
 func _attack_random_barrage():
 	print("Attack: Random Barrage")
-	var barrage_duration = RANDOM_BARRAGE_BULLET_COUNT * RANDOM_BARRAGE_INTERVAL
+	var barrage_bullet_count := _get_random_barrage_bullet_count()
+	var barrage_duration := _get_random_barrage_duration()
+	var barrage_interval := barrage_duration / float(barrage_bullet_count)
 	Global.emit_signal("boss_chant_start", "花雨", barrage_duration)
 	var petal_bullet_scene = preload("res://Scenes/moster/petal_bullet.tscn")
-	for i in range(RANDOM_BARRAGE_BULLET_COUNT):
+	for i in range(barrage_bullet_count):
 		var bullet = petal_bullet_scene.instantiate()
 		
 		# 将子弹添加到场景树
@@ -860,10 +992,11 @@ func _attack_random_barrage():
 		bullet.bullet_speed = 190.0
 		bullet.bullet_damage = atk
 		
-		await get_tree().create_timer(RANDOM_BARRAGE_INTERVAL).timeout
+		await get_tree().create_timer(barrage_interval, false).timeout
 	
 	Global.emit_signal("boss_chant_end")
 	is_attacking = false # 攻击结束
+
 
 #func free_health_bar():
 	#if health_bar != null and health_bar.is_inside_tree():
@@ -884,38 +1017,20 @@ func _attack_meteor_instant():
 	
 	# 生成多个陨石预警
 	for i in range(METEOR_COUNT):
-		var warning_circle = WarnCircleUtil.new()
-		add_child(warning_circle)
-		
-		# 在玩家周围随机位置生成
 		var random_offset = Vector2(
 			randf_range(-METEOR_SPAWN_RANGE, METEOR_SPAWN_RANGE),
 			randf_range(-METEOR_SPAWN_RANGE, METEOR_SPAWN_RANGE)
 		)
-		var spawn_pos = player_pos + random_offset
-		
-		# 连接信号，启动时把落点位置一并传入回调
-		warning_circle.warning_finished.connect(_on_meteor_warning_finished.bind(spawn_pos, warning_circle))
-		warning_circle.damage_dealt.connect(_on_meteor_damage_dealt)
-		
-		# 开始预警 - 使用INSTANT_DAMAGE模式
-		warning_circle.start_warning(
-			spawn_pos, # 位置
-			1.2, # 长宽比(圆形)
-			METEOR_RADIUS, # 半径
-			METEOR_WARNING_TIME, # 预警时间
-			atk * 1.5, # 伤害
-			null, # 动画播放器
-			WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE # 即时伤害模式
-		)
+		_spawn_meteor_warning_at(player_pos + random_offset)
 		
 		# 每个陨石之间稍微延迟，创造连续感
-		await get_tree().create_timer(0.15).timeout
+		await get_tree().create_timer(0.15, false).timeout
 	
 	# 等待最后一个陨石预警完成
-	await get_tree().create_timer(METEOR_WARNING_TIME + 0.3).timeout
+	await get_tree().create_timer(METEOR_WARNING_TIME + 0.3, false).timeout
 	Global.emit_signal("boss_chant_end")
 	is_attacking = false
+
 
 func _on_meteor_warning_finished(spawn_pos: Vector2, warning_circle: Node2D):
 	"""陨石预警结束回调：清除预警圈并在落点生成藤蔓特效"""
@@ -944,39 +1059,20 @@ func _attack_meteor_persistent():
 	
 	# 生成多个陨石预警
 	for i in range(METEOR_COUNT):
-		var warning_circle = WarnCircleUtil.new()
-		add_child(warning_circle)
-		
-		# 在玩家周围随机位置生成
 		var random_offset = Vector2(
 			randf_range(-METEOR_SPAWN_RANGE, METEOR_SPAWN_RANGE),
 			randf_range(-METEOR_SPAWN_RANGE, METEOR_SPAWN_RANGE)
 		)
-		var spawn_pos = player_pos + random_offset
-		
-		# 预警结束后生成 poison_circle（视觉+伤害），使用 bind 传递位置
-		warning_circle.warning_finished.connect(
-			_on_meteor_persistent_warning_finished.bind(spawn_pos, warning_circle)
-		)
-		
-		# 使用 INSTANT_DAMAGE 模式（伤害为0）仅用于显示预警圈动画
-		warning_circle.start_warning(
-			spawn_pos, # 位置
-			1.2, # 长宽比(圆形)
-			METEOR_RADIUS, # 半径
-			METEOR_WARNING_TIME, # 预警时间
-			0.0, # 伤害设为0，由 poison_circle 负责实际伤害
-			null, # 动画播放器
-			WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE
-		)
+		_spawn_meteor_warning_at(player_pos + random_offset, true)
 		
 		# 每个陨石之间稍微延迟
-		await get_tree().create_timer(0.15).timeout
+		await get_tree().create_timer(0.15, false).timeout
 	
 	# 等待预警完成
-	await get_tree().create_timer(METEOR_WARNING_TIME + 0.3).timeout
+	await get_tree().create_timer(METEOR_WARNING_TIME + 0.3, false).timeout
 	Global.emit_signal("boss_chant_end")
 	is_attacking = false
+
 
 func _on_meteor_persistent_warning_finished(spawn_pos: Vector2, warning_circle: Node2D):
 	"""陨石预警结束，生成持续伤害绻圈（poison_circle 像素风格）"""
@@ -984,17 +1080,19 @@ func _on_meteor_persistent_warning_finished(spawn_pos: Vector2, warning_circle: 
 		warning_circle.cleanup()
 	
 	# 生成 poison_circle（像素风格绿圈，负责视觉显示和持续伤害）
-	# scale 根据 METEOR_RADIUS 与预警圈 aspect_ratio 动态计算，确保判定范围与预警圈完全一致
-	# 预警圈: x = METEOR_RADIUS * 1.2, y = METEOR_RADIUS；poison_circle 基础半径(CircleShape2D.radius) = 15
+	# scale 根据当前难度修正后的陨石半径动态计算，确保判定范围与预警圈一致
 	var poison_circle_scene = preload("res://Scenes/moster/poison_circle.tscn")
 	var pc_instance = poison_circle_scene.instantiate()
 	pc_instance.damage_per_tick = atk * 0.4
 	pc_instance.duration = METEOR_PERSIST_DURATION
+	pc_instance.is_permanent = _is_core_or_harder()
 	pc_instance.global_position = spawn_pos
-	pc_instance.scale = Vector2(METEOR_RADIUS * 1.2 / 15.0, METEOR_RADIUS / 15.0)
+	pc_instance.scale = _get_poison_circle_scale()
+	pc_instance.add_to_group("boss_a_poison_circle")
 	get_tree().current_scene.add_child(pc_instance)
 	# 陨石落地震颟
 	_screen_shake(1.75, 0.2)
+
 
 # ============== 新技能: 扇形AOE ==============
 func _attack_sector_aoe():
@@ -1203,19 +1301,20 @@ func _spawn_vine_effect_at(pos: Vector2) -> void:
 # ============== 技能: 落花 ==============
 func _attack_petal_rain() -> void:
 	"""落花：从场地顶部持续飘落带红色勾边的花瓣，碰到玩家造成 ATK×60% 伤害。
-	第 1 次: 每0.5秒 4 片；此后每次 +2 片0.5秒（3, 5, 7, 9 ...）
+	不同难度会额外提升初始数量、重复使用增长量与花瓣速度。
 	花瓣持续飘落直到 boss 死亡才停止。"""
 	petal_use_count += 1
 	attacks_since_last_petal = 0
+	_reset_interval_attack_plan()
 	_petal_loop_generation += 1 # 使旧循环立即失效
 	var my_gen: int = _petal_loop_generation
 
-	var petals_per_second: int = petal_use_count * 2 + 2 # 3, 5, 7, 9 ...
+	var petals_per_second := _get_petal_spawn_count()
 	var spawn_interval: float = 0.5 / float(petals_per_second)
 
 	# 技能读条
 	Global.emit_signal("boss_chant_start", "落花", 1.2)
-	await get_tree().create_timer(1.2).timeout
+	await get_tree().create_timer(1.2, false).timeout
 	Global.emit_signal("boss_chant_end")
 
 	# 读条结束后立即解除攻击锁定，boss 可继续释放其他技能
@@ -1225,23 +1324,32 @@ func _attack_petal_rain() -> void:
 	_start_petal_loop(spawn_interval, my_gen)
 
 
+
 func _start_petal_loop(spawn_interval: float, generation: int) -> void:
 	"""花瓣后台生成循环（非阻塞）。
 	当 is_dead=true、boss 节点已释放、或者新一轮落花启动如旧进出循环。"""
 	while not is_dead and is_instance_valid(self ) and _petal_loop_generation == generation:
 		_spawn_one_petal()
-		await get_tree().create_timer(spawn_interval).timeout
+		await get_tree().create_timer(spawn_interval, false).timeout
 
 
 func _spawn_one_petal() -> void:
 	"""在场地顶部随机 x 位置生成一片花瓣"""
 	var petal_scene = preload("res://Scenes/moster/petal.tscn")
 	var p = petal_scene.instantiate()
+	var is_golden_petal := _should_spawn_golden_petal()
 	get_tree().current_scene.add_child(p)
-	p.scale = Vector2(0.25, 0.25)
+	p.scale = Vector2(0.25, 0.25) * (GOLDEN_PETAL_SCALE_MULTIPLIER if is_golden_petal else 1.0)
 	var spawn_x = randf_range(left_boundary, right_boundary)
 	var spawn_y = top_boundary - randf_range(20.0, 80.0) # 从顶部边界上方飘落
-	p.initialize(atk * 0.6, Vector2(spawn_x, spawn_y), bottom_boundary + 100.0)
+	p.initialize(
+		atk * 0.6,
+		Vector2(spawn_x, spawn_y),
+		bottom_boundary + 100.0,
+		_get_petal_speed_multiplier(),
+		is_golden_petal
+	)
+
 
 
 # 屏幕震颟效果

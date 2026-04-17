@@ -1263,7 +1263,7 @@ func _build_offer_detail_text(offer: Dictionary) -> String:
 		detail_lines.append(item_detail)
 	var detail_text := "\n".join(detail_lines)
 	if not item_source.is_empty():
-		detail_text += "\n\n[来源] " + item_source
+		detail_text += "\n\n[来源] \n" + item_source
 	return detail_text
 
 func _show_offer_tooltip(index: int, request_id: int) -> void:

@@ -176,6 +176,16 @@ static func _init_buff_configs():
 		1,
 		"受到暗影拘束，减伤率提升至80%，但造成的伤害降低80%"
 	)
+	
+	buff_configs["boss_a_detox"] = BuffData.new(
+		"boss_a_detox",
+		"解毒",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.TEMPORARY,
+		1,
+		"持续3秒，期间触碰 boss_a 的毒圈会将其净化销毁"
+	)
+
 
 static func get_buff_data(buff_id: String) -> BuffData:
 	if buff_configs.is_empty():

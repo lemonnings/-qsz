@@ -117,8 +117,8 @@ func update_single_cultivation_display(index: int) -> void:
 func get_cultivation_exp_for_level_normal(level: int) -> int:
 	level = level + 1
 	var base_exp = 50
-	var increment = 25
-	var multiplier = 1.05
+	var increment = 50
+	var multiplier = 1.08
 	var exp_now = base_exp
 	for i in range(1, level):
 		exp_now = ceil((exp_now + increment) * multiplier)
@@ -127,8 +127,8 @@ func get_cultivation_exp_for_level_normal(level: int) -> int:
 func get_cultivation_exp_for_level_high(level: int) -> int:
 	level = level + 1
 	var base_exp = 100
-	var increment = 50
-	var multiplier = 1.15
+	var increment = 100
+	var multiplier = 1.18
 	var exp_now = base_exp
 	for i in range(1, level):
 		exp_now = ceil((exp_now + increment) * multiplier)
@@ -142,17 +142,17 @@ func get_cultivation_bonus_text(type: String, level: int) -> String:
 		"hp":
 			return "+" + str(level * 20) + " 生命值"
 		"atk_speed":
-			return "+" + str(level * 1) + "% 攻速"
+			return "+" + str(level * 0.8) + "% 攻速"
 		"spirit_gain":
-			return "+" + str(level * 3) + "% 灵气获取"
+			return "+" + str(level * 2) + "% 灵气获取"
 		"crit_chance":
-			return "+" + str(level * 0.5) + "% 暴击率"
+			return "+" + str(level * 0.4) + "% 暴击率"
 		"damage_reduction":
 			return "+" + str(level * 0.3) + "% 减伤率"
 		"move_speed":
-			return "+" + str(level * 1) + "% 移速"
+			return "+" + str(level * 0.8) + "% 移速"
 		"crit_damage":
-			return "+" + str(level * 1) + "% 暴击伤害"
+			return "+" + str(level * 1.6) + "% 暴击伤害"
 		"cool_down":
 			return "-" + str(level * 2) + "% 技能冷却"
 		"final_atk":
@@ -168,17 +168,17 @@ func get_cultivation_bonus_value(type: String, level: int) -> float:
 		"hp":
 			return level * 20.0
 		"atk_speed":
-			return level * 0.01
+			return level * 0.008
 		"spirit_gain":
-			return level * 0.03 # 3%转换为0.03
+			return level * 0.02 # 3%转换为0.03
 		"crit_chance":
-			return level * 0.005 # 0.5%转换为0.005
+			return level * 0.004 # 0.5%转换为0.005
 		"damage_reduction":
 			return level * 0.003 # 0.3%转换为0.003
 		"move_speed":
-			return level * 0.01 # 1%转换为0.01
+			return level * 0.008 # 1%转换为0.01
 		"crit_damage":
-			return level * 0.01 # 1%转换为0.01
+			return level * 0.016 # 1%转换为0.01
 		"cool_down":
 			return -level * 0.02 # 2%转换为-0.02
 		"final_atk":

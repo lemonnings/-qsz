@@ -52,12 +52,13 @@ func _ready() -> void:
 	if sprite:
 		sprite.play("default") # 假设默认动画名为default
 
-func setup(start_pos: Vector2, direction: Vector2, base_damage: int, damage_multiplier: float = 1.0) -> void:
+func setup(start_pos: Vector2, direction: Vector2, base_damage: int, damage_multiplier: float = 1.0, options: Dictionary = {}) -> void:
 	global_position = start_pos
 	start_position = start_pos
 	velocity = direction.normalized() * qigong_speed
 	rotation = direction.angle()
 	sprite.flip_h = true
+	var is_emblem_extra_attack = options.get("is_emblem_extra_attack", false)
 	
 	# 计算脉轮加成
 	var chakra_dmg_bonus = 0.0
@@ -72,7 +73,8 @@ func setup(start_pos: Vector2, direction: Vector2, base_damage: int, damage_mult
 	var final_damage_scale = main_skill_qigong_damage + chakra_dmg_bonus
 	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
 	final_damage_scale += (Faze.get_wind_weapon_damage_multiplier(PC.faze_wind_level) - 1.0) # 风法则
-	damage = int(base_damage * final_damage_scale * damage_multiplier)
+	var resolved_damage = float(base_damage) * final_damage_scale * damage_multiplier
+	damage = int(round(PC.apply_base_weapon_emblem_damage_bonus(resolved_damage, "qigong", is_emblem_extra_attack)))
 	
 	# 应用射程加成 (修改实例变量，不修改静态变量)
 	# 注意：qigong_range是静态的，我们在process里用。

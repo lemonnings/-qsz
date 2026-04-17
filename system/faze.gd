@@ -1087,9 +1087,16 @@ func _start_barrage() -> void:
 	var damage_multiplier = _get_barrage_damage_multiplier(level)
 	var damage = PC.pc_atk * damage_multiplier
 	for i in range(wave_count):
+		if not is_instance_valid(PC.player_instance):
+			break
+		var tree := PC.player_instance.get_tree()
+		if tree == null:
+			break
 		_spawn_barrage_wave(PC.player_instance.global_position, damage, barrage_offset_angle)
 		barrage_offset_angle += 4.0
-		await PC.player_instance.get_tree().create_timer(0.3).timeout
+		if i < wave_count - 1:
+			# 升级/暂停期间不要继续计时，避免时停时仍然按时补发弹幕。
+			await tree.create_timer(0.3, false).timeout
 	barrage_running = false
 	if bullet_hit_count >= 100:
 		bullet_hit_count -= 100

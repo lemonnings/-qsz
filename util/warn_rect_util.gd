@@ -26,6 +26,7 @@ var rect_angle: float = 0.0   # 矩形角度
 var start_position: Vector2 = Vector2.ZERO
 var grow_time: float = 0.0
 var attacker: Node = null # 攻击者引用，用于player_hit信号
+var skill_name: String = "攻击" # 技能名称，用于伤害来源显示
 
 func _ready():
 	# 获取玩家引用
@@ -178,7 +179,7 @@ func deal_damage_to_player():
 	
 	# 计算实际伤害（考虑减伤率）
 	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))
-	PC.apply_damage(actual_damage)
+	PC.apply_damage(actual_damage, skill_name)
 	
 	# 检查死亡
 	if PC.pc_hp <= 0:

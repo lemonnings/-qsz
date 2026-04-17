@@ -226,8 +226,7 @@ func get_damage_multiplier() -> float:
 			
 			multiplier += config.damage_taken_multiplier * effect_multiplier
 			
-	multiplier = multiplier * Faze.get_final_damage_multiplier()
-	
+	# 最终伤害乘区已经统一放到怪物基类 / 公共受击结算，这里只保留易伤与额外伤害倍率。
 	# R40-UR40: 反击 - 每1%减伤率提供X%的最终伤害加成
 	var counter_bonus = 0.0
 	if PC.selected_rewards.has("UR40"): counter_bonus = PC.damage_reduction_rate * 100 * 0.008

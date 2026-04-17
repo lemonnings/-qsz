@@ -1089,52 +1089,56 @@ func reward_UR10():
 	_level_up_action()
 
 
-func reward_R11():
-	PC.selected_rewards.append("R11")
-	_level_up_action()
-
-func reward_SR11():
-	PC.selected_rewards.append("SR11")
-	_level_up_action()
-
-func reward_SSR11():
-	PC.selected_rewards.append("SSR11")
-	_level_up_action()
-
-func reward_UR11():
-	PC.selected_rewards.append("UR11")
-	_level_up_action()
-
 func reward_R12():
 	PC.selected_rewards.append("R12")
+	PC.now_lunky_level += 2
+	Global.emit_signal("lucky_level_up", 2)
+	EmblemManager.add_emblem("jiahu", 1)
 	_level_up_action()
 
 func reward_SR12():
 	PC.selected_rewards.append("SR12")
+	PC.now_lunky_level += 3
+	Global.emit_signal("lucky_level_up", 3)
+	EmblemManager.add_emblem("jiahu", 1)
 	_level_up_action()
 
 func reward_SSR12():
 	PC.selected_rewards.append("SSR12")
+	PC.now_lunky_level += 4
+	Global.emit_signal("lucky_level_up", 4)
+	EmblemManager.add_emblem("jiahu", 1)
 	_level_up_action()
 
 func reward_UR12():
 	PC.selected_rewards.append("UR12")
+	PC.now_lunky_level += 5
+	Global.emit_signal("lucky_level_up", 5)
+	EmblemManager.add_emblem("jiahu", 2)
 	_level_up_action()
 
 func reward_R13():
 	PC.selected_rewards.append("R13")
+	PC.pc_atk_speed += 0.06
+	EmblemManager.add_emblem("guiyuan", 1)
 	_level_up_action()
 
 func reward_SR13():
 	PC.selected_rewards.append("SR13")
+	PC.pc_atk_speed += 0.07
+	EmblemManager.add_emblem("guiyuan", 1)
 	_level_up_action()
 
 func reward_SSR13():
 	PC.selected_rewards.append("SSR13")
+	PC.pc_atk_speed += 0.08
+	EmblemManager.add_emblem("guiyuan", 1)
 	_level_up_action()
 
 func reward_UR13():
 	PC.selected_rewards.append("UR13")
+	PC.pc_atk_speed += 0.08
+	EmblemManager.add_emblem("guiyuan", 2)
 	_level_up_action()
 
 func reward_R14():
@@ -3452,56 +3456,6 @@ func global_level_up():
 	var lv_hp_bonus = int(PC.pc_start_max_hp * 0.02)
 	PC.pc_max_hp += lv_hp_bonus
 	PC.pc_start_max_hp += lv_hp_bonus
-
-	# R11系列: 行云 - 每4%移速提升攻击与HP上限
-	var r11_count = PC.selected_rewards.count("R11")
-	var sr11_count = PC.selected_rewards.count("SR11")
-	var ssr11_count = PC.selected_rewards.count("SSR11")
-	var ur11_count = PC.selected_rewards.count("UR11")
-	if r11_count > 0 or sr11_count > 0 or ssr11_count > 0 or ur11_count > 0:
-		var speed_bonus = (PC.pc_speed - 1.0) * 100
-		var speed_groups = int(speed_bonus / 4)
-		if speed_groups > 0:
-			var total_bonus = 0.0
-			total_bonus += r11_count * speed_groups * 0.01
-			total_bonus += sr11_count * speed_groups * 0.012
-			total_bonus += ssr11_count * speed_groups * 0.014
-			total_bonus += ur11_count * speed_groups * 0.014
-			PC.pc_atk = int(PC.pc_atk * 1)
-			PC.pc_max_hp = int(PC.pc_max_hp * (1 + total_bonus))
-
-	# R12系列: 加护 - 每点额外天命提升攻击与HP上限
-	var r12_count = PC.selected_rewards.count("R12")
-	var sr12_count = PC.selected_rewards.count("SR12")
-	var ssr12_count = PC.selected_rewards.count("SSR12")
-	var ur12_count = PC.selected_rewards.count("UR12")
-	if r12_count > 0 or sr12_count > 0 or ssr12_count > 0 or ur12_count > 0:
-		var extra_lucky = max(0, PC.now_lunky_level - PC.last_lunky_level)
-		if extra_lucky > 0:
-			var total_bonus = 0.0
-			total_bonus += r12_count * extra_lucky * 0.01
-			total_bonus += sr12_count * extra_lucky * 0.012
-			total_bonus += ssr12_count * extra_lucky * 0.014
-			total_bonus += ur12_count * extra_lucky * 0.014
-			PC.pc_atk = int(PC.pc_atk * 1)
-			PC.pc_max_hp = int(PC.pc_max_hp * (1 + total_bonus))
-
-	# R13系列: 归元 - 每5%攻速提升攻击与HP上限
-	var r13_count = PC.selected_rewards.count("R13")
-	var sr13_count = PC.selected_rewards.count("SR13")
-	var ssr13_count = PC.selected_rewards.count("SSR13")
-	var ur13_count = PC.selected_rewards.count("UR13")
-	if r13_count > 0 or sr13_count > 0 or ssr13_count > 0 or ur13_count > 0:
-		var atk_speed_bonus = (PC.pc_atk_speed - 1.0) * 100
-		var atk_speed_groups = int(atk_speed_bonus / 5)
-		if atk_speed_groups > 0:
-			var total_bonus = 0.0
-			total_bonus += r13_count * atk_speed_groups * 0.01
-			total_bonus += sr13_count * atk_speed_groups * 0.012
-			total_bonus += ssr13_count * atk_speed_groups * 0.014
-			total_bonus += ur13_count * atk_speed_groups * 0.014
-			PC.pc_atk = int(PC.pc_atk * 1)
-			PC.pc_max_hp = int(PC.pc_max_hp * (1 + total_bonus))
 
 	# 更新上次属性记录，用于下次比较变化
 	PC.last_lunky_level = PC.now_lunky_level

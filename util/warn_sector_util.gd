@@ -28,6 +28,7 @@ var current_alpha: float = 0.0
 var initial_scale: Vector2 = Vector2(0.1, 0.1)
 var grow_time: float = 0.0
 var attacker: Node = null # 攻击者引用，用于player_hit信号
+var skill_name: String = "攻击" # 技能名称，用于伤害来源显示
 
 func _ready():
 	# 设置为可暂停模式，升级等暂停期间动画也会暂停
@@ -203,7 +204,7 @@ func deal_damage_to_player():
 	
 	# 计算实际伤害（考虑减伤率）
 	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))
-	PC.apply_damage(actual_damage)
+	PC.apply_damage(actual_damage, skill_name)
 	
 	print("扇形AOE对玩家造成伤害: ", actual_damage)
 	

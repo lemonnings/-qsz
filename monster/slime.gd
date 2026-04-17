@@ -1,4 +1,4 @@
-extends "res://Script/monster/monster_base.gd"
+﻿extends "res://Script/monster/monster_base.gd"
 
 @onready var sprite = $AnimatedSprite2D
 # 0为从左到右，1为从右向左，2为随机移动，3为靠近角色
@@ -93,7 +93,7 @@ func _physics_process(delta: float) -> void:
 			if PC.player_instance != null:
 				var player_pos = PC.player_instance.global_position
 				var direction_to_player = (player_pos - global_position).normalized()
-				speed = base_speed * debuff_manager.get_speed_multiplier()
+				speed = get_effective_move_speed(base_speed)
 				position += direction_to_player * speed * delta
 				# 根据移动方向设置精灵翻转
 				if direction_to_player.x > 0:
@@ -146,7 +146,7 @@ func _on_area_entered(area: Area2D) -> void:
 			area.queue_free()
 			
 		var base_bullet_damage = collision_result["final_damage"]
-		var final_damage_val = int(base_bullet_damage * debuff_manager.get_damage_multiplier())
+		var final_damage_val = get_common_bullet_damage_value(base_bullet_damage)
 		var is_crit = collision_result["is_crit"]
 		
 		hp -= int(final_damage_val)
@@ -161,3 +161,4 @@ func _on_area_entered(area: Area2D) -> void:
 				$AnimatedSprite2D.play("death")
 		else:
 			Global.play_hit_anime(position, is_crit)
+

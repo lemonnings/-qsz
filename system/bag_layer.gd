@@ -185,10 +185,28 @@ func _update_character_info():
 		now_character.sprite_frames = hero_frames
 		now_character.play("idle")
 
-func refresh_character_display() -> void:
+func _refresh_secondary_attr_display() -> void:
+	if !secondary_attr_panel:
+		return
+	var content_label = secondary_attr_panel.get_node_or_null("ContentLabel") as Label
+	if !content_label:
+		return
+	content_label.text = PC.get_secondary_attributes_text()
+	if secondary_attr_panel.visible:
+		var content_size = content_label.get_combined_minimum_size()
+		var panel_size = content_size + Vector2(24, 20)
+		secondary_attr_panel.custom_minimum_size = panel_size
+		secondary_attr_panel.size = panel_size
+
+func _refresh_character_panels() -> void:
 	_update_character_info()
+	_refresh_secondary_attr_display()
+
+func refresh_character_display() -> void:
+	_refresh_character_panels()
 
 # 页签按钮点击事件
+
 func _on_all_pressed():
 	_select_tab("all")
 
@@ -605,7 +623,7 @@ func _show_tooltip(slot_index: int, request_id: int):
 	var source = item_info.get("item_source", "")
 	var full_desc = detail
 	if source != "":
-		full_desc += "\n\n[\u6765\u6e90] " + source
+		full_desc += "\n\n[\u6765\u6e90] \n" + source
 	desc_label.text = full_desc
 	
 	# 设置售价
@@ -727,8 +745,9 @@ func _on_slot_double_click(slot_index: int):
 		_show_message(result.message)
 		# 刷新显示
 		_update_items_display()
-		_update_character_info()
+		_refresh_character_panels()
 		_hide_tooltip()
+
 	else:
 		_show_message(result.message)
 
@@ -800,8 +819,9 @@ func _switch_layers():
 
 # 刷新背包显示（供外部调用）
 func refresh_bag():
-	_update_character_info()
+	_refresh_character_panels()
 	_update_items_display()
+
 
 # 显示背包界面
 func show_bag():

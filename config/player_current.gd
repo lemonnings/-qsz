@@ -102,6 +102,8 @@ extends Node
 @export var last_lunky_level: int = 1
 @export var last_speed: float = 0
 @export var last_atk_speed: float = 0
+@export var battle_start_lunky_level: int = 1
+@export var battle_start_atk_speed: float = 0.0
 
 @export var current_weapon_num: int = 0
 @export var new_weapon_obtained_count: int = 0 # 新获得武器计数（用于怪物血量乘算）
@@ -116,11 +118,10 @@ extends Node
 # 跟升级抽卡有关系的
 @export var now_lunky_level: int = 1
 @export var lucky: int = 1
-@export var now_red_p: float = 2
-@export var now_gold_p: float = 5
-@export var now_darkorchid_p: float = 12
-@export var now_blue_p: float = 35
-@export var now_green_p: float = 46
+@export var now_red_p: float = 3
+@export var now_gold_p: float = 6
+@export var now_darkorchid_p: float = 18
+@export var now_blue_p: float = 73
 @export var selected_rewards = []
 
 # 存储主要技能等级
@@ -286,6 +287,14 @@ extends Node
 # 纹章相关字段
 @export var emblem_slots_max: int = 4
 @export var current_emblems: Dictionary = {} # 当前持有的纹章 {emblem_id: stack}
+@export var xueqi_last_trigger_time: float = -99999.0
+
+const CHARACTER_BASE_WEAPON_RUNTIME_MAP := {
+	"moning": {"skill_id": "qigong", "attack_ids": ["qigong"]},
+	"yiqiu": {"skill_id": "swordqi", "attack_ids": ["swordqi"]},
+	"noam": {"skill_id": "light_bullet", "attack_ids": ["light_bullet", "light bullet"]},
+	"kansel": {"skill_id": "ice", "attack_ids": ["ice_flower", "ice", "ice flower"]},
+}
 
 # active配置字段
 @export var cooldown_multi: float = 1.0 # active cd
@@ -308,6 +317,67 @@ func _on_lucky_level_up(lunky_up: float) -> void:
 
 func get_reward_acquisition_count(fallback_reward_id: String):
 	return selected_rewards.count(fallback_reward_id)
+
+func _normalize_attack_id(attack_id: String) -> String:
+	return attack_id.strip_edges().to_lower().replace(" ", "_")
+
+func get_base_weapon_runtime_info(player_name_override: String = "") -> Dictionary:
+	var resolved_player_name := player_name_override.strip_edges()
+	if resolved_player_name.is_empty():
+		resolved_player_name = player_name
+	if CHARACTER_BASE_WEAPON_RUNTIME_MAP.has(resolved_player_name):
+		return CHARACTER_BASE_WEAPON_RUNTIME_MAP[resolved_player_name]
+	return {}
+
+func get_base_weapon_attack_id(player_name_override: String = "") -> String:
+	var weapon_info := get_base_weapon_runtime_info(player_name_override)
+	return _normalize_attack_id(str(weapon_info.get("skill_id", "")))
+
+func is_base_weapon_attack(attack_id: String, player_name_override: String = "") -> bool:
+	var normalized_attack_id := _normalize_attack_id(attack_id)
+	if normalized_attack_id.is_empty():
+		return false
+	var weapon_info := get_base_weapon_runtime_info(player_name_override)
+	if weapon_info.is_empty():
+		return false
+	for candidate in weapon_info.get("attack_ids", []):
+		if normalized_attack_id == _normalize_attack_id(str(candidate)):
+			return true
+	return normalized_attack_id == _normalize_attack_id(str(weapon_info.get("skill_id", "")))
+
+func apply_base_weapon_emblem_damage_bonus(base_damage: float, attack_id: String, is_extra_attack: bool = false) -> float:
+	var final_damage := base_damage
+	if not is_base_weapon_attack(attack_id):
+		return final_damage
+	
+	if EmblemManager.has_emblem("xueqi"):
+		var current_battle_time = Time.get_ticks_msec() / 1000.0
+		if current_battle_time - xueqi_last_trigger_time >= 1.0:
+			var xueqi_stack = EmblemManager.get_emblem_stack("xueqi")
+			var hp_percent_damage = pc_hp * Global.get_scaled_emblem_value(0.06 * xueqi_stack)
+			final_damage += hp_percent_damage
+			xueqi_last_trigger_time = current_battle_time
+	
+	if EmblemManager.has_emblem("jinghong") and not is_extra_attack:
+		jinghong_attack_count += 1
+		if jinghong_attack_count % 3 == 0:
+			var jinghong_stack = EmblemManager.get_emblem_stack("jinghong")
+			var extra_damage_multiplier = Global.get_scaled_emblem_value(0.15 * jinghong_stack)
+			queue_base_weapon_extra_attack(extra_damage_multiplier)
+	
+	return final_damage
+
+func queue_base_weapon_extra_attack(damage_multiplier: float) -> void:
+	if damage_multiplier <= 0.0:
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	var timer = tree.create_timer(0.1)
+	timer.timeout.connect(func():
+		if player_instance and is_instance_valid(player_instance) and player_instance.has_method("fire_extra_attack"):
+			player_instance.fire_extra_attack(damage_multiplier)
+	)
 
 
 func reset_player_attr() -> void:
@@ -373,7 +443,7 @@ func reset_player_attr() -> void:
 	
 	PC.damage_reduction_rate = min(0.0 + (Global.cultivation_huti_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
 	PC.damage_deal_multiplier = 1.0
-	PC.pc_final_atk = 0.0
+	PC.pc_final_atk = Global.get_cultivation_final_damage_bonus()
 	PC.wind_huanfeng_stacks = 0
 	PC.wind_huanfeng_max_stacks = 0
 	PC.wind_huanfeng_duration = 30.0
@@ -403,6 +473,8 @@ func reset_player_attr() -> void:
 	PC.last_atk_speed = 0
 	PC.last_speed = 0
 	PC.last_lunky_level = 1
+	PC.battle_start_lunky_level = PC.now_lunky_level
+	PC.battle_start_atk_speed = PC.pc_atk_speed
 	
 	PC.faze_blood_level = 0
 	PC.faze_sword_level = 0
@@ -579,6 +651,8 @@ func reset_player_attr() -> void:
 	
 	# 重置纹章系统
 	PC.current_emblems.clear()
+	PC.jinghong_attack_count = 0
+	PC.xueqi_last_trigger_time = -99999.0
 	EmblemManager.clear_all_emblems()
 	
 	# todo 测试武器升级
@@ -627,7 +701,7 @@ func get_total_shield() -> int:
 		total += int(shield["value"])
 	return total
 
-func apply_damage(damage: int) -> int:
+func apply_damage(damage: int, source_name: String = "攻击") -> int:
 	if is_game_over:
 		return 0
 	var remaining_damage = damage
@@ -655,7 +729,7 @@ func apply_damage(damage: int) -> int:
 		pc_hp -= remaining_damage
 		
 	if player_instance:
-		Global.emit_signal("player_take_damage", float(remaining_damage), float(absorbed_damage), player_instance.global_position)
+		Global.emit_signal("player_take_damage", float(remaining_damage), float(absorbed_damage), player_instance.global_position, source_name)
 		
 	return remaining_damage
 
@@ -764,7 +838,7 @@ func get_character_animation_name(char_name: String = "") -> String:
 # 获取角色属性文本（用于背包界面显示）
 func get_character_attributes_text() -> String:
 	# 计算基础属性值
-	var base_atk = int(25 + int(Global.cultivation_poxu_level * 1))
+	var base_atk = int(25 + int(Global.cultivation_poxu_level * 2))
 	var base_hp = int(500 + int(Global.cultivation_xuanyuan_level * 20))
 	
 	# 获取装备加成
@@ -773,12 +847,12 @@ func get_character_attributes_text() -> String:
 	# 计算最终属性
 	var final_atk = base_atk + equipment_stats["pc_atk"]
 	var final_hp = base_hp + equipment_stats["pc_hp"]
-	var atk_speed = (Global.cultivation_liuguang_level * 0.01 + equipment_stats["pc_atk_speed"]) * 100
-	var move_speed = (Global.cultivation_zhuifeng_level * 0.01 + equipment_stats["pc_speed"]) * 100
+	var atk_speed = (Global.cultivation_liuguang_level * 0.008 + equipment_stats["pc_atk_speed"]) * 100
+	var move_speed = (Global.cultivation_zhuifeng_level * 0.008 + equipment_stats["pc_speed"]) * 100
 	var damage_reduction = min((Global.cultivation_huti_level * 0.002) + equipment_stats["damage_reduction_rate"], 0.7) * 100
-	var crit_rate = (0.1 + Global.cultivation_fengrui_level * 0.005 + equipment_stats["crit_chance"]) * 100
-	var crit_damage = (1.5 + Global.cultivation_liejin_level * 0.01 + equipment_stats["crit_damage_multi"]) * 100
-	var point_rate = (1 + Global.cultivation_hualing_level * 0.03 + equipment_stats["point_multi"]) * 100
+	var crit_rate = (0.1 + Global.cultivation_fengrui_level * 0.004 + equipment_stats["crit_chance"]) * 100
+	var crit_damage = (1.5 + Global.cultivation_liejin_level * 0.016 + equipment_stats["crit_damage_multi"]) * 100
+	var point_rate = (1 + Global.cultivation_hualing_level * 0.02 + equipment_stats["point_multi"]) * 100
 	var exp_rate = (1 + equipment_stats["exp_multi"]) * 100
 	var drop_rate = (1 + equipment_stats["drop_multi"]) * 100
 	
@@ -869,9 +943,9 @@ func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: floa
 	var drop_bonus = max(drop_rate - 100, 0) * 12
 	
 	# === 属性额外加成（不参与乘算） ===
-	# 攻速每1%额外加4点修为
+	# 攻速每1%额外加416点修为
 	var atk_speed_bonus = atk_speed * 16.0
-	# 移动速度每1%额外加4点修为
+	# 移动速度每1%额外加16点修为
 	var move_speed_bonus = move_speed * 16.0
 	# 暴击率每0.5%额外加8点修为（即每1%加16点）
 	var crit_rate_bonus = crit_rate * 64.0
@@ -902,7 +976,7 @@ func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: floa
 	var total_cultivation = atk_part + hp_part + point_part + exp_bonus + drop_bonus \
 		+ atk_speed_bonus + move_speed_bonus + crit_rate_bonus + crit_damage_bonus + damage_reduction_bonus \
 		+ bullet_size_bonus + body_size_bonus + heal_multi_bonus + sheild_multi_bonus \
-		+ normal_monster_bonus + boss_bonus + cooldown_bonus + active_skill_bonus
+		+ normal_monster_bonus + boss_bonus + cooldown_bonus + active_skill_bonus - 2350
 	
 	return int(total_cultivation)
 

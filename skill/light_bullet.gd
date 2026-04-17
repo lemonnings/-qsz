@@ -52,7 +52,11 @@ func setup_light_bullet(pos: Vector2, dir: Vector2, p_damage: float, p_range: fl
 	# 伤害仅由奖励直接累加（main_skill_light_bullet_damage），法则加成已在_build_light_bullet_data中累加
 	var life_range_multiplier = Faze.get_life_range_multiplier(PC.faze_life_level)
 	var bullet_range_multiplier = Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
+	var is_emblem_extra_attack = options.get("is_emblem_extra_attack", false)
+	var apply_base_weapon_emblems = options.get("apply_base_weapon_emblems", true)
 	damage = p_damage
+	if apply_base_weapon_emblems:
+		damage = PC.apply_base_weapon_emblem_damage_bonus(damage, "light_bullet", is_emblem_extra_attack)
 	range_val = p_range * life_range_multiplier * bullet_range_multiplier * Global.get_attack_range_multiplier()
 	penetration_count = p_penetration
 	if sprite:

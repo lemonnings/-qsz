@@ -324,7 +324,7 @@ func _spawn_rolling_stone(start_pos: Vector2, end_pos: Vector2, warn_node: Node)
 		if body is CharacterBody2D and not PC.invincible:
 			Global.emit_signal("player_hit")
 			var actual_damage = int(atk * 1.2 * (1.0 - PC.damage_reduction_rate))
-			PC.apply_damage(actual_damage)
+			PC.apply_damage(actual_damage, "滚石")
 			if PC.pc_hp <= 0:
 				PC.player_instance.game_over()
 	)
@@ -391,7 +391,7 @@ func _attack_consecutive_charge():
 				if global_position.distance_to(PC.player_instance.global_position) < 25.0:
 					Global.emit_signal("player_hit")
 					var dmg = int(atk * 1.5 * (1.0 - PC.damage_reduction_rate))
-					PC.apply_damage(dmg)
+					PC.apply_damage(dmg, "滚石")
 					if PC.pc_hp <= 0:
 						PC.player_instance.game_over()
 			await get_tree().process_frame
@@ -680,7 +680,7 @@ func _attack_quake():
 			var dist = origin.distance_to(PC.player_instance.global_position)
 			if dist <= cur_radius:
 				var dmg = max(1, int(atk * 1.5))
-				PC.apply_damage(dmg)
+				PC.apply_damage(dmg, "震地")
 				Global.emit_signal("player_hit")
 				if PC.pc_hp <= 0:
 					PC.player_instance.game_over()
@@ -816,7 +816,7 @@ func _start_mud_pool_process(pool: Node, origin: Vector2, center_angle: float, h
 			if tick[0] >= MUD_POOL_DAMAGE_TICK:
 				tick[0] -= MUD_POOL_DAMAGE_TICK
 				var dmg = max(1, int(atk * 0.3))
-				PC.apply_damage(dmg)
+				PC.apply_damage(dmg, "泥沼")
 				Global.emit_signal("player_hit")
 				if PC.pc_hp <= 0:
 					PC.player_instance.game_over()
@@ -925,8 +925,9 @@ func _on_area_entered(area: Area2D) -> void:
 		if not _is_monster_in_damage_range():
 			return
 		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self , true)
-		var final_damage_val = collision_result["final_damage"]
+		var final_damage_val = get_common_bullet_damage_value(collision_result["final_damage"])
 		var is_crit = collision_result["is_crit"]
+
 
 		Global.emit_signal("boss_hp_bar_take_damage", final_damage_val)
 		hp -= int(final_damage_val)

@@ -56,7 +56,7 @@ func _ready():
 # damage_type: 使用 DamageType 枚举的值
 # damage_value: 具体的伤害数值
 # display_position: 伤害数字显示的世界坐标 (可选, 如果不提供，则使用此节点的当前位置)
-func show_damage_number(damage_type_int: int, damage_value: float, display_position: Vector2 = global_position):
+func show_damage_number(damage_type_int: int, damage_value: float, display_position: Vector2 = global_position, source_name: String = ""):
 	if not damage_label:
 		printerr("DamageDisplay: Label node not assigned, cannot show damage.")
 		return
@@ -98,6 +98,10 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	var format_result = _format_damage(damage_value)
 	var text_to_display: String = format_result["text"]
 	var font_bonus: int = format_result["font_bonus"]
+	
+	# 加入伤害来源名称前缀
+	if (damage_type == DamageType.PLAYER_HURT or damage_type == DamageType.SHIELD_ABSORB) and source_name != "":
+		text_to_display = source_name + " " + text_to_display
 	
 	damage_label.scale = damage_label.scale * 0.8
 	

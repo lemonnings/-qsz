@@ -14,6 +14,7 @@ extends Node2D
 @export var battle_scene: String
 @export var battle_scene_stage2: String
 @export var battle_scene_stage3: String
+@export var battle_scene_stage4: String
 
 @export var cystal: AnimatedSprite2D
 @export var levelUpMan: AnimatedSprite2D
@@ -664,3 +665,25 @@ func _on_liejin_mouse_exited() -> void:
 
 func _on_liejin_pressed() -> void:
 	_on_cmp("liejin")
+
+# ============== 游戏结果 ==============
+func show_game_over() -> void:
+	PC.is_game_over = true
+	EmblemManager.clear_all_emblems()
+	DpsManager.stop_dps_counter()
+	
+	if tip != null and tip.has_method("start_animation"):
+		tip.start_animation("您在城镇中力竭倒下，已被重新救起", 2.0)
+		
+	# 在城镇中意外死亡时，自动回复满血并重置状态，防止卡死
+	PC.reset_player_attr()
+	PC.is_game_over = false
+	if is_instance_valid(player):
+		player.stop_all_skill_cooldowns()
+		if player.has_method("revive"):
+			player.revive()
+		elif player.has_node("Animator"):
+			var animator = player.get_node("Animator")
+			if animator.has_animation("idle"):
+				animator.play("idle")
+		player.velocity = Vector2.ZERO

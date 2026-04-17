@@ -3,6 +3,7 @@ extends Node
 
 const CONFIG_PATH = "user://game_config.cfg"
 const LINGSHI_ITEM_ID := "item_084"
+const DEBUG_F1_ZHENQI_AMOUNT := 1000000
 
 # 关卡难度ID常量。
 # 这里统一用英文ID存数据，显示时再转换成中文，
@@ -11,16 +12,18 @@ const STAGE_DIFFICULTY_SHALLOW := "shallow"
 const STAGE_DIFFICULTY_DEEP := "deep"
 const STAGE_DIFFICULTY_CORE := "core"
 const STAGE_DIFFICULTY_POETRY := "poetry"
+const STAGE_DIFFICULTY_LIST := [
+	STAGE_DIFFICULTY_SHALLOW,
+	STAGE_DIFFICULTY_DEEP,
+	STAGE_DIFFICULTY_CORE,
+	STAGE_DIFFICULTY_POETRY
+]
 
 # 关卡ID列表。
 # 这里只先接你当前提出的 4 个正式关卡。
 const STAGE_ID_LIST := ["peach_grove", "ruin", "cave", "forest"]
 
 # 各关卡在不同难度下的属性倍率。
-# - 浅层固定为 1.0。
-# - 深层/核心按你给的百分比做乘算。
-# - 诗想目前你还没有给出额外倍率，所以先暂时与核心保持一致，
-#   这样功能可以先完整跑通，之后你如果想继续加难度，只需要改这里。
 const STAGE_DIFFICULTY_MULTIPLIERS := {
 	"peach_grove": {
 		STAGE_DIFFICULTY_SHALLOW: 1.0,
@@ -48,12 +51,10 @@ const STAGE_DIFFICULTY_MULTIPLIERS := {
 	}
 }
 
-# 每个关卡用于计算“推荐修为”的基础血量。
-# 这里按你指定的“普通怪1基础血量”来算：
-# 桃林 40、废墟 60、洞窟 90、森林 148。
+# 每个关卡用于计算“推荐修为”的基础血量
 const STAGE_BASE_MONSTER_HP := {
-	"peach_grove": 40.0,
-	"ruin": 60.0,
+	"peach_grove": 30.0,
+	"ruin": 45.0,
 	"cave": 90.0,
 	"forest": 148.0
 }
@@ -106,6 +107,7 @@ var exp_orb_system = preload("res://Script/system/exp_orb_system.gd").new()
 
 # 纹章相关字段
 @export var emblem_slots_max: int = 4 # 纹章数量上限
+@export var emblem_effect_rate: float = 0.0 # 纹章提升率
 
 # 果实回复效果
 @export var fruit_heal_multi: float = 1
@@ -119,20 +121,20 @@ var exp_orb_system = preload("res://Script/system/exp_orb_system.gd").new()
 # 丹药使用次数记录 {item_id: 已使用次数}
 @export var pill_used_counts: Dictionary = {}
 
-# 玩家背包与进度变量 (修复缺失声明)
+# 玩家背包与进度变量 
 var player_inventory: Dictionary = {}
 @export var lingshi: int = 0
 @export var shop_level: int = 1
 @export var shop_battle_refresh_count: int = 0
 @export var shop_lingshi_unit_price: int = 50
-# 仅在当前存档第一次进入货摊时自动刷新一次；之后除非手动刷新，否则保持当前货物。
+
+# 仅在当前存档第一次进入货摊时自动刷新一次
 @export var shop_first_entered: bool = false
+
 # 当前货摊商品列表会保存在存档里，保证再次进入时仍显示上次的货物状态。
 var shop_saved_items: Array = []
 
-# 关卡难度通关记录。
-# 这里只记录“某一层是否已经通关”，
-# 更高难度能否进入，则通过下面的辅助函数按顺序判断。
+# 关卡难度通关记录
 @export var stage_difficulty_clear_progress: Dictionary = {
 	"peach_grove": {
 		STAGE_DIFFICULTY_SHALLOW: false,
@@ -160,20 +162,15 @@ var shop_saved_items: Array = []
 	}
 }
 
-# 当前在关卡选择界面里选中的难度。
-# 这个值不需要存档，只要在本次运行中记住即可。
+# 当前在关卡选择界面里选中的难度
 var selected_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 
-# 当前真正进入战斗的关卡ID与难度。
-# 怪物配置会读这里，决定本次战斗应该套用哪一个倍率。
+# 当前真正进入战斗的关卡ID与难度
+# 怪物配置会读这里，决定本次战斗应该套用哪一个倍率
 var current_stage_id: String = ""
 var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 
 @export var recipe_unlock_progress: Dictionary = {
-
-
-
-
 	"recipe_001": true,
 	"recipe_002": false,
 	"recipe_003": false,
@@ -183,11 +180,10 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 
 # lunky概率
 @export var lunky_level: int = 1
-@export var red_p: float = 3.5
-@export var gold_p: float = 50
+@export var red_p: float = 3
+@export var gold_p: float = 6
 @export var darkorchid_p: float = 18
-@export var blue_p: float = 25
-@export var green_p: float = 30
+@export var blue_p: float = 73
 
 # 刷新次数
 @export var refresh_max_num: int = 3
@@ -207,6 +203,8 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 @export var cultivation_huti_level: int = 0 # 护体 - 提升减伤率
 @export var cultivation_zhuifeng_level: int = 0 # 追风 - 提升移速
 @export var cultivation_liejin_level: int = 0 # 烈劲 - 提升暴击伤害
+@export var cultivation_heyi_level: int = 0 # 合一 - 提升技能冷却
+@export var cultivation_tongxiao_level: int = 0 # 通晓 - 提升最终伤害
 
 # 修炼等级上限
 @export var cultivation_poxu_level_max: int = 50 
@@ -308,7 +306,7 @@ signal monster_damage
 @warning_ignore("unused_signal")
 signal player_heal(heal_value, world_position)
 @warning_ignore("unused_signal")
-signal player_take_damage(damage_val, shield_val, world_position)
+signal player_take_damage(damage_val, shield_val, world_position, source_name)
 @warning_ignore("unused_signal")
 signal monster_mechanism_gained
 @warning_ignore("unused_signal")
@@ -462,6 +460,7 @@ func _calculate_dps() -> void:
 # ---------------------------------
 
 func _ready():
+	set_process_input(true)
 	monster_damage.connect(_on_monster_damage)
 	player_heal.connect(_on_player_heal)
 	player_take_damage.connect(_on_player_take_damage)
@@ -477,6 +476,98 @@ func _ready():
 	if dps_timer:
 		dps_timer.start()
 	MouseAnimation.start_mouse_animation()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		_handle_debug_function_key(event.keycode)
+
+func _handle_debug_function_key(keycode: Key) -> void:
+	match keycode:
+		KEY_F1:
+			_debug_command_f1()
+		KEY_F2:
+			_debug_command_f2()
+		KEY_F3:
+			_debug_command_f3()
+		KEY_F4:
+			_debug_command_f4()
+		KEY_F5:
+			_debug_command_f5()
+		KEY_F6:
+			_debug_command_f6()
+		KEY_F7:
+			_debug_command_f7()
+		KEY_F8:
+			_debug_command_f8()
+		KEY_F9:
+			_debug_command_f9()
+		KEY_F10:
+			_debug_command_f10()
+		KEY_F11:
+			_debug_command_f11()
+		KEY_F12:
+			_debug_command_f12()
+
+func _debug_command_f1() -> void:
+	total_points += DEBUG_F1_ZHENQI_AMOUNT
+	save_game()
+	_refresh_debug_resource_views()
+	_show_debug_command_feedback("调试指令 F1：真气 +%d，当前 %d" % [DEBUG_F1_ZHENQI_AMOUNT, total_points])
+
+func _debug_command_f2() -> void:
+	pass
+
+func _debug_command_f3() -> void:
+	pass
+
+func _debug_command_f4() -> void:
+	pass
+
+func _debug_command_f5() -> void:
+	pass
+
+func _debug_command_f6() -> void:
+	pass
+
+func _debug_command_f7() -> void:
+	pass
+
+func _debug_command_f8() -> void:
+	pass
+
+func _debug_command_f9() -> void:
+	pass
+
+func _debug_command_f10() -> void:
+	pass
+
+func _debug_command_f11() -> void:
+	pass
+
+func _debug_command_f12() -> void:
+	pass
+
+func _refresh_debug_resource_views() -> void:
+	var current_scene := get_tree().current_scene
+	if current_scene == null:
+		return
+	if current_scene.has_method("refresh_point"):
+		current_scene.refresh_point()
+	var battle_layer := current_scene.get_node_or_null("CanvasLayer")
+	if battle_layer != null and battle_layer.has_method("update_score_display"):
+		battle_layer.update_score_display(total_points)
+
+func _show_debug_command_feedback(message: String) -> void:
+	print("[DebugHotkey] %s" % message)
+	var current_scene := get_tree().current_scene
+	if current_scene == null:
+		return
+	if "tip" in current_scene and current_scene.tip != null and current_scene.tip.has_method("start_animation"):
+		current_scene.tip.start_animation(message, 0.6)
+		return
+	var fallback_tip := current_scene.get_node_or_null("TipsLayer/Tip")
+	if fallback_tip != null and fallback_tip.has_method("start_animation"):
+		fallback_tip.start_animation(message, 0.6)
 
 func get_item_count(item_id: String) -> int:
 	if item_id == LINGSHI_ITEM_ID:
@@ -570,15 +661,60 @@ func is_stage_difficulty_cleared(stage_id: String, difficulty_id: String) -> boo
 		return false
 	return bool(stage_progress.get(validate_stage_difficulty_id(difficulty_id), false))
 
-# 判断当前选择的难度是否已经解锁。
-func can_enter_stage_difficulty(stage_id: String, difficulty_id: String) -> bool:
+func is_stage_cleared(stage_id: String) -> bool:
+	for difficulty_id in [STAGE_DIFFICULTY_SHALLOW, STAGE_DIFFICULTY_DEEP, STAGE_DIFFICULTY_CORE, STAGE_DIFFICULTY_POETRY]:
+		if is_stage_difficulty_cleared(stage_id, difficulty_id):
+			return true
+	return false
+
+func get_previous_stage_id(stage_id: String) -> String:
+	var stage_index := STAGE_ID_LIST.find(stage_id)
+	if stage_index <= 0:
+		return ""
+	return str(STAGE_ID_LIST[stage_index - 1])
+
+func is_stage_unlocked(stage_id: String) -> bool:
+	return can_enter_stage_difficulty(stage_id, STAGE_DIFFICULTY_SHALLOW)
+
+func has_any_stage_difficulty_cleared(difficulty_id: String) -> bool:
 	var valid_difficulty := validate_stage_difficulty_id(difficulty_id)
-	if valid_difficulty == STAGE_DIFFICULTY_SHALLOW:
+	for stage_id in STAGE_ID_LIST:
+		if is_stage_difficulty_cleared(stage_id, valid_difficulty):
+			return true
+	return false
+
+func is_stage_difficulty_unlocked(difficulty_id: String) -> bool:
+	var valid_difficulty := validate_stage_difficulty_id(difficulty_id)
+	for stage_id in STAGE_ID_LIST:
+		if can_enter_stage_difficulty(stage_id, valid_difficulty):
+			return true
+	return false
+
+# 判断某个“关卡 + 难度”组合是否已经解锁。
+# 规则：
+# 1) 壹·浅层 初始解锁；
+# 2) 浅层只会按关卡顺序横向解锁下一关；
+# 3) 深层 / 核心 / 诗想 只会在同一关内纵向解锁下一难度；
+# 4) 通关本格后保持已解锁。
+func can_enter_stage_difficulty(stage_id: String, difficulty_id: String) -> bool:
+	_normalize_stage_difficulty_clear_progress()
+	var resolved_stage_id := str(stage_id)
+	var valid_difficulty := validate_stage_difficulty_id(difficulty_id)
+	var stage_index := STAGE_ID_LIST.find(resolved_stage_id)
+	if stage_index == -1:
+		return false
+	if is_stage_difficulty_cleared(resolved_stage_id, valid_difficulty):
 		return true
-	var required_difficulty := get_required_stage_clear_difficulty(valid_difficulty)
-	if required_difficulty.is_empty():
-		return true
-	return is_stage_difficulty_cleared(stage_id, required_difficulty)
+	var difficulty_index := STAGE_DIFFICULTY_LIST.find(valid_difficulty)
+	if difficulty_index == -1:
+		return false
+	if difficulty_index == 0:
+		if stage_index == 0:
+			return true
+		var previous_stage_id := str(STAGE_ID_LIST[stage_index - 1])
+		return is_stage_difficulty_cleared(previous_stage_id, valid_difficulty)
+	var previous_difficulty_id := str(STAGE_DIFFICULTY_LIST[difficulty_index - 1])
+	return is_stage_difficulty_cleared(resolved_stage_id, previous_difficulty_id)
 
 # 战斗胜利时调用，用来解锁下一层难度。
 func mark_stage_difficulty_cleared(stage_id: String, difficulty_id: String) -> void:
@@ -638,6 +774,12 @@ func _get_effective_boss_bonus() -> float:
 		return PC.boss_multi
 	return boss_multi
 
+func get_effective_exp_multiplier() -> float:
+	var effective_exp_bonus = exp_multi
+	if typeof(PC) != TYPE_NIL:
+		effective_exp_bonus = PC.exp_multi
+	return max(0.0, 1.0 + effective_exp_bonus)
+
 func get_effective_drop_multiplier() -> float:
 	var effective_drop_bonus = drop_multi
 	if typeof(PC) != TYPE_NIL:
@@ -649,6 +791,21 @@ func get_attack_range_multiplier() -> float:
 	if typeof(PC) != TYPE_NIL and PC != null:
 		effective_attack_range = float(PC.attack_range)
 	return max(0.01, effective_attack_range)
+
+func get_emblem_effect_multiplier() -> float:
+	return max(0.0, 1.0 + emblem_effect_rate)
+
+func get_scaled_emblem_value(base_value: float) -> float:
+	return base_value * get_emblem_effect_multiplier()
+
+func get_total_skill_cooldown_reduction() -> float:
+	var effective_cooldown := cooldown
+	if typeof(PC) != TYPE_NIL and PC != null:
+		effective_cooldown = PC.cooldown
+	return clampf(effective_cooldown, 0.0, 0.5)
+
+func get_cultivation_final_damage_bonus() -> float:
+	return max(0.0, cultivation_tongxiao_level * 0.01)
 
 func get_special_pill_max_uses(tier: String) -> int:
 	match tier:
@@ -692,7 +849,6 @@ func save_game():
 		"gold_p": gold_p,
 		"darkorchid_p": darkorchid_p,
 		"blue_p": blue_p,
-		"green_p": green_p,
 		"exp_multi": exp_multi,
 		"drop_multi": drop_multi,
 		"body_size": body_size,
@@ -713,6 +869,7 @@ func save_game():
 		"shop_lingshi_unit_price": shop_lingshi_unit_price,
 		"shop_first_entered": shop_first_entered,
 		"shop_saved_items": shop_saved_items,
+		"stage_difficulty_clear_progress": stage_difficulty_clear_progress,
 		"recipe_unlock_progress": recipe_unlock_progress,
 
 
@@ -730,6 +887,8 @@ func save_game():
 		"cultivation_huti_level": cultivation_huti_level,
 		"cultivation_zhuifeng_level": cultivation_zhuifeng_level,
 		"cultivation_liejin_level": cultivation_liejin_level,
+		"cultivation_heyi_level": cultivation_heyi_level,
+		"cultivation_tongxiao_level": cultivation_tongxiao_level,
 		"cultivation_poxu_level_max": cultivation_poxu_level_max,
 		"cultivation_xuanyuan_level_max": cultivation_xuanyuan_level_max,
 		"cultivation_liuguang_level_max": cultivation_liuguang_level_max,
@@ -744,6 +903,7 @@ func save_game():
 		"max_main_skill_num": max_main_skill_num,
 		"max_weapon_num": max_weapon_num,
 		"emblem_slots_max": emblem_slots_max,
+		"emblem_effect_rate": emblem_effect_rate,
 		"max_carry_equipment_slots": max_carry_equipment_slots,
 		"equipment_data": equipment_manager.save_equipment_data(),
 		"master_volume": audio_manager.get_master_volume(),
@@ -781,7 +941,6 @@ func load_game():
 	gold_p = config.get_value("save", "gold_p", gold_p)
 	darkorchid_p = config.get_value("save", "darkorchid_p", darkorchid_p)
 	blue_p = config.get_value("save", "blue_p", blue_p)
-	green_p = config.get_value("save", "green_p", green_p)
 	exp_multi = config.get_value("save", "exp_multi", exp_multi)
 	drop_multi = config.get_value("save", "drop_multi", drop_multi)
 	body_size = config.get_value("save", "body_size", body_size)
@@ -852,6 +1011,7 @@ func load_game():
 	max_weapon_num = config.get_value("save", "max_weapon_num", 5)
 	
 	emblem_slots_max = config.get_value("save", "emblem_slots_max", 4)
+	emblem_effect_rate = config.get_value("save", "emblem_effect_rate", emblem_effect_rate)
 	max_carry_equipment_slots = config.get_value("save", "max_carry_equipment_slots", 2)
 	equipment_manager.load_equipment_data(config.get_value("save", "equipment_data", {}))
 	audio_manager.set_master_volume(config.get_value("save", "master_volume", 1.0))
@@ -900,16 +1060,31 @@ func _on_player_heal(heal_value: float, world_position: Vector2):
 		var lbl = _create_damage_label()
 		if lbl: lbl.show_damage_number(9, heal_value, world_position)
 
-func _on_player_take_damage(damage_val: float, shield_val: float, world_position: Vector2):
+func _on_player_take_damage(damage_val: float, shield_val: float, world_position: Vector2, source_name: String = "攻击"):
 	if not damage_show_enabled: return
 	if shield_val > 0:
 		emit_signal("player_shield_damaged", shield_val)
 		var lbl = _create_damage_label()
-		if lbl: lbl.show_damage_number(10, shield_val, world_position)
+		if lbl: lbl.show_damage_number(10, shield_val, world_position, source_name)
 	if damage_val > 0:
 		var lbl = _create_damage_label()
-		if lbl: lbl.show_damage_number(11, damage_val, world_position)
+		if lbl: lbl.show_damage_number(11, damage_val, world_position, source_name)
 
 func _create_damage_label() -> Node2D:
 	if _active_damage_label_count >= MAX_DAMAGE_LABELS: return null
-	var instance = _damage_label_scene.
+	var instance = _damage_label_scene.instantiate()
+	add_child(instance)
+	instance.z_index = 100
+	_active_damage_label_count += 1
+	instance.tree_exiting.connect(func(): _active_damage_label_count -= 1)
+	return instance
+
+func get_current_dps() -> float: return current_dps
+func get_weapon_dps() -> Dictionary: return weapon_dps
+
+# 兼容旧逻辑函数
+func reset_dps_counter() -> void:
+	dps_damage_records.clear(); current_dps = 0.0; weapon_dps.clear()
+	if dps_timer: dps_timer.start()
+func stop_dps_counter() -> void:
+	if dps_timer: dps_timer.stop()

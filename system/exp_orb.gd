@@ -176,8 +176,9 @@ func _process_fade(delta: float) -> void:
 		queue_free()
 
 func _give_exp_to_player() -> void:
-	# 添加经验
-	PC.pc_exp += exp_value
+	# 添加经验，并吃到全局/角色的经验获取倍率加成。
+	var final_exp = int(max(1.0, round(float(exp_value) * Global.get_effective_exp_multiplier())))
+	PC.pc_exp += final_exp
 
 func _on_area_entered(area: Area2D) -> void:
 	# 如果碰到玩家，立即进入追踪状态

@@ -1,5 +1,7 @@
 extends Node2D
 
+const STAGE_ID := "ruin"
+
 # ============== 关卡配置 ==============
 @export var lantern_scene: PackedScene
 @export var paper_scene: PackedScene

@@ -4,8 +4,11 @@ extends Area2D
 ## 椭圆形，长40像素（水平），宽30像素（垂直），4:3比例
 ## 通过 scale = Vector2(4/3, 1) 配合 CircleShape2D(radius=15) 实现椭圆碰撞体
 
+const DETOX_BUFF_ID := "boss_a_detox"
+
 var damage_per_tick: float = 0.0 # 每秒伤害（由外部赋值）
 var duration: float = 5.0 # 持续时间（秒）
+var is_permanent: bool = false # 核心及以上难度：毒圈不会自然消失
 const FADE_IN_TIME: float = 0.6 # 渐入时间（秒）
 const FADE_OUT_TIME: float = 0.8 # 渐出时间（秒）
 const TICK_INTERVAL: float = 1.0 # 伤害间隔（秒）
@@ -16,22 +19,27 @@ var player_inside: bool = false
 var fading_out: bool = false
 var pulse_time: float = 0.0
 
+
 func _ready():
 	modulate.a = 0.0
 	# 渐入动画
 	var tween = create_tween()
 	tween.tween_property(self , "modulate:a", 0.65, FADE_IN_TIME)
 
-	body_entered.connect(_on_body_entered)
-	body_exited.connect(_on_body_exited)
+
 
 func _process(delta: float) -> void:
+
 	life_timer += delta
 	pulse_time += delta
 	queue_redraw() # 每帧重绘（脉冲动画）
 
+	if player_inside and BuffManager.has_buff(DETOX_BUFF_ID):
+		_purify()
+		return
+
 	# 到达结束时间前开始渐出
-	if life_timer >= duration - FADE_OUT_TIME and not fading_out:
+	if not is_permanent and life_timer >= duration - FADE_OUT_TIME and not fading_out:
 		fading_out = true
 		var tween = create_tween()
 		tween.tween_property(self , "modulate:a", 0.0, FADE_OUT_TIME)
@@ -43,8 +51,9 @@ func _process(delta: float) -> void:
 		if tick_timer >= TICK_INTERVAL:
 			tick_timer -= TICK_INTERVAL
 			var dmg = max(1, int(damage_per_tick))
-			PC.apply_damage(dmg)
+			PC.apply_damage(dmg, "剧毒结界")
 			Global.emit_signal("player_hit")
+
 
 func _draw():
 	# 像素风格绘制 —— 用 2×2 像素块拼出椭圆
@@ -104,15 +113,30 @@ func _draw():
 		var by: float = round(sin(angle) * R * 0.62 / P) * P
 		draw_rect(Rect2(bx - P, by - P, P * 2, P * 2), bubble_color)
 
+
+func _purify() -> void:
+	if fading_out:
+		return
+	fading_out = true
+	player_inside = false
+	var tween = create_tween()
+	tween.tween_property(self, "modulate:a", 0.0, 0.18)
+	tween.tween_callback(queue_free)
+
+
 func _on_body_entered(body: Node2D) -> void:
 	if body is CharacterBody2D:
 		player_inside = true
 		tick_timer = 0.0
+		if BuffManager.has_buff(DETOX_BUFF_ID):
+			_purify()
+			return
 		# 踩入立刻判定一次伤害
 		if not PC.invincible:
 			var dmg = max(1, int(damage_per_tick))
-			PC.apply_damage(dmg)
+			PC.apply_damage(dmg, "剧毒结界")
 			Global.emit_signal("player_hit")
+
 
 func _on_body_exited(body: Node2D) -> void:
 	if body is CharacterBody2D:

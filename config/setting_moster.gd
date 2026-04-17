@@ -1,15 +1,5 @@
 extends Node
 
-# 这个文件负责“怪物静态配置”。
-# 现在这里的思路改得更直白一些：
-# 1. 你在配置表里写下去的 `atk` / `hp`，先当成“浅层基础值”；
-# 2. 真正进入战斗时，只额外乘当前关卡难度倍率；
-# 3. 不再叠加时间、玩家等级、世界倍率、新武器这些额外系数。
-#
-# 这样一来会更容易估算：
-# - 如果你填 `40` 血，浅层进图就是 `40`；
-# - 桃林深层就是 `40 × 1.75 = 70`；
-# - 之后如果想改怪强度，只看这里和 `global.gd` 里的难度倍率表就够了。
 
 func _get_current_stage_multiplier() -> float:
 	# 当前没有进入正式关卡时，倍率默认回到 1.0。
@@ -25,29 +15,58 @@ func _calc_stage_scaled_value(base_value: float) -> float:
 
 func _calc_atk(base_atk: float) -> float:
 	var t = PC.real_time
-	return base_atk + (1.33*t) * pow(1.02, PC.pc_lv - 1) * _get_current_stage_multiplier()
+	return base_atk + (1.33 * t) * pow(1.02, PC.pc_lv - 1) * _get_current_stage_multiplier()
 
 # 计算新武器带来的怪物血量加成
 func _get_new_weapon_hp_multiplier() -> float:
 	var count = PC.new_weapon_obtained_count
 	var multiplier = 1.0
 	if count >= 1:
-		multiplier *= 1.50
+		multiplier *= 1.65
 	if count >= 2:
 		multiplier *= 1.35
 	if count >= 3:
-		multiplier *= 1.2
+		multiplier *= 1.25
 	if count >= 4:
-		multiplier *= 1.15
+		multiplier *= 1.2
 	if count >= 5:
-		multiplier *= 1.1
+		multiplier *= 1.15
 	return multiplier
 
 func _calc_hp(base_hp: float) -> float:
-	var t = PC.real_time
-	var lv_bonus = pow(1.11, PC.pc_lv - 1) # 玩家每升1级，怪物血量提升11%
+	var t = float(PC.real_time)
+	var lv_bonus = pow(1.1, PC.pc_lv - 1) # 玩家每升1级，怪物血量提升10%
 	var new_weapon_bonus = _get_new_weapon_hp_multiplier() # 新武器带来的血量加成
-	return (base_hp + t / 3.0) * (1.0 + 5 * t / 8000.0 + t * t / 60000.0) * lv_bonus * new_weapon_bonus * _get_current_stage_multiplier()
+	
+	var first_part = base_hp + t / 8.0
+	var linear_part = 5.0 * t / 25000.0
+	var quadratic_part = t * t / 300000.0
+	var second_part = 1.0 + linear_part + quadratic_part
+	
+	var first_jump_time = 60.0
+	var second_jump_time = 150.0
+	var third_jump_time = 240.0
+	var fourth_jump_time = 330.0
+	
+	var first_jump_multiplier = 1.4
+	var second_jump_multiplier = 2.0
+	var third_jump_multiplier = 2.8
+	var fourth_jump_multiplier = 3.8
+	
+	var jump_multiplier = 1.0
+	if t < first_jump_time:
+		jump_multiplier = 1.0
+	elif t < second_jump_time:
+		jump_multiplier = first_jump_multiplier
+	elif t < third_jump_time:
+		jump_multiplier = second_jump_multiplier
+	elif t < fourth_jump_time:
+		jump_multiplier = third_jump_multiplier
+	else:
+		jump_multiplier = fourth_jump_multiplier
+	
+	return first_part * second_part * jump_multiplier * lv_bonus * new_weapon_bonus * _get_current_stage_multiplier()
+
 
 func _finalize_monster_data(data: Dictionary, query: String):
 	# 所有怪物的 mechanism 统一翻倍。
@@ -58,16 +77,11 @@ func _finalize_monster_data(data: Dictionary, query: String):
 	return data.get(query, null)
 
 # ============== 关卡1 桃林(PEACH_GROVE) ==============
-# 基准血量参考：
-# - 普通怪1：40
-# - 普通怪2：44（普通怪1 的 110%）
-# - 远程怪：32（普通怪1 的 80%）
-# - 特殊怪：本关暂不使用
 
 func slime_blue(query: String): # 蓝色史莱姆 / 普通怪1
 	var data = {
 		"atk": _calc_atk(150),
-		"hp": _calc_hp(40),
+		"hp": _calc_hp(30),
 		"speed": 42,
 		"exp": 350,
 		"point": 10 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -79,7 +93,7 @@ func slime_blue(query: String): # 蓝色史莱姆 / 普通怪1
 func taohua_yao(query: String): # 桃花妖 / 普通怪2
 	var data = {
 		"atk": _calc_atk(180),
-		"hp": _calc_hp(44),
+		"hp": _calc_hp(33),
 		"speed": 36,
 		"exp": 450,
 		"point": 15 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -91,7 +105,7 @@ func taohua_yao(query: String): # 桃花妖 / 普通怪2
 func frog(query: String): # 幼体树精 / 远程怪
 	var data = {
 		"atk": _calc_atk(140),
-		"hp": _calc_hp(32),
+		"hp": _calc_hp(27),
 		"speed": 35,
 		"exp": 500,
 		"point": 20 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -101,16 +115,11 @@ func frog(query: String): # 幼体树精 / 远程怪
 	return _finalize_monster_data(data, query)
 
 # ============== 关卡2 废墟(RUIN) ==============
-# 基准血量参考：
-# - 普通怪1：60（你指定纸人）
-# - 普通怪2：66
-# - 远程怪：48
-# - 特殊怪：75
 
 func lantern(query: String): # 灯笼怪 / 普通怪2
 	var data = {
 		"atk": _calc_atk(225),
-		"hp": _calc_hp(66),
+		"hp": _calc_hp(45),
 		"speed": 38,
 		"exp": 450,
 		"point": 14 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -122,7 +131,7 @@ func lantern(query: String): # 灯笼怪 / 普通怪2
 func paper(query: String): # 宣纸精 / 普通怪1
 	var data = {
 		"atk": _calc_atk(245),
-		"hp": _calc_hp(60),
+		"hp": _calc_hp(50),
 		"speed": 42,
 		"exp": 500,
 		"point": 13 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -134,7 +143,7 @@ func paper(query: String): # 宣纸精 / 普通怪1
 func bat(query: String): # 草药怪 / 远程怪
 	var data = {
 		"atk": _calc_atk(215),
-		"hp": _calc_hp(48),
+		"hp": _calc_hp(41),
 		"speed": 36,
 		"exp": 600,
 		"point": 15 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -146,7 +155,7 @@ func bat(query: String): # 草药怪 / 远程怪
 func slime_grey(query: String): # 灰色史莱姆 / 特殊怪
 	var data = {
 		"atk": _calc_atk(245),
-		"hp": _calc_hp(75),
+		"hp": _calc_hp(50),
 		"speed": 36,
 		"exp": 550,
 		"point": 16 * Global.world_level_reward_multiple * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -156,11 +165,6 @@ func slime_grey(query: String): # 灰色史莱姆 / 特殊怪
 	return _finalize_monster_data(data, query)
 
 # ============== 关卡3 洞窟(CAVE) ==============
-# 基准血量参考：
-# - 普通怪1：90（你指定 armor）
-# - 普通怪2：99
-# - 远程怪：72
-# - 特殊怪：113
 
 func ghost(query: String): # 鬼魂 / 远程怪
 	var data = {
@@ -211,12 +215,6 @@ func slime_green(query: String): # 绿色史莱姆 / 普通怪2
 	return _finalize_monster_data(data, query)
 
 # ============== 关卡4 森林(FOREST) ==============
-# 基准血量参考：
-# - 普通怪1：148（你指定草药精）
-# - 远程怪：118
-# - 特殊怪：185
-# 说明：本关仍复用 `slime_green` 这只共用怪物，因此它沿用前面的通用配置；
-# 真正代表本关基准强度的锚点怪，则按你指定的 `shen = 148` 来定。
 
 func shen(query: String): # 参精怪 / 普通怪1
 	var data = {

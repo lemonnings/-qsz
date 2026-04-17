@@ -45,7 +45,7 @@ func _on_body_entered(body: Node2D) -> void:
 	# 击中玩家
 	if body.is_in_group("player"):
 		Global.emit_signal("player_hit")
-		PC.apply_damage(int(bullet_damage))
+		PC.apply_damage(int(bullet_damage), "远程攻击")
 		if PC.pc_hp <= 0:
 			PC.player_instance.game_over()
 		queue_free()

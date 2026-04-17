@@ -1,4 +1,4 @@
-extends "res://Script/monster/monster_base.gd"
+﻿extends "res://Script/monster/monster_base.gd"
 
 @onready var sprite = $AnimatedSprite2D
 
@@ -84,7 +84,7 @@ func _physics_process(delta: float) -> void:
 
 		
 	if not is_dead:
-		speed = base_speed * debuff_manager.get_speed_multiplier()
+		speed = get_effective_move_speed(base_speed)
 		position += move_vector * speed * delta
 		# 根据水平移动方向翻转精灵
 		if move_vector.x > 0:
@@ -165,7 +165,7 @@ func _on_area_entered(area: Area2D) -> void:
 			area.queue_free()
 			
 		var base_bullet_damage = collision_result["final_damage"]
-		var final_damage_val = int(base_bullet_damage * debuff_manager.get_damage_multiplier())
+		var final_damage_val = get_common_bullet_damage_value(base_bullet_damage)
 		var is_crit = collision_result["is_crit"]
 		
 		# 处理子弹反弹
@@ -214,5 +214,6 @@ func _shoot_bullet() -> void:
 		shoot_direction = move_vector
 	fireball.set_direction(shoot_direction)
 	fireball.play_animation("fire")
+
 
 

@@ -218,14 +218,14 @@ func _process(delta: float) -> void:
 	if travel_elapsed >= travel_duration:
 		queue_free()
 
-func setup_ice_flower(p_start_position: Vector2, p_direction: Vector2, p_range: float, p_damage: float, p_penetration_count: int, p_pierce_decay: float, p_scale: float) -> void:
+func setup_ice_flower(p_start_position: Vector2, p_direction: Vector2, p_range: float, p_damage: float, p_penetration_count: int, p_pierce_decay: float, p_scale: float, p_is_extra_attack: bool = false) -> void:
 	base_node_scale = scale
 	start_position = p_start_position
 	ice_direction = p_direction.normalized()
 	ice_range = p_range
 	if ice_range <= 0.0:
 		ice_range = default_range
-	ice_damage = p_damage
+	ice_damage = PC.apply_base_weapon_emblem_damage_bonus(p_damage, "ice_flower", p_is_extra_attack)
 	penetration_count = p_penetration_count
 	pierce_decay = p_pierce_decay
 	

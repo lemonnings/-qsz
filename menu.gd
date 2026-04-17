@@ -94,7 +94,6 @@ func exec_lucky_level() -> void:
 	PC.now_gold_p = Global.gold_p
 	PC.now_darkorchid_p = Global.darkorchid_p
 	PC.now_blue_p = Global.blue_p
-	PC.now_green_p = Global.green_p
 
 
 func _on_shop_pressed(not_move_background: bool = true) -> void:

@@ -760,7 +760,7 @@ func _start_dodge_slow_motion(target_time_scale: float, duration: float) -> void
 	var request_id := dodge_slow_motion_request_id
 	var original_time_scale := Engine.time_scale
 	# 如果当前已经比 0.2 还慢，就保持更慢的那个值，避免反向把时间流速抬高。
-	var applied_time_scale := min(original_time_scale, target_time_scale)
+	var applied_time_scale = min(original_time_scale, target_time_scale)
 	Engine.time_scale = applied_time_scale
 	_restore_dodge_time_scale(duration, request_id, original_time_scale)
 
@@ -847,8 +847,9 @@ func on_dash_complete(dodge_skill: DodgeSkill):
 func start_skill_cooldown(skill: ActiveSkill):
 	"""开始技能冷却"""
 	skill.state = SkillState.COOLDOWN
-	skill.current_cooldown = skill.cooldown_time
-	skill_cooldown_started.emit(skill.id, skill.cooldown_time)
+	var final_cooldown_time = skill.cooldown_time * (1.0 - Global.get_total_skill_cooldown_reduction())
+	skill.current_cooldown = final_cooldown_time
+	skill_cooldown_started.emit(skill.id, final_cooldown_time)
 
 # 城镇检测逻辑已移至Global.in_town变量
 
