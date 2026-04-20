@@ -11,7 +11,7 @@ static var ice_flower_penetration_count: int = 0
 static var ice_flower_pierce_decay: float = 0.0
 static var ice_flower_extra_small_count: int = 4
 static var ice_flower_spread_angle: float = 120.0
-static var ice_flower_small_damage_ratio: float = 0.5
+static var ice_flower_small_damage_ratio: float = 0.2
 static var ice_flower_small_scale_ratio: float = 0.65
 static var ice_flower_base_scale: float = 1.0
 
@@ -22,7 +22,7 @@ static func reset_data() -> void:
 	ice_flower_pierce_decay = 0.0
 	ice_flower_extra_small_count = 4
 	ice_flower_spread_angle = 120.0
-	ice_flower_small_damage_ratio = 0.5
+	ice_flower_small_damage_ratio = 0.2
 	ice_flower_small_scale_ratio = 0.65
 	ice_flower_base_scale = 1.0
 
@@ -124,7 +124,7 @@ static func _build_data() -> Dictionary:
 	
 	if PC.selected_rewards.has("Ice2"):
 		damage_multiplier += 0.3
-		small_damage_ratio = 0.75 # 提升至75%
+		small_damage_ratio = 0.3 # 提升至30%
 		
 	if PC.selected_rewards.has("Ice3"):
 		damage_multiplier += 0.2
@@ -133,12 +133,12 @@ static func _build_data() -> Dictionary:
 	if PC.selected_rewards.has("Ice4"):
 		damage_multiplier += 0.2
 		local_penetration_count += 1
-		local_pierce_decay = 0.4 # 衰减40%
+		local_pierce_decay = 0.7 # 衰减70%
 		
 	if PC.selected_rewards.has("Ice5"):
 		damage_multiplier += 0.4
-		base_scale += 0.3
-		small_scale_ratio += 0.1
+		base_scale += 0.35
+		small_scale_ratio += 0.15
 		
 	if PC.selected_rewards.has("Ice11"):
 		damage_multiplier += 0.2
@@ -147,11 +147,11 @@ static func _build_data() -> Dictionary:
 		
 	if PC.selected_rewards.has("Ice22"):
 		damage_multiplier += 0.2
-		small_damage_ratio = 1.0 # 等同于冰刺术伤害
+		small_damage_ratio = 0.4 # 提升至40%
 		
 	if PC.selected_rewards.has("Ice33"):
 		damage_multiplier += 0.2
-		local_pierce_decay = max(0.0, local_pierce_decay - 0.1) # 每次伤害衰减降低5%
+		local_pierce_decay = max(0.0, local_pierce_decay - 0.1) # 每次伤害衰减降低10%
 		
 	if PC.selected_rewards.has("Ice44"):
 		damage_multiplier += 0.7

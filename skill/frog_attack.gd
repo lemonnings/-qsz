@@ -34,9 +34,8 @@ func play_animation(anim_name: String):
 func _on_body_entered(body: Node2D) -> void:
 	# 检查碰撞对象是否为玩家角色且玩家非无敌状态
 	if body is CharacterBody2D and not PC.invincible:
-		Global.emit_signal("player_hit")
 		var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate)) # 计算实际伤害，考虑减伤
-		PC.apply_damage(actual_damage, "攻击") # 扣除玩家血量
+		PC.player_hit(int(actual_damage), self, "攻击") # 扣除玩家血量
 		if PC.pc_hp <= 0:
 			body.game_over() # 如果玩家血量耗尽，则游戏结束
 		queue_free() # 火球击中目标后消失

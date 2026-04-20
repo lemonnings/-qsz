@@ -8,7 +8,7 @@ extends Area2D
 # 基础属性
 var damage: float = 0.0
 var range_val: float = 0.0
-var heal_amount: int = 1
+var heal_amount: int = 20
 var duration: float = 0.75
 
 # 特殊效果标志
@@ -70,8 +70,8 @@ func setup_water(pos: Vector2, p_damage: float, p_range: float, p_heal: int, opt
 	# 注意：Water22 可能会降低治疗量
 	heal_multiplier = 1.0 + PC.heal_multi
 	var actual_heal = int(heal_amount * heal_reduction * heal_multiplier)
-	if actual_heal < 1:
-		actual_heal = 1
+	if actual_heal < 20:
+		actual_heal = 20
 	
 	# Water3: 如果体力低于阈值，提供护盾
 	# Water22: 提供护盾量提升100%
@@ -81,27 +81,12 @@ func setup_water(pos: Vector2, p_damage: float, p_range: float, p_heal: int, opt
 		if hp_ratio < shield_hp_threshold:
 			shield_value = int(actual_heal * shield_bonus)
 			PC.add_shield(shield_value, 12.0)
-	
-	# 如果 Water33 生效（击中敌人恢复量提升），则这里的治疗可能需要延迟到击中敌人后处理
-	# 但题目描述是“如果击中敌人，恢复量提升至...”，这意味着基础恢复还是有的？
-	# 或者说，如果击中敌人，则使用提升后的恢复量，否则使用基础恢复量？
-	# 通常这种逻辑是：基础恢复 + 击中额外恢复。
-	# 但描述是“恢复量提升至”，暗示是替代。
-	# 为了简单起见，我们先进行基础治疗。如果击中了敌人且有 Water33，再补差价。
-	# 或者：延迟治疗到 _process 结束或第一次击中敌人？
-	# 让我们采取：先治疗基础值。如果触发 Water33 条件，再额外治疗 (目标值 - 基础值)。
+
 	
 	if player_ref and not conditional_heal_bonus:
 		# 如果没有条件加成，直接治疗
 		_perform_heal(actual_heal)
 	
-	# 如果有条件加成，我们在 _on_area_entered 中处理治疗逻辑，或者标记是否已经治疗过
-	# Water33: "如果击中敌人，恢复量提升至..."
-	# 我们可以在第一次击中敌人时，执行 (提升后的治疗量 - 已治疗量) 的治疗。
-	# 如果直到消失都没击中敌人，那就只享受了基础治疗（如果我们在 setup 里做了）或者没治疗（如果完全延迟）。
-	# 题目：“恢复1.5%... Water33: 如果击中敌人，恢复量提升至2.5%...”
-	# 这意味着没击中就是1.5%，击中就是2.5%。
-	# 所以我们在 setup 里先治疗 1.5%。
 	if player_ref and conditional_heal_bonus:
 		_perform_heal(actual_heal)
 
@@ -215,7 +200,7 @@ func _process_enemy_hit(area: Area2D) -> void:
 			if hit_targets_circle.size() == 1:
 				# 计算额外治疗量
 				var max_hp = player_ref.maxHP
-				var target_heal = max(3, int(float(max_hp) * 0.025 * heal_multiplier))
+				var target_heal = max(10, int(float(max_hp) * 0.025 * heal_multiplier))
 				var current_base_heal = max(1, int(heal_amount * heal_reduction * heal_multiplier))
 				var extra_heal = target_heal - current_base_heal
 				if extra_heal > 0:
@@ -272,7 +257,7 @@ func _deal_damage(enemy: Area2D, deal_circle: bool, deal_sector: bool) -> void:
 			final_damage *= PC.water_final_damage_multi
 			
 		if enemy.has_method("take_damage"):
-			enemy.take_damage(int(final_damage), is_crit, false, "water")		# 击中粒子崩散特效
+			enemy.take_damage(int(final_damage), is_crit, false, "water") # 击中粒子崩散特效
 		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "water")
 			
 		# Water2: 迟滞 - 减速 (只要造成伤害且开启了减速)

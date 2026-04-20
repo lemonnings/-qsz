@@ -214,6 +214,3 @@ func _shoot_bullet() -> void:
 		shoot_direction = move_vector
 	fireball.set_direction(shoot_direction)
 	fireball.play_animation("fire")
-
-
-

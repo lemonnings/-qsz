@@ -2,8 +2,8 @@ extends Control
 
 @onready var progressBar: ProgressBar = $ProgressBar
 @onready var label: Label = $Label
-@onready var tips:  Label = $Tips
-@onready var animatedSprite2D: AnimatedSprite2D = $AnimatedSprite2D
+@onready var tips: Label = $Tips
+@onready var animatedSprite2D: AnimatedSprite2D = $"../Control/AnimatedSprite2D"
 
 var progress = []
 var scene_load_status = 0
@@ -21,9 +21,9 @@ var tip_texts = [
 	"减速会使目标移动速度降低25%",
 	"麻痹和眩晕会让目标暂时无法移动，但对首领敌人无效",
 	"设置里可以开关伤害显示与粒子特效，如果感觉卡顿建议关闭",
-	"部分领悟内容有前置解锁条件，请多多探索吧~",
-	"墨宁是天衍宗最为优秀的少年弟子之一，擅长风系与轻功",
-	"墨宁虽然话不多，但内心良善，经常帮助宗门里的其他弟子与长辈"
+	"部分领悟内容有前置解锁条件，请多多探索吧~"
+	# "墨宁是天衍宗最为优秀的少年弟子之一，擅长风系与轻功",
+	# "墨宁虽然话不多，但内心良善，经常帮助宗门里的其他弟子与长辈"
 ]
 
 func _ready() -> void:

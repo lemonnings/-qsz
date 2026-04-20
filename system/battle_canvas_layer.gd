@@ -52,7 +52,7 @@ class_name BattleCanvasLayer
 @export var active3: TextureButton
 
 # 升级选择UI
-@export var lv_up_change: Node2D
+@onready var lv_up_change = $LevelUpChange
 @export var lv_up_change_b1: Button
 @export var lv_up_change_b2: Button
 @export var lv_up_change_b3: Button
@@ -139,7 +139,7 @@ const LOCK_BONUS_PER_STEP: int = 1
 @export var faze_icon_paths: Dictionary = {
 	"blood": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_blood.png",
 	"sword": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_sword.png",
-	"thunder": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_wind.png",
+	"thunder": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_thunder.png",
 	"heal": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_heal.png",
 	"summon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_summon.png",
 	"shield": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_sheild.png",
@@ -151,7 +151,8 @@ const LOCK_BONUS_PER_STEP: int = 1
 	"liushi": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_liushi.png",
 	"treasure": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_treasure.png",
 	"fire": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_fire.png",
-	"bagua": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_bagua.png"
+	"bagua": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_bagua.png",
+	"chaos": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_chaos.png"
 }
 
 # 技能标签
@@ -350,6 +351,14 @@ func _get_faze_laws() -> Array:
 	if sixsense_level > 0:
 		var sixsense_detail = _build_sixsense_faze_detail(sixsense_level)
 		laws.append({"id": "liushi", "name": "六识法则", "level": sixsense_level, "detail": sixsense_detail})
+	var treasure_level = PC.faze_treasure_level
+	if treasure_level > 0:
+		var treasure_detail = _build_treasure_faze_detail(treasure_level)
+		laws.append({"id": "treasure", "name": "宝器法则", "level": treasure_level, "detail": treasure_detail})
+	var chaos_level = PC.faze_chaos_level
+	if chaos_level > 0:
+		var chaos_detail = _build_chaos_faze_detail(chaos_level)
+		laws.append({"id": "chaos", "name": "混沌法则", "level": chaos_level, "detail": chaos_detail})
 	return laws
 
 func _build_simple_faze_detail(law_name: String, level: int) -> String:
@@ -379,7 +388,7 @@ func _build_sixsense_faze_detail(level: int) -> String:
 	return text
 
 func _build_fire_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 14]
+	var tiers = [4, 8, 12, 16]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -388,9 +397,9 @@ func _build_fire_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("炽焰法则"))
 	lines.append("炽焰系武器：赤曜，离火诀，爆炎诀")
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：炽焰系武器伤害提升 30%，燃烧伤害提升 50%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：炽焰系武器伤害、燃烧伤害与范围再次提升 40%，燃烧持续时间 +1 秒"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：炽焰系武器伤害、燃烧伤害与范围再次提升 60%，对精英、首领造成5倍伤害"))
-	lines.append(_format_faze_line(level, current_tier, 14, "14阶：炽焰系武器伤害、燃烧伤害与范围再次提升 100%，对精英、首领造成15倍伤害"))
+	lines.append(_format_faze_line(level, current_tier, 8, "8阶：炽焰系武器伤害、燃烧伤害与范围再次提升 40%，燃烧持续时间 +1 秒"))
+	lines.append(_format_faze_line(level, current_tier, 12, "12阶：炽焰系武器伤害、燃烧伤害与范围再次提升 60%，对精英、首领造成3倍伤害"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：炽焰系武器伤害、燃烧伤害与范围再次提升 100%，对精英、首领造成15倍伤害"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -402,17 +411,18 @@ func _build_law_title(law_name: String) -> String:
 	return "[font_size=24]" + law_name + "[/font_size]"
 
 func _build_bath_blood_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13]
+	var tiers = [3, 7, 11, 15]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
 			current_tier = tier
 	var lines: Array = []
 	lines.append(_build_law_title("浴血法则"))
-	lines.append(_format_faze_line(level, current_tier, 4, "4阶：每 3 秒或受伤后（内置 1.5 秒冷却），对周围敌人发出一次震击，被击中的敌人有 50% 流血，并受到 100% 攻击的伤害，自身获得 4% 最大体力的护盾，持续 7 秒"))
+	lines.append("浴血系武器：饮血刀，血气波")
+	lines.append(_format_faze_line(level, current_tier, 3, "3阶：每 3 秒或受伤后（内置 1.5 秒冷却），对周围敌人发出一次震击，被击中的敌人有 50% 流血，并受到 100% 攻击的伤害，自身获得 5% 最大体力的护盾，持续 7 秒"))
 	lines.append(_format_faze_line(level, current_tier, 7, "7阶：震击伤害提升至 200% 攻击，震击对精英，首领造成的伤害提升 100%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：震击范围 大幅 提升，并且必定附加 流血，流血 对精英，首领的伤害提升 100%"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：震击范围 极大幅 提升，伤害提升至 500% 攻击，获得护盾量提升至 7% 最大体力"))
+	lines.append(_format_faze_line(level, current_tier, 11, "11阶：震击范围 大幅 提升，并且必定附加 流血，流血 对精英，首领的伤害提升 100%"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：震击范围 极大幅 提升，伤害提升至 500% 攻击，获得护盾量提升至 7% 最大体力"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -431,7 +441,7 @@ func _format_faze_line(level: int, current_tier: int, tier: int, content: String
 	return line
 
 func _build_sword_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13]
+	var tiers = [4, 8, 12, 16]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -440,9 +450,9 @@ func _build_sword_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("刀剑法则"))
 	lines.append("刀剑系武器：剑气诀，饮血刀，乾坤双剑")
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：刀剑系武器攻击速度提升 20%，暴击伤害提升 10%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：刀剑系武器击中目标后会给其叠加一层寒光，寒光叠加到5层后会被引爆，对目标造成 300% 攻击的伤害"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：寒光可以暴击，并且暴击伤害提升 40%，寒光的伤害对精英、首领提升 100%"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：刀剑系的武器攻击速度再次提升 50%，寒光的伤害提高至 500% 攻击"))
+	lines.append(_format_faze_line(level, current_tier, 8, "8阶：刀剑系武器击中目标后会给其叠加一层寒光，寒光叠加到5层后会被引爆，对目标造成 300% 攻击的伤害"))
+	lines.append(_format_faze_line(level, current_tier, 12, "12阶：寒光可以暴击，并且暴击伤害提升 30%，寒光的伤害对精英、首领提升 50%"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：刀剑系的武器攻击速度再次提升 50%，寒光的伤害提高至 500% 攻击"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -451,7 +461,7 @@ func _build_sword_faze_detail(level: int) -> String:
 	return text
 
 func _build_wide_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13]
+	var tiers = [4, 8, 12, 16]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -460,9 +470,9 @@ func _build_wide_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("广域法则"))
 	lines.append("广域类武器：血气波，赤曜，兑泽诀")
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：广域类武器的范围加成每提高 1%，伤害提高 1%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：广域类武器伤害及范围提升 30%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：广域类武器的范围提升 1%，伤害提升值提升到 3%"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：广域类武器伤害及范围再次提升 80%"))
+	lines.append(_format_faze_line(level, current_tier, 8, "8阶：广域类武器伤害及范围提升 30%"))
+	lines.append(_format_faze_line(level, current_tier, 12, "12阶：广域类武器的范围提升 1%，伤害提升值提升到 3%"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：广域类武器伤害及范围再次提升 80%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -471,7 +481,7 @@ func _build_wide_faze_detail(level: int) -> String:
 	return text
 
 func _build_bagua_faze_detail(level: int) -> String:
-	var tiers = [4, 8, 11, 14, 17]
+	var tiers = [4, 8, 12, 15, 18]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -481,9 +491,9 @@ func _build_bagua_faze_detail(level: int) -> String:
 	lines.append("八卦类武器：乾坤双剑，离火诀，兑泽诀，坎水诀，震雷诀，巽风诀，艮山诀")
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：八卦类武器击中目标 + 1 推衍度，击杀目标 + 5 推衍度，对精英及首领翻倍，满 100 点后，获得 1 层【推衍完成】，每层提升 4% 的八卦类武器伤害加成与经验值加成，每层【推衍完成】会使下一层【推衍完成】的获取所需的推衍值 +10"))
 	lines.append(_format_faze_line(level, current_tier, 8, "8阶：推衍度获得翻倍，八卦类武器伤害提升 25%"))
-	lines.append(_format_faze_line(level, current_tier, 11, "11阶：推衍度获得提升至 4 倍，八卦类武器伤害再次提升 35%"))
-	lines.append(_format_faze_line(level, current_tier, 14, "14阶：推衍度获得提升至 6 倍，八卦类武器伤害再次提升 50%"))
-	lines.append(_format_faze_line(level, current_tier, 17, "17阶：推衍度获得提升至 10 倍，八卦类武器伤害再次提升 120%"))
+	lines.append(_format_faze_line(level, current_tier, 12, "12阶：推衍度获得提升至 3 倍，八卦类武器伤害再次提升 35%"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：推衍度获得提升至 5 倍，八卦类武器伤害再次提升 50%"))
+	lines.append(_format_faze_line(level, current_tier, 18, "18阶：推衍度获得提升至 10 倍，八卦类武器伤害再次提升 120%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -492,7 +502,7 @@ func _build_bagua_faze_detail(level: int) -> String:
 	return text
 
 func _build_destroy_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13]
+	var tiers = [4, 8, 12, 16]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -501,9 +511,9 @@ func _build_destroy_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("破坏法则"))
 	lines.append("破坏系武器：冰刺术，爆炎诀，天雷破")
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：破坏系武器暴击率提升 15%，溢出的暴击率会等量转换为暴击伤害"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：破坏系武器伤害提升 30%，暴击伤害提升 30%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：破坏系武器暴击率再次提升 30%，破坏系武器造成的暴击伤害会从 -50% ~ +150% 之间波动"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：破坏系武器伤害再次提升 150%，造成的暴击伤害波动提升至 -50% ~ +300%"))
+	lines.append(_format_faze_line(level, current_tier, 8, "8阶：破坏系武器伤害提升 30%，暴击伤害提升 30%"))
+	lines.append(_format_faze_line(level, current_tier, 12, "12阶：破坏系武器暴击率再次提升 25%，破坏系武器造成的暴击伤害会从 -40% ~ +120% 之间波动"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：破坏系武器伤害再次提升 150%，造成的暴击伤害波动提升至 -50% ~ +300%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -512,7 +522,7 @@ func _build_destroy_faze_detail(level: int) -> String:
 	return text
 
 func _build_life_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13]
+	var tiers = [4, 8, 12, 16]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -521,9 +531,9 @@ func _build_life_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("生灵法则"))
 	lines.append("生灵系武器：光弹，坎水诀，圣光术")
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：生灵系武器伤害提升 25%，经验获取提升 20%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：生灵系武器伤害再次提升 35%，射程提升 25%，经验获取加成提升至 40%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：生灵系武器伤害再次提升 80%，攻击间隔减少 20%，经验获取加成提升至 80%"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：生灵系武器伤害再次提升 180%，经验获取加成提升至 200%"))
+	lines.append(_format_faze_line(level, current_tier, 8, "8阶：生灵系武器伤害再次提升 35%，射程提升 25%，经验获取加成提升至 40%"))
+	lines.append(_format_faze_line(level, current_tier, 12, "12阶：生灵系武器伤害再次提升 60%，攻击间隔减少 20%，经验获取加成提升至 80%"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：生灵系武器伤害再次提升 180%，经验获取加成提升至 300%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -532,7 +542,7 @@ func _build_life_faze_detail(level: int) -> String:
 	return text
 
 func _build_bullet_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13, 17]
+	var tiers = [4, 8, 12, 15, 18]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -540,11 +550,11 @@ func _build_bullet_faze_detail(level: int) -> String:
 	var lines: Array = []
 	lines.append(_build_law_title("弹雨法则"))
 	lines.append("弹雨类武器：剑气诀，光弹，巽风诀，仙枝，冰刺术")
-	lines.append(_format_faze_line(level, current_tier, 4, "4阶：弹雨类武器伤害提升 10%，射程提升 20%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：弹雨类武器累计命中 100 次后，会以自身为中心连续发射 90 发弹幕，每发造成 65% 攻击的伤害"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：弹雨类武器伤害再次提升 35%，范围提升 30%，弹幕弹体数提升至 135 发，伤害提升至 150% 攻击"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：弹雨类武器伤害再次提升 50%，弹幕弹体数提升至 180 发，伤害提升至 320% 攻击"))
-	lines.append(_format_faze_line(level, current_tier, 17, "17阶：弹雨类武器伤害再次提升 120%，弹幕弹体数提升至 270 发，伤害提升至 500% 攻击"))
+	lines.append(_format_faze_line(level, current_tier, 4, "4阶：弹雨类武器伤害提升 15%，射程提升 20%"))
+	lines.append(_format_faze_line(level, current_tier, 8, "8阶：弹雨类武器累计命中 100 次后，会以自身为中心连续发射 90 发弹幕，每发造成 50% 攻击的伤害"))
+	lines.append(_format_faze_line(level, current_tier, 12, "12阶：弹雨类武器伤害再次提升 35%，范围提升 30%，弹幕弹体数提升至 135 发，伤害提升至 90% 攻击"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：弹雨类武器伤害再次提升 50%，弹幕弹体数提升至 180 发，伤害提升至 180% 攻击"))
+	lines.append(_format_faze_line(level, current_tier, 18, "18阶：弹雨类武器伤害再次提升 120%，弹幕弹体数提升至 270 发，伤害提升至 500% 攻击"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -553,7 +563,7 @@ func _build_bullet_faze_detail(level: int) -> String:
 	return text
 
 func _build_wind_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13]
+	var tiers = [4, 8, 12, 16]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -562,9 +572,9 @@ func _build_wind_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("啸风法则"))
 	lines.append("啸风类武器：气功波，巽风诀，风龙杖")
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：啸风类武器伤害提升 25%，移动速度提升 10%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：啸风类武器伤害再次提升 35%，啸风类武器击中敌人后，为自身添加 1 层【唤风】，每层唤风可以提升自身 0.1% 的攻击速度与移动速度，最多可以叠加 200 层，持续 12 秒"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：啸风类武器伤害再次提升 45%，【唤风】最多叠加层数提升至 500 层"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：啸风类武器伤害再次提升 90%，拥有的每层【唤风】会提升啸风类武器对精英，首领 0.5% 的伤害"))
+	lines.append(_format_faze_line(level, current_tier, 8, "8阶：啸风类攻击速度提升 25%，啸风类武器击中敌人后，为自身添加 1 层【唤风】，每层唤风可以提升自身 0.1% 的攻击速度与移动速度，最多可以叠加 200 层，持续 12 秒"))
+	lines.append(_format_faze_line(level, current_tier, 12, "12阶：啸风类武器伤害再次提升 40%，【唤风】最多叠加层数提升至 300 层"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：啸风类武器伤害再次提升 90%，拥有的每层【唤风】会提升啸风类武器对精英，首领 0.5% 的伤害"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -573,7 +583,7 @@ func _build_wind_faze_detail(level: int) -> String:
 	return text
 
 func _build_thunder_faze_detail(level: int) -> String:
-	var tiers = [4, 6, 8, 11]
+	var tiers = [4, 7, 11, 14]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -582,9 +592,9 @@ func _build_thunder_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("鸣雷法则"))
 	lines.append("鸣雷系武器：天雷破，震雷诀")
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：鸣雷系武器伤害提升 20% ，感电伤害提升 40%"))
-	lines.append(_format_faze_line(level, current_tier, 6, "6阶：对感电状态下的敌人，鸣雷系武器伤害再次提升 60%"))
-	lines.append(_format_faze_line(level, current_tier, 8, "8阶：感电伤害再次提升 100% ，感电对精英、首领的伤害额外提升 100%"))
-	lines.append(_format_faze_line(level, current_tier, 11, "11阶：鸣雷系武器伤害再次提升 80% ，感电对精英、首领的额外伤害增加到 300%"))
+	lines.append(_format_faze_line(level, current_tier, 7, "7阶：对感电状态下的敌人，鸣雷系武器伤害再次提升 60%"))
+	lines.append(_format_faze_line(level, current_tier, 11, "11阶：感电伤害再次提升 100% ，感电对精英、首领的伤害额外提升 100%"))
+	lines.append(_format_faze_line(level, current_tier, 14, "14阶：鸣雷系武器伤害再次提升 160% ，感电对精英、首领的额外伤害增加到 300%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -593,17 +603,18 @@ func _build_thunder_faze_detail(level: int) -> String:
 	return text
 
 func _build_heal_faze_detail(level: int) -> String:
-	var tiers = [4, 6, 8, 11]
+	var tiers = [4, 7, 11, 14]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
 			current_tier = tier
 	var lines: Array = []
 	lines.append(_build_law_title("愈疗法则"))
+	lines.append("愈疗系武器：坎水诀，圣光术")
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：治疗与护盾获取加成提升 30%"))
-	lines.append(_format_faze_line(level, current_tier, 6, "6阶：治疗自身或护盾受损后，会向最近的敌人发射弹体，造成 60% 攻击 + 治疗量 2400% /护盾损失 1600% 的伤害，随等级上升，每级提升 10%"))
-	lines.append(_format_faze_line(level, current_tier, 8, "8阶：治疗与护盾加成再次提升 35%，弹体伤害* 150% "))
-	lines.append(_format_faze_line(level, current_tier, 11, "11阶：治疗与护盾加成再次提升 50%，弹体伤害* 600% ，并允许暴击"))
+	lines.append(_format_faze_line(level, current_tier, 7, "7阶：治疗自身或护盾受损后，会向最近的敌人发射弹体，造成 60% 攻击 + 治疗量 2400% /护盾损失 1600% 的伤害，随等级上升，每级提升 10%"))
+	lines.append(_format_faze_line(level, current_tier, 11, "11阶：治疗与护盾加成再次提升 35%，弹体伤害* 150% "))
+	lines.append(_format_faze_line(level, current_tier, 14, "14阶：治疗与护盾加成再次提升 50%，弹体伤害* 600% ，并允许暴击"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -612,7 +623,7 @@ func _build_heal_faze_detail(level: int) -> String:
 	return text
 
 func _build_summon_faze_detail(level: int) -> String:
-	var tiers = [3, 6, 9, 12]
+	var tiers = [3, 6, 10, 14]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -621,8 +632,8 @@ func _build_summon_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("御灵法则"))
 	lines.append(_format_faze_line(level, current_tier, 3, "3阶：召唤物伤害 + 15% ，触发间隔 - 10% "))
 	lines.append(_format_faze_line(level, current_tier, 6, "6阶：最大召唤物容量 + 1 ，召唤物弹体大小 + 20%"))
-	lines.append(_format_faze_line(level, current_tier, 9, "9阶：召唤 1 个不占容量的双极魔剑，召唤物伤害 + 40%"))
-	lines.append(_format_faze_line(level, current_tier, 12, "12阶：召唤 1 个不占容量的陨灭剑灵，召唤物伤害 + 100%，触发间隔 - 30%"))
+	lines.append(_format_faze_line(level, current_tier, 10, "10阶：召唤 1 个不占容量的双极魔剑，召唤物伤害 + 40%"))
+	lines.append(_format_faze_line(level, current_tier, 14, "14阶：召唤 1 个不占容量的陨灭剑灵，召唤物伤害 + 100%，触发间隔 - 30%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -638,6 +649,7 @@ func _build_shield_faze_detail(level: int) -> String:
 			current_tier = tier
 	var lines: Array = []
 	lines.append(_build_law_title("护佑法则"))
+	lines.append("护佑系武器：玄武盾，艮山诀，饮血刀（进化），坎水诀（进化）")
 	lines.append(_format_faze_line(level, current_tier, 3, "3阶：护盾获取加成提升 20% ，最大体力提升 10%"))
 	lines.append(_format_faze_line(level, current_tier, 5, "5阶：最大体力再次提升 25% ，护盾因时间结束消失后，其 30% 会转为生命回复"))
 	lines.append(_format_faze_line(level, current_tier, 7, "7阶：最大体力再次提升 35% ，每存在相当于最大体力 3% 的护盾，获得额外 1% 的减伤率，最高 20%"))
@@ -773,6 +785,9 @@ func handle_lock_button(button_id: int) -> void:
 	# 保存锁定的奖励数据到 level_up_manager
 	if level_up_manager and level_up_manager.current_rewards.has(button_id):
 		level_up_manager.locked_rewards[button_id] = level_up_manager.current_rewards[button_id]
+		print_debug("[Lock] 锁定位置", button_id, ": ", level_up_manager.current_rewards[button_id].reward_name)
+	else:
+		print_debug("[Lock] 锁定失败！current_rewards不包含位置", button_id)
 	
 	# 添加灰色滤镜（通过设置modulate颜色）
 	var tween = target_btn.create_tween()
@@ -1171,167 +1186,167 @@ func init_main_skill(fire_speed_wait_time: float) -> void:
 		skill1.get_node("Timer").stop()
 		return
 	skill1.visible = true
-	skill1.update_skill(1, fire_speed_wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+	skill1.update_skill(1, fire_speed_wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianqi.png")
 
 ## 检查并更新技能图标可见性
 func check_and_update_skill_icons(player_node: Node) -> void:
 	if PC.selected_rewards.has("Swordqi") and PC.first_has_swordqi:
 		skill1.visible = true
-		skill1.update_skill(1, player_node.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+		skill1.update_skill(1, player_node.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianqi.png")
 		PC.first_has_swordqi = false
 
 	if PC.selected_rewards.has("Branch") and PC.first_has_branch:
 		skill2.visible = true
-		skill2.update_skill(2, player_node.branch_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill2.update_skill(2, player_node.branch_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xianzhi.png")
 		PC.first_has_branch = false
 
 	if PC.selected_rewards.has("Moyan") and PC.first_has_moyan:
 		skill3.visible = true
-		skill3.update_skill(3, player_node.moyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/moyan.png")
+		skill3.update_skill(3, player_node.moyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yunshi.png")
 		PC.first_has_moyan = false
 
 	if PC.selected_rewards.has("Riyan") and PC.first_has_riyan:
 		skill4.visible = true
-		skill4.update_skill(4, player_node.riyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/riyan.png")
+		skill4.update_skill(4, player_node.riyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/Ringfire.png")
 		PC.first_has_riyan = false
 
 	if PC.selected_rewards.has("Ringfire") and PC.first_has_ringFire:
 		skill5.visible = true
-		skill5.update_skill(5, player_node.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/ringFire.png")
+		skill5.update_skill(5, player_node.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/lihuo.png")
 		PC.first_has_ringFire = false
 
 	if PC.selected_rewards.has("Thunder") and PC.first_has_thunder:
 		skill6.visible = true
-		skill6.update_skill(6, player_node.thunder_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill6.update_skill(6, player_node.thunder_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/thunder.png")
 		PC.first_has_thunder = false
 
 	if PC.selected_rewards.has("Bloodwave") and not skill7.visible:
 		skill7.visible = true
-		skill7.update_skill(7, player_node.bloodwave_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill7.update_skill(7, player_node.bloodwave_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xueqibo.png")
 	
 	if PC.selected_rewards.has("Bloodboardsword") and PC.first_has_bloodboardsword:
 		skill8.visible = true
-		skill8.update_skill(8, player_node.bloodboardsword_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill8.update_skill(8, player_node.bloodboardsword_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yinxue.png")
 		PC.first_has_bloodboardsword = false
 	
 	if PC.selected_rewards.has("Ice") and not skill9.visible:
 		skill9.visible = true
-		skill9.update_skill(9, player_node.ice_flower_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		skill9.update_skill(9, player_node.ice_flower_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/binghua.png")
 	
 	if PC.selected_rewards.has("Thunderbreak") and PC.first_has_thunder_break:
 		skill10.visible = true
-		skill10.update_skill(10, player_node.thunder_break_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		skill10.update_skill(10, player_node.thunder_break_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/tianleipo2.png")
 		PC.first_has_thunder_break = false
 	
 	if PC.selected_rewards.has("Lightbullet") and PC.first_has_light_bullet:
 		skill11.visible = true
-		skill11.update_skill(11, player_node.light_bullet_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		skill11.update_skill(11, player_node.light_bullet_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/guangdan.png")
 		PC.first_has_light_bullet = false
 	
 	if PC.selected_rewards.has("Water") and PC.first_has_water:
 		skill12.visible = true
-		skill12.update_skill(12, player_node.water_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		skill12.update_skill(12, player_node.water_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/kanshui.png")
 		PC.first_has_water = false
 	
 	if PC.selected_rewards.has("Qiankun") and not skill13.visible:
 		skill13.visible = true
-		skill13.update_skill(13, player_node.qiankun_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		skill13.update_skill(13, player_node.qiankun_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/qiankun.png")
 	
 	if PC.selected_rewards.has("Xuanwu") and not skill14.visible:
 		skill14.visible = true
-		skill14.update_skill(14, player_node.xuanwu_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		skill14.update_skill(14, player_node.xuanwu_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xuanwu.png")
 	
 	if PC.selected_rewards.has("Xunfeng") and not skill15.visible:
 		skill15.visible = true
-		skill15.update_skill(15, player_node.xunfeng_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		skill15.update_skill(15, player_node.xunfeng_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunfeng.png")
 	
 	if PC.selected_rewards.has("Genshan") and PC.first_has_genshan:
 		skill16.visible = true
-		skill16.update_skill(16, player_node.genshan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		skill16.update_skill(16, player_node.genshan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/genshan.png")
 		PC.first_has_genshan = false
 	
 	if PC.selected_rewards.has("Duize") and PC.first_has_duize:
 		skill17.visible = true
-		skill17.update_skill(17, player_node.duize_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		skill17.update_skill(17, player_node.duize_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/duize.png")
 		PC.first_has_duize = false
 	
 	if PC.selected_rewards.has("Holylight") and PC.first_has_holylight:
 		skill18.visible = true
-		skill18.update_skill(18, player_node.holy_light_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		skill18.update_skill(18, player_node.holy_light_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png")
 		PC.first_has_holylight = false
 	
 	if PC.selected_rewards.has("Qigong") and PC.first_has_qigong:
 		skill19.visible = true
-		skill19.update_skill(19, player_node.qigong_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png") # 需要确认是否有冰刺图标，暂时用branch
+		skill19.update_skill(19, player_node.qigong_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/qigong.png")
 		PC.first_has_qigong = false
 
 	if PC.selected_rewards.has("Dragonwind") and PC.first_has_dragonwind:
 		skill20.visible = true
-		skill20.update_skill(20, player_node.dragonwind_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill20.update_skill(20, player_node.dragonwind_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/fenglongzhang.png")
 		PC.first_has_dragonwind = false
 
 
 ## 更新技能冷却时间显示
 func update_skill_cooldowns(player_node: Node) -> void:
 	if PC.selected_rewards.has("Swordqi") and skill1.visible:
-		skill1.update_skill(1, player_node.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png")
+		skill1.update_skill(1, player_node.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianqi.png") # update
 	
 	if PC.selected_rewards.has("Branch") and skill2.visible:
-		skill2.update_skill(2, player_node.branch_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill2.update_skill(2, player_node.branch_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xianzhi.png") # update
 	
 	if PC.selected_rewards.has("Moyan") and skill3.visible:
-		skill3.update_skill(3, player_node.moyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/moyan.png")
+		skill3.update_skill(3, player_node.moyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yunshi.png") # update
 	
 	if PC.selected_rewards.has("Riyan") and skill4.visible:
-		skill4.update_skill(4, player_node.riyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/riyan.png")
+		skill4.update_skill(4, player_node.riyan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/Ringfire.png") # update
 	
 	if PC.selected_rewards.has("Ringfire") and skill5.visible:
-		skill5.update_skill(5, player_node.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/ringFire.png")
+		skill5.update_skill(5, player_node.ringFire_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/lihuo.png") # update
 	
 	if PC.selected_rewards.has("Thunder") and skill6.visible:
-		skill6.update_skill(6, player_node.thunder_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill6.update_skill(6, player_node.thunder_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/thunder.png")
 	
 	if PC.selected_rewards.has("Bloodwave") and skill7.visible:
-		skill7.update_skill(7, player_node.bloodwave_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill7.update_skill(7, player_node.bloodwave_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xueqibo.png")
 	
 	if PC.selected_rewards.has("Bloodboardsword") and skill8.visible:
-		skill8.update_skill(8, player_node.bloodboardsword_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill8.update_skill(8, player_node.bloodboardsword_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yinxue.png")
 
 	if PC.selected_rewards.has("Ice") and skill9.visible:
-		skill9.update_skill(9, player_node.ice_flower_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill9.update_skill(9, player_node.ice_flower_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/binghua.png") # update
 		
 	if PC.selected_rewards.has("Thunderbreak") and skill10.visible:
-		skill10.update_skill(10, player_node.thunder_break_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill10.update_skill(10, player_node.thunder_break_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/tianleipo2.png") # update
 		
 	if PC.selected_rewards.has("Lightbullet") and skill11.visible:
-		skill11.update_skill(11, player_node.light_bullet_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill11.update_skill(11, player_node.light_bullet_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/guangdan.png") # update
 		
 	if PC.selected_rewards.has("Water") and skill12.visible:
-		skill12.update_skill(12, player_node.water_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill12.update_skill(12, player_node.water_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/kanshui.png") # update
 		
 	if PC.selected_rewards.has("Qiankun") and skill13.visible:
-		skill13.update_skill(13, player_node.qiankun_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill13.update_skill(13, player_node.qiankun_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/qiankun.png") # update
 		
 	if PC.selected_rewards.has("Xuanwu") and skill14.visible:
-		skill14.update_skill(14, player_node.xuanwu_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill14.update_skill(14, player_node.xuanwu_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xuanwu.png") # update
 		
 	if PC.selected_rewards.has("Xunfeng") and skill15.visible:
-		skill15.update_skill(15, player_node.xunfeng_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill15.update_skill(15, player_node.xunfeng_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunfeng.png")
 		
 	if PC.selected_rewards.has("Genshan") and skill16.visible:
-		skill16.update_skill(16, player_node.genshan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill16.update_skill(16, player_node.genshan_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/genshan.png")
 
 	if PC.selected_rewards.has("Duize") and skill17.visible:
-		skill17.update_skill(17, player_node.duize_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill17.update_skill(17, player_node.duize_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/duize.png") # update
 
 	if PC.selected_rewards.has("Holylight") and skill18.visible:
-		skill18.update_skill(18, player_node.holy_light_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill18.update_skill(18, player_node.holy_light_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png") # update
 
 	if PC.selected_rewards.has("Qigong") and skill19.visible:
-		skill19.update_skill(19, player_node.qigong_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill19.update_skill(19, player_node.qigong_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/qigong.png")
 
 	if PC.selected_rewards.has("Dragonwind") and skill20.visible:
-		skill20.update_skill(20, player_node.dragonwind_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/branch.png")
+		skill20.update_skill(20, player_node.dragonwind_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/fenglongzhang.png") # update
 
 func stop_all_skill_cooldowns() -> void:
 	skill1.stop_cooldown()
@@ -1374,7 +1389,7 @@ func show_attr_label() -> void:
 	var text = ""
 	
 	# ===== 基本属性 =====
-	text += "[font_size=17][color=#87CEEB]═══ 基本属性 ═══[/color][/font_size]\n"
+	text += "[font_size=21][color=#87CEEB]═══ 基本属性 ═══[/color][/font_size]\n"
 	text += "攻击：" + str(PC.pc_atk) + "    "
 	text += "HP：" + str(PC.pc_hp) + "/" + str(PC.pc_max_hp) + "\n"
 	text += "攻击速度：+" + str(int(PC.pc_atk_speed * 100)) + "%    "
@@ -1385,7 +1400,7 @@ func show_attr_label() -> void:
 	text += "天命：" + str(PC.now_lunky_level) + "\n"
 	
 	# ===== 次要属性 =====
-	text += "[font_size=17][color=#98FB98]═══ 次要属性 ═══[/color][/font_size]\n"
+	text += "[font_size=21][color=#98FB98]═══ 次要属性 ═══[/color][/font_size]\n"
 	text += "攻击范围：+" + str(int((Global.get_attack_range_multiplier() - 1.0) * 100)) + "%    "
 	text += "体型大小：" + str(int(PC.body_size * 100)) + "%\n"
 	text += "真气获取：+" + str(int(PC.point_multi * 100)) + "%    "
@@ -1401,7 +1416,7 @@ func show_attr_label() -> void:
 	
 	# ===== 技艺 =====
 	if PC.ring_bullet_enabled or PC.wave_bullet_enabled:
-		text += "[font_size=17][color=#DDA0DD]═══ 技艺 ═══[/color][/font_size]\n"
+		text += "[font_size=21][color=#DDA0DD]═══ 技艺 ═══[/color][/font_size]\n"
 		# 技艺·环
 		if PC.ring_bullet_enabled:
 			text += "[color=#FFB6C1]【环】[/color] "
@@ -1418,7 +1433,7 @@ func show_attr_label() -> void:
 	
 	# ===== 召唤物 =====
 	if PC.summon_count > 0 or PC.summon_count_max > 0:
-		text += "[font_size=17][color=#E2CBF7]═══ 召唤物 ═══[/color][/font_size]\n"
+		text += "[font_size=21][color=#E2CBF7]═══ 召唤物 ═══[/color][/font_size]\n"
 		text += "当前数量：" + str(PC.summon_count) + "/" + str(PC.summon_count_max) + "    "
 		text += "伤害倍率：" + str(int(PC.summon_damage_multiplier * 100)) + "%\n"
 		text += "弹体大小：" + str(int(PC.summon_bullet_size_multiplier * 100)) + "%    "
@@ -1449,26 +1464,26 @@ func hide_attr_label() -> void:
 
 func show_skill_label(skill_index: int, player_node: Node) -> void:
 	var skill_data = {
-		1: {"name": "剑气", "level_prop": "main_skill_swordQi", "damage_prop": "main_skill_swordQi_damage", "speed_node": "fire_speed", "tag": "swordqi", "reward_prefixes": ["SplitSwordQi", "RSwordQi", "SRSwordQi", "SSRSwordQi", "URSwordQi"]},
-		2: {"name": "世界树之枝", "level_prop": "main_skill_branch", "damage_prop": "main_skill_branch_damage", "speed_node": "branch_fire_speed", "tag": "branch", "reward_prefixes": ["Branch", "RBranch", "SRBranch", "SSRBranch", "URBranch"]},
-		3: {"name": "魔焰", "level_prop": "main_skill_moyan", "damage_prop": "main_skill_moyan_damage", "speed_node": "moyan_fire_speed", "tag": "moyan", "reward_prefixes": ["Moyan", "Rmoyan", "SRmoyan", "SSRmoyan", "URmoyan"]},
+		1: {"name": "剑气诀", "level_prop": "main_skill_swordQi", "damage_prop": "main_skill_swordQi_damage", "speed_node": "fire_speed", "tag": "swordqi", "reward_prefixes": ["SplitSwordQi", "RSwordQi", "SRSwordQi", "SSRSwordQi", "URSwordQi"]},
+		2: {"name": "仙枝", "level_prop": "main_skill_branch", "damage_prop": "main_skill_branch_damage", "speed_node": "branch_fire_speed", "tag": "branch", "reward_prefixes": ["Branch", "RBranch", "SRBranch", "SSRBranch", "URBranch"]},
+		3: {"name": "爆炎诀", "level_prop": "main_skill_moyan", "damage_prop": "main_skill_moyan_damage", "speed_node": "moyan_fire_speed", "tag": "moyan", "reward_prefixes": ["Moyan", "Rmoyan", "SRmoyan", "SSRmoyan", "URmoyan"]},
 		4: {"name": "赤曜", "level_prop": "main_skill_riyan", "damage_prop": "main_skill_riyan_damage", "speed_node": "riyan_fire_speed", "tag": "riyan", "reward_prefixes": ["Riyan", "RRiyan", "SRRiyan", "SSRRiyan", "URRiyan"]},
-		5: {"name": "炎轮", "level_prop": "main_skill_ringFire", "damage_prop": "main_skill_ringFire_damage", "speed_node": "ringFire_fire_speed", "tag": "ringFire", "reward_prefixes": ["RingFire", "RRingFire", "SRRingFire", "SSRRingFire", "URRingFire"]},
+		5: {"name": "离火诀", "level_prop": "main_skill_ringFire", "damage_prop": "main_skill_ringFire_damage", "speed_node": "ringFire_fire_speed", "tag": "ringFire", "reward_prefixes": ["RingFire", "RRingFire", "SRRingFire", "SSRRingFire", "URRingFire"]},
 		6: {"name": "震雷诀", "level_prop": "main_skill_thunder", "damage_prop": "main_skill_thunder_damage", "speed_node": "thunder_fire_speed", "tag": "thunder", "reward_prefixes": ["Thunder", "RThunder", "SRThunder", "SSRThunder", "URThunder"]},
 		7: {"name": "血气波", "level_prop": "main_skill_bloodwave", "damage_prop": "main_skill_bloodwave_damage", "speed_node": "bloodwave_fire_speed", "tag": "blood_wave", "reward_prefixes": ["Bloodwave", "RBloodwave", "SRBloodwave", "SSRBloodwave", "URBloodwave"]},
-		8: {"name": "血重剑", "level_prop": "main_skill_bloodboardsword", "damage_prop": "main_skill_bloodboardsword_damage", "speed_node": "bloodboardsword_fire_speed", "tag": "blood_broadsword", "reward_prefixes": ["Bloodboardsword", "RBloodboardsword", "SRBloodboardsword", "SSRBloodboardsword", "URBloodboardsword"]},
-		9: {"name": "冰华", "level_prop": "main_skill_ice", "damage_prop": "main_skill_ice_damage", "speed_node": "ice_flower_fire_speed", "tag": "ice_flower", "reward_prefixes": ["Ice", "RIce", "SRIce", "SSRIce", "URIce"]},
+		8: {"name": "饮血剑", "level_prop": "main_skill_bloodboardsword", "damage_prop": "main_skill_bloodboardsword_damage", "speed_node": "bloodboardsword_fire_speed", "tag": "blood_broadsword", "reward_prefixes": ["Bloodboardsword", "RBloodboardsword", "SRBloodboardsword", "SSRBloodboardsword", "URBloodboardsword"]},
+		9: {"name": "冰刺术", "level_prop": "main_skill_ice", "damage_prop": "main_skill_ice_damage", "speed_node": "ice_flower_fire_speed", "tag": "ice_flower", "reward_prefixes": ["Ice", "RIce", "SRIce", "SSRIce", "URIce"]},
 		10: {"name": "天雷破", "level_prop": "main_skill_thunder_break", "damage_prop": "main_skill_thunder_break_damage", "speed_node": "thunder_break_fire_speed", "tag": "thunder_break", "reward_prefixes": ["ThunderBreak", "Thunderbreak", "RThunderBreak", "SRThunderBreak", "SSRThunderBreak", "URThunderBreak", "RThunderbreak", "SRThunderbreak", "SSRThunderbreak", "URThunderbreak"]},
 		11: {"name": "光弹", "level_prop": "main_skill_light_bullet", "damage_prop": "main_skill_light_bullet_damage", "speed_node": "light_bullet_fire_speed", "tag": "light_bullet", "reward_prefixes": ["Lightbullet", "RLightbullet", "SRLightbullet", "SSRLightbullet", "URLightbullet"]},
-		12: {"name": "弱水", "level_prop": "main_skill_water", "damage_prop": "main_skill_water_damage", "speed_node": "water_fire_speed", "tag": "water", "reward_prefixes": ["Water", "RWater", "SRWater", "SSRWater", "URWater"]},
-		13: {"name": "乾坤", "level_prop": "main_skill_qiankun", "damage_prop": "main_skill_qiankun_damage", "speed_node": "qiankun_fire_speed", "tag": "qiankun", "reward_prefixes": ["Qiankun", "RQiankun", "SRQiankun", "SSRQiankun", "URQiankun"]},
-		14: {"name": "玄武护体", "level_prop": "main_skill_xuanwu", "damage_prop": "main_skill_xuanwu_damage", "speed_node": "xuanwu_fire_speed", "tag": "xuanwu", "reward_prefixes": ["Xuanwu", "RXuanwu", "SRXuanwu", "SSRXuanwu", "URXuanwu"]},
-		15: {"name": "巽风", "level_prop": "main_skill_xunfeng", "damage_prop": "main_skill_xunfeng_damage", "speed_node": "xunfeng_fire_speed", "tag": "xunfeng", "reward_prefixes": ["Xunfeng", "RXunfeng", "SRXunfeng", "SSRXunfeng", "URXunfeng"]},
-		16: {"name": "艮山", "level_prop": "main_skill_genshan", "damage_prop": "main_skill_genshan_damage", "speed_node": "genshan_fire_speed", "tag": "genshan", "reward_prefixes": ["Genshan", "RGenshan", "SRGenshan", "SSRGenshan", "URGenshan"]},
-		17: {"name": "兑泽", "level_prop": "main_skill_duize", "damage_prop": "main_skill_duize_damage", "speed_node": "duize_fire_speed", "tag": "duize", "reward_prefixes": ["Duize", "RDuize", "SRDuize", "SSRDuize", "URDuize"]},
+		12: {"name": "坎水诀", "level_prop": "main_skill_water", "damage_prop": "main_skill_water_damage", "speed_node": "water_fire_speed", "tag": "water", "reward_prefixes": ["Water", "RWater", "SRWater", "SSRWater", "URWater"]},
+		13: {"name": "乾坤双剑", "level_prop": "main_skill_qiankun", "damage_prop": "main_skill_qiankun_damage", "speed_node": "qiankun_fire_speed", "tag": "qiankun", "reward_prefixes": ["Qiankun", "RQiankun", "SRQiankun", "SSRQiankun", "URQiankun"]},
+		14: {"name": "玄武盾", "level_prop": "main_skill_xuanwu", "damage_prop": "main_skill_xuanwu_damage", "speed_node": "xuanwu_fire_speed", "tag": "xuanwu", "reward_prefixes": ["Xuanwu", "RXuanwu", "SRXuanwu", "SSRXuanwu", "URXuanwu"]},
+		15: {"name": "巽风诀", "level_prop": "main_skill_xunfeng", "damage_prop": "main_skill_xunfeng_damage", "speed_node": "xunfeng_fire_speed", "tag": "xunfeng", "reward_prefixes": ["Xunfeng", "RXunfeng", "SRXunfeng", "SSRXunfeng", "URXunfeng"]},
+		16: {"name": "艮山诀", "level_prop": "main_skill_genshan", "damage_prop": "main_skill_genshan_damage", "speed_node": "genshan_fire_speed", "tag": "genshan", "reward_prefixes": ["Genshan", "RGenshan", "SRGenshan", "SSRGenshan", "URGenshan"]},
+		17: {"name": "兑泽诀", "level_prop": "main_skill_duize", "damage_prop": "main_skill_duize_damage", "speed_node": "duize_fire_speed", "tag": "duize", "reward_prefixes": ["Duize", "RDuize", "SRDuize", "SSRDuize", "URDuize"]},
 		18: {"name": "圣光术", "level_prop": "main_skill_holylight", "damage_prop": "main_skill_holylight_damage", "speed_node": "holy_light_fire_speed", "tag": "holylight", "reward_prefixes": ["Holylight", "RHolylight", "SRHolylight", "SSRHolylight", "URHolylight"]},
 		19: {"name": "气功波", "level_prop": "main_skill_qigong", "damage_prop": "main_skill_qigong_damage", "speed_node": "qigong_fire_speed", "tag": "qigong", "reward_prefixes": ["Qigong", "RQigong", "SRQigong", "SSRQigong", "URQigong"]},
-		20: {"name": "龙卷风", "level_prop": "main_skill_dragonwind", "damage_prop": "main_skill_dragonwind_damage", "speed_node": "dragonwind_fire_speed", "tag": "dragonwind", "reward_prefixes": ["Dragonwind", "RDragonwind", "SRDragonwind", "SSRDragonwind", "URDragonwind"]}
+		20: {"name": "风龙杖", "level_prop": "main_skill_dragonwind", "damage_prop": "main_skill_dragonwind_damage", "speed_node": "dragonwind_fire_speed", "tag": "dragonwind", "reward_prefixes": ["Dragonwind", "RDragonwind", "SRDragonwind", "SSRDragonwind", "URDragonwind"]}
 	}
 
 	if not skill_data.has(skill_index):
@@ -1830,3 +1845,43 @@ func play_warning_animation() -> void:
 	tween.tween_interval(2.0)
 	tween.tween_property(warning_node, "modulate:a", 0.0, 0.5)
 	tween.tween_callback(func(): warning_node.visible = false)
+
+func _build_treasure_faze_detail(level: int) -> String:
+	var tiers = [4, 8, 12, 16]
+	var current_tier = 0
+	for tier in tiers:
+		if level >= tier:
+			current_tier = tier
+	var lines: Array = []
+	lines.append(_build_law_title("宝器法则"))
+	lines.append("宝器类武器：仙枝，风龙杖，玄武盾")
+	lines.append(_format_faze_line(level, current_tier, 4, "4阶：宝器类武器伤害提升 15%，天命提升 4 点"))
+	lines.append(_format_faze_line(level, current_tier, 8, "8阶：天命提升 6 点，每点天命使宝器类武器伤害提升 3%"))
+	lines.append(_format_faze_line(level, current_tier, 12, "12阶：宝器类武器伤害提升 40%，天命提升 8 点，每拥有 20 点天命，升级时会额外获得 1 次刷新次数"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：宝器类武器伤害提升 100%，天命提升 12 点，每点天命使宝器类武器对精英及首领的伤害提升 6%"))
+	var text = ""
+	for i in range(lines.size()):
+		text += lines[i]
+		if i < lines.size() - 1:
+			text += "\n"
+	return text
+
+func _build_chaos_faze_detail(level: int) -> String:
+	var tiers = [2, 4, 6, 9]
+	var current_tier = 0
+	for tier in tiers:
+		if level >= tier:
+			current_tier = tier
+	var lines: Array = []
+	lines.append(_build_law_title("混沌法则"))
+	lines.append("每个达到 4、7 层的法则使混沌法则阶级提升 1，达到 10 层的法则使混沌法则阶级降低 2")
+	lines.append(_format_faze_line(level, current_tier, 2, "2阶：最终伤害、经验获得率提升 20%，真气获取率提升 10%"))
+	lines.append(_format_faze_line(level, current_tier, 4, "4阶：最终伤害、经验获得率再次提升 40%，真气获取率再次提升 20%"))
+	lines.append(_format_faze_line(level, current_tier, 6, "6阶：最终伤害、经验获得率再次提升 80%，真气获取率再次提升 40%"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：最终伤害、经验获得率再次提升 160%，真气获取率再次提升 80%"))
+	var text = ""
+	for i in range(lines.size()):
+		text += lines[i]
+		if i < lines.size() - 1:
+			text += "\n"
+	return text

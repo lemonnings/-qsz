@@ -8,6 +8,7 @@ extends Node2D
 @export var synthesisLayer: CanvasLayer
 @export var studyLayer: CanvasLayer
 @export var heroLayer: CanvasLayer
+@export var jcLayer: CanvasLayer
 
 @export var tip: Node
 
@@ -47,6 +48,10 @@ var ui_states: Dictionary = {}
 
 var player: CharacterBody2D
 const SHOP_LAYER_SCENE := preload("res://Scenes/town/shop_layer.tscn")
+const JC_LAYER_SCENE := preload("res://Scenes/town/jc_layer.tscn")
+var jcLayerInstance: CanvasLayer
+const CHICK_SCENE := preload("res://Scenes/town/animal/chick.tscn")
+const RABBIT_SCENE := preload("res://Scenes/town/animal/rabbit.tscn")
 var shopLayer: CanvasLayer
 
 
@@ -63,6 +68,39 @@ func _ready() -> void:
 	player.change_hero(PC.player_name)
 	
 	defaultLayer.unlock_setting_button()
+	
+	# 播放城镇BGM和环境音
+	Global.emit_signal("stage_bgm", "town")
+
+	# 随机生成小动物
+	_spawn_animals()
+
+## 随机生成小动物（1~2只小鸡和1~2只兔子）
+func _spawn_animals() -> void:
+	var regions = [
+		Rect2(-500, 55, 300, 35), # 区域1: x=-500~-200, y=55~90
+		Rect2(225, 50, 230, 60), # 区域2: x=225~455, y=50~110
+	]
+
+	# var chick_count = randi_range(1, 2)
+	# for i in range(chick_count):
+	# 	var chick = CHICK_SCENE.instantiate()
+	# 	var region = regions[randi() % regions.size()]
+	# 	chick.position = Vector2(
+	# 		randf_range(region.position.x, region.position.x + region.size.x),
+	# 		randf_range(region.position.y, region.position.y + region.size.y)
+	# 	)
+	# 	add_child(chick)
+
+	var rabbit_count = randi_range(1, 2)
+	for i in range(rabbit_count):
+		var rabbit = RABBIT_SCENE.instantiate()
+		var region = regions[randi() % regions.size()]
+		rabbit.position = Vector2(
+			randf_range(region.position.x, region.position.x + region.size.x),
+			randf_range(region.position.y, region.position.y + region.size.y)
+		)
+		add_child(rabbit)
 
 func setup_audio_buses() -> void:
 	# 设置所有音效使用SFX总线
@@ -117,12 +155,50 @@ func setup_audio_buses() -> void:
 	if heroLayer:
 		heroLayer.visible = false
 
+	# 初始化 JC 教程层
+	_ensure_jc_layer()
+
 	Global.emit_signal("reset_camera")
 	Global.connect("press_f", Callable(self , "press_interact"))
 	Global.connect("press_g", Callable(self , "press_interact2"))
 	Global.connect("press_h", Callable(self , "press_interact3"))
 	heroLayer.exit_button.pressed.connect(_on_exit_pressed)
 	_ensure_shop_layer()
+	# 连接 JC 按钮
+	defaultLayer.jc_button.pressed.connect(_on_jc_button_pressed)
+	
+	# 首次进入城镇自动打开教程
+	if not Global.has_visited_town:
+		Global.has_visited_town = true
+		Global.save_game()
+		# 稍作延迟，等场景完全初始化后再打开
+		get_tree().create_timer(0.3).timeout.connect(_on_jc_button_pressed)
+
+func _ensure_jc_layer() -> void:
+	if is_instance_valid(jcLayerInstance):
+		return
+	if jcLayer != null:
+		jcLayerInstance = jcLayer
+	else:
+		jcLayerInstance = JC_LAYER_SCENE.instantiate()
+		add_child(jcLayerInstance)
+	jcLayerInstance.visible = false
+	if jcLayerInstance.has_signal("exit_requested") and not jcLayerInstance.exit_requested.is_connected(_on_exit_pressed):
+		jcLayerInstance.exit_requested.connect(_on_exit_pressed)
+
+func _on_jc_button_pressed() -> void:
+	_ensure_jc_layer()
+	PC.movement_disabled = true
+	defaultLayer.visible = false
+	if dark_overlay:
+		if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
+			ui_tweens["dark_overlay"].kill()
+		ui_tweens["dark_overlay"] = create_tween()
+		dark_overlay.visible = true
+		dark_overlay.modulate.a = 0.0
+		ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
+	if jcLayerInstance.has_method("open_layer"):
+		jcLayerInstance.open_layer()
 
 # UI动画处理函数
 func _ensure_shop_layer() -> void:
@@ -218,7 +294,7 @@ func _process(_delta: float) -> void:
 	
 	if player.global_position.distance_to(merchant.global_position) < interaction_distance + 10:
 		animate_ui_element(merchantTips, "merchantTips", true)
-		merchantTips.change_name("坤
+		merchantTips.change_name("坎
 		<货摊>")
 		merchantTips.change_label1_text("交易 [F]")
 	else:
@@ -227,7 +303,7 @@ func _process(_delta: float) -> void:
 				
 	if player.global_position.distance_to(danlu.global_position) < interaction_distance + 20:
 		animate_ui_element(danluTips, "danluTips", true)
-		danluTips.change_name("兑
+		danluTips.change_name("八卦炉
 		<合成>")
 		danluTips.change_label1_text("合成 [F]")
 		danluTips.change_function2_visible(true)
@@ -495,6 +571,11 @@ func _on_exit_pressed() -> void:
 				if child.has_method("set_modulate"):
 					child.modulate.a = 1.0
 		).set_delay(0.2)
+
+	# jcLayer 由自身的 _close_layer 处理渐出，此处仅需确保它存在时调用
+	if is_instance_valid(jcLayerInstance) and jcLayerInstance.visible:
+		if jcLayerInstance.has_method("_close_layer"):
+			jcLayerInstance._close_layer()
 	
 func _enter_stage(stage_scene_path: String, stage_id: String) -> void:
 	if stage_scene_path.is_empty():

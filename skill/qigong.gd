@@ -152,7 +152,7 @@ static func sync_reward_modifiers() -> void:
 		
 	if PC.selected_rewards.has("Qigong22"):
 		total_damage_bonus += 0.1
-		qigong_electrified_bonus_damage = 0.8
+		qigong_electrified_bonus_damage = 0.45
 		
 	if PC.selected_rewards.has("Qigong33"):
 		qigong_triple_hit_chance = 0.4
@@ -176,7 +176,7 @@ func _physics_process(delta: float) -> void:
 	traveled_distance += movement.length()
 	
 	if traveled_distance >= range_limit:
-		queue_free()
+		_trigger_explosion(null)
 
 func _on_area_entered(area: Area2D) -> void:
 	if is_exploding:
@@ -237,7 +237,10 @@ func _trigger_explosion(direct_hit_target: Area2D) -> void:
 			explore_collision.set_deferred("disabled", false)
 			
 			# 延迟一帧检测范围内的敌人
-			call_deferred("_check_splash_damage", direct_hit_target, hit_target_electrified, direct_hit_target.global_position)
+			var explosion_center = global_position
+			if direct_hit_target and is_instance_valid(direct_hit_target):
+				explosion_center = direct_hit_target.global_position
+			call_deferred("_check_splash_damage", direct_hit_target, hit_target_electrified, explosion_center)
 			
 	else:
 		# 如果没有爆炸动画节点，直接销毁

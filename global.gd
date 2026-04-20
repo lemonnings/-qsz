@@ -5,6 +5,14 @@ const CONFIG_PATH = "user://game_config.cfg"
 const LINGSHI_ITEM_ID := "item_084"
 const DEBUG_F1_ZHENQI_AMOUNT := 1000000
 
+# 测试模式：跳过开屏动画，直接进入游戏
+var is_test: bool = false
+
+# 保存指示器相关
+const SAVE_INDICATOR_SCENE := preload("res://Scenes/global/loading_anime.tscn")
+var _save_indicator_layer: CanvasLayer
+var _save_indicator_tween: Tween
+
 # 关卡难度ID常量。
 # 这里统一用英文ID存数据，显示时再转换成中文，
 # 这样后续存档和代码判断会更稳定，不容易因为中文改字而出问题。
@@ -61,6 +69,9 @@ const STAGE_BASE_MONSTER_HP := {
 
 # 合成界面状态 - 用于禁用缩放等操作
 var in_synthesis: bool = false
+
+# Victory结算吸取阶段标志 - 物品自动飞向玩家时不实际回血
+var victory_collecting: bool = false
 
 
 # 纹章配置管理器
@@ -186,7 +197,7 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 @export var blue_p: float = 73
 
 # 刷新次数
-@export var refresh_max_num: int = 3
+@export var refresh_max_num: int = 999
 
 # 修炼解锁进度Cultivation
 @export var cultivation_unlock_progress: int = 0
@@ -207,14 +218,14 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 @export var cultivation_tongxiao_level: int = 0 # 通晓 - 提升最终伤害
 
 # 修炼等级上限
-@export var cultivation_poxu_level_max: int = 50 
-@export var cultivation_xuanyuan_level_max: int = 50 
-@export var cultivation_liuguang_level_max: int = 25 
-@export var cultivation_hualing_level_max: int = 50 
-@export var cultivation_fengrui_level_max: int = 25 
-@export var cultivation_huti_level_max: int = 25 
-@export var cultivation_zhuifeng_level_max: int = 25 
-@export var cultivation_liejin_level_max: int = 50 
+@export var cultivation_poxu_level_max: int = 50
+@export var cultivation_xuanyuan_level_max: int = 50
+@export var cultivation_liuguang_level_max: int = 25
+@export var cultivation_hualing_level_max: int = 50
+@export var cultivation_fengrui_level_max: int = 25
+@export var cultivation_huti_level_max: int = 25
+@export var cultivation_zhuifeng_level_max: int = 25
+@export var cultivation_liejin_level_max: int = 50
 
 # 玩家修习技能数据
 @export var player_study_data: Dictionary = {
@@ -234,50 +245,50 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 	"dodge": {
 		"level": 1,
 		"learned": [],
-		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/dodge.png"
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanbi.png"
 	},
 	"mizongbu": {
 		"level": 1,
 		"learned": [],
-		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/dodge.png"
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mizongbu.png"
 	},
 	"huanling": {
 		"level": 1,
 		"learned": [],
-		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/random_strike.png"
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mingxiang.png"
 	},
 	"random_strike": {
 		"level": 1,
 		"learned": [],
-		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/random_strike.png"
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/luanji.png"
 	},
 	"beastify": {
 		"level": 1,
 		"learned": [],
-		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/moyan.png"
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shouhua.png"
 	},
 	"heal_hot": {
 		"level": 1,
 		"learned": [],
-		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_heal.png"
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yuliao.png"
 	},
 	"water_sheild": {
 		"level": 1,
 		"learned": [],
-		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_sheild.png"
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shuiliumu.png"
 	},
 	"holy_fire": {
 		"level": 1,
 		"learned": [],
-		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_fire.png"
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png"
 	}
 }
 
 
 @export var player_now_active_skill: Dictionary = {
-	"space": { "name": "holy_fire" },
-	"q": { "name": "water_sheild" },
-	"e": { "name": "heal_hot" }
+	"space": {"name": "dodge"},
+	"q": {"name": "random_strike"},
+	"e": {"name": "beastify"}
 }
 
 # 世界等级
@@ -289,10 +300,11 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 @export var in_town: bool = false
 @export var is_level_up: bool = false
 @export var main_menu_instance: PackedScene = null
+@export var has_visited_town: bool = false
 
 # 信号定义
 @warning_ignore("unused_signal")
-signal player_hit(attacker: Node2D)
+signal player_hit(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String)
 @warning_ignore("unused_signal")
 signal player_lv_up
 @warning_ignore("unused_signal")
@@ -306,8 +318,6 @@ signal monster_damage
 @warning_ignore("unused_signal")
 signal player_heal(heal_value, world_position)
 @warning_ignore("unused_signal")
-signal player_take_damage(damage_val, shield_val, world_position, source_name)
-@warning_ignore("unused_signal")
 signal monster_mechanism_gained
 @warning_ignore("unused_signal")
 signal monster_killed
@@ -318,9 +328,11 @@ signal skill_attack_speed_updated
 @warning_ignore("unused_signal")
 signal start_dialog(dialog_file_path: String)
 @warning_ignore("unused_signal")
-signal boss_bgm
+signal stage_bgm(stage_id: String)
 @warning_ignore("unused_signal")
-signal normal_bgm
+signal stage_ambient(stage_id: String)
+@warning_ignore("unused_signal")
+signal stop_ambient
 @warning_ignore("unused_signal")
 signal zoom_camera
 @warning_ignore("unused_signal")
@@ -416,7 +428,7 @@ signal dps_updated(total_dps: float, weapon_dps: Dictionary)
 # --- DPS 计数逻辑 ---
 var dps_damage_records = [] # [{"damage": float, "time": float, "weapon": String}]
 @export var current_dps: float = 0.0
-var weapon_dps: Dictionary = {} 
+var weapon_dps: Dictionary = {}
 var dps_timer: Timer
 
 # 显示配置
@@ -463,7 +475,7 @@ func _ready():
 	set_process_input(true)
 	monster_damage.connect(_on_monster_damage)
 	player_heal.connect(_on_player_heal)
-	player_take_damage.connect(_on_player_take_damage)
+	player_hit.connect(_on_player_hit)
 	add_child(setting_emblem)
 	add_child(audio_manager)
 	add_child(soft_glow_manager)
@@ -760,11 +772,9 @@ func get_stage_recommended_power(stage_id: String, difficulty_id: String) -> int
 		return 0
 	var base_hp := float(STAGE_BASE_MONSTER_HP.get(stage_id, 0.0))
 	var stat_multiplier := get_stage_difficulty_stat_multiplier(stage_id, difficulty_id)
-	return floor_to_hundred(base_hp * stat_multiplier * 120.0)
+	return floor_to_hundred(base_hp * stat_multiplier * 120.0) - 2200
 
 func _get_effective_normal_monster_bonus() -> float:
-
-
 	if typeof(PC) != TYPE_NIL:
 		return PC.normal_monster_multi
 	return normal_monster_multi
@@ -834,8 +844,56 @@ func apply_enemy_damage_bonus(damage: float, target: Node) -> float:
 		return damage
 	return damage * get_enemy_damage_bonus_multiplier(target)
 
-func save_game():
+## 显示保存指示器动画（右下角，渐进渐出，持续2秒）
+func _show_save_indicator() -> void:
+	# 如果已有动画在播放，先清理
+	if _save_indicator_tween and _save_indicator_tween.is_running():
+		_save_indicator_tween.kill()
+	if _save_indicator_layer and is_instance_valid(_save_indicator_layer):
+		_save_indicator_layer.queue_free()
+	
+	# 创建CanvasLayer确保显示在最上层
+	_save_indicator_layer = CanvasLayer.new()
+	_save_indicator_layer.layer = 100
+	add_child(_save_indicator_layer)
+	
+	# 实例化loading动画场景
+	var indicator = SAVE_INDICATOR_SCENE.instantiate()
+	# 将动画精灵位置设置为容器中心
+	var animated_sprite = indicator.get_child(0) if indicator.get_child_count() > 0 else null
+	if animated_sprite:
+		animated_sprite.position = Vector2(30, 30)
+	
+	# 用Control包裹，通过锚点定位到屏幕右下角
+	var container = Control.new()
+	container.name = "SaveIndicatorContainer"
+	# 锚点到右下角
+	container.anchor_left = 1.0
+	container.anchor_top = 1.0
+	container.anchor_right = 1.0
+	container.anchor_bottom = 1.0
+	container.offset_left = -70
+	container.offset_top = -70
+	container.offset_right = -10
+	container.offset_bottom = -10
+	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	container.modulate.a = 0.0
+	container.add_child(indicator)
+	_save_indicator_layer.add_child(container)
+	
+	# 创建渐进渐出动画：0.3秒淡入 + 1.4秒保持 + 0.3秒淡出 = 2秒
+	_save_indicator_tween = create_tween()
+	_save_indicator_tween.tween_property(container, "modulate:a", 1.0, 0.3)
+	_save_indicator_tween.tween_interval(1.4)
+	_save_indicator_tween.tween_property(container, "modulate:a", 0.0, 0.3)
+	_save_indicator_tween.tween_callback(func():
+		if is_instance_valid(_save_indicator_layer):
+			_save_indicator_layer.queue_free()
+	)
 
+func save_game():
+	# 显示保存指示器动画
+	_show_save_indicator()
 
 	var config = ConfigFile.new()
 	var data = {
@@ -869,6 +927,7 @@ func save_game():
 		"shop_lingshi_unit_price": shop_lingshi_unit_price,
 		"shop_first_entered": shop_first_entered,
 		"shop_saved_items": shop_saved_items,
+		"has_visited_town": has_visited_town,
 		"stage_difficulty_clear_progress": stage_difficulty_clear_progress,
 		"recipe_unlock_progress": recipe_unlock_progress,
 
@@ -877,7 +936,7 @@ func save_game():
 		"unlock_yiqiu": unlock_yiqiu,
 		"unlock_noam": unlock_noam,
 		"unlock_kansel": unlock_kansel,
-		"refresh_max_num": refresh_max_num,		
+		"refresh_max_num": refresh_max_num,
 		"cultivation_unlock_progress": cultivation_unlock_progress,
 		"cultivation_poxu_level": cultivation_poxu_level,
 		"cultivation_xuanyuan_level": cultivation_xuanyuan_level,
@@ -912,7 +971,11 @@ func save_game():
 		"bg_volume": audio_manager.get_bg_volume(),
 		"damage_show_enabled": damage_show_enabled,
 		"damage_show_type": damage_show_type,
-		"particle_enable": particle_enable
+		"particle_enable": particle_enable,
+		"resolution_index": settings_manager.get_current_resolution_index() if settings_manager else 6,
+		"is_fullscreen": settings_manager.is_fullscreen_enabled() if settings_manager else true,
+		"noborder_enabled": settings_manager.is_noborder_enabled() if settings_manager else true,
+		"vignetting_enabled": settings_manager.is_vignetting_enabled() if settings_manager else true,
 	}
 
 	for key in data:
@@ -961,6 +1024,7 @@ func load_game():
 	shop_battle_refresh_count = clampi(int(config.get_value("save", "shop_battle_refresh_count", shop_battle_refresh_count)), 0, refresh_max_num)
 	shop_lingshi_unit_price = max(int(config.get_value("save", "shop_lingshi_unit_price", shop_lingshi_unit_price)), 50)
 	shop_first_entered = bool(config.get_value("save", "shop_first_entered", shop_first_entered))
+	has_visited_town = bool(config.get_value("save", "has_visited_town", false))
 	var loaded_shop_items = config.get_value("save", "shop_saved_items", [])
 	if typeof(loaded_shop_items) == TYPE_ARRAY:
 		shop_saved_items = (loaded_shop_items as Array).duplicate(true)
@@ -976,7 +1040,6 @@ func load_game():
 		lingshi += int(player_inventory[LINGSHI_ITEM_ID])
 		player_inventory.erase(LINGSHI_ITEM_ID)
 	recipe_unlock_progress = config.get_value("save", "recipe_unlock_progress", recipe_unlock_progress)
-
 
 
 	unlock_moning = config.get_value("save", "unlock_moning", true)
@@ -1006,6 +1069,20 @@ func load_game():
 		if not loaded_study_data[p_name].has("zhenqi_points"): loaded_study_data[p_name]["zhenqi_points"] = 100
 	player_study_data = loaded_study_data
 	player_active_skill_data = config.get_value("save", "player_active_skill_data", player_active_skill_data)
+	# 强制修正技能图标路径，防止存档里的旧路径覆盖代码中更新的图标
+	var _skill_icon_table: Dictionary = {
+		"dodge": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanbi.png",
+		"mizongbu": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mizongbu.png",
+		"huanling": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mingxiang.png",
+		"random_strike": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/luanji.png",
+		"beastify": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shouhua.png",
+		"heal_hot": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yuliao.png",
+		"water_sheild": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shuiliumu.png",
+		"holy_fire": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png",
+	}
+	for _sid in _skill_icon_table:
+		if player_active_skill_data.has(_sid):
+			player_active_skill_data[_sid]["icon"] = _skill_icon_table[_sid]
 	player_now_active_skill = config.get_value("save", "player_now_active_skill", player_now_active_skill)
 	max_main_skill_num = config.get_value("save", "max_main_skill_num", 3)
 	max_weapon_num = config.get_value("save", "max_weapon_num", 5)
@@ -1024,6 +1101,17 @@ func load_game():
 	if settings_manager:
 		settings_manager.particle_enabled = particle_enable
 		settings_manager.damage_show_enabled = damage_show_enabled
+		# 从存档加载分辨率、全屏、暗角设置
+		var _res_idx = config.get_value("save", "resolution_index", 6)
+		var _fullscreen = config.get_value("save", "is_fullscreen", true)
+		var _noborder = config.get_value("save", "noborder_enabled", true)
+		var _vignetting = config.get_value("save", "vignetting_enabled", true)
+		settings_manager.current_resolution_index = _res_idx
+		settings_manager.is_fullscreen = _fullscreen
+		settings_manager.noborder_enabled = _noborder
+		settings_manager.vignetting_enabled = _vignetting
+		# 应用设置
+		settings_manager.apply_all_settings()
 
 func reset_battle_modifiers():
 	# 这些字段现在承载局外长期加成（如秘丹效果），进入战斗时不再在这里清空。
@@ -1060,7 +1148,7 @@ func _on_player_heal(heal_value: float, world_position: Vector2):
 		var lbl = _create_damage_label()
 		if lbl: lbl.show_damage_number(9, heal_value, world_position)
 
-func _on_player_take_damage(damage_val: float, shield_val: float, world_position: Vector2, source_name: String = "攻击"):
+func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String = "攻击"):
 	if not damage_show_enabled: return
 	if shield_val > 0:
 		emit_signal("player_shield_damaged", shield_val)

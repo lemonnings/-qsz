@@ -27,7 +27,7 @@ func example_boss_sector_skill():
 		Vector2(500, 300),  # 目标点（决定喷射方向）
 		90.0,               # 扇形角度90度
 		3.0,                # 预警时间3秒
-		100.0,              # 伤害值
+		100.0, "范围伤害",              # 伤害值
 		flame_breath_anim,  # 动画播放器
 		0.5
 	)
@@ -54,7 +54,7 @@ func example_player_targeted_cone():
 		player_pos,         # 目标点（玩家）
 		60.0,               # 锥形角度60度
 		2.5,                # 预警时间
-		120.0,              # 高伤害
+		120.0, "范围伤害",              # 高伤害
 		cone_attack_anim,
 		0.5
 	)
@@ -74,7 +74,7 @@ func example_wide_sweep_attack():
 		Vector2(600, 300),  # 扫击方向
 		120.0,              # 大角度扫击
 		4.0,                # 较长预警时间
-		150.0,              # 高伤害
+		150.0, "范围伤害",              # 高伤害
 		sweep_anim,
 		0.5
 	)
@@ -110,7 +110,7 @@ func example_multi_direction_blast():
 			target_point,       # 方向目标点
 			80.0,               # 扇形角度
 			2.0,                # 预警时间
-			90.0,               # 伤害
+			90.0, "范围伤害",               # 伤害
 			blast_anim,
 			0.5
 		)
@@ -141,7 +141,7 @@ func example_rotating_beam():
 			target_point,
 			45.0,               # 较窄的光束
 			1.5,                # 快速预警
-			70.0,               # 伤害
+			70.0, "范围伤害",               # 伤害
 			rotating_beam_anim,
 			0.5
 		)
@@ -170,7 +170,7 @@ func example_breath_attack_combo():
 			target_pos,
 			angle,              # 逐渐增大的角度
 			2.0,                # 预警时间
-			80.0 + i * 20.0,    # 逐渐增大的伤害
+			80.0 + i * 20.0, "范围伤害",    # 逐渐增大的伤害
 			breath_combo_anim,
 			0.5
 		)
@@ -190,7 +190,7 @@ func example_narrow_precision_strike():
 		Vector2(500, 400),  # 目标点
 		20.0,               # 很窄的角度
 		2.0,                # 预警时间
-		200.0,              # 高伤害
+		200.0, "范围伤害",              # 高伤害
 		precision_anim,
 		0.5
 	)

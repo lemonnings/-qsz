@@ -25,6 +25,7 @@ func _process(delta: float) -> void:
 		return
 	if not is_instance_valid(victory_player):
 		victory_attracting = false
+		Global.victory_collecting = false
 		return
 	var items = get_tree().get_nodes_in_group("drop_item")
 	for item in items:
@@ -39,10 +40,12 @@ func start_victory_collect(player: Node2D, speed: float = 100.0, delay: float = 
 	_victory_collect_request_id += 1
 	var request_id = _victory_collect_request_id
 	victory_attracting = false
+	Global.victory_collecting = false
 	victory_player = player
 	victory_speed = speed
 	if delay <= 0.0:
 		victory_attracting = is_instance_valid(player)
+		Global.victory_collecting = victory_attracting
 		return
 	await get_tree().create_timer(delay).timeout
 	if request_id != _victory_collect_request_id:
@@ -52,6 +55,7 @@ func start_victory_collect(player: Node2D, speed: float = 100.0, delay: float = 
 	victory_player = player
 	victory_speed = speed
 	victory_attracting = true
+	Global.victory_collecting = true
 
 func _on_drop_out_item(item_id: String, quantity: int, drop_position: Vector2):
 	_pending_drop_entries.append({
@@ -153,7 +157,7 @@ func _get_rare_color(rare: String) -> Color:
 
 func _build_drop_spread_data(drop_count: int) -> Array:
 	if drop_count <= 1:
-		return [{}]
+		return [ {}]
 	var spread_data: Array = []
 	var base_angle = randf_range(0.0, TAU)
 	var angle_step = TAU / float(drop_count)
@@ -188,7 +192,7 @@ func apply_drop_animation(item_node, animation_data: Dictionary = {}):
 	# 使用 quadratic_bezier 插值模拟弧线
 	# Godot 4.x Tween 属性插值
 	# 主要掉落动画
-	tween.tween_method(Callable(self, "_update_item_position_bezier").bind(item_node, initial_pos, initial_pos + control_offset, final_pos), 0.0, 1.0, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_method(Callable(self , "_update_item_position_bezier").bind(item_node, initial_pos, initial_pos + control_offset, final_pos), 0.0, 1.0, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 # 这个方法被 Tween 调用，用于更新物品位置以形成弧线
 func _update_item_position_bezier(t: float, node, start_pos: Vector2, control_pos: Vector2, end_pos: Vector2):
@@ -205,16 +209,32 @@ func _clamp_position_to_scene_bounds(pos: Vector2) -> Vector2:
 	var current_scene = get_tree().current_scene
 	if not current_scene:
 		return pos
-		
-	# 检查是否为 battle_forest 场景
-	# 可以通过场景文件名或名称来判断，这里假设包含 battle_forest 字符串
-	if "battle_forest" in current_scene.scene_file_path or current_scene.name == "BattleForest":
-		var min_x = -275.0
-		var max_x = 275.0
-		var min_y = 110.0
-		var max_y = 310.0
-		
-		pos.x = clamp(pos.x, min_x, max_x)
-		pos.y = clamp(pos.y, min_y, max_y)
-		
+	
+	# 优先从场景中的 Camera2D 获取边界（每个关卡都已配好 limit）
+	var camera = _find_scene_camera()
+	if camera:
+		pos.x = clamp(pos.x, camera.limit_left + 10, camera.limit_right - 10)
+		pos.y = clamp(pos.y, camera.limit_top + 10, camera.limit_bottom - 10)
+		return pos
+	
 	return pos
+
+## 从当前场景中查找 Camera2D（优先找玩家身上的相机）
+func _find_scene_camera() -> Camera2D:
+	var player_nodes = get_tree().get_nodes_in_group("player")
+	for p in player_nodes:
+		if is_instance_valid(p):
+			var cam = p.find_child("*Camera*", true, false)
+			if cam is Camera2D:
+				return cam
+	# 回退：搜索场景中任意 Camera2D
+	var cameras = get_tree().get_nodes_in_group("_cameras")
+	if not cameras.is_empty():
+		return cameras[0] as Camera2D
+	# 最终回退：从当前场景递归查找
+	if get_tree() == null or get_tree().current_scene == null:
+		return null
+	var all_cameras = get_tree().current_scene.find_children("*Camera*", "Camera2D")
+	if not all_cameras.is_empty():
+		return all_cameras[0] as Camera2D
+	return null

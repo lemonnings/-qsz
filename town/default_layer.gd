@@ -4,6 +4,7 @@ extends CanvasLayer
 @onready var setting_button: Button = $Setting
 @onready var bag_button: Button = $Bag
 @onready var skill_button: Button = $Skill
+@onready var jc_button: Button = $JC
 @onready var main_volume: HSlider = $Panel/MainVolume
 @onready var bgm_volume: HSlider = $Panel/BGMVolume
 @onready var se_volume: HSlider = $Panel/SEVolume
@@ -11,13 +12,14 @@ extends CanvasLayer
 @onready var screen_resolution: OptionButton = $Panel/ScreenResolution
 @onready var full_screen: CheckButton = $Panel/FullScreen
 @onready var vignetting: CheckButton = $Panel/Vignetting
+@onready var noborder: CheckButton = $Panel/Noborder
 @onready var particle: CheckButton = $Panel/Particle
 @onready var damage_show: CheckButton = $Panel/DamageShow
 @onready var damage_type_item: OptionButton = $Panel/DamageTypeItem
 @onready var exit_button: Button = $Panel/Exit2
-@onready var dark_overlay: Control = get_node("../CanvasLayer/DarkOverlay")
-@onready var bag_layer: CanvasLayer = get_node("../BagLayer")
-@onready var skill_setting_layer: CanvasLayer = get_node("../SkillSettingLayer")
+@onready var dark_overlay: Control = get_node_or_null("../CanvasLayer/DarkOverlay")
+@onready var bag_layer: CanvasLayer = get_node_or_null("../BagLayer")
+@onready var skill_setting_layer: CanvasLayer = get_node_or_null("../SkillSettingLayer")
 
 var setting_tween: Tween
 var dark_overlay_tween: Tween
@@ -68,11 +70,6 @@ func setup_settings_ui() -> void:
 	bg_volume.value = Global.audio_manager.get_bg_volume()
 	bg_volume.value_changed.connect(_on_bg_volume_changed)
 
-	screen_resolution.clear()
-	screen_resolution.add_item("1024 × 576")
-	screen_resolution.add_item("1366 × 768")
-	screen_resolution.add_item("1920 × 1080")
-	screen_resolution.add_item("2240 × 1260")
 	screen_resolution.selected = Global.settings_manager.get_current_resolution_index()
 	screen_resolution.item_selected.connect(_on_resolution_selected)
 
@@ -81,6 +78,9 @@ func setup_settings_ui() -> void:
 
 	vignetting.button_pressed = Global.settings_manager.is_vignetting_enabled()
 	vignetting.toggled.connect(_on_vignetting_toggled)
+
+	noborder.button_pressed = Global.settings_manager.is_noborder_enabled()
+	noborder.toggled.connect(_on_noborder_toggled)
 
 	particle.button_pressed = Global.settings_manager.is_particle_enabled()
 	particle.toggled.connect(_on_particle_toggled)
@@ -99,71 +99,93 @@ func setup_settings_ui() -> void:
 
 func _on_main_volume_changed(value: float) -> void:
 	Global.audio_manager.set_master_volume(value)
+	Global.save_game()
 
 func _on_bgm_volume_changed(value: float) -> void:
 	Global.audio_manager.set_bgm_volume(value)
+	Global.save_game()
 
 func _on_se_volume_changed(value: float) -> void:
 	Global.audio_manager.set_sfx_volume(value)
+	Global.save_game()
 
 func _on_resolution_selected(index: int) -> void:
 	Global.settings_manager.set_resolution(index)
+	Global.save_game()
 
 func _on_fullscreen_toggled(pressed: bool) -> void:
 	Global.settings_manager.set_fullscreen(pressed)
+	Global.save_game()
 
 func _on_vignetting_toggled(pressed: bool) -> void:
 	Global.settings_manager.set_vignetting(pressed)
+	Global.save_game()
+
+func _on_noborder_toggled(pressed: bool) -> void:
+	Global.settings_manager.set_noborder(pressed)
+	Global.save_game()
 
 func _on_particle_toggled(pressed: bool) -> void:
 	Global.settings_manager.set_particle(pressed)
+	Global.save_game()
 
 func _on_damage_show_toggled(pressed: bool) -> void:
 	Global.settings_manager.set_damage_show(pressed)
 	# 禁用伤害跳字时，同时禁用伤害显示格式选项
 	damage_type_item.disabled = not pressed
+	Global.save_game()
 
 func _on_damage_type_selected(index: int) -> void:
 	Global.damage_show_type = index
+	Global.save_game()
 
 func _on_bg_volume_changed(value: float) -> void:
 	Global.audio_manager.set_bg_volume(value)
+	Global.save_game()
 
 func _on_setting_pressed() -> void:
 	if setting.visible:
 		return
-	PC.movement_disabled = true
+	if PC:
+		PC.movement_disabled = true
 	show_dark_overlay()
 	show_setting_panel()
 
 func _on_exit_pressed() -> void:
 	if not setting.visible:
 		return
-	PC.movement_disabled = false
+	if PC:
+		PC.movement_disabled = false
 	hide_dark_overlay()
 	hide_setting_panel()
 
 func _on_bag_pressed() -> void:
-	if bag_layer.visible:
+	if bag_layer == null or bag_layer.visible:
 		return
-	PC.movement_disabled = true
+	if PC:
+		PC.movement_disabled = true
 	show_dark_overlay()
 	show_bag_layer()
 
 func _on_skill_pressed() -> void:
-	if skill_setting_layer.visible:
+	if skill_setting_layer == null or skill_setting_layer.visible:
 		return
-	PC.movement_disabled = true
+	if PC:
+		PC.movement_disabled = true
 	show_dark_overlay()
 	show_skill_layer()
 
 func show_dark_overlay() -> void:
+	if dark_overlay == null:
+		return
 	dark_overlay_tween = reset_tween(dark_overlay_tween)
 	dark_overlay.visible = true
 	dark_overlay.modulate.a = 0.0
 	dark_overlay_tween.tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
 
 func hide_dark_overlay() -> void:
+	if dark_overlay == null:
+		return
 	dark_overlay_tween = reset_tween(dark_overlay_tween)
 	dark_overlay_tween.tween_property(dark_overlay, "modulate:a", 0.0, 0.2)
 	dark_overlay_tween.tween_callback(func():

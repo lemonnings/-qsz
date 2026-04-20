@@ -96,7 +96,7 @@ var recipes_data = {
 	"recipe_014": {
 		"recipe_name": "破阵散",
 		"recipe_description": "使破虚（攻击）修炼上限提升2阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huamaidan.png",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/ruifeng.png",
 		"category": "yijie",
 		"required_items": [
 			{"item_id": "item_002", "count": 5},
@@ -109,7 +109,7 @@ var recipes_data = {
 	"recipe_015": {
 		"recipe_name": "固元散",
 		"recipe_description": "使玄元（HP）修炼上限提升2阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xuanludan.png",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jinshen1.png",
 		"category": "yijie",
 		"required_items": [
 			{"item_id": "item_045", "count": 5},
@@ -122,7 +122,7 @@ var recipes_data = {
 	"recipe_016": {
 		"recipe_name": "明光散",
 		"recipe_description": "使流光（攻速）修炼上限提升1阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xunfengdan.png",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/liuguang.png",
 		"category": "yijie",
 		"required_items": [
 			{"item_id": "item_003", "count": 5},
@@ -135,7 +135,7 @@ var recipes_data = {
 	"recipe_017": {
 		"recipe_name": "引灵散",
 		"recipe_description": "使化灵（灵气获取）修炼上限提升2阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jilingdan.png",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/hualing.png",
 		"category": "yijie",
 		"required_items": [
 			{"item_id": "item_002", "count": 5},
@@ -148,7 +148,7 @@ var recipes_data = {
 	"recipe_018": {
 		"recipe_name": "磨锋散",
 		"recipe_description": "使锋锐（暴击率）修炼上限提升1阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huolingjing.png",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/liejin.png",
 		"category": "yijie",
 		"required_items": [
 			{"item_id": "item_044", "count": 5},
@@ -161,7 +161,7 @@ var recipes_data = {
 	"recipe_019": {
 		"recipe_name": "铁骨散",
 		"recipe_description": "使护体（减伤率）修炼上限提升1阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jiake.png",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huti.png",
 		"category": "yijie",
 		"required_items": [
 			{"item_id": "item_023", "count": 5},
@@ -174,7 +174,7 @@ var recipes_data = {
 	"recipe_020": {
 		"recipe_name": "疾步散",
 		"recipe_description": "使追风（移速）修炼上限提升1阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fenglingcao.png",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/zhuifeng2.png",
 		"category": "yijie",
 		"required_items": [
 			{"item_id": "item_003", "count": 5},
@@ -187,7 +187,7 @@ var recipes_data = {
 	"recipe_021": {
 		"recipe_name": "爆烈散",
 		"recipe_description": "使烈劲（暴击伤害）修炼上限提升2阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanhuo.png",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fengrui.png",
 		"category": "yijie",
 		"required_items": [
 			{"item_id": "item_046", "count": 5},

@@ -26,6 +26,8 @@ var aspect_ratio: float = 1.0 # 长宽比，1.0为圆形
 var radius: float = 100.0 # 半径
 var warning_time: float = 2.0 # 预警时间
 var damage: float = 50.0 # 伤害值
+var source_name: String = "范围伤害" # 伤害来源名称
+var attacker: Node2D = null # 实际攻击者，未设置时默认使用自身
 var animation_player: AnimationPlayer = null # 预警结束后播放的动画播放器
 var release_mode: ReleaseMode = ReleaseMode.INSTANT_DAMAGE # 释放模式
 var area_sprite_scene: PackedScene = null # 持续区域显示的精灵场景
@@ -41,8 +43,6 @@ var persistent_area: Area2D = null # 持续区域节点
 var area_sprite: AnimatedSprite2D = null # 区域内的精灵
 var area_timer: Timer = null # 区域持续时间计时器
 var player_in_area: bool = false # 玩家是否在区域内
-var attacker: Node = null # 攻击者引用，用于player_hit信号
-var skill_name: String = "攻击" # 技能名称，用于伤害来源显示
 
 func _ready():
 	# 设置为可暂停模式，升级等暂停期间动画也会暂停
@@ -55,8 +55,8 @@ func _ready():
 	create_warning_shape()
 
 func create_warning_shape():
-	var CircleDrawer = preload("res://Script/util/circle_drawer.gd")
-	warning_shape = CircleDrawer.new()
+	var circle_drawer_script = preload("res://Script/util/circle_drawer.gd")
+	warning_shape = circle_drawer_script.new()
 	add_child(warning_shape)
 	
 	# 设置初始参数
@@ -66,7 +66,7 @@ func create_warning_shape():
 	warning_shape.modulate.a = 0.0
 
 func start_warning(pos: Vector2, _aspect_ratio: float = 1.0, _radius: float = 100.0,
-				  _warning_time: float = 2.0, _damage: float = 50.0, _animation_player: AnimationPlayer = null,
+				  _warning_time: float = 2.0, _damage: float = 50.0, _source_name: String = "范围伤害", _animation_player: AnimationPlayer = null,
 				  _release_mode: ReleaseMode = ReleaseMode.INSTANT_DAMAGE, _area_sprite_scene: PackedScene = null,
 				  _area_duration: float = -1.0, _effect_type: String = ""):
 	# 开始预警
@@ -85,6 +85,7 @@ func start_warning(pos: Vector2, _aspect_ratio: float = 1.0, _radius: float = 10
 	warning_time = _warning_time
 	damage = _damage
 	animation_player = _animation_player
+	source_name = _source_name
 	release_mode = _release_mode
 	area_sprite_scene = _area_sprite_scene
 	area_duration = _area_duration
@@ -112,7 +113,6 @@ func _process(delta):
 		update_warning_visual(progress)
 	else:
 		# 预警结束
-
 		finish_warning()
 
 func update_warning_visual(progress: float):
@@ -194,12 +194,11 @@ func deal_damage_to_player():
 	if PC.invincible:
 		return
 	
-	# 触发受击效果
-	Global.emit_signal("player_hit", attacker)
-	
 	# 计算实际伤害（考虑减伤率）
 	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))
-	PC.apply_damage(actual_damage, skill_name)
+	var hit_source_name := source_name if not source_name.is_empty() else "范围伤害"
+	var final_attacker: Node2D = attacker if is_instance_valid(attacker) else self
+	PC.player_hit(actual_damage, final_attacker, hit_source_name)
 	
 	print("圆形AOE对玩家造成伤害: ", actual_damage)
 	

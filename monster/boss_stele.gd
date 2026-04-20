@@ -7,9 +7,9 @@ var is_attacking: bool = false
 
 # 属性配置
 var speed: float = 0.0 # 石碑不移动
-var hpMax: float = SettingMoster.stone_man("hp") * 20
+var hpMax: float = SettingMoster.stone_man("hp") * 25
 var hp: float = hpMax
-var atk: float = SettingMoster.stone_man("atk") * 1.2
+var atk: float = SettingMoster.stone_man("atk") * 0.9
 var get_point: int = SettingMoster.stone_man("point") * 75
 var get_exp: int = 0
 
@@ -64,6 +64,16 @@ func remove_restrainer_buff():
 func _ready():
 	add_to_group("boss")
 	process_mode = Node.PROCESS_MODE_PAUSABLE
+	# 根据玩家DPS和难度增加Boss HP
+	var dps_multiplier := 5
+	match Global.current_stage_difficulty:
+		Global.STAGE_DIFFICULTY_DEEP:
+			dps_multiplier = 6
+		Global.STAGE_DIFFICULTY_CORE:
+			dps_multiplier = 7
+		Global.STAGE_DIFFICULTY_POETRY:
+			dps_multiplier = 7
+	hpMax += Global.get_current_dps() * dps_multiplier
 	hp = hpMax
 
 	setup_monster_base()
@@ -72,7 +82,7 @@ func _ready():
 	check_action_disabled_on_body_entered = false
 
 	# 设置影子
-	CharacterEffects.create_shadow(self, 60.0, 15.0, 20.0)
+	CharacterEffects.create_shadow(self , 60.0, 15.0, 20.0)
 
 	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "被封印的石碑")
 	Global.emit_signal("boss_hp_bar_show")
@@ -113,7 +123,7 @@ func _finish_skill():
 	if is_instance_valid(PC.player_instance) and is_instance_valid(sprite):
 		# 技能后短暂停留
 		await get_tree().create_timer(0.5).timeout
-		if is_dead: 
+		if is_dead:
 			is_attacking = false
 			return
 		
@@ -187,11 +197,12 @@ func _skill_corrosive_ray():
 	Global.emit_signal("boss_chant_start", "腐蚀射线", 1.5)
 	var warn_l = WarnRectUtil.new(); get_tree().current_scene.add_child(warn_l)
 	var warn_r = WarnRectUtil.new(); get_tree().current_scene.add_child(warn_r)
-	warn_l.attacker = self; warn_r.attacker = self
-	warn_l.skill_name = "腐蚀射线"; warn_r.skill_name = "腐蚀射线"
+	warn_l.attacker = self ; warn_r.attacker = self
+	warn_l.source_name = "腐蚀射线"
+	warn_r.source_name = "腐蚀射线"
 	var ray_width = 160.0
-	warn_l.start_warning(global_position, global_position + Vector2(-800, 0), ray_width, 1.5, atk * 1.2)
-	warn_r.start_warning(global_position, global_position + Vector2(800, 0), ray_width, 1.5, atk * 1.2)
+	warn_l.start_warning(global_position, global_position + Vector2(-800, 0), ray_width, 1.5, atk * 1.2, "腐蚀射线")
+	warn_r.start_warning(global_position, global_position + Vector2(800, 0), ray_width, 1.5, atk * 1.2, "腐蚀射线")
 	
 	await get_tree().create_timer(1.5).timeout
 	if is_dead: return
@@ -219,7 +230,7 @@ func _skill_corrosive_storm():
 		var tw_out = create_tween()
 		tw_out.tween_property(sprite, "modulate:a", 0.0, 0.2)
 		await tw_out.finished
-		if is_dead: 
+		if is_dead:
 			is_attacking = false
 			return
 		
@@ -263,7 +274,7 @@ func _skill_corrosive_storm():
 		_screen_shake(10.0, 0.8)
 		if is_instance_valid(PC.player_instance) and not PC.invincible:
 			var final_dmg = int(atk * 3.0 * (1.0 - PC.damage_reduction_rate))
-			PC.apply_damage(final_dmg, "腐蚀风暴"); Global.emit_signal("player_hit", self)
+			PC.player_hit(int(final_dmg), self , "腐蚀风暴")
 			
 	if is_instance_valid(canvas):
 		var tw2 = create_tween(); tw2.tween_property(filter, "color:a", 0.0, 0.2); tw2.tween_callback(canvas.queue_free)
@@ -278,22 +289,24 @@ func _skill_corrosive_slam():
 	var second_vecs = [Vector2(1, -1), Vector2(-1, 1)] if is_tl_br_first else [Vector2(-1, -1), Vector2(1, 1)]
 	
 	var w1 = WarnSectorUtil.new(); get_tree().current_scene.add_child(w1); var w2 = WarnSectorUtil.new(); get_tree().current_scene.add_child(w2)
-	w1.attacker = self; w2.attacker = self
-	w1.skill_name = "腐蚀下压"; w2.skill_name = "腐蚀下压"
+	w1.attacker = self ; w2.attacker = self
+	w1.source_name = "腐蚀下压"
+	w2.source_name = "腐蚀下压"
 	w1.warning_finished.connect(w1.queue_free); w2.warning_finished.connect(w2.queue_free)
-	w1.start_warning(global_position, global_position + first_vecs[0].normalized() * range_dist, 90.0, 1.0, atk)
-	w2.start_warning(global_position, global_position + first_vecs[1].normalized() * range_dist, 90.0, 1.0, atk)
+	w1.start_warning(global_position, global_position + first_vecs[0].normalized() * range_dist, 90.0, 1.0, atk, "腐蚀下压")
+	w2.start_warning(global_position, global_position + first_vecs[1].normalized() * range_dist, 90.0, 1.0, atk, "腐蚀下压")
 	await get_tree().create_timer(1.0).timeout
 	if is_dead: return
 	_spawn_particles_in_sectors(global_position, [first_vecs[0].angle(), first_vecs[1].angle()], Color(0.05, 0.3, 0.05), 500, range_dist)
 	_screen_shake(4.0, 0.3)
 	
 	var w3 = WarnSectorUtil.new(); get_tree().current_scene.add_child(w3); var w4 = WarnSectorUtil.new(); get_tree().current_scene.add_child(w4)
-	w3.attacker = self; w4.attacker = self
-	w3.skill_name = "腐蚀下压"; w4.skill_name = "腐蚀下压"
+	w3.attacker = self ; w4.attacker = self
+	w3.source_name = "腐蚀下压"
+	w4.source_name = "腐蚀下压"
 	w3.warning_finished.connect(w3.queue_free); w4.warning_finished.connect(w4.queue_free)
-	w3.start_warning(global_position, global_position + second_vecs[0].normalized() * range_dist, 90.0, 1.0, atk)
-	w4.start_warning(global_position, global_position + second_vecs[1].normalized() * range_dist, 90.0, 1.0, atk)
+	w3.start_warning(global_position, global_position + second_vecs[0].normalized() * range_dist, 90.0, 1.0, atk, "腐蚀下压")
+	w4.start_warning(global_position, global_position + second_vecs[1].normalized() * range_dist, 90.0, 1.0, atk, "腐蚀下压")
 	await get_tree().create_timer(1.0).timeout
 	if is_dead: return
 	_spawn_particles_in_sectors(global_position, [second_vecs[0].angle(), second_vecs[1].angle()], Color(0.05, 0.3, 0.05), 500, range_dist)
@@ -310,7 +323,7 @@ func _skill_shadow_tornado():
 		if is_dead: break
 		var p_pos = PC.player_instance.global_position if is_instance_valid(PC.player_instance) else global_position
 		var tornado = _ShadowTornado.new()
-		tornado.global_position = p_pos; tornado.attacker = self; tornado.damage_val = atk * 1.5; tornado.scale = Vector2(0.49, 0.49)
+		tornado.global_position = p_pos; tornado.attacker = self ; tornado.damage_val = atk * 1.5; tornado.scale = Vector2(0.49, 0.49)
 		get_tree().current_scene.add_child(tornado)
 	_finish_skill()
 
@@ -318,7 +331,7 @@ func _skill_shadow_tornado():
 func _skill_shadow_displacement():
 	var active_restrainers = _get_active_restrainers()
 	if active_restrainers.is_empty(): _finish_skill(); return
-	Global.emit_signal("boss_chant_start", "暗影置换", 2.0)
+	Global.emit_signal("boss_chant_start", "暗影置换", 2.5)
 	var target_r = active_restrainers[randi() % active_restrainers.size()]
 	var icon = _TargetIcon.new(); target_r.add_child(icon)
 	await get_tree().create_timer(1.1).timeout
@@ -328,10 +341,10 @@ func _skill_shadow_displacement():
 	var ring_warn = _DisplacementRingWarn.new()
 	ring_warn.global_position = target_r.global_position; ring_warn.inner_rx = DISPLACEMENT_SAFE_RX; ring_warn.inner_ry = DISPLACEMENT_SAFE_RY; ring_warn.outer_radius = DISPLACEMENT_DAMAGE_RADIUS; ring_warn.duration = 0.9
 	get_tree().current_scene.add_child(ring_warn)
-	await get_tree().create_timer(0.9).timeout
+	await get_tree().create_timer(0.8).timeout
 	if is_instance_valid(icon): icon.queue_free()
 	if is_instance_valid(ring_warn): ring_warn.queue_free()
-	if is_dead or not is_instance_valid(target_r): _finish_skill(); return	
+	if is_dead or not is_instance_valid(target_r): _finish_skill(); return
 	
 	disable_contact_damage = true
 	global_position = target_r.global_position; _screen_shake(8.0, 0.5)
@@ -347,7 +360,7 @@ func _skill_shadow_displacement():
 		var d = PC.player_instance.global_position - global_position
 		var inside_safe = (pow(d.x / DISPLACEMENT_SAFE_RX, 2) + pow(d.y / DISPLACEMENT_SAFE_RY, 2)) <= 1.0
 		if not inside_safe and d.length() <= DISPLACEMENT_DAMAGE_RADIUS:
-			PC.apply_damage(int(atk * 1.5 * (1.0 - PC.damage_reduction_rate)), "暗影置换"); Global.emit_signal("player_hit", self)
+			PC.player_hit(int(atk * 1.5 * (1.0 - PC.damage_reduction_rate)), self , "暗影置换")
 			if PC.pc_hp <= 0: PC.player_instance.game_over()
 	
 	await get_tree().create_timer(0.6).timeout
@@ -358,8 +371,8 @@ func _skill_shadow_displacement():
 
 ## 7. 暗影共鸣 (爆炸范围提升50%，读条延长0.8秒)
 func _skill_shadow_resonance():
-	# 原读条2.0s -> 2.8s
-	Global.emit_signal("boss_chant_start", "暗影共鸣", 2.8)
+	# 原读条2.0s -> 3.0s
+	Global.emit_signal("boss_chant_start", "暗影共鸣", 3.0)
 	var points = [global_position]
 	for r in _get_active_restrainers(): points.append(r.global_position)
 	
@@ -370,9 +383,9 @@ func _skill_shadow_resonance():
 		var warn = WarnCircleUtil.new(); get_tree().current_scene.add_child(warn)
 		warn.attacker = self
 		# 设置伤害为0，手动结算以无视 DR
-		warn.start_warning(p, 1.0, resonance_radius, 2.8, 0.0, null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
+		warn.start_warning(p, 1.0, resonance_radius, 3.0, 0.0, "暗影共鸣", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
 		
-	await get_tree().create_timer(2.8).timeout
+	await get_tree().create_timer(3.0).timeout
 	if is_dead: return
 	_screen_shake(7.0, 0.35)
 	
@@ -384,8 +397,7 @@ func _skill_shadow_resonance():
 				hit = true
 				break
 		if hit:
-			PC.apply_damage(int(resonance_damage), "暗影共鸣")
-			Global.emit_signal("player_hit", self)
+			PC.player_hit(int(resonance_damage), self , "暗影共鸣")
 
 	for p in points:
 		_spawn_particles(p, Color(0.7, 0.0, 1.0), 35, resonance_radius)
@@ -405,7 +417,7 @@ func _get_active_restrainers() -> Array:
 
 func _spawn_restrainer():
 	var spawn_pos = global_position
-	var restrainer = _ShadowRestrainer.new(); restrainer.boss = self; restrainer.global_position = spawn_pos; get_tree().current_scene.add_child(restrainer)
+	var restrainer = _ShadowRestrainer.new(); restrainer.boss = self ; restrainer.global_position = spawn_pos; get_tree().current_scene.add_child(restrainer)
 	_spawn_particles(spawn_pos, Color(0.35, 0.0, 0.5), 24, 80.0); _screen_shake(3.0, 0.15)
 	for other in _get_active_restrainers():
 		if other != restrainer and spawn_pos.distance_to(other.global_position) < RESTRAINER_MIN_GAP:
@@ -434,6 +446,12 @@ func _explode_restrainers(r1, r2):
 	if is_instance_valid(r2): r2.queue_free()
 	
 	Global.emit_signal("boss_chant_start", "拘束爆炸", 1.0)
+	# 拘束爆炸判定跟读条同时
+	if is_instance_valid(PC.player_instance) and not PC.invincible:
+		if pos.distance_to(PC.player_instance.global_position) < 800.0:
+			PC.player_hit(int(atk * 4.5 * (1.0 - PC.damage_reduction_rate)), self , "拘束爆炸")
+			if PC.pc_hp <= 0: PC.player_instance.game_over()
+	
 	await get_tree().create_timer(1.0).timeout
 	if is_dead: return
 	
@@ -443,11 +461,6 @@ func _explode_restrainers(r1, r2):
 	var tw_filter = canvas.create_tween(); tw_filter.tween_property(filter, "color:a", 0.0, 0.3); tw_filter.tween_callback(canvas.queue_free)
 	
 	_screen_shake(20.0, 1.0)
-	
-	if is_instance_valid(PC.player_instance) and not PC.invincible:
-		if pos.distance_to(PC.player_instance.global_position) < 800.0:
-			PC.apply_damage(int(atk * 4.5 * (1.0 - PC.damage_reduction_rate)), "拘束爆炸")
-			if PC.pc_hp <= 0: PC.player_instance.game_over()
 			
 	is_attacking = false
 
@@ -455,7 +468,7 @@ func _explode_restrainers(r1, r2):
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
-		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self, true)
+		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self , true)
 		var dmg = get_common_bullet_damage_value(collision_result["final_damage"])
 		Global.emit_signal("boss_hp_bar_take_damage", dmg)
 		hp -= int(dmg); _check_milestones(hp + dmg, hp)
@@ -492,13 +505,13 @@ func apply_knockback(_dir: Vector2, _force: float): pass
 func _spawn_particles(pos: Vector2, color: Color, amount: int, radius: float):
 	for i in range(amount):
 		var p = _PixelDot.new(); p.color = color; p.global_position = pos + Vector2(randf_range(-10, 10), randf_range(-10, 10)); get_tree().current_scene.add_child(p)
-		var target = p.global_position + Vector2.RIGHT.rotated(randf()*TAU) * randf_range(radius*0.3, radius); var tw = p.create_tween().set_parallel(true)
+		var target = p.global_position + Vector2.RIGHT.rotated(randf() * TAU) * randf_range(radius * 0.3, radius); var tw = p.create_tween().set_parallel(true)
 		var dur = randf_range(0.4, 0.7); tw.tween_property(p, "global_position", target, dur).set_ease(Tween.EASE_OUT); tw.tween_property(p, "modulate:a", 0.0, dur); tw.finished.connect(p.queue_free)
 
 func _spawn_particles_in_sectors(pos: Vector2, angles: Array, color: Color, amount: int, range_dist: float):
 	for i in range(amount):
 		var ang_base = angles[randi() % angles.size()]
-		var angle = ang_base + randf_range(-PI/4.0, PI/4.0); var dist = randf_range(50.0, range_dist); var spawn_pos = pos + Vector2(cos(angle), sin(angle)) * dist
+		var angle = ang_base + randf_range(-PI / 4.0, PI / 4.0); var dist = randf_range(50.0, range_dist); var spawn_pos = pos + Vector2(cos(angle), sin(angle)) * dist
 		var p = _PixelDot.new(); p.color = color; p.global_position = spawn_pos; get_tree().current_scene.add_child(p)
 		var target = spawn_pos + Vector2(cos(angle), sin(angle)) * randf_range(20.0, 100.0) * 2.6; var tw = p.create_tween().set_parallel(true)
 		var dur = randf_range(0.6, 1.2); tw.tween_property(p, "global_position", target, dur).set_ease(Tween.EASE_OUT); tw.tween_property(p, "modulate:a", 0.0, dur); tw.finished.connect(p.queue_free)
@@ -515,9 +528,9 @@ class _RayEffect extends Node2D:
 		t += delta; queue_redraw()
 		if t > 0.6: queue_free()
 	func _draw():
-		var a = 1.0 - t/0.6; var c = Color(0.0, 1.0, 0.4, a * 0.7); var inner_c = Color(0.8, 1.0, 0.9, a); var rw = ray_width * a
+		var a = 1.0 - t / 0.6; var c = Color(0.0, 1.0, 0.4, a * 0.7); var inner_c = Color(0.8, 1.0, 0.9, a); var rw = ray_width * a
 		for i in range(-800, 800, 8):
-			var h = rw * randf_range(0.8, 1.0); draw_rect(Rect2(i, -h/2, 8, h), c); var ih = rw * 0.3 * randf_range(0.8, 1.0); draw_rect(Rect2(i, -ih/2, 8, ih), inner_c)
+			var h = rw * randf_range(0.8, 1.0); draw_rect(Rect2(i, -h / 2, 8, h), c); var ih = rw * 0.3 * randf_range(0.8, 1.0); draw_rect(Rect2(i, -ih / 2, 8, ih), inner_c)
 
 class _DisplacementRingWarn extends Node2D:
 	var inner_rx := 101.4
@@ -529,11 +542,11 @@ class _DisplacementRingWarn extends Node2D:
 	func _ready():
 		modulate.a = 0.0
 		var tw = create_tween()
-		tw.tween_property(self, "modulate:a", 1.0, 0.2)
+		tw.tween_property(self , "modulate:a", 1.0, 0.2)
 	
 	func fade_out():
 		var tw = create_tween()
-		tw.tween_property(self, "modulate:a", 0.0, 0.2)
+		tw.tween_property(self , "modulate:a", 0.0, 0.2)
 		tw.tween_callback(self.queue_free)
 	
 	func _process(delta):
@@ -573,11 +586,11 @@ class _DisplacementRingWarn extends Node2D:
 
 class _ShadowRestrainer extends Node2D:
 	var boss: Node
-	var p_in = false; var rx := 20.0; var ry := 15.0; var dot_timer := 0.0
+	var p_in = false; var rx := 16.0; var ry := 12.0; var dot_timer := 0.0
 	func _draw():
-		var c = Color(0.4, 0.0, 0.6, 0.4 + 0.1 * sin(Time.get_ticks_msec()*0.01)); var border_c = Color(0.8, 0.3, 1.0)
-		for x in range(-20, 22, 2):
-			for y in range(-16, 18, 2):
+		var c = Color(0.4, 0.0, 0.6, 0.4 + 0.1 * sin(Time.get_ticks_msec() * 0.01)); var border_c = Color(0.8, 0.3, 1.0)
+		for x in range(-16, 18, 2):
+			for y in range(-12, 14, 2):
 				if (pow(x / rx, 2) + pow(y / ry, 2)) <= 1.0: draw_rect(Rect2(x, y, 2, 2), c)
 		for i in range(32):
 			var angle = i * TAU / 32; var px = round((cos(angle) * rx) / 2.0) * 2.0; var py = round((sin(angle) * ry) / 2.0) * 2.0
@@ -592,7 +605,7 @@ class _ShadowRestrainer extends Node2D:
 				if is_instance_valid(boss): boss.add_restrainer_buff()
 			dot_timer += delta
 			if dot_timer >= 1.0:
-				dot_timer -= 1.0; PC.apply_damage(max(1, int(PC.pc_max_hp * 0.01)), "暗影拘束")
+				dot_timer -= 1.0; PC.player_hit(max(1, int(PC.pc_max_hp * 0.01)), self , "暗影拘束")
 		elif p_in: _clear_restrain_effect()
 	func _exit_tree(): if p_in: _clear_restrain_effect()
 	func _clear_restrain_effect():
@@ -609,13 +622,12 @@ class _ShadowTornado extends Node2D:
 		if active and not has_hit and is_instance_valid(PC.player_instance):
 			if global_position.distance_to(PC.player_instance.global_position) < hit_radius:
 				has_hit = true; _screen_flash_purple()
-				PC.apply_damage(int(damage_val * (1.0 - PC.damage_reduction_rate)), "暗影龙卷")
-				Global.emit_signal("player_hit", attacker); Global.emit_signal("buff_added", "stun", 2.0, 1)
+				PC.player_hit(int(damage_val * (1.0 - PC.damage_reduction_rate)), self , "暗影龙卷")
 				if PC.pc_hp <= 0: PC.player_instance.game_over()
 				queue_free()
 		if t > 20.0 and not fading_out:
 			fading_out = true
-			var tw = create_tween(); tw.tween_property(self, "modulate:a", 0.0, 1.0); tw.tween_callback(self.queue_free)
+			var tw = create_tween(); tw.tween_property(self , "modulate:a", 0.0, 1.0); tw.tween_callback(self.queue_free)
 	func _screen_flash_purple():
 		var canvas = CanvasLayer.new(); canvas.layer = 100; var filter = ColorRect.new(); filter.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		filter.color = Color(0.4, 0.0, 0.6, 0.4); canvas.add_child(filter); get_tree().current_scene.add_child(canvas)

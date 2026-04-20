@@ -14,8 +14,6 @@ var _last_applied_pozhen_crit_damage_bonus: float = 0.0
 var _last_applied_emblem_atk_bonus: float = 0.0
 var _last_applied_emblem_hp_bonus: float = 0.0
 var _last_applied_tafeng_cooldown_bonus: float = 0.0
-var _pending_tiegu_reflect_damage: int = 0
-
 
 #@export var joystick_left : VirtualJoystick
 #
@@ -124,8 +122,6 @@ func _ready() -> void:
 	PC.player_instance = self
 	Global.connect("player_hit", Callable(self , "_on_player_hit"))
 
-	Global.connect("player_take_damage", Callable(self, "_on_player_take_damage"))
-
 	Global.connect("player_healed", Callable(self , "_on_player_healed"))
 	Global.connect("zoom_camera", Callable(self , "_zoom_camera"))
 	Global.connect("reset_camera", Callable(self , "_reset_camera"))
@@ -209,7 +205,6 @@ func _set_all_player_sprites_idle() -> void:
 			hero_sprite.play("idle")
 
 func _cache_beastify_hitbox() -> void:
-
 	var temp = beastify_effect_scene.instantiate()
 	var col: CollisionShape2D = temp.get_node("CollisionShape2D")
 	beastify_hit_shape = col.shape.duplicate()
@@ -388,7 +383,7 @@ func play_boss_defeat_camera_focus(boss_position: Vector2, focus_duration: float
 		return
 	if boss_defeat_camera_tween:
 		boss_defeat_camera_tween.kill()
-		Engine.time_scale = boss_defeat_original_time_scale
+		Engine.time_scale = 1.0
 	boss_defeat_camera_active = true
 	var original_zoom = camera.zoom
 	var original_offset = camera.offset
@@ -403,22 +398,24 @@ func play_boss_defeat_camera_focus(boss_position: Vector2, focus_duration: float
 	camera.offset = original_offset
 	camera.global_position = original_global_position
 	camera.reset_smoothing()
-	boss_defeat_original_time_scale = Engine.time_scale
-	Engine.time_scale = clamp(boss_defeat_original_time_scale * boss_defeat_focus_time_scale, 0.05, boss_defeat_original_time_scale)
+	# 强制保存为1.0，避免闪避减速等干扰导致保存了错误的时间流速
+	boss_defeat_original_time_scale = 1.0
+	Engine.time_scale = boss_defeat_focus_time_scale # 直接设为0.1
 	boss_defeat_camera_tween = create_tween()
 	boss_defeat_camera_tween.set_ignore_time_scale(true)
 	boss_defeat_camera_tween.set_parallel(true)
 	boss_defeat_camera_tween.tween_property(camera, "global_position", focus_target_position, focus_duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	boss_defeat_camera_tween.tween_property(camera, "zoom", focus_zoom, focus_duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	await boss_defeat_camera_tween.finished
-	Engine.time_scale = boss_defeat_original_time_scale
+	Engine.time_scale = 1.0
 	var restore_target_position = _get_clamped_camera_center(global_position, original_zoom.x)
 	boss_defeat_camera_tween = create_tween()
+	boss_defeat_camera_tween.set_ignore_time_scale(true) # 修复：必须忽略时间缩放，确保动画时长不受干扰
 	boss_defeat_camera_tween.set_parallel(true)
 	boss_defeat_camera_tween.tween_property(camera, "global_position", restore_target_position, restore_duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	boss_defeat_camera_tween.tween_property(camera, "zoom", original_zoom, restore_duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	await boss_defeat_camera_tween.finished
-	Engine.time_scale = boss_defeat_original_time_scale
+	Engine.time_scale = 1.0
 	camera.zoom = original_zoom
 	camera.global_position = restore_target_position
 	camera.offset = original_offset
@@ -447,7 +444,7 @@ func _physics_process(_delta: float) -> void:
 			if stacks > 0:
 				var dmg = int(PC.pc_max_hp * 0.01 * stacks)
 				if dmg < 1: dmg = 1
-				PC.apply_damage(dmg, "燃烧")
+				PC.player_hit(dmg, self , "燃烧")
 				if PC.pc_hp <= 0:
 					game_over()
 	else:
@@ -509,7 +506,8 @@ func game_over():
 		Global.save_game()
 		$GameOver.play()
 		animator.play("game_over")
-		get_tree().current_scene.show_game_over()
+		if is_inside_tree() and get_tree().current_scene != null:
+			get_tree().current_scene.show_game_over()
 		$RestartTimer.start()
 
 func enter_victory_state() -> void:
@@ -912,9 +910,9 @@ func _build_water_data() -> Dictionary:
 		
 	# Water4: 流幕
 	if PC.selected_rewards.has("Water4"):
-		# 恢复量提升至2%最大体力，最低2点
+		# 恢复量提升至2%最大体力，最低30点
 		if PC.pc_max_hp > 0:
-			heal_amount = max(2, int(float(PC.pc_max_hp) * 0.02))
+			heal_amount = max(30, int(float(PC.pc_max_hp) * 0.02))
 			
 	# Water11: 水波-迟滞
 	if PC.selected_rewards.has("Water11"):
@@ -1454,9 +1452,11 @@ func _on_fire_detail_holylight() -> void:
 
 func _on_fire_detail_thunder_break() -> void:
 	if not thunder_break_scene:
+		print("[ThunderBreak] ERROR: thunder_break_scene is null!")
 		return
 		
 	var data = _build_thunder_break_data()
+	print("[ThunderBreak] firing: damage=", data.damage, " range=", data.range, " width=", data.width)
 	var spawn_position = global_position
 	var base_direction = Vector2.RIGHT
 	
@@ -1619,7 +1619,6 @@ func find_nearest_enemies_for_thunder(from_position: Vector2, max_range: float, 
 	return results
 
 
-
 func _update_dynamic_emblem_effects() -> void:
 	var emblem_scale = Global.get_emblem_effect_multiplier()
 	
@@ -1673,45 +1672,39 @@ func _update_dynamic_emblem_effects() -> void:
 		_last_applied_tafeng_cooldown_bonus = tafeng_bonus
 
 func reload_scene() -> void:
-
 	if Global.main_menu_instance != null:
-		Global.emit_signal("normal_bgm")
 		# 设置菜单状态
 		Global.in_menu = true
-		SceneChange.change_scene("res://Scenes/main_menu.tscn", true)
+		Global.soft_glow_manager.leave_gameplay()
+		SceneChange.change_scene("res://Scenes/start/main_menu.tscn", true)
 
 
-func _on_player_hit(attacker: Node2D = null) -> void:
+func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, _world_position: Vector2, _source_name: String) -> void:
 	if PC.is_game_over:
 		return
-	var reflected_damage = _pending_tiegu_reflect_damage
-	_pending_tiegu_reflect_damage = 0
-	if reflected_damage > 0:
-		if attacker and is_instance_valid(attacker) and attacker.has_method("take_damage"):
-			attacker.take_damage(reflected_damage, false, false, "reflection")
-		else:
-			var nearest_enemy = find_nearest_enemy()
-			if nearest_enemy and is_instance_valid(nearest_enemy) and nearest_enemy.has_method("take_damage"):
-				nearest_enemy.take_damage(reflected_damage, false, false, "reflection")
+
+	if EmblemManager.has_emblem("tiegu"):
+		var post_reduction_damage = max(0.0, damage_val + shield_val)
+		var damage_reduction_rate = clampf(PC.damage_reduction_rate, 0.0, 0.95)
+		if post_reduction_damage > 0.0 and damage_reduction_rate > 0.0:
+			var prevented_damage = post_reduction_damage * damage_reduction_rate / max(0.0001, 1.0 - damage_reduction_rate)
+			var tiegu_stack = EmblemManager.get_emblem_stack("tiegu")
+			var reflect_ratio = Global.get_scaled_emblem_value(0.75 * tiegu_stack)
+			var reflected_damage = int(round(prevented_damage * reflect_ratio))
+			
+			if reflected_damage > 0:
+				if attacker and is_instance_valid(attacker) and attacker.has_method("take_damage"):
+					attacker.take_damage(reflected_damage, false, false, "reflection")
+				else:
+					var nearest_enemy = find_nearest_enemy()
+					if nearest_enemy and is_instance_valid(nearest_enemy) and nearest_enemy.has_method("take_damage"):
+						nearest_enemy.take_damage(reflected_damage, false, false, "reflection")
 
 	PC.invincible = true
 	invincible_time.start(0.0)
 	if PC.pc_hp > 0:
 		$HitSound.play()
 		sprite.modulate = Color(1, 0.5, 0.5)
-
-func _on_player_take_damage(damage_val: float, shield_val: float, _world_position: Vector2, _source_name: String = "攻击") -> void:
-	_pending_tiegu_reflect_damage = 0
-	if not EmblemManager.has_emblem("tiegu"):
-		return
-	var post_reduction_damage = max(0.0, damage_val + shield_val)
-	var damage_reduction_rate = clampf(PC.damage_reduction_rate, 0.0, 0.95)
-	if post_reduction_damage <= 0.0 or damage_reduction_rate <= 0.0:
-		return
-	var prevented_damage = post_reduction_damage * damage_reduction_rate / max(0.0001, 1.0 - damage_reduction_rate)
-	var tiegu_stack = EmblemManager.get_emblem_stack("tiegu")
-	var reflect_ratio = Global.get_scaled_emblem_value(0.75 * tiegu_stack)
-	_pending_tiegu_reflect_damage = int(round(prevented_damage * reflect_ratio))
 
 
 # 添加新召唤物（当获得召唤物奖励时调用）
@@ -1935,7 +1928,7 @@ func update_skill_attack_speeds() -> void:
 	update_timer_preserve_ratio(branch_fire_speed, 1.5 / total_speed_multiplier)
 	
 	# 魔焰攻击
-	update_timer_preserve_ratio(moyan_fire_speed, 4.0 / total_speed_multiplier)
+	update_timer_preserve_ratio(moyan_fire_speed, 2.5 / total_speed_multiplier)
 	
 	# 日焰攻击
 	update_timer_preserve_ratio(riyan_fire_speed, 1.0 / total_speed_multiplier)
@@ -2179,4 +2172,3 @@ func _spawn_qigong(direction: Vector2, offset: Vector2 = Vector2.ZERO, damage_mu
 	get_tree().current_scene.add_child(qigong_instance)
 	# setup(start_pos: Vector2, direction: Vector2, base_damage: int, damage_multiplier: float = 1.0, options: Dictionary = {})
 	qigong_instance.setup(global_position + offset, direction, PC.pc_atk, damage_multiplier, options)
-

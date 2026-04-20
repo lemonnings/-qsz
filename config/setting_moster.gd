@@ -24,18 +24,18 @@ func _get_new_weapon_hp_multiplier() -> float:
 	if count >= 1:
 		multiplier *= 1.65
 	if count >= 2:
-		multiplier *= 1.35
+		multiplier *= 1.4
 	if count >= 3:
-		multiplier *= 1.25
+		multiplier *= 1.3
 	if count >= 4:
-		multiplier *= 1.2
+		multiplier *= 1.25
 	if count >= 5:
-		multiplier *= 1.15
+		multiplier *= 1.2
 	return multiplier
 
 func _calc_hp(base_hp: float) -> float:
 	var t = float(PC.real_time)
-	var lv_bonus = pow(1.1, PC.pc_lv - 1) # 玩家每升1级，怪物血量提升10%
+	var lv_bonus = pow(1.115, PC.pc_lv - 1) # 玩家每升1级，怪物血量提升11.5%
 	var new_weapon_bonus = _get_new_weapon_hp_multiplier() # 新武器带来的血量加成
 	
 	var first_part = base_hp + t / 8.0
@@ -48,10 +48,10 @@ func _calc_hp(base_hp: float) -> float:
 	var third_jump_time = 240.0
 	var fourth_jump_time = 330.0
 	
-	var first_jump_multiplier = 1.4
+	var first_jump_multiplier = 1.5
 	var second_jump_multiplier = 2.0
-	var third_jump_multiplier = 2.8
-	var fourth_jump_multiplier = 3.8
+	var third_jump_multiplier = 2.6
+	var fourth_jump_multiplier = 3.3
 	
 	var jump_multiplier = 1.0
 	if t < first_jump_time:
@@ -65,7 +65,7 @@ func _calc_hp(base_hp: float) -> float:
 	else:
 		jump_multiplier = fourth_jump_multiplier
 	
-	return first_part * second_part * jump_multiplier * lv_bonus * new_weapon_bonus * _get_current_stage_multiplier()
+	return first_part * second_part * jump_multiplier * lv_bonus * new_weapon_bonus * _get_current_stage_multiplier() * 1.5
 
 
 func _finalize_monster_data(data: Dictionary, query: String):
@@ -80,7 +80,7 @@ func _finalize_monster_data(data: Dictionary, query: String):
 
 func slime_blue(query: String): # 蓝色史莱姆 / 普通怪1
 	var data = {
-		"atk": _calc_atk(150),
+		"atk": _calc_atk(250),
 		"hp": _calc_hp(30),
 		"speed": 42,
 		"exp": 350,
@@ -92,7 +92,7 @@ func slime_blue(query: String): # 蓝色史莱姆 / 普通怪1
 
 func taohua_yao(query: String): # 桃花妖 / 普通怪2
 	var data = {
-		"atk": _calc_atk(180),
+		"atk": _calc_atk(300),
 		"hp": _calc_hp(33),
 		"speed": 36,
 		"exp": 450,
@@ -104,7 +104,7 @@ func taohua_yao(query: String): # 桃花妖 / 普通怪2
 
 func frog(query: String): # 幼体树精 / 远程怪
 	var data = {
-		"atk": _calc_atk(140),
+		"atk": _calc_atk(225),
 		"hp": _calc_hp(27),
 		"speed": 35,
 		"exp": 500,
@@ -118,7 +118,7 @@ func frog(query: String): # 幼体树精 / 远程怪
 
 func lantern(query: String): # 灯笼怪 / 普通怪2
 	var data = {
-		"atk": _calc_atk(225),
+		"atk": _calc_atk(400),
 		"hp": _calc_hp(45),
 		"speed": 38,
 		"exp": 450,
@@ -130,7 +130,7 @@ func lantern(query: String): # 灯笼怪 / 普通怪2
 
 func paper(query: String): # 宣纸精 / 普通怪1
 	var data = {
-		"atk": _calc_atk(245),
+		"atk": _calc_atk(480),
 		"hp": _calc_hp(50),
 		"speed": 42,
 		"exp": 500,
@@ -142,7 +142,7 @@ func paper(query: String): # 宣纸精 / 普通怪1
 
 func bat(query: String): # 草药怪 / 远程怪
 	var data = {
-		"atk": _calc_atk(215),
+		"atk": _calc_atk(320),
 		"hp": _calc_hp(41),
 		"speed": 36,
 		"exp": 600,
@@ -154,7 +154,7 @@ func bat(query: String): # 草药怪 / 远程怪
 
 func slime_grey(query: String): # 灰色史莱姆 / 特殊怪
 	var data = {
-		"atk": _calc_atk(245),
+		"atk": _calc_atk(420),
 		"hp": _calc_hp(50),
 		"speed": 36,
 		"exp": 550,
@@ -168,7 +168,7 @@ func slime_grey(query: String): # 灰色史莱姆 / 特殊怪
 
 func ghost(query: String): # 鬼魂 / 远程怪
 	var data = {
-		"atk": _calc_atk(335),
+		"atk": _calc_atk(600),
 		"hp": _calc_hp(72),
 		"speed": 45,
 		"exp": 500,
@@ -180,7 +180,7 @@ func ghost(query: String): # 鬼魂 / 远程怪
 
 func armor_stone(query: String): # 甲石 / 普通怪1
 	var data = {
-		"atk": _calc_atk(365),
+		"atk": _calc_atk(670),
 		"hp": _calc_hp(90),
 		"speed": 32,
 		"exp": 400,
@@ -192,7 +192,7 @@ func armor_stone(query: String): # 甲石 / 普通怪1
 
 func stone_man(query: String): # 石人 / 特殊怪
 	var data = {
-		"atk": _calc_atk(365),
+		"atk": _calc_atk(600),
 		"hp": _calc_hp(113),
 		"speed": 28,
 		"exp": 550,
@@ -204,7 +204,7 @@ func stone_man(query: String): # 石人 / 特殊怪
 
 func slime_green(query: String): # 绿色史莱姆 / 普通怪2
 	var data = {
-		"atk": _calc_atk(345),
+		"atk": _calc_atk(600),
 		"hp": _calc_hp(99),
 		"speed": 42,
 		"exp": 550,
@@ -218,7 +218,7 @@ func slime_green(query: String): # 绿色史莱姆 / 普通怪2
 
 func shen(query: String): # 参精怪 / 普通怪1
 	var data = {
-		"atk": _calc_atk(600),
+		"atk": _calc_atk(900),
 		"hp": _calc_hp(148),
 		"speed": 42,
 		"exp": 450,
@@ -230,7 +230,7 @@ func shen(query: String): # 参精怪 / 普通怪1
 
 func frog_new(query: String): # 新蛙 / 远程怪
 	var data = {
-		"atk": _calc_atk(580),
+		"atk": _calc_atk(800),
 		"hp": _calc_hp(118),
 		"speed": 35,
 		"exp": 600,
@@ -242,7 +242,7 @@ func frog_new(query: String): # 新蛙 / 远程怪
 
 func ball(query: String): # 弹跳兽 / 特殊怪
 	var data = {
-		"atk": _calc_atk(660),
+		"atk": _calc_atk(900),
 		"hp": _calc_hp(185),
 		"speed": 50,
 		"exp": 500,

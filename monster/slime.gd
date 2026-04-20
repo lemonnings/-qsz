@@ -1,4 +1,4 @@
-﻿extends "res://Script/monster/monster_base.gd"
+extends "res://Script/monster/monster_base.gd"
 
 @onready var sprite = $AnimatedSprite2D
 # 0为从左到右，1为从右向左，2为随机移动，3为靠近角色
@@ -161,4 +161,3 @@ func _on_area_entered(area: Area2D) -> void:
 				$AnimatedSprite2D.play("death")
 		else:
 			Global.play_hit_anime(position, is_crit)
-

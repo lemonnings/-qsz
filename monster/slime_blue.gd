@@ -1,4 +1,4 @@
-﻿extends "res://Script/monster/monster_base.gd"
+extends "res://Script/monster/monster_base.gd"
 
 @onready var sprite = $AnimatedSprite2D
 # 0为从左到右，1为从右向左，2为随机移动，3为靠近角色
@@ -21,6 +21,11 @@ const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 func _ready():
 	setup_monster_base(is_elite)
 	speed = base_speed # Initialize speed
+	# 血条位置向上移动5像素
+	health_bar_offset = Vector2(-15, -20)
+	# 添加阴影
+	var shadow = CharacterEffects.create_shadow(self , 18.0, 6.0, 6.0)
+	shadow.scale = Vector2(0.86, 0.86)
 
 func _physics_process(delta: float) -> void:
 	if hp <= 0:
@@ -155,4 +160,3 @@ func _on_area_entered(area: Area2D) -> void:
 				$AnimatedSprite2D.play("death")
 		else:
 			Global.play_hit_anime(position, is_crit)
-

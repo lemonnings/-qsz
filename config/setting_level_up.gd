@@ -9,7 +9,7 @@ class Reward: # Reward 类定义了单个奖励所包含的所有属性。
 	var rarity: String # 稀有度，例如: white, green, skyblue, darkorchid, gold, red 等。
 	var reward_name: String # 技能/奖励的名称。
 	var if_main_skill: bool # 布尔值，标记这是否是一个主要技能。
-	var icon: String # 指向技能图标资源的路径字符串。
+	var icon: String # 技能图标名称，对应 AssetBundle/Sprites/Sprite sheets/skillIcon/ 下的png文件名（不含扩展名）。
 	var detail: String # 技能/奖励的详细描述文本。
 	var max_acquisitions: int # 该奖励能被玩家获取的最大次数。
 	var faction: String # 奖励所属的派系或类别。
@@ -19,6 +19,13 @@ class Reward: # Reward 类定义了单个奖励所包含的所有属性。
 	var precondition: String # 获取此奖励所需的前置奖励ID，多个ID用逗号分隔。
 	var on_selected: String # 当奖励被选中时，需要调用的函数名称字符串。
 	var tags: String # 标签，用于分类或筛选奖励。多个标签用逗号分隔。
+
+
+# 根据图标名称构建完整的资源路径
+static func get_icon_path(icon_name: String) -> String:
+	if icon_name.is_empty():
+		return ""
+	return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/" + icon_name + ".png"
 
 
 @warning_ignore("unused_signal")
@@ -156,6 +163,12 @@ func _level_up_action():
 	if Faze.manager_instance:
 		Faze.manager_instance.check_and_apply_law_bonuses()
 	
+	# 宝器法则：升级后根据当前天命值给予额外刷新次数
+	var extra_refresh = Faze.get_treasure_extra_refresh_count(PC.faze_treasure_level, PC.lucky)
+	if extra_refresh > 0:
+		PC.refresh_num += extra_refresh
+		print("[宝器法则] 本次升级获得额外刷新次数：", extra_refresh)
+	
 	
 func _select_PC_main_skill_lv(main_skill_name: String) -> int:
 	if main_skill_name == "Swordqi":
@@ -196,6 +209,8 @@ func _select_PC_main_skill_lv(main_skill_name: String) -> int:
 		return PC.main_skill_duize
 	elif main_skill_name == "Holylight":
 		return PC.main_skill_holylight
+	elif main_skill_name == "Dragonwind":
+		return PC.main_skill_dragonwind
 	return 0
 
 
@@ -881,25 +896,25 @@ func reward_UR01():
 	_level_up_action()
 
 func reward_R02():
-	PC.pc_atk = int(PC.pc_atk + 8)
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
 	PC.pc_atk_speed += 0.015
 	EmblemManager.add_emblem("pozhen", 1)
 	_level_up_action()
 
 func reward_SR02():
-	PC.pc_atk = int(PC.pc_atk + 10)
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
 	PC.pc_atk_speed += 0.02
 	EmblemManager.add_emblem("pozhen", 1)
 	_level_up_action()
 
 func reward_SSR02():
-	PC.pc_atk = int(PC.pc_atk + 12)
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
 	PC.pc_atk_speed += 0.025
 	EmblemManager.add_emblem("pozhen", 1)
 	_level_up_action()
 
 func reward_UR02():
-	PC.pc_atk = int(PC.pc_atk + 16)
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
 	PC.pc_atk_speed += 0.05
 	EmblemManager.add_emblem("pozhen", 2)
 	_level_up_action()
@@ -1025,25 +1040,25 @@ func reward_UR07():
 	_level_up_action()
 
 func reward_R08():
-	PC.pc_atk = int(PC.pc_atk + 12)
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.06)
 	PC.pc_speed -= 0.06
 	EmblemManager.add_emblem("manli", 1)
 	_level_up_action()
 
 func reward_SR08():
-	PC.pc_atk = int(PC.pc_atk + 16)
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.07)
 	PC.pc_speed -= 0.07
 	EmblemManager.add_emblem("manli", 1)
 	_level_up_action()
 
 func reward_SSR08():
-	PC.pc_atk = int(PC.pc_atk + 20)
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.08)
 	PC.pc_speed -= 0.08
 	EmblemManager.add_emblem("manli", 1)
 	_level_up_action()
 
 func reward_UR08():
-	PC.pc_atk = int(PC.pc_atk + 28)
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.08)
 	PC.pc_speed -= 0.1
 	EmblemManager.add_emblem("manli", 2)
 	_level_up_action()
@@ -1069,74 +1084,66 @@ func reward_UR09():
 	_level_up_action()
 
 func reward_R10():
-	PC.pc_atk = int(PC.pc_atk + 8)
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
 	EmblemManager.add_emblem("ronghui", 1)
 	_level_up_action()
 
 func reward_SR10():
-	PC.pc_atk = int(PC.pc_atk + 10)
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
 	EmblemManager.add_emblem("ronghui", 1)
 	_level_up_action()
 
 func reward_SSR10():
-	PC.pc_atk = int(PC.pc_atk + 12)
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.06)
 	EmblemManager.add_emblem("ronghui", 1)
 	_level_up_action()
 
 func reward_UR10():
-	PC.pc_atk = int(PC.pc_atk + 16)
+	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.06)
 	EmblemManager.add_emblem("ronghui", 2)
 	_level_up_action()
 
 
 func reward_R12():
-	PC.selected_rewards.append("R12")
 	PC.now_lunky_level += 2
 	Global.emit_signal("lucky_level_up", 2)
 	EmblemManager.add_emblem("jiahu", 1)
 	_level_up_action()
 
 func reward_SR12():
-	PC.selected_rewards.append("SR12")
 	PC.now_lunky_level += 3
 	Global.emit_signal("lucky_level_up", 3)
 	EmblemManager.add_emblem("jiahu", 1)
 	_level_up_action()
 
 func reward_SSR12():
-	PC.selected_rewards.append("SSR12")
 	PC.now_lunky_level += 4
 	Global.emit_signal("lucky_level_up", 4)
 	EmblemManager.add_emblem("jiahu", 1)
 	_level_up_action()
 
 func reward_UR12():
-	PC.selected_rewards.append("UR12")
 	PC.now_lunky_level += 5
 	Global.emit_signal("lucky_level_up", 5)
 	EmblemManager.add_emblem("jiahu", 2)
 	_level_up_action()
 
 func reward_R13():
-	PC.selected_rewards.append("R13")
 	PC.pc_atk_speed += 0.06
 	EmblemManager.add_emblem("guiyuan", 1)
 	_level_up_action()
 
 func reward_SR13():
-	PC.selected_rewards.append("SR13")
 	PC.pc_atk_speed += 0.07
 	EmblemManager.add_emblem("guiyuan", 1)
 	_level_up_action()
 
 func reward_SSR13():
-	PC.selected_rewards.append("SSR13")
 	PC.pc_atk_speed += 0.08
 	EmblemManager.add_emblem("guiyuan", 1)
 	_level_up_action()
 
 func reward_UR13():
-	PC.selected_rewards.append("UR13")
 	PC.pc_atk_speed += 0.08
 	EmblemManager.add_emblem("guiyuan", 2)
 	_level_up_action()
@@ -1222,74 +1229,51 @@ func reward_UR17():
 	_level_up_action()
 
 func reward_R18():
-	var hp_sacrifice = int(PC.pc_max_hp * 0.16)
-	PC.pc_max_hp -= hp_sacrifice
-	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.2)
-	if PC.pc_hp > PC.pc_max_hp:
-		PC.pc_hp = PC.pc_max_hp
+	PC.damage_reduction_rate += 0.02
+	EmblemManager.add_emblem("tiegu", 1)
 	_level_up_action()
 
 func reward_SR18():
-	var hp_sacrifice = int(PC.pc_max_hp * 0.18)
-	PC.pc_max_hp -= hp_sacrifice
-	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.22)
-	if PC.pc_hp > PC.pc_max_hp:
-		PC.pc_hp = PC.pc_max_hp
+	PC.damage_reduction_rate += 0.03
+	EmblemManager.add_emblem("tiegu", 1)
 	_level_up_action()
 
 func reward_SSR18():
-	var hp_sacrifice = int(PC.pc_max_hp * 0.20)
-	PC.pc_max_hp -= hp_sacrifice
-	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.24)
-	if PC.pc_hp > PC.pc_max_hp:
-		PC.pc_hp = PC.pc_max_hp
+	PC.damage_reduction_rate += 0.04
+	EmblemManager.add_emblem("tiegu", 1)
 	_level_up_action()
 
 func reward_UR18():
-	var hp_sacrifice = int(PC.pc_max_hp * 0.24)
-	PC.pc_max_hp -= hp_sacrifice
-	PC.pc_atk = int(PC.pc_atk + hp_sacrifice * 0.28)
-	if PC.pc_hp > PC.pc_max_hp:
-		PC.pc_hp = PC.pc_max_hp
+	PC.damage_reduction_rate += 0.04
+	EmblemManager.add_emblem("tiegu", 2)
 	_level_up_action()
 
 func reward_R19():
 	PC.pc_max_hp = int(PC.pc_max_hp * 1.10)
 	PC.damage_reduction_rate += 0.005
-	var extra_hp_bonus = min(0.20, PC.damage_reduction_rate * 0.004)
+	var extra_hp_bonus = min(0.10, PC.damage_reduction_rate * 0.004)
 	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
 	_level_up_action()
 
 func reward_SR19():
 	PC.pc_max_hp = int(PC.pc_max_hp * 1.11)
 	PC.damage_reduction_rate += 0.01
-	var extra_hp_bonus = min(0.20, PC.damage_reduction_rate * 0.004)
+	var extra_hp_bonus = min(0.10, PC.damage_reduction_rate * 0.004)
 	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
 	_level_up_action()
 
 func reward_SSR19():
 	PC.pc_max_hp = int(PC.pc_max_hp * 1.12)
 	PC.damage_reduction_rate += 0.015
-	var extra_hp_bonus = min(0.20, PC.damage_reduction_rate * 0.004)
+	var extra_hp_bonus = min(0.10, PC.damage_reduction_rate * 0.004)
 	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
 	_level_up_action()
 
 func reward_UR19():
 	PC.pc_max_hp = int(PC.pc_max_hp * 1.14)
 	PC.damage_reduction_rate += 0.025
-	var extra_hp_bonus = min(0.20, PC.damage_reduction_rate * 0.004)
+	var extra_hp_bonus = min(0.10, PC.damage_reduction_rate * 0.004)
 	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
-	_level_up_action()
-
-
-# 五向攻击 (升级三向攻击，但进一步调整属性作为平衡)
-func reward_fiveway():
-	PC.selected_rewards.append("fiveway")
-	Global.emit_signal("buff_removed", "three_way") # 移除三向攻击buff
-	Global.emit_signal("buff_added", "five_way", -1, 1) # 添加五向攻击buff
-	PC.pc_atk = int(PC.pc_atk * 0.9) # 攻击降低10% (相对于当前值，若之前有三向，则是在三向基础上再乘0.9)
-	PC.pc_atk_speed -= 0.15 # 攻击速度降低15%
-	PC.add_attack_range(-0.2) # 攻击范围减少0.2
 	_level_up_action()
 
 func reward_Ice():
@@ -1857,7 +1841,7 @@ func reward_UR32():
 # 获得一个蓝色召唤物
 func reward_R20():
 	PC.summon_count += 1
-	PC.faze_summon_level += 1
+	PC.faze_summon_level += 2
 	PC.selected_rewards.append("blue_summon")
 	# 通知battle场景添加召唤物 (类型0代表蓝色召唤物)
 	var battle_scene = PC.player_instance
@@ -1911,7 +1895,7 @@ func reward_UR23():
 func reward_SR20():
 	PC.summon_count += 1
 	PC.selected_rewards.append("darkorchid_summon")
-	PC.faze_summon_level += 1
+	PC.faze_summon_level += 2
 	PC.new_summon = "darkorchid" # 记录最新获得的召唤物类型
 	# 通知battle场景添加召唤物 (类型1代表紫色召唤物)
 	var battle_scene = PC.player_instance
@@ -1997,7 +1981,7 @@ func reward_UR25():
 func reward_SSR20():
 	PC.summon_count += 1
 	PC.selected_rewards.append("gold_summon")
-	PC.faze_summon_level += 1
+	PC.faze_summon_level += 2
 	PC.new_summon = "gold" # 记录最新获得的召唤物类型
 	# 通知battle场景添加召唤物 (类型2代表橙色/金色召唤物)
 	var battle_scene = PC.player_instance
@@ -2010,7 +1994,7 @@ func reward_SSR20():
 func reward_UR20():
 	PC.summon_count += 1
 	PC.selected_rewards.append("red_summon")
-	PC.faze_summon_level += 1
+	PC.faze_summon_level += 2
 	PC.new_summon = "red" # 记录最新获得的召唤物类型
 	# 通知battle场景添加召唤物 (类型3代表红色召唤物)
 	var battle_scene = PC.player_instance
@@ -2021,18 +2005,21 @@ func reward_UR20():
 # 橙色(金色)召唤物最大数量上限增加1
 func reward_SR26():
 	PC.summon_count_max += 1
+	PC.faze_summon_level += 1
 	PC.summon_damage_multiplier -= 0.15
 	_level_up_action()
 
 # 红色召唤物最大数量上限增加2
 func reward_SSR26():
 	PC.summon_count_max += 1
+	PC.faze_summon_level += 1
 	PC.summon_damage_multiplier -= 0.05
 	_level_up_action()
 
 # 红色召唤物最大数量上限增加2
 func reward_UR26():
 	PC.summon_count_max += 2
+	PC.faze_summon_level += 1
 	PC.summon_damage_multiplier -= 0.15
 	_level_up_action()
 
@@ -2040,7 +2027,7 @@ func reward_UR26():
 func reward_SR21():
 	PC.summon_count += 1
 	PC.selected_rewards.append("darkorchid_heal_summon")
-	PC.faze_summon_level += 1
+	PC.faze_summon_level += 2
 	# 通知battle场景添加召唤物
 	var battle_scene = PC.player_instance
 	if battle_scene and battle_scene.has_method("add_summon"):
@@ -2050,7 +2037,7 @@ func reward_SR21():
 func reward_SSR21():
 	PC.summon_count += 1
 	PC.selected_rewards.append("gold_heal_summon")
-	PC.faze_summon_level += 1
+	PC.faze_summon_level += 2
 	# 通知battle场景添加召唤物
 	var battle_scene = PC.player_instance
 	if battle_scene and battle_scene.has_method("add_summon"):
@@ -2060,7 +2047,7 @@ func reward_SSR21():
 func reward_UR21():
 	PC.summon_count += 1
 	PC.selected_rewards.append("red_heal_summon")
-	PC.faze_summon_level += 1
+	PC.faze_summon_level += 2
 	# 通知battle场景添加召唤物
 	var battle_scene = PC.player_instance
 	if battle_scene and battle_scene.has_method("add_summon"):
@@ -2071,7 +2058,7 @@ func reward_UR21():
 func reward_SR22():
 	PC.summon_count += 1
 	PC.selected_rewards.append("darkorchid_aux_summon")
-	PC.faze_summon_level += 1
+	PC.faze_summon_level += 2
 	# 通知battle场景添加召唤物
 	var battle_scene = PC.player_instance
 	if battle_scene and battle_scene.has_method("add_summon"):
@@ -2081,7 +2068,7 @@ func reward_SR22():
 func reward_SSR22():
 	PC.summon_count += 1
 	PC.selected_rewards.append("gold_aux_summon")
-	PC.faze_summon_level += 1
+	PC.faze_summon_level += 2
 	# 通知battle场景添加召唤物
 	var battle_scene = PC.player_instance
 	if battle_scene and battle_scene.has_method("add_summon"):
@@ -2091,7 +2078,7 @@ func reward_SSR22():
 func reward_UR22():
 	PC.summon_count += 1
 	PC.selected_rewards.append("red_aux_summon")
-	PC.faze_summon_level += 1
+	PC.faze_summon_level += 2
 	# 通知battle场景添加召唤物
 	var battle_scene = PC.player_instance
 	if battle_scene and battle_scene.has_method("add_summon"):
@@ -2299,6 +2286,7 @@ func reward_URBranch():
 
 func reward_Branch1():
 	PC.selected_rewards.append("Branch1")
+	PC.main_skill_branch_damage -= 0.25
 	PC.faze_treasure_level += 1
 	PC.faze_bullet_level += 1
 	_level_up_action()
@@ -2323,6 +2311,7 @@ func reward_Branch4():
 
 func reward_Branch11():
 	PC.selected_rewards.append("Branch11")
+	PC.main_skill_branch_damage -= 0.3
 	PC.faze_treasure_level += 1
 	PC.faze_bullet_level += 1
 	_level_up_action()
@@ -2341,6 +2330,7 @@ func reward_Branch12():
 
 func reward_Branch31():
 	PC.selected_rewards.append("Branch31")
+	PC.main_skill_branch_damage -= 0.1
 	PC.faze_treasure_level += 1
 	PC.faze_bullet_level += 1
 	_level_up_action()
@@ -2828,7 +2818,7 @@ func reward_Xuanwu1():
 	PC.faze_shield_level += 1
 	PC.faze_treasure_level += 1
 	Xuanwu.xuanwu_final_damage_multi += 0.15
-	Xuanwu.xuanwu_shield_base += 2
+	Xuanwu.xuanwu_shield_base += 15
 	Xuanwu.xuanwu_shield_hp_ratio = 0.07
 	_level_up_action()
 
@@ -2845,7 +2835,7 @@ func reward_Xuanwu3():
 	PC.faze_shield_level += 1
 	PC.faze_treasure_level += 1
 	Xuanwu.xuanwu_final_damage_multi += 0.15
-	Xuanwu.xuanwu_shield_base += 4
+	Xuanwu.xuanwu_shield_base += 30
 	Xuanwu.xuanwu_slow_duration = 5.0
 	_level_up_action()
 
@@ -2862,7 +2852,7 @@ func reward_Xuanwu11():
 	PC.faze_shield_level += 1
 	PC.faze_treasure_level += 1
 	Xuanwu.xuanwu_final_damage_multi += 0.1
-	Xuanwu.xuanwu_shield_base += 4
+	Xuanwu.xuanwu_shield_base += 30
 	Xuanwu.xuanwu_shield_bonus_damage = 5.0
 	_level_up_action()
 
@@ -2879,7 +2869,7 @@ func reward_Xuanwu33():
 	PC.faze_shield_level += 1
 	PC.faze_treasure_level += 1
 	Xuanwu.xuanwu_final_damage_multi += 0.2
-	Xuanwu.xuanwu_shield_base += 4
+	Xuanwu.xuanwu_shield_base += 30
 	Xuanwu.xuanwu_width_scale += 0.3
 	_level_up_action()
 
@@ -3017,6 +3007,7 @@ func reward_RDragonWind():
 	PC.pc_atk_speed += 0.024
 	PC.crit_chance += 0.012
 	DragonWind.dragonwind_final_damage_multi += 0.06
+	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
 	_level_up_action()
 
 func reward_SRDragonWind():
@@ -3024,6 +3015,7 @@ func reward_SRDragonWind():
 	PC.pc_atk_speed += 0.028
 	PC.crit_chance += 0.014
 	DragonWind.dragonwind_final_damage_multi += 0.07
+	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
 	_level_up_action()
 
 func reward_SSRDragonWind():
@@ -3031,6 +3023,7 @@ func reward_SSRDragonWind():
 	PC.pc_atk_speed += 0.032
 	PC.crit_chance += 0.016
 	DragonWind.dragonwind_final_damage_multi += 0.08
+	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
 	_level_up_action()
 
 func reward_URDragonWind():
@@ -3038,12 +3031,14 @@ func reward_URDragonWind():
 	PC.pc_atk_speed += 0.04
 	PC.crit_chance += 0.02
 	DragonWind.dragonwind_final_damage_multi += 0.1
+	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
 	_level_up_action()
 
 func reward_DragonWind1():
 	PC.selected_rewards.append("DragonWind1")
 	DragonWind.dragonwind_final_damage_multi += 0.1
 	DragonWind.dragonwind_pull_force *= 1.50
+	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
 	PC.faze_treasure_level += 1
 	PC.faze_wind_level += 1
 	_level_up_action()
@@ -3052,6 +3047,7 @@ func reward_DragonWind2():
 	PC.selected_rewards.append("DragonWind2")
 	DragonWind.dragonwind_final_damage_multi += 0.1
 	DragonWind.dragonwind_range_scale *= 1.4
+	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
 	PC.faze_treasure_level += 1
 	PC.faze_wind_level += 1
 	_level_up_action()
@@ -3060,6 +3056,7 @@ func reward_DragonWind3():
 	PC.selected_rewards.append("DragonWind3")
 	DragonWind.dragonwind_final_damage_multi += 0.1
 	DragonWind.dragonwind_center_bonus_ratio = 1.0
+	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
 	PC.faze_treasure_level += 1
 	PC.faze_wind_level += 1
 	_level_up_action()
@@ -3068,6 +3065,7 @@ func reward_DragonWind4():
 	PC.selected_rewards.append("DragonWind4")
 	DragonWind.dragonwind_final_damage_multi += 0.15
 	DragonWind.dragonwind_slow_duration = 5.0
+	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
 	PC.faze_treasure_level += 1
 	PC.faze_wind_level += 1
 	_level_up_action()
@@ -3077,6 +3075,7 @@ func reward_DragonWind11():
 	DragonWind.dragonwind_final_damage_multi += 0.1
 	DragonWind.dragonwind_pull_force *= 1.20
 	DragonWind.dragonwind_range_scale *= 1.3
+	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
 	PC.faze_treasure_level += 1
 	PC.faze_wind_level += 1
 	_level_up_action()
@@ -3085,6 +3084,7 @@ func reward_DragonWind22():
 	PC.selected_rewards.append("DragonWind22")
 	DragonWind.dragonwind_final_damage_multi += 0.1
 	DragonWind.dragonwind_slow_damage_bonus = 0.50
+	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
 	PC.faze_treasure_level += 1
 	PC.faze_wind_level += 1
 	_level_up_action()
@@ -3508,11 +3508,10 @@ func reward_Six5():
 func reward_Six6():
 	PC.selected_rewards.append("Six6")
 	PC.faze_sixsense_level += 1
-	PC.pc_atk += 16
-	PC.sixsense_base_atk += 5
+	PC.sixsense_base_atk += 0.06
 	_level_up_action()
 
-func check_have_debuff() -> bool:
+func check_have_Debuff() -> bool:
 	if PC.selected_rewards.has("Bloodwave1"): return true
 	if PC.selected_rewards.has("Bloodboardsword"): return true
 	if PC.selected_rewards.has("RingFire4"): return true
@@ -3693,22 +3692,18 @@ func reward_UR40():
 	_level_up_action()
 
 func reward_R41():
-	PC.selected_rewards.append("R41")
 	PC.exp_multi += 0.20
 	_level_up_action()
 
 func reward_SR41():
-	PC.selected_rewards.append("SR41")
 	PC.exp_multi += 0.22
 	_level_up_action()
 
 func reward_SSR41():
-	PC.selected_rewards.append("SSR41")
 	PC.exp_multi += 0.24
 	_level_up_action()
 
 func reward_UR41():
-	PC.selected_rewards.append("UR41")
 	PC.exp_multi += 0.28
 	_level_up_action()
 

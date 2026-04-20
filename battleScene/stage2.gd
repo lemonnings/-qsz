@@ -83,13 +83,16 @@ func _ready() -> void:
 	PC.player_instance = $Player
 	Global.emit_signal("reset_camera")
 	
+	# 播放古蹟BGM和環境音
+	Global.emit_signal("stage_bgm", "ruin")
+	
 	# stage1 特定的相机设置
-	$Player.camera.zoom = Vector2(2.7, 2.7)
-	$Player.min_zoom = 2.5
+	$Player.camera.zoom = Vector2(3, 3)
+	$Player.min_zoom = 2.9
 	
 	map_mechanism_num = 0
 	# map_mechanism_num_max = 1080
-	map_mechanism_num_max = 29
+	map_mechanism_num_max = 21000
 	
 	DpsManager.reset_dps_counter()
 	GU.reset_kill_count()
@@ -175,9 +178,11 @@ func _trigger_boss_event() -> void:
 	_on_warning_finished()
 
 func _on_warning_finished() -> void:
+	if not is_inside_tree():
+		return
 	await get_tree().create_timer(3).timeout
-	
-	Global.emit_signal("boss_bgm", 1)
+	if not is_inside_tree():
+		return
 	
 	# 实例化新的石碑Boss
 	var boss_scene = preload("res://Scenes/moster/boss_stele.tscn")
@@ -186,7 +191,11 @@ func _on_warning_finished() -> void:
 	# 逐步缩放相机
 	for i in range(7):
 		Global.emit_signal("zoom_camera", -0.08)
+		if not is_inside_tree():
+			return
 		await get_tree().create_timer(0.2).timeout
+		if not is_inside_tree():
+			return
 
 	boss_node.position = Vector2(0, 100)
 	get_tree().current_scene.add_child(boss_node)
@@ -262,7 +271,11 @@ func _spawn_wave() -> void:
 			"extra":
 				_spawn_single_grey_slime()
 		if i < spawn_list.size() - 1:
+			if not is_inside_tree():
+				return
 			await get_tree().create_timer(0.1).timeout
+			if not is_inside_tree():
+				return
 
 	monster_spawn_timer.start()
 
@@ -300,7 +313,15 @@ func _get_wave_spawn_count() -> int:
 
 func _update_wave_monster_limit() -> void:
 	var limit_growth = int(float(spawn_count - 1) / float(MONSTER_LIMIT_INCREASE_WAVE_STEP))
-	max_monster_limit = min(INITIAL_MONSTER_LIMIT + limit_growth, MAX_MONSTER_CAP)
+	var base_limit = min(INITIAL_MONSTER_LIMIT + limit_growth, MAX_MONSTER_CAP)
+	
+	var extra_mult = 0.0
+	if PC.selected_rewards.has("UR39"): extra_mult += 0.09
+	elif PC.selected_rewards.has("SSR39"): extra_mult += 0.07
+	elif PC.selected_rewards.has("SR39"): extra_mult += 0.06
+	elif PC.selected_rewards.has("R39"): extra_mult += 0.05
+		
+	max_monster_limit = int(base_limit * (1.0 + extra_mult))
 
 # ============== 动态平衡函数 ==============
 ## 获取当前容量占用率（0.0~1.0+）
@@ -312,13 +333,23 @@ func _get_capacity_ratio() -> float:
 ## 计算出怪数量增量（30%时+100%，60%时+0%，线性衰减）
 func _calculate_spawn_count_multiplier() -> float:
 	var ratio = _get_capacity_ratio()
+	var base_mult = 1.0
 	if ratio >= DYNAMIC_BALANCE_SPAWN_HIGH_THRESHOLD:
-		return 1.0 # 60%及以上，无增量
-	if ratio <= DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD:
-		return 1.0 + DYNAMIC_BALANCE_SPAWN_MAX_BONUS # 30%及以下，+100%增量
-	# 线性衰减：从30%的+100%衰减到60%的+0%
-	var t = (ratio - DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD) / (DYNAMIC_BALANCE_SPAWN_HIGH_THRESHOLD - DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD)
-	return 1.0 + DYNAMIC_BALANCE_SPAWN_MAX_BONUS * (1.0 - t)
+		base_mult = 1.0 # 60%及以上，无增量
+	elif ratio <= DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD:
+		base_mult = 1.0 + DYNAMIC_BALANCE_SPAWN_MAX_BONUS # 30%及以下，+100%增量
+	else:
+		# 线性衰减：从30%的+100%衰减到60%的+0%
+		var t = (ratio - DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD) / (DYNAMIC_BALANCE_SPAWN_HIGH_THRESHOLD - DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD)
+		base_mult = 1.0 + DYNAMIC_BALANCE_SPAWN_MAX_BONUS * (1.0 - t)
+		
+	var extra_mult = 0.0
+	if PC.selected_rewards.has("UR39"): extra_mult += 0.09
+	elif PC.selected_rewards.has("SSR39"): extra_mult += 0.07
+	elif PC.selected_rewards.has("SR39"): extra_mult += 0.06
+	elif PC.selected_rewards.has("R39"): extra_mult += 0.05
+	
+	return base_mult + extra_mult
 
 ## 计算HP削减比例（70%时-10%，100%时-30%，线性增加）
 func _calculate_hp_reduction() -> float:
@@ -341,6 +372,8 @@ func _apply_dynamic_hp_reduction(monster_node: Node) -> void:
 
 
 func _spawn_single_lantern() -> void:
+	if not is_inside_tree() or get_tree().current_scene == null:
+		return
 	var slime_node = lantern_scene.instantiate()
 	slime_node.move_direction = 2 # 朝向角色移动
 	var spawn_edge = randi_range(0, 3)
@@ -365,6 +398,8 @@ func _spawn_single_lantern() -> void:
 	slime_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
 
 func _spawn_single_yao() -> void:
+	if not is_inside_tree() or get_tree().current_scene == null:
+		return
 	if frog_alive >= FROG_MAX:
 		# frog类型已达上限，改为生成普通怪（lantern）
 		_spawn_single_lantern()
@@ -396,6 +431,8 @@ func _spawn_single_yao() -> void:
 	frog_node.connect("tree_exiting", func(): frog_alive = max(0, frog_alive - 1))
 
 func _spawn_single_paper() -> void:
+	if not is_inside_tree() or get_tree().current_scene == null:
+		return
 	var bat_node = paper_scene.instantiate()
 	bat_node.move_direction = 2 # 朝向角色移动
 	var spawn_edge = randi_range(0, 3)
@@ -420,6 +457,8 @@ func _spawn_single_paper() -> void:
 	bat_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
 
 func _spawn_single_grey_slime() -> void:
+	if not is_inside_tree() or get_tree().current_scene == null:
+		return
 	var extra_node = grey_slime_scene.instantiate()
 	extra_node.move_direction = 2 # 朝向角色移动
 	var spawn_edge = randi_range(0, 3)
@@ -541,7 +580,8 @@ func show_game_over():
 	player.stop_all_skill_cooldowns()
 	layer_ui.stop_all_skill_cooldowns()
 	await get_tree().create_timer(2).timeout
-	Global.emit_signal("normal_bgm")
+	if not is_inside_tree():
+		return
 	SceneChange.change_scene("res://Scenes/main_town.tscn", true)
 
 func _on_boss_defeated(_get_point: int, boss_position: Vector2):
@@ -564,12 +604,17 @@ func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 		item_control.start_victory_collect(player, 225.0, 3.0)
 		Global.mark_stage_difficulty_cleared(STAGE_ID, Global.current_stage_difficulty)
 		Global.add_shop_battle_refresh(1)
-		Global.save_game()
 		await player.play_boss_defeat_camera_focus(boss_position)
 
 		await layer_ui.play_victory_sequence()
 
-		Global.emit_signal("normal_bgm")
+		# 等待掉落物全部拾取后再保存，确保背包数据完整
+		if not is_inside_tree():
+			return
+		await get_tree().create_timer(1.0).timeout
+		if not is_inside_tree():
+			return
+		Global.save_game()
 		Global.in_menu = true
 		SceneChange.change_scene("res://Scenes/main_town.tscn", true)
 

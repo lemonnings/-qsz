@@ -33,7 +33,7 @@ func _initialize_emblem_configs():
 	emblem_configs["xueqi"] = EmblemData.new(
 		"xueqi",
 		"血气",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xueqi.png",
 		5,
 		"{base_weapon}攻击附带6*层数%当前HP的伤害，每秒最多触发1次。"
 	)
@@ -42,7 +42,7 @@ func _initialize_emblem_configs():
 	emblem_configs["pozhen"] = EmblemData.new(
 		"pozhen",
 		"破阵",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/pozhen.png",
 		5,
 		"每1%的暴击率会提升0.25*层数%的暴击伤害。"
 	)
@@ -51,7 +51,7 @@ func _initialize_emblem_configs():
 	emblem_configs["tiegu"] = EmblemData.new(
 		"tiegu",
 		"铁骨",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/tiegu.png",
 		5,
 		"受到伤害后，反弹被角色减伤率而降低的75*层数%的伤害。"
 	)
@@ -60,7 +60,7 @@ func _initialize_emblem_configs():
 	emblem_configs["jinghong"] = EmblemData.new(
 		"jinghong",
 		"惊鸿",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/jinghong.png",
 		5,
 		"{base_weapon}每攻击3次，额外攻击1次，该次攻击造成15*层数%的伤害。"
 	)
@@ -69,7 +69,7 @@ func _initialize_emblem_configs():
 	emblem_configs["tafeng"] = EmblemData.new(
 		"tafeng",
 		"踏风",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/tafeng.png",
 		5,
 		"每10%的移动速度加成转化为0.5*层数%的冷却缩减，通过此纹章最多获得25%冷却缩减。"
 	)
@@ -78,7 +78,7 @@ func _initialize_emblem_configs():
 	emblem_configs["chenjing"] = EmblemData.new(
 		"chenjing",
 		"沉静",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/chenjing.png",
 		5,
 		"1秒内没有移动，提升6*层数%的最终伤害。"
 	)
@@ -87,7 +87,7 @@ func _initialize_emblem_configs():
 	emblem_configs["lianti"] = EmblemData.new(
 		"lianti",
 		"炼体",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/lianti.png",
 		5,
 		"每1%的减伤率额外提升0.2*层数%的最终伤害。"
 	)
@@ -96,7 +96,7 @@ func _initialize_emblem_configs():
 	emblem_configs["jianbu"] = EmblemData.new(
 		"jianbu",
 		"健步",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianbu.png",
 		5,
 		"开悟获得的每4%移速可以提升0.5*层数%的攻击与0.5*层数%的体力上限。"
 	)
@@ -105,7 +105,7 @@ func _initialize_emblem_configs():
 	emblem_configs["jiahu"] = EmblemData.new(
 		"jiahu",
 		"加护",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/jiahu.png",
 		5,
 		"开悟获得的每点额外天命可以提升0.3*层数%的攻击与0.3*层数%的体力上限。"
 	)
@@ -114,7 +114,7 @@ func _initialize_emblem_configs():
 	emblem_configs["guiyuan"] = EmblemData.new(
 		"guiyuan",
 		"归元",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/guiyuan.png",
 		5,
 		"开悟获得的每5%攻速可以提升0.3*层数%的攻击与0.3*层数%的体力上限。"
 	)
@@ -123,7 +123,7 @@ func _initialize_emblem_configs():
 	emblem_configs["manli"] = EmblemData.new(
 		"manli",
 		"蛮力",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/manli.png",
 		5,
 		"当移动速度加成<0%时，提升8*层数%的最终伤害。"
 	)
@@ -132,7 +132,7 @@ func _initialize_emblem_configs():
 	emblem_configs["ronghui"] = EmblemData.new(
 		"ronghui",
 		"融会贯通",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/ronghuiguantong.png",
 		5,
 		"当前每拥有一个纹章，提升2*层数%最终伤害。"
 	)
@@ -162,9 +162,8 @@ func get_base_weapon_description(player_name: String = "") -> String:
 	var weapon_info := get_base_weapon_info(player_name)
 	if weapon_info.is_empty():
 		return "基础武器"
-	return "%s（%s）" % [
-		get_base_weapon_display_name(player_name),
-		get_base_weapon_skill_id(player_name)
+	return "%s" % [
+		get_base_weapon_display_name(player_name)
 	]
 
 func _resolve_emblem_description(emblem_id: String, description: String, player_name: String = "") -> String:

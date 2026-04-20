@@ -103,18 +103,21 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	if (damage_type == DamageType.PLAYER_HURT or damage_type == DamageType.SHIELD_ABSORB) and source_name != "":
 		text_to_display = source_name + " " + text_to_display
 	
-	damage_label.scale = damage_label.scale * 0.8
+	# 使用font_size控制大小而非scale缩放，避免像素字体模糊
+	var size_multiplier := 0.8
 	
-	# 整体字号在现有基础上 -2；DOT/护盾类型额外 -2；是万/k时+2，是亿/m时+4
+	# 整体字号在现有基础上乘以缩放因子；DOT/护盾类型额外 -2；是万/k时+2，是亿/m时+4
 	var final_font_size: int
 	if damage_type == DamageType.DOT_ELECTRIFIED or damage_type == DamageType.DOT_BURN or damage_type == DamageType.DOT_BLEED or damage_type == DamageType.DOT_POISON or damage_type == DamageType.SHIELD_ABSORB:
-		final_font_size = base_font_size - 4 + font_bonus
+		final_font_size = int(round((base_font_size - 4 + font_bonus) * size_multiplier))
 	else:
-		final_font_size = base_font_size - 2 + font_bonus
+		final_font_size = int(round((base_font_size - 2 + font_bonus) * size_multiplier))
 	damage_label.add_theme_font_size_override("font_size", final_font_size)
 	if damage_type == DamageType.PLAYER_BULLET_CRIT:
 		text_to_display += " !"
-		damage_label.scale = damage_label.scale * 1.15
+		# 暴击字号更大（原1.15 scale等效）
+		final_font_size = int(round((base_font_size - 2 + font_bonus) * size_multiplier * 1.15))
+		damage_label.add_theme_font_size_override("font_size", final_font_size)
 	
 	if damage_type == DamageType.SHIELD_ABSORB:
 		# 护盾损失：向右偏移25，向上偏移10

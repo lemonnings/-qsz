@@ -22,8 +22,8 @@ var flash_speed: float = 1.0
 # 闪烁状态
 enum FlashState {
 	NONE,
-	NORMAL_FLASH,  # 10秒以下开始闪烁
-	FAST_FLASH     # 3秒以下快速闪烁
+	NORMAL_FLASH, # 10秒以下开始闪烁
+	FAST_FLASH # 3秒以下快速闪烁
 }
 
 var current_flash_state: FlashState = FlashState.NONE
@@ -40,6 +40,7 @@ func _setup_ui():
 	# 设置控件大小
 	custom_minimum_size = Vector2(64, 80)
 	size = Vector2(64, 80)
+	mouse_filter = Control.MOUSE_FILTER_PASS # 允许鼠标事件穿透到下层，但保留hover信号
 	
 	# 创建图标
 	icon = TextureRect.new()
@@ -47,16 +48,18 @@ func _setup_ui():
 	icon.size = Vector2(32, 32)
 	icon.position = Vector2(18, 21)
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE # 不拦截鼠标事件
 	add_child(icon)
 	
 	# 创建层数标签（覆盖在图标上）
 	stack_label = Label.new()
 	stack_label.name = "StackLabel"
 	stack_label.size = Vector2(36, 36)
-	stack_label.position = Vector2(30, 29)  # 与图标相同位置
+	stack_label.position = Vector2(30, 29) # 与图标相同位置
 	stack_label.text = "1"
 	stack_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stack_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	stack_label.mouse_filter = Control.MOUSE_FILTER_IGNORE # 不拦截鼠标事件
 	# 设置字体样式
 	var custom_font = load("res://AssetBundle/Uranus_Pixel_11Px.ttf")
 	stack_label.add_theme_font_override("font", custom_font)
@@ -76,6 +79,7 @@ func _setup_ui():
 	timer_label.text = "10"
 	timer_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	timer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE # 不拦截鼠标事件
 	# 设置字体样式
 	timer_label.add_theme_font_override("font", custom_font)
 	timer_label.add_theme_font_size_override("font_size", 24)
@@ -151,13 +155,12 @@ func setup_buff(buff_data, duration: float = 0.0, stack: int = 1):
 		# 创建透明占位图标
 		var placeholder_texture = ImageTexture.new()
 		var placeholder_image = Image.create(64, 64, false, Image.FORMAT_RGBA8)
-		placeholder_image.fill(Color(0, 0, 0, 0))  # 完全透明
+		placeholder_image.fill(Color(0, 0, 0, 0)) # 完全透明
 		placeholder_texture.set_image(placeholder_image)
 		icon.texture = placeholder_texture
 	
 	# 更新UI显示
 	_update_display()
-
 
 
 func _update_display():
@@ -229,11 +232,12 @@ func _create_tooltip():
 	tooltip_panel.name = "TooltipPanel"
 	tooltip_panel.visible = false
 	tooltip_panel.z_index = 100
-	tooltip_panel.modulate.a = 0.0  # 初始透明度为0
+	tooltip_panel.modulate.a = 0.0 # 初始透明度为0
+	tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE # 不拦截鼠标事件
 	
 	# 设置面板样式（圆角、80%透明度黑色背景）
 	var style_box = StyleBoxFlat.new()
-	style_box.bg_color = Color(0, 0, 0, 0.4)  # 80%透明度的黑色
+	style_box.bg_color = Color(0, 0, 0, 0.4) # 80%透明度的黑色
 	style_box.corner_radius_top_left = 8
 	style_box.corner_radius_top_right = 8
 	style_box.corner_radius_bottom_left = 8
@@ -248,11 +252,13 @@ func _create_tooltip():
 	# 创建垂直布局容器
 	var vbox = VBoxContainer.new()
 	vbox.name = "VBoxContainer"
+	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE # 不拦截鼠标事件
 	tooltip_panel.add_child(vbox)
 	
 	# 创建第一行的水平布局容器（名称和类型/最大层数）
 	var hbox = HBoxContainer.new()
 	hbox.name = "HeaderHBox"
+	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE # 不拦截鼠标事件
 	vbox.add_child(hbox)
 	
 	# 自定义字体
@@ -262,6 +268,7 @@ func _create_tooltip():
 	var name_label = Label.new()
 	name_label.name = "NameLabel"
 	name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE # 不拦截鼠标事件
 	name_label.add_theme_font_override("font", custom_font)
 	name_label.add_theme_font_size_override("font_size", 20)
 	name_label.add_theme_color_override("font_color", Color.WHITE)
@@ -270,12 +277,14 @@ func _create_tooltip():
 	# 添加弹性空间
 	var spacer = Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE # 不拦截鼠标事件
 	hbox.add_child(spacer)
 	
 	# 类型和最大层数标签（右对齐）
 	var type_label = Label.new()
 	type_label.name = "TypeLabel"
 	type_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	type_label.mouse_filter = Control.MOUSE_FILTER_IGNORE # 不拦截鼠标事件
 	type_label.add_theme_font_override("font", custom_font)
 	type_label.add_theme_font_size_override("font_size", 18)
 	type_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
@@ -285,6 +294,7 @@ func _create_tooltip():
 	var desc_label = Label.new()
 	desc_label.name = "DescLabel"
 	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE # 不拦截鼠标事件
 	desc_label.add_theme_font_override("font", custom_font)
 	desc_label.add_theme_font_size_override("font_size", 15)
 	desc_label.add_theme_color_override("font_color", Color.LIGHT_GRAY)
@@ -325,10 +335,10 @@ func _show_tooltip():
 	desc_label.text = buff_data.description
 	
 	# 计算面板大小
-	var content_size = Vector2(200, 0)  # 基础宽度
+	var content_size = Vector2(200, 0) # 基础宽度
 	var header_height = 24
 	var desc_height = desc_label.get_theme_font("font").get_multiline_string_size(buff_data.description, HORIZONTAL_ALIGNMENT_LEFT, content_size.x - 16, 15).y
-	content_size.y = header_height + desc_height + 24  # 加上内边距
+	content_size.y = header_height + desc_height + 24 # 加上内边距
 	
 	tooltip_panel.size = content_size
 	tooltip_panel.get_node("VBoxContainer").size = Vector2(content_size.x - 16, content_size.y - 12)
@@ -349,7 +359,7 @@ func _hide_tooltip():
 		var tween = get_tree().create_tween() # 每次都创建新的Tween
 		# 开始渐出动画（0.1秒）
 		tween.tween_property(tooltip_panel, "modulate:a", 0.0, 0.1)
-		tween.tween_callback(func(): 
+		tween.tween_callback(func():
 			if is_instance_valid(tooltip_panel):
 				tooltip_panel.visible = false
 		)

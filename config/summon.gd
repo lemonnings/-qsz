@@ -2,10 +2,10 @@ extends Area2D
 
 # 召唤物类型枚举
 enum SummonType {
-	BLUE_RANDOM,     # 蓝色：随机方向射击
+	BLUE_RANDOM, # 蓝色：随机方向射击
 	DARK_DIRECTED, # 紫色：定向射击（角色上下30px）
 	ORANGE_TRACKING, # 橙色：追踪射击
-	GOLD_ENHANCED,    # 金色：强化追踪射击
+	GOLD_ENHANCED, # 金色：强化追踪射击
 	HEAL_DARK, # 治疗-紫色
 	HEAL_GOLD, # 治疗-金色
 	HEAL_RED, # 治疗-红色
@@ -16,11 +16,10 @@ enum SummonType {
 }
 
 @export var summon_type: SummonType
-@export var bullet_scene: PackedScene
-@export var damage_multiplier: float = 1  # 基础伤害倍数
-@export var fire_interval: float = 1     # 发射间隔
-@export var bullet_speed_multiplier: float = 1.0  # 子弹速度倍数
-@export var bullets_per_shot: int = 1      # 每次发射子弹数量
+@export var damage_multiplier: float = 1 # 基础伤害倍数
+@export var fire_interval: float = 1 # 发射间隔
+@export var bullet_speed_multiplier: float = 1.0 # 子弹速度倍数
+@export var bullets_per_shot: int = 1 # 每次发射子弹数量
 
 # 辅助/治疗相关的临时加成记录，便于召唤物移除时回退
 var applied_atk_bonus: int = 0
@@ -29,6 +28,7 @@ var applied_summon_enhance_bonus: float = 0.0
 var applied_damage_reduction_bonus: float = 0.0
 var heal_ratio: float = 0.0
 
+var bullet_packed_scene: PackedScene
 var last_shot_time: float = 0.0
 var player_node: Node2D
 var enemies_in_scene: Array = []
@@ -43,6 +43,12 @@ const MOVE_INTERVAL: float = 0.8 # 每0.5秒更新一次目标位置
 func _ready() -> void:
 	# 获取玩家节点引用
 	player_node = get_tree().current_scene.get_node("Player")
+	
+	# 从玩家节点获取子弹场景引用
+	if player_node and "bullet_scene" in player_node:
+		bullet_packed_scene = player_node.bullet_scene
+	else:
+		bullet_packed_scene = load("res://Scenes/bullet.tscn")
 	
 	# 设置发射定时器
 	fire_timer.wait_time = fire_interval * PC.summon_interval_multiplier
@@ -125,9 +131,9 @@ func _on_fire_timer_timeout() -> void:
 
 func fire_random_bullet() -> void:
 	# 蓝色召唤物：向左侧或右侧30度发射
-	var side = randi() % 2  # 0为左侧，1为右侧
-	var base_angle = PI if side == 0 else 0.0  # 左侧180度，右侧0度
-	var random_offset = randf_range(-PI/6, PI/6)  # ±30度范围
+	var side = randi() % 2 # 0为左侧，1为右侧
+	var base_angle = PI if side == 0 else 0.0 # 左侧180度，右侧0度
+	var random_offset = randf_range(-PI / 6, PI / 6) # ±30度范围
 	var final_angle = base_angle + random_offset
 	var direction = Vector2(cos(final_angle), sin(final_angle))
 	create_bullet(direction, damage_multiplier)
@@ -157,7 +163,7 @@ func fire_tracking_bullet() -> void:
 	var target_enemy = find_nearest_enemy()
 	if target_enemy:
 		var direction = (target_enemy.position - position).normalized()
-		create_bullet(direction, 0.4, 1.5)  # 子弹速度提升100%
+		create_bullet(direction, 0.4, 1.5) # 子弹速度提升100%
 
 
 func fire_enhanced_tracking_bullets() -> void:
@@ -167,7 +173,7 @@ func fire_enhanced_tracking_bullets() -> void:
 		var base_direction = (target_enemy.position - position).normalized()
 		
 		# 发射两发稍微偏移的子弹
-		var angle_offset = 0.02  # 约11.5度
+		var angle_offset = 0.02 # 约11.5度
 		var direction1 = base_direction.rotated(-angle_offset)
 		var direction2 = base_direction.rotated(angle_offset)
 		
@@ -219,10 +225,10 @@ func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1
 	if PC.is_game_over:
 		return
 	# 创建召唤物子弹
-	if not bullet_scene:
-		bullet_scene = load("res://Scenes/bullet.tscn")
-	
-	var bullet = bullet_scene.instantiate()
+	var bullet = bullet_packed_scene.instantiate()
+	if bullet == null:
+		push_error("[Summon] bullet instantiate failed!")
+		return
 	bullet.if_summon = true
 	if spawn_position_override != null and spawn_position_override is Vector2:
 		bullet.position = spawn_position_override
@@ -235,7 +241,7 @@ func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1
 	var final_damage = PC.pc_atk * base_damage * (1.0 + PC.summon_damage_multiplier)
 	bullet.summon_damage = final_damage
 	bullet.is_summon_bullet = true
-	bullet.penetration_count = 1  # 设置穿透次数
+	bullet.penetration_count = 1 # 设置穿透次数
 	
 	# 设置子弹大小
 	var bullet_size = Global.get_attack_range_multiplier() * PC.summon_bullet_size_multiplier
@@ -253,9 +259,10 @@ func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1
 func create_sword_spirit_bullet(direction: Vector2) -> void:
 	if PC.is_game_over:
 		return
-	if not bullet_scene:
-		bullet_scene = load("res://Scenes/bullet.tscn")
-	var bullet = bullet_scene.instantiate()
+	var bullet = bullet_packed_scene.instantiate()
+	if bullet == null:
+		push_error("[Summon] sword spirit bullet instantiate failed!")
+		return
 	bullet.if_summon = true
 	bullet.is_summon_bullet = true
 	bullet.penetration_count = 9999

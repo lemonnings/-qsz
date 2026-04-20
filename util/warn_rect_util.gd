@@ -10,23 +10,23 @@ signal warning_finished
 signal damage_dealt(damage_amount)
 
 # 预警参数
-var target_point: Vector2 = Vector2.ZERO  # 目标点
-var width: float = 100.0                  # 矩形宽度
-var warning_time: float = 2.0             # 预警时间
-var damage: float = 50.0                  # 伤害值
-var animation_player: AnimationPlayer = null  # 预警结束后播放的动画播放器
+var target_point: Vector2 = Vector2.ZERO # 目标点
+var width: float = 100.0 # 矩形宽度
+var warning_time: float = 2.0 # 预警时间
+var damage: float = 50.0 # 伤害值
+var animation_player: AnimationPlayer = null # 预警结束后播放的动画播放器
+var source_name: String = "范围伤害" # 伤害来源名称
+var attacker: Node2D = null # 实际攻击者，未设置时默认使用自身
 
 # 内部变量
 var warning_shape: Node2D
 var current_time: float = 0.0
 var is_warning_active: bool = false
 var player_ref: Node2D
-var rect_length: float = 0.0  # 矩形长度（从起始点到目标点的距离）
-var rect_angle: float = 0.0   # 矩形角度
+var rect_length: float = 0.0 # 矩形长度（从起始点到目标点的距离）
+var rect_angle: float = 0.0 # 矩形角度
 var start_position: Vector2 = Vector2.ZERO
 var grow_time: float = 0.0
-var attacker: Node = null # 攻击者引用，用于player_hit信号
-var skill_name: String = "攻击" # 技能名称，用于伤害来源显示
 
 func _ready():
 	# 获取玩家引用
@@ -49,8 +49,8 @@ func create_warning_shape():
 	warning_shape.visible = false
 	warning_shape.modulate.a = 0.0
 
-func start_warning(pos: Vector2, _target_point: Vector2, _width: float = 100.0, 
-				  _warning_time: float = 2.0, _damage: float = 50.0, _animation_player: AnimationPlayer = null,
+func start_warning(pos: Vector2, _target_point: Vector2, _width: float = 100.0,
+				  _warning_time: float = 2.0, _damage: float = 50.0, _source_name: String = "范围伤害", _animation_player: AnimationPlayer = null,
 				  _grow_time: float = -1.0):
 	"""开始预警
 	pos: 生成位置（起始点）
@@ -64,6 +64,7 @@ func start_warning(pos: Vector2, _target_point: Vector2, _width: float = 100.0,
 	target_point = _target_point
 	width = _width
 	warning_time = _warning_time
+	source_name = _source_name
 	damage = _damage
 	animation_player = _animation_player
 	if _grow_time < 0.0:
@@ -108,7 +109,7 @@ func update_warning_visual(progress: float):
 	update_warning_shape(current_length)
 	
 	if progress <= 0.25:
-		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.175)  # 红色，透明度0.35
+		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.175) # 红色，透明度0.35
 	
 	elif progress <= 0.75:
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, 0.175)
@@ -116,9 +117,9 @@ func update_warning_visual(progress: float):
 	elif progress <= 0.9:
 		# 最后四分之一时间的前部分：开始闪烁
 		var blink_progress = (progress - 0.75) / 0.15
-		var blink_speed = 5.0 + blink_progress * 10.0  # 逐渐加快闪烁
-		var blink_alpha = (sin(current_time * blink_speed) + 1.0) * 0.5  # 0到1的范围
-		var final_alpha = 0.175 * (0.175 + blink_alpha * 0.65)  # 0.35*0.35到0.35的范围
+		var blink_speed = 5.0 + blink_progress * 10.0 # 逐渐加快闪烁
+		var blink_alpha = (sin(current_time * blink_speed) + 1.0) * 0.5 # 0到1的范围
+		var final_alpha = 0.175 * (0.175 + blink_alpha * 0.65) # 0.35*0.35到0.35的范围
 		warning_shape.modulate = Color(1.0, 0.0, 0.0, final_alpha)
 	
 	else:
@@ -169,19 +170,13 @@ func deal_damage_to_player():
 	"""对玩家造成伤害"""
 	if not player_ref or not is_instance_valid(player_ref):
 		return
-	
-	# 检查无敌状态
 	if PC.invincible:
 		return
 	
-	# 触发受击效果
-	Global.emit_signal("player_hit", attacker)
-	
-	# 计算实际伤害（考虑减伤率）
 	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))
-	PC.apply_damage(actual_damage, skill_name)
-	
-	# 检查死亡
+	var hit_source_name := source_name if not source_name.is_empty() else "范围伤害"
+	var final_attacker: Node2D = attacker if is_instance_valid(attacker) else self
+	PC.player_hit(actual_damage, final_attacker, hit_source_name)
 	if PC.pc_hp <= 0:
 		PC.player_instance.game_over()
 	

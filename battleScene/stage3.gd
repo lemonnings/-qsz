@@ -79,9 +79,12 @@ func _ready() -> void:
 	PC.player_instance = $Player
 	Global.emit_signal("reset_camera")
 	
+	# 播放深窟BGM和環境音
+	Global.emit_signal("stage_bgm", "cave")
+	
 	# stage1 特定的相机设置
 	$Player.camera.zoom = Vector2(2.7, 2.7)
-	$Player.min_zoom = 2.5
+	$Player.min_zoom = 2.4
 	
 	map_mechanism_num = 0
 	# map_mechanism_num_max = 1080
@@ -171,16 +174,22 @@ func _trigger_boss_event() -> void:
 	_on_warning_finished()
 
 func _on_warning_finished() -> void:
+	if not is_inside_tree():
+		return
 	await get_tree().create_timer(3).timeout
-	
-	Global.emit_signal("boss_bgm", 1)
+	if not is_inside_tree():
+		return
 	
 	var boss_node = boss_robot_scene.instantiate()
 	
 	# 逐步缩放相机
 	for i in range(7):
 		Global.emit_signal("zoom_camera", -0.08)
+		if not is_inside_tree():
+			return
 		await get_tree().create_timer(0.2).timeout
+		if not is_inside_tree():
+			return
 
 	boss_node.position = Vector2(-15, 240)
 	get_tree().current_scene.add_child(boss_node)
@@ -256,7 +265,11 @@ func _spawn_wave() -> void:
 			"extra":
 				_spawn_single_extra()
 		if i < spawn_list.size() - 1:
+			if not is_inside_tree():
+				return
 			await get_tree().create_timer(0.1).timeout
+			if not is_inside_tree():
+				return
 
 	monster_spawn_timer.start()
 
@@ -294,7 +307,15 @@ func _get_wave_spawn_count() -> int:
 
 func _update_wave_monster_limit() -> void:
 	var limit_growth = int(float(spawn_count - 1) / float(MONSTER_LIMIT_INCREASE_WAVE_STEP))
-	max_monster_limit = min(INITIAL_MONSTER_LIMIT + limit_growth, MAX_MONSTER_CAP)
+	var base_limit = min(INITIAL_MONSTER_LIMIT + limit_growth, MAX_MONSTER_CAP)
+	
+	var extra_mult = 0.0
+	if PC.selected_rewards.has("UR39"): extra_mult += 0.09
+	elif PC.selected_rewards.has("SSR39"): extra_mult += 0.07
+	elif PC.selected_rewards.has("SR39"): extra_mult += 0.06
+	elif PC.selected_rewards.has("R39"): extra_mult += 0.05
+		
+	max_monster_limit = int(base_limit * (1.0 + extra_mult))
 
 # ============== 动态平衡函数 ==============
 ## 获取当前容量占用率（0.0~1.0+）
@@ -335,6 +356,8 @@ func _apply_dynamic_hp_reduction(monster_node: Node) -> void:
 
 
 func _spawn_single_slime() -> void:
+	if not is_inside_tree() or get_tree().current_scene == null:
+		return
 	var slime_node = slime_scene.instantiate()
 	var spawn_edge = randi_range(0, 3)
 	var spawn_position = Vector2.ZERO
@@ -358,6 +381,8 @@ func _spawn_single_slime() -> void:
 	slime_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
 
 func _spawn_single_frog() -> void:
+	if not is_inside_tree() or get_tree().current_scene == null:
+		return
 	var frog_node = frog_scene.instantiate()
 	frog_node.move_direction = 2 # 朝向角色移动
 	var spawn_edge = randi_range(0, 3)
@@ -383,6 +408,8 @@ func _spawn_single_frog() -> void:
 	frog_node.connect("tree_exiting", func(): other_type_alive = max(0, other_type_alive - 1))
 
 func _spawn_single_bat() -> void:
+	if not is_inside_tree() or get_tree().current_scene == null:
+		return
 	var bat_node = bat_scene.instantiate()
 	var spawn_edge = randi_range(0, 3)
 	var spawn_position = Vector2.ZERO
@@ -406,6 +433,8 @@ func _spawn_single_bat() -> void:
 	bat_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
 
 func _spawn_single_extra() -> void:
+	if not is_inside_tree() or get_tree().current_scene == null:
+		return
 	var extra_node = extra_scene.instantiate()
 	extra_node.move_direction = 2 # 朝向角色移动
 	var spawn_edge = randi_range(0, 3)
@@ -527,7 +556,8 @@ func show_game_over():
 	player.stop_all_skill_cooldowns()
 	layer_ui.stop_all_skill_cooldowns()
 	await get_tree().create_timer(2).timeout
-	Global.emit_signal("normal_bgm")
+	if not is_inside_tree():
+		return
 	SceneChange.change_scene("res://Scenes/main_town.tscn", true)
 
 func _on_boss_defeated(_get_point: int, boss_position: Vector2):
@@ -550,12 +580,17 @@ func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 		item_control.start_victory_collect(player, 225.0, 3.0)
 		Global.mark_stage_difficulty_cleared(STAGE_ID, Global.current_stage_difficulty)
 		Global.add_shop_battle_refresh(1)
-		Global.save_game()
 		await player.play_boss_defeat_camera_focus(boss_position)
 
 		await layer_ui.play_victory_sequence()
 
-		Global.emit_signal("normal_bgm")
+		# 等待掉落物全部拾取后再保存，确保背包数据完整
+		if not is_inside_tree():
+			return
+		await get_tree().create_timer(1.0).timeout
+		if not is_inside_tree():
+			return
+		Global.save_game()
 		Global.in_menu = true
 		SceneChange.change_scene("res://Scenes/main_town.tscn", true)
 

@@ -206,8 +206,8 @@ func try_start_charge_skill():
 	charge_warning_node = WarnRectUtil.new()
 	get_tree().current_scene.add_child(charge_warning_node)
 	charge_warning_node.warning_finished.connect(_on_charge_warning_finished)
-	charge_warning_node.start_warning(charge_start_position, charge_target_point, CHARGE_WARNING_WIDTH, CHARGE_WARNING_TIME, 0.0, null, 0.25)
-
+	charge_warning_node.start_warning(charge_start_position, charge_target_point, CHARGE_WARNING_WIDTH, CHARGE_WARNING_TIME, 0.0, "冲锋", null, 0.25)
+	
 func _on_charge_warning_finished():
 	clear_charge_warning()
 	if is_dead:
@@ -240,4 +240,3 @@ func clear_charge_warning():
 
 func _exit_tree():
 	clear_charge_warning()
-

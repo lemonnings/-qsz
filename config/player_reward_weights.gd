@@ -50,11 +50,11 @@ const OTHER_FACTIONS: Array[String] = ["Normal", "Live", "Craft", "Summon", "Luc
 
 # 权重C 各派系的基础比例权重（用于 get_level_up_weights 归一化）
 const C_BASE_WEIGHTS: Dictionary = {
-	"Normal": 40.0,
-	"Live": 20.0,
-	"Craft": 20.0,
-	"Summon": 20.0,
-	"Lucky": 10.0,
+	"Normal": 25.0,
+	"Live": 15.0,
+	"Debuff": 15.0,
+	"Summon": 15.0,
+	"Lucky": 15.0,
 	"Six": 10.0
 }
 

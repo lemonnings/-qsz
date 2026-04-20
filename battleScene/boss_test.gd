@@ -25,14 +25,13 @@ var pending_level_ups: int = 0
 func _ready() -> void:
 	PC.player_instance = $Player
 	GU.reset_kill_count()
-	Global.connect("player_lv_up", Callable(self, "_on_level_up"))
-	Global.connect("level_up_selection_complete", Callable(self, "_check_and_process_pending_level_ups"))
+	Global.connect("player_lv_up", Callable(self , "_on_level_up"))
+	Global.connect("level_up_selection_complete", Callable(self , "_check_and_process_pending_level_ups"))
 	var boss_node = boss_scene.instantiate()
 	boss_node.position = Vector2(370, randf_range(165, 244))
 	get_tree().current_scene.add_child(boss_node)
 
 func _process(delta: float) -> void:
-	
 	# 计算时间出怪
 	slime_spawn_timer.wait_time -= 0.06 * delta
 	slime_spawn_timer.wait_time = clamp(slime_spawn_timer.wait_time, 0.3, 2.2)
@@ -105,7 +104,6 @@ func show_game_over():
 	gameover_label.visible = true
 
 
-
 func get_required_lv_up_value(level: int) -> float:
 	var value: float = 1000
 	for i in range(level):
@@ -114,7 +112,11 @@ func get_required_lv_up_value(level: int) -> float:
 
 func _on_level_up():
 	pending_level_ups -= 1
+	if not is_inside_tree():
+		return
 	await get_tree().create_timer(0.15).timeout
+	if not is_inside_tree():
+		return
 	Global.is_level_up = true
 	get_tree().set_pause(true)
 	lv_up_change.visible = true
@@ -129,7 +131,12 @@ func _on_level_up():
 	var reward2 = get_reward_level(r2_rand)
 	var reward3 = get_reward_level(r3_rand)
 	var lvcb1: Sprite2D = lv_up_change_b1.get_node("Pic")
-	lvcb1.region_rect = reward1.icon
+	var icon_path1 = LvUp.get_icon_path(reward1.icon)
+	if not icon_path1.is_empty() and ResourceLoader.exists(icon_path1):
+		lvcb1.texture = load(icon_path1)
+		lvcb1.region_enabled = false
+	else:
+		lvcb1.texture = null
 	var lvcbd1: RichTextLabel = lv_up_change_b1.get_node("Detail")
 	lvcbd1.text = reward1.text
 	var callbackB1: Callable = reward1.on_selected
@@ -139,7 +146,12 @@ func _on_level_up():
 	lv_up_change_b1.pressed.connect(callbackB1)
 	
 	var lvcb2: Sprite2D = lv_up_change_b2.get_node("Pic")
-	lvcb2.region_rect = reward2.icon
+	var icon_path2 = LvUp.get_icon_path(reward2.icon)
+	if not icon_path2.is_empty() and ResourceLoader.exists(icon_path2):
+		lvcb2.texture = load(icon_path2)
+		lvcb2.region_enabled = false
+	else:
+		lvcb2.texture = null
 	var lvcbd2: RichTextLabel = lv_up_change_b2.get_node("Detail")
 	lvcbd2.text = reward2.text
 	var callbackB2: Callable = reward2.on_selected
@@ -149,7 +161,12 @@ func _on_level_up():
 	lv_up_change_b2.pressed.connect(callbackB2)
 	
 	var lvcb3: Sprite2D = lv_up_change_b3.get_node("Pic")
-	lvcb3.region_rect = reward3.icon
+	var icon_path3 = LvUp.get_icon_path(reward3.icon)
+	if not icon_path3.is_empty() and ResourceLoader.exists(icon_path3):
+		lvcb3.texture = load(icon_path3)
+		lvcb3.region_enabled = false
+	else:
+		lvcb3.texture = null
 	var lvcbd3: RichTextLabel = lv_up_change_b3.get_node("Detail")
 	lvcbd3.text = reward3.text
 	var callbackB3: Callable = reward3.on_selected
@@ -174,7 +191,7 @@ func get_reward_level(rand_num: float) -> LvUp.Reward:
 
 func _on_attr_button_focus_entered() -> void:
 	attr_label.visible = true
-	attr_label.text = "攻击：" + str(PC.pc_atk) + "  额外攻速：" + str(PC.pc_atk_speed) + "\n额外移速：" + str(PC.pc_speed) + "  攻击范围：" + str(Global.get_attack_range_multiplier()) + "\n天命：" + str(PC.now_lunky_level) + "  减伤：" + str(PC.damage_reduction_rate)+ "\n暴击率：" + str(PC.crit_chance) + "  暴击伤害：" + str(PC.crit_damage_multi) + "\n环形剑气攻击/数量/大小/射速：" + str(PC.ring_bullet_damage_multiplier) + "/"+ str(PC.ring_bullet_count) + "/"+ str(PC.ring_bullet_size_multiplier) + "/"+ str(PC.ring_bullet_interval) + "/" + "\n召唤物数量/最大数量/攻击/弹体大小/射速：" + str(PC.summon_count)+ "/" + str(PC.summon_count_max)+ "/" + str(PC.summon_damage_multiplier)+ "/" + str(PC.summon_interval_multiplier)+ "/" + "\n开悟获取：" + str(PC.selected_rewards)
+	attr_label.text = "攻击：" + str(PC.pc_atk) + "  额外攻速：" + str(PC.pc_atk_speed) + "\n额外移速：" + str(PC.pc_speed) + "  攻击范围：" + str(Global.get_attack_range_multiplier()) + "\n天命：" + str(PC.now_lunky_level) + "  减伤：" + str(PC.damage_reduction_rate) + "\n暴击率：" + str(PC.crit_chance) + "  暴击伤害：" + str(PC.crit_damage_multi) + "\n环形剑气攻击/数量/大小/射速：" + str(PC.ring_bullet_damage_multiplier) + "/" + str(PC.ring_bullet_count) + "/" + str(PC.ring_bullet_size_multiplier) + "/" + str(PC.ring_bullet_interval) + "/" + "\n召唤物数量/最大数量/攻击/弹体大小/射速：" + str(PC.summon_count) + "/" + str(PC.summon_count_max) + "/" + str(PC.summon_damage_multiplier) + "/" + str(PC.summon_interval_multiplier) + "/" + "\n开悟获取：" + str(PC.selected_rewards)
 
 
 func _on_attr_button_focus_exited() -> void:

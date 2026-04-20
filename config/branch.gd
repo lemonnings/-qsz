@@ -154,7 +154,7 @@ func initialize_bullet_damage() -> void:
 
 	var crit_chance_bonus = 0.0
 	if PC.selected_rewards.has("Branch4"):
-		crit_chance_bonus += 0.20
+		crit_chance_bonus += 0.1
 
 	is_crit_hit = false
 	bullet_damage = base_damage * 0.9
@@ -195,7 +195,7 @@ func handle_penetration() -> bool:
 	if PC.selected_rewards.has("Branch2"): # 意味着至少穿透了一次
 		var damage_increase = 0.3
 		if PC.selected_rewards.has("Branch21"):
-			damage_increase = 0.4
+			damage_increase = 0.35
 		bullet_damage *= (1 + damage_increase)
 
 	# 树枝4: 击退效果

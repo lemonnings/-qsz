@@ -88,7 +88,7 @@ func _physics_process(delta: float) -> void:
 	if debuff_manager.is_action_disabled():
 		return
 	
-	# 处理推挤效果（防止怪物重叠）
+	# 处理推挤效果（防止怪物重叠））
 	if not is_dead and not is_charge_warning and not is_charging:
 		CharacterEffects.apply_separation(self , 10.0, 12.0)
 		
@@ -120,16 +120,16 @@ func _physics_process(delta: float) -> void:
 							sprite.flip_h = false
 	
 	
-	# 处理敌人之间的碰撞 - 直接防止重叠
+	# 处理敌人之间的碰撞撞 - 直接防止重叠
 	if monitoring and not is_charge_warning and not is_charging:
 		var overlapping_bodies = get_overlapping_areas()
 		
 		for body in overlapping_bodies:
 			if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
 				var distance = global_position.distance_to(body.global_position)
-				var min_distance = 12.0 # 最小允许距离
+				var min_distance = 12.0 # 最小允许距离离
 				
-				# 如果距离太近，直接调整位置
+				# 如果距离太近，直接调整位置置
 				if distance < min_distance and distance > 0.1:
 					var direction_away = (global_position - body.global_position).normalized()
 					var overlap = min_distance - distance
@@ -161,7 +161,7 @@ func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
 		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self , false)
 		
-		# 根据穿透逻辑决定是否销毁子弹
+		# 根据穿透逻辑决定是否销毁子弹弹
 		if collision_result["should_delete_bullet"]:
 			area.queue_free()
 			
@@ -206,7 +206,7 @@ func try_start_charge_skill():
 	charge_warning_node = WarnRectUtil.new()
 	get_tree().current_scene.add_child(charge_warning_node)
 	charge_warning_node.warning_finished.connect(_on_charge_warning_finished)
-	charge_warning_node.start_warning(charge_start_position, charge_target_point, CHARGE_WARNING_WIDTH, CHARGE_WARNING_TIME, 0.0, null, 0.25)
+	charge_warning_node.start_warning(charge_start_position, charge_target_point, CHARGE_WARNING_WIDTH, CHARGE_WARNING_TIME, 0.0, "范围伤害", null, 0.25)
 
 func _on_charge_warning_finished():
 	clear_charge_warning()

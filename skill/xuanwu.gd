@@ -5,9 +5,9 @@ class_name Xuanwu
 @export var collision: CollisionShape2D
 
 static var main_skill_xuanwu_damage: float = 0.45
-static var xuanwu_hp_damage_ratio: float = 0.35
+static var xuanwu_hp_damage_ratio: float = 0.3
 static var xuanwu_range: float = 240.0
-static var xuanwu_shield_base: int = 6
+static var xuanwu_shield_base: int = 40
 static var xuanwu_shield_hp_ratio: float = 0.06
 static var xuanwu_width_scale: float = 1.0
 static var xuanwu_slow_duration: float = 0.0

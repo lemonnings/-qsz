@@ -22,13 +22,13 @@ var move_direction: int = 4
 var target_position: Vector2 # 用于存储移动目标位置
 var update_move_timer: Timer # 移动模式计时器
 
-var speed: float = SettingMoster.slime_blue("speed") * 1 # Boss移动速度，可以调整
-var hpMax: float = SettingMoster.slime_blue("hp") * 12 # Boss最大生命值，可以调整
+var speed: float = SettingMoster.slime_blue("speed") * 0.9 # Boss移动速度，可以调整
+var hpMax: float = SettingMoster.slime_blue("hp") * 25 # Boss最大生命值，可以调整
 #var hpMax : float = SettingMoster.slime("hp") * 0.1 # Boss最大生命值，可以调整
 var hp: float = hpMax # Boss当前生命值
-var atk: float = SettingMoster.slime_blue("atk") * 0.9 # Boss攻击力，可以调整
-var get_point: int = SettingMoster.slime_blue("point") * 25 # 击败Boss获得的积分
-var get_exp: int = 0 # 击败Boss获得的经验
+var atk: float = SettingMoster.slime_blue("atk") * 1.1 # Boss攻击力，可以调整
+var get_point: int = SettingMoster.slime_blue("point") * 25 # 击败首领获得的积分
+var get_exp: int = 0 # 击败首领获得的经验
 
 func _drop_boss_rewards() -> void:
 	drop_items_from_table(SettingMoster.peach_grove_boss("itemdrop"))
@@ -54,8 +54,8 @@ const RANDOM_BARRAGE_BULLET_COUNT = 130
 const RANDOM_BARRAGE_INTERVAL = 0.03
 
 # 陨石攻击参数
-const METEOR_SPAWN_RANGE: float = 60.0 # 玩家周围生成范围(n像素)
-const METEOR_RADIUS: float = 35.0 # 陨石半径(x)
+const METEOR_SPAWN_RANGE: float = 50.0 # 玩家周围生成范围(n像素)
+const METEOR_RADIUS: float = 38.0 # 陨石半径(x)
 const METEOR_COUNT: int = 8 # 陨石数量(y)
 const METEOR_WARNING_TIME: float = 1.5 # 预警时间(z秒)
 const METEOR_PERSIST_DURATION: float = 12.0 # 持续伤害区域持续时间
@@ -81,10 +81,19 @@ var stage_difficulty: String = Global.STAGE_DIFFICULTY_SHALLOW
 var forced_poison_attack_index: int = -1
 
 func _ready():
-
 	add_to_group("boss")
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
 	hpMax *= _get_difficulty_hp_multiplier()
+	# 根据玩家DPS和难度增加Boss HP
+	var dps_multiplier := 5
+	match Global.current_stage_difficulty:
+		Global.STAGE_DIFFICULTY_DEEP:
+			dps_multiplier = 6
+		Global.STAGE_DIFFICULTY_CORE:
+			dps_multiplier = 7
+		Global.STAGE_DIFFICULTY_POETRY:
+			dps_multiplier = 7
+	hpMax += Global.get_current_dps() * dps_multiplier
 	# 防止boss升级期间打人（但没生效，子弹会在暂停期间积累到一起全射出来）
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	hp = hpMax # 初始化当前血量
@@ -94,7 +103,7 @@ func _ready():
 	check_action_disabled_on_body_entered = false
 	
 	# 创建脚底阴影（Boss阴影较大）
-	CharacterEffects.create_shadow(self , 45.0, 14.0, 12.0)
+	CharacterEffects.create_shadow(self , 60.0, 20.0, 24.0)
 	
 	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "测试BOSS")
 	Global.emit_signal("boss_hp_bar_show")
@@ -216,6 +225,7 @@ func _spawn_meteor_warning_at(spawn_pos: Vector2, persistent: bool = false) -> v
 		meteor_radius,
 		METEOR_WARNING_TIME,
 		0.0 if persistent else atk * 1.5,
+		"陨石",
 		null,
 		WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE
 	)
@@ -240,7 +250,6 @@ func _should_spawn_golden_petal() -> bool:
 
 
 func _update_target_position_mode4():
-
 	var player_pos = PC.player_instance.global_position
 	var x_offset = 90
 	if global_position.x < player_pos.x:
@@ -263,10 +272,12 @@ func _physics_process(delta: float) -> void:
 		
 	if is_attacking:
 		if not is_charging:
-			$BossA.play("idle")
+			if sprite.animation != "idle":
+				sprite.play("idle")
 		attack_timer.paused = true
 	if not is_attacking:
-		$BossA.play("run")
+		if sprite.animation != "run":
+			sprite.play("run")
 		attack_timer.paused = false
 
 func _move_pattern(delta: float):
@@ -459,7 +470,6 @@ func _show_attack_indicator(type: int):
 func _attack_straight_line():
 	# 连续射击5次
 	for i in range(5):
-
 		# 每次射击前重新瞄准玩家
 		var current_player_pos = PC.player_instance.global_position
 		var current_direction = global_position.direction_to(current_player_pos)
@@ -500,7 +510,7 @@ func _attack_straight_line():
 		if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
 			Global.emit_signal("player_hit")
 			var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-			PC.apply_damage(actual_damage, "飞花")
+			PC.player_hit(int(actual_damage), self , "飞花")
 			if PC.pc_hp <= 0:
 				PC.player_instance.game_over()
 			print("Player hit by straight line attack, damage: ", actual_damage)
@@ -658,7 +668,7 @@ func _attack_triple_line():
 			if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
 				Global.emit_signal("player_hit")
 				var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-				PC.apply_damage(actual_damage, "落花")
+				PC.player_hit(int(actual_damage), self , "落花")
 				if PC.pc_hp <= 0:
 					PC.player_instance.game_over()
 				_player_damaged_this_round = true
@@ -758,7 +768,7 @@ func _attack_eight_directions():
 			if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
 				Global.emit_signal("player_hit")
 				var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-				PC.apply_damage(actual_damage, "花雨")
+				PC.player_hit(int(actual_damage), self , "花雨")
 				if PC.pc_hp <= 0:
 					PC.player_instance.game_over()
 				_player_damaged_this_attack = true
@@ -1003,7 +1013,6 @@ func _attack_random_barrage():
 		#health_bar.queue_free()
 
 func apply_knockback(_direction: Vector2, _force: float):
-
 	# Boss可以有击退抗性，或者完全免疫
 	pass
 
@@ -1084,6 +1093,8 @@ func _on_meteor_persistent_warning_finished(spawn_pos: Vector2, warning_circle: 
 	var poison_circle_scene = preload("res://Scenes/moster/poison_circle.tscn")
 	var pc_instance = poison_circle_scene.instantiate()
 	pc_instance.damage_per_tick = atk * 0.4
+	pc_instance.attacker = self
+	pc_instance.source_name = "剧毒结界"
 	pc_instance.duration = METEOR_PERSIST_DURATION
 	pc_instance.is_permanent = _is_core_or_harder()
 	pc_instance.global_position = spawn_pos
@@ -1117,6 +1128,7 @@ func _attack_sector_aoe():
 		SECTOR_ANGLE, # 扇形角度
 		SECTOR_WARNING_TIME, # 预警时间
 		atk * 2.0, # 伤害
+		"扇形AOE", # 伤害来源
 		null, # 动画播放器
 		0.5
 	)
@@ -1160,6 +1172,7 @@ func _attack_multi_sector_aoe():
 			SECTOR_ANGLE * 0.8, # 连续攻击用稍小的角度
 			quick_warning_time, # 更短的预警时间
 			atk * 1.2, # 伤害
+			"连续扇形AOE", # 伤害来源
 			null, # 动画播放器
 			quick_warning_time * 0.5
 		)
@@ -1324,7 +1337,6 @@ func _attack_petal_rain() -> void:
 	_start_petal_loop(spawn_interval, my_gen)
 
 
-
 func _start_petal_loop(spawn_interval: float, generation: int) -> void:
 	"""花瓣后台生成循环（非阻塞）。
 	当 is_dead=true、boss 节点已释放、或者新一轮落花启动如旧进出循环。"""
@@ -1351,7 +1363,6 @@ func _spawn_one_petal() -> void:
 	)
 
 
-
 # 屏幕震颟效果
 func _start_charge_shake() -> void:
 	"""冲锋位移期间持续小幅震颟，直到 is_charging = false。
@@ -1371,7 +1382,6 @@ func _start_charge_shake() -> void:
 
 
 func _screen_shake(intensity: float = 6.0, duration: float = 0.3, _frequency: float = 30.0):
-
 	var camera = get_viewport().get_camera_2d()
 	if not camera:
 		return

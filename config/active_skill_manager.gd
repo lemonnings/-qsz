@@ -40,7 +40,7 @@ class DodgeSkill extends ActiveSkill:
 	var invincible_duration: float = 0.5
 	
 	func _init():
-		super ("dodge", "闪避", "向移动方向位移一小段距离并无敌", 6.0)
+		super ("dodge", "闪避", "向移动方向位移一小段距离并带有短暂的无敌", 6.0)
 		is_unlocked = true
 	
 	func update_from_level(level: int):
@@ -68,7 +68,7 @@ class RandomStrikeSkill extends ActiveSkill:
 	var fire_interval: float = 0.06 # 每0.1秒射出1发
 	
 	func _init():
-		super ("random_strike", "乱击", "向随机方向射出剑气", 3.0)
+		super ("random_strike", "乱击", "向随机方向连续射出剑气", 3.0)
 		is_unlocked = true
 	
 	func update_from_level(level: int):
@@ -103,7 +103,7 @@ class MizongbuSkill extends ActiveSkill:
 	var outgoing_damage_reduction_ratio: float = 0.5
 	
 	func _init():
-		super ("mizongbu", "迷踪步", "短时间提升移速并减伤，期间伤害降低", 9.5)
+		super ("mizongbu", "迷踪步", "短时间提升移速并提升减伤率，但同时造成的伤害也会降低", 9.5)
 		is_unlocked = true
 	
 	func update_from_level(level: int):
@@ -168,7 +168,7 @@ class HealHotSkill extends ActiveSkill:
 		is_unlocked = true
 	
 	func update_from_level(level: int):
-		# 等级2,5,8,11,14，回复体力基数+1
+		# 等级2,5,8,11,14，回复体力基数+10
 		var heal_bonus = 0.0
 		for lv in [2, 5, 8, 11, 14]:
 			if level >= lv:
@@ -269,7 +269,7 @@ class BeastifySkill extends ActiveSkill:
 	var claw_damage_ratio: float = 0.55
 	
 	func _init():
-		super ("beastify", "魔化·趋桀", "短时间提升属性并将剑气改为爪击", 40.0)
+		super ("beastify", "魔化", "短时间提升属性，变为趋桀形态，并将剑气改为爪击", 40.0)
 		is_unlocked = true
 	
 	func update_from_level(level: int):
@@ -317,8 +317,8 @@ var random_strike_active: bool = false
 # 数值都单独提出来，后面如果你试玩后想再微调，会比较方便。
 const DODGE_SHAKE_INTENSITY: float = 2.2
 const DODGE_SHAKE_DURATION: float = 0.18
-const DODGE_SLOW_TIME_SCALE: float = 0.2
-const DODGE_SLOW_DURATION: float = 0.5
+const DODGE_SLOW_TIME_SCALE: float = 0.35
+const DODGE_SLOW_DURATION: float = 0.35
 # 用请求编号防止旧的慢动作恢复逻辑把新的状态覆盖掉。
 # 虽然闪避本身有冷却，正常不太会重叠，
 # 但这样写更稳，后面即使你调整冷却或做特殊连闪，也不容易出问题。

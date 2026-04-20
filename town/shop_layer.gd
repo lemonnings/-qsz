@@ -57,7 +57,6 @@ class QualityGlow:
 	var _ray_thickness_factors: Array[float] = []
 
 
-
 	func _ready() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -120,8 +119,6 @@ class QualityGlow:
 		_draw_tip_sparks(center, style, rotation, visual_scale, pulse)
 
 
-
-
 	func _draw_center_bloom(center: Vector2, style: Dictionary, pulse: float, size_scale: float) -> void:
 		var core_color: Color = style["core_color"]
 		var bloom_color: Color = style["bloom_color"]
@@ -164,8 +161,6 @@ class QualityGlow:
 				_draw_ray_segment(center, direction, distance, length, thickness, base_color, alpha_scale, rotation)
 
 	func _draw_tip_sparks(center: Vector2, style: Dictionary, rotation: float, visual_scale: float, pulse: float) -> void:
-		# 在每根主光束的末端再补一个小亮点，
-		# 让光效看起来更像“炸开”的感觉。
 		var spark_color: Color = style.get("spark_color", Color(1.0, 1.0, 1.0, 1.0))
 		var spark_alpha: float = float(style.get("spark_alpha", 0.08)) * pulse * glow_alpha_scale
 		if spark_alpha <= 0.01:
@@ -179,8 +174,6 @@ class QualityGlow:
 			_draw_center_square(spark_center, spark_size, spark_color, spark_alpha)
 
 	func _draw_ray_segment(center: Vector2, direction: Vector2, distance: float, length: float, thickness: float, base_color: Color, alpha_scale: float, rotation: float) -> void:
-
-
 		var color := base_color
 		color.a *= alpha_scale * glow_alpha_scale
 		if color.a <= 0.01:
@@ -198,8 +191,6 @@ class QualityGlow:
 			_snap_to_pixel(ray_center + half_length - half_thickness)
 		])
 		draw_colored_polygon(points, color)
-
-
 
 
 	func _rebuild_ray_layout() -> void:
@@ -409,7 +400,6 @@ class QualityGlow:
 				return _get_glow_style("white")
 
 
-
 const LINGSHI_PACK_QUANTITY := {
 
 	"white": 10,
@@ -487,7 +477,7 @@ const LOWER_SPECIAL_PILLS := ["item_085", "item_088", "item_091", "item_094"]
 const MIDDLE_SPECIAL_PILLS := ["item_086", "item_089", "item_092", "item_095"]
 const UPPER_SPECIAL_PILLS := ["item_087", "item_090", "item_093", "item_096"]
 const SHOP_UPGRADE_COSTS := {
-	1: [{"item_id": Global.LINGSHI_ITEM_ID, "count": 100}],
+	1: [ {"item_id": Global.LINGSHI_ITEM_ID, "count": 100}],
 	2: [
 		{"item_id": "item_018", "count": 15},
 		{"item_id": "item_019", "count": 15},
@@ -701,8 +691,11 @@ func _create_extra_controls() -> void:
 	_exit_button = Button.new()
 	_exit_button.name = "ExitButton"
 	_exit_button.text = "返回"
-	_exit_button.position = Vector2(1148, 53)
-	_exit_button.size = Vector2(112, 54)
+	_exit_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_exit_button.offset_left = -160
+	_exit_button.offset_top = 20
+	_exit_button.offset_right = -30
+	_exit_button.offset_bottom = 74
 	_exit_button.focus_mode = Control.FOCUS_NONE
 	_exit_button.theme = shop_level_up_button.theme
 	add_child(_exit_button)
@@ -866,8 +859,6 @@ func _ensure_glow_node(panel: Panel):
 
 
 func _ensure_icon_node(panel: Panel) -> TextureRect:
-
-
 	var icon_node := panel.get_node_or_null("Icon") as TextureRect
 	if icon_node == null:
 		icon_node = TextureRect.new()
@@ -1125,7 +1116,7 @@ func _refresh_display() -> void:
 				glow_node.set_glow_alpha_scale(0.45)
 			continue
 		if detail_label != null:
-			detail_label.text = item_name + " ×" + str(offer.get("quantity", 0))
+			detail_label.text = item_name + " " + str(offer.get("quantity", 0)) + " 个"
 		if price_label != null:
 			price_label.text = _format_offer_price(offer)
 
@@ -1199,7 +1190,7 @@ func _format_costs(costs: Array) -> String:
 	for cost in costs:
 		var item_id := str(cost.get("item_id", ""))
 		var item_name := str(ItemManager.get_item_property(item_id, "item_name"))
-		parts.append(item_name + "×" + str(cost.get("count", 0)))
+		parts.append(item_name + " " + str(cost.get("count", 0)) + "个")
 	return "、".join(parts)
 
 func _format_offer_price(offer: Dictionary) -> String:
@@ -1222,7 +1213,6 @@ func _apply_name_color_to_slot(index: int, color: Color) -> void:
 		_name_labels[index].modulate = color
 
 func _get_item_type_display_name(item_id: String) -> String:
-
 	var item_type := str(ItemManager.get_item_property(item_id, "item_type"))
 	match item_type:
 		"consumable":
@@ -1305,11 +1295,6 @@ func _show_offer_tooltip(index: int, request_id: int) -> void:
 		hint_label.visible = true
 
 	await _finalize_info_panel_layout(_offer_tooltip_panel)
-	# 这里必须再次确认：
-	# - 这次显示请求仍然是最新的一次；
-	# - 鼠标此时还停留在同一个商品格子上。
-	# 否则说明玩家已经移开了，或者已经切到别的商品，
-	# 旧的异步流程就不能再把提示框显示出来。
 	if request_id != _offer_tooltip_request_id:
 		return
 	if _hovered_offer_index != index:
@@ -1329,9 +1314,6 @@ func _show_offer_tooltip(index: int, request_id: int) -> void:
 	_offer_tooltip_panel.visible = true
 
 func _hide_offer_tooltip() -> void:
-	# 每次隐藏时都顺手让旧请求失效。
-	# 这样即使之前某次 `_show_offer_tooltip()` 还在 await，
-	# 它恢复执行后也会因为编号过期而直接退出。
 	_offer_tooltip_request_id += 1
 	if _offer_tooltip_panel != null:
 		_offer_tooltip_panel.visible = false
@@ -1422,13 +1404,6 @@ func _is_mouse_over_offer_panel(index: int) -> bool:
 	if panel == null:
 		return false
 	var mouse_pos := get_viewport().get_mouse_position()
-	# 这里故意不用 `panel.get_global_rect()`。
-	# 原因是场景里的 `Panel` 实际矩形有可能比你肉眼看到的格子更大，
-	# 那样就会出现“看起来已经离开格子了，但代码还判定在格子里”的问题。
-	# 现在直接以你确认过的商品格子尺寸 `88×88` 作为唯一命中范围：
-	# - 左上角：沿用当前 panel 的全局位置
-	# - 大小：固定 88×88
-	# 这样提示框的消失就会严格跟着格子本体走。
 	var item_rect := Rect2(panel.global_position, ITEM_HITBOX_SIZE)
 	return item_rect.has_point(mouse_pos)
 
@@ -1475,8 +1450,6 @@ func _on_refresh_gui_input(event: InputEvent) -> void:
 func _configure_item_hit_areas_and_labels() -> void:
 	if _item_panels.is_empty() or _detail_labels.is_empty() or _price_labels.is_empty():
 		return
-	# 这里回到之前的做法：只处理“谁来接鼠标事件”，不再统一改位置和尺寸。
-	# 这样就不会把场景里原本摆好的名字、价格位置重新覆盖掉。
 	for i in range(_item_panels.size()):
 		var panel := _item_panels[i]
 		var detail_label := _detail_labels[i]

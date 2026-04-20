@@ -49,7 +49,7 @@ var trace_update_interval: float = 0.05 # 痕迹更新间隔
 var trace_timer: float = 0.0
 var trace_lifetime: float = 2.0 # 痕迹持续时间
 var trace_fade_start_time: float = 1.0 # 开始渐隐的时间
-var trace_damage_percent: float = 0.2 # 痕迹伤害百分比
+var trace_damage_percent: float = 0.15 # 痕迹伤害百分比
 
 # SwordQi4 追踪相关变量
 var sword_qi4_enabled: bool = false
@@ -241,7 +241,7 @@ func handle_penetration() -> bool:
 	var frame = Engine.get_process_frames()
 	if PC.swordQi_penetration_count > 1 and !PC.selected_rewards.has("SplitSwordQi31"):
 		var now_penetration_count = PC.swordQi_penetration_count - penetration_count + 1
-		bullet_damage = bullet_damage * (1 - (0.4 * now_penetration_count))
+		bullet_damage = bullet_damage * pow(0.35, now_penetration_count)
 	# 如果是新的一帧，重置处理标志
 	if frame != current_frame:
 		current_frame = frame
@@ -322,13 +322,13 @@ func update_collision_shape_size() -> void:
 		if collision_shape.shape is RectangleShape2D:
 			var rect_shape = collision_shape.shape as RectangleShape2D
 			# 基础大小定义
-			var original_size = Vector2(14, 26) 
+			var original_size = Vector2(14, 26)
 			rect_shape.size = original_size
 		
 		# 如果是CircleShape2D
 		elif collision_shape.shape is CircleShape2D:
 			var circle_shape = collision_shape.shape as CircleShape2D
-			var original_radius = 20.0 
+			var original_radius = 20.0
 			if PC.selected_rewards.has("SplitSwordQi21"):
 				original_radius = 25.0
 			circle_shape.radius = original_radius

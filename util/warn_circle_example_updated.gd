@@ -30,7 +30,7 @@ func example_instant_damage_mode():
 		1.0,                # 长宽比（圆形）
 		100.0,              # 半径
 		3.0,                # 预警时间
-		80.0,               # 伤害值
+		80.0, "范围伤害",               # 伤害值
 		explosion_anim,     # 动画播放器
 		WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE,  # 模式1：直接伤害
 		null,               # 区域精灵场景
@@ -62,7 +62,7 @@ func example_persistent_area_mode():
 		1.0,                # 长宽比（圆形）
 		120.0,              # 半径
 		2.5,                # 预警时间
-		0.0,                # 伤害值（持续区域模式下可以为0）
+		0.0, "范围伤害",                # 伤害值（持续区域模式下可以为0）
 		fire_anim,          # 动画播放器
 		WarnCircleUtil.ReleaseMode.PERSISTENT_AREA,  # 模式2：持续区域
 		area_sprite_scene,  # 区域精灵场景
@@ -85,7 +85,7 @@ func example_permanent_area():
 		1.0,
 		80.0,
 		2.0,
-		0.0,
+		0.0, "范围伤害",
 		null,
 		WarnCircleUtil.ReleaseMode.PERSISTENT_AREA,
 		healing_sprite_scene,
@@ -107,7 +107,7 @@ func example_ellipse_persistent_area():
 		2.0,                # 长宽比2:1（椭圆）
 		100.0,
 		3.0,
-		0.0,
+		0.0, "范围伤害",
 		null,
 		WarnCircleUtil.ReleaseMode.PERSISTENT_AREA,
 		poison_sprite_scene,

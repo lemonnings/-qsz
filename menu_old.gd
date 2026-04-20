@@ -67,7 +67,8 @@ func _process(_delta: float) -> void:
 func _on_start_pressed() -> void:
 	Global.in_menu = false
 	Global.soft_glow_manager.enter_gameplay()
-	SceneChange.change_scene("res://Scenes/main_town.tscn", true)
+	SceneChange.loading_path = "res://Scenes/main_town.tscn"
+	get_tree().change_scene_to_file("res://Scenes/global/loading.tscn")
 	
 func _on_stage_1_pressed() -> void:
 	Global.in_town = false

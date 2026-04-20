@@ -20,7 +20,7 @@ var current_rewards: Dictionary = {}
 
 # UI节点引用（通过参数传递）
 var canvas_layer: CanvasLayer
-var lv_up_change: Node2D
+var lv_up_change: Control
 var lv_up_change_b1: Button
 var lv_up_change_b2: Button
 var lv_up_change_b3: Button
@@ -28,7 +28,7 @@ var layer_ui: CanvasLayer
 var skill_nodes: Array[TextureButton] = []
 
 # 初始化升级管理器
-func initialize(p_canvas_layer: CanvasLayer, p_lv_up_change: Node2D,
+func initialize(p_canvas_layer: CanvasLayer, p_lv_up_change: Control,
 			   p_lv_up_change_b1: Button, p_lv_up_change_b2: Button,
 			   p_lv_up_change_b3: Button, p_layer_ui: CanvasLayer,
 			   p_skill_nodes: Array[TextureButton]):
@@ -56,10 +56,6 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	PC.last_atk_speed = PC.pc_atk_speed
 	PC.last_lunky_level = PC.now_lunky_level
 	
-	var extra_refresh = Faze.get_treasure_extra_refresh_count(PC.faze_treasure_level, PC.lucky)
-	print("因宝器法则获取了", extra_refresh)
-	PC.refresh_num += extra_refresh
-	
 	# 确定刷出来的三个升级奖励的等级
 	var r1_rand = randf_range(0, 100)
 	var r2_rand = randf_range(0, 100)
@@ -70,12 +66,17 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	var reward2 = null
 	var reward3 = null
 	
+	# 判断哪些位置有锁定奖励（普通升级时跳过锁定位置的抽取，避免浪费奖池）
+	var pos1_locked = refresh_id == 0 and main_skill_name == "" and locked_rewards.has(1)
+	var pos2_locked = refresh_id == 0 and main_skill_name == "" and locked_rewards.has(2)
+	var pos3_locked = refresh_id == 0 and main_skill_name == "" and locked_rewards.has(3)
+	
 	# 主技能进阶时，检查进阶池是否完全为空
 	var advance_pool_is_empty = false
 	if main_skill_name != "":
 		advance_pool_is_empty = LvUp.is_advance_pool_empty(main_skill_name)
 	
-	if refresh_id == 0 or refresh_id == 1:
+	if (refresh_id == 0 or refresh_id == 1) and not pos1_locked:
 		reward1 = LvUp.get_reward_level(r1_rand, main_skill_name)
 		if reward1 == null:
 			if refresh_id != 0:
@@ -91,7 +92,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 			if refresh_id != 0:
 				PC.refresh_num += 1
 			print("进阶池不为空，跳过精进选项")
-	if refresh_id == 0 or refresh_id == 2:
+	if (refresh_id == 0 or refresh_id == 2) and not pos2_locked:
 		reward2 = LvUp.get_reward_level(r2_rand, main_skill_name)
 		if reward2 == null:
 			if refresh_id != 0:
@@ -107,7 +108,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 			if refresh_id != 0:
 				PC.refresh_num += 1
 			print("进阶池不为空，跳过精进选项")
-	if refresh_id == 0 or refresh_id == 3:
+	if (refresh_id == 0 or refresh_id == 3) and not pos3_locked:
 		reward3 = LvUp.get_reward_level(r3_rand, main_skill_name)
 		if reward3 == null:
 			if refresh_id != 0:
@@ -172,14 +173,29 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	lv_up_change_b2.visible = true
 	lv_up_change_b3.visible = true
 	
-	# 如果是全部刷新（refresh_id == 0），检查是否有锁定的奖励需要继承
-	if refresh_id == 0 and not locked_rewards.is_empty():
+	# 如果是普通升级且全部刷新（refresh_id == 0），检查是否有锁定的奖励需要继承
+	# 注意：仅普通升级时继承锁定，主技能进阶时不消费锁定数据
+	if refresh_id == 0 and main_skill_name == "" and not locked_rewards.is_empty():
+		print_debug("[Lock] 继承锁定奖励: ", locked_rewards.keys())
 		if locked_rewards.has(1):
 			reward1 = locked_rewards[1]
+			print_debug("[Lock] 位置1继承: ", reward1.reward_name)
 		if locked_rewards.has(2):
 			reward2 = locked_rewards[2]
+			print_debug("[Lock] 位置2继承: ", reward2.reward_name)
 		if locked_rewards.has(3):
 			reward3 = locked_rewards[3]
+			print_debug("[Lock] 位置3继承: ", reward3.reward_name)
+		# 继承后隐藏被锁定位置的刷新和锁定按钮（已锁定，无需再操作）
+		if locked_rewards.has(1):
+			if refresh_b1: refresh_b1.visible = false
+			if lock_b1: lock_b1.visible = false
+		if locked_rewards.has(2):
+			if refresh_b2: refresh_b2.visible = false
+			if lock_b2: lock_b2.visible = false
+		if locked_rewards.has(3):
+			if refresh_b3: refresh_b3.visible = false
+			if lock_b3: lock_b3.visible = false
 		# 清空锁定数据（继承后清除，不保留锁定状态）
 		locked_rewards.clear()
 	
@@ -287,6 +303,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	if lv_up_change_b3.visible:
 		tween.tween_property(lv_up_change_b3, "modulate:a", 1.0, 0.5)
 
+
 # 配置奖励按钮的私有函数
 func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_off: Rect2, rect_on: Rect2, _refresh_id: int):
 	# 配置button内部要显示的数据
@@ -334,7 +351,12 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 			lvAdvanceProgress2.region_rect = rect_on
 			lvAdvanceProgress3.region_rect = rect_ready
 	
-	lvcb.region_rect = GU.parse_rect_from_func_string(reward.icon)
+	var icon_path = LvUp.get_icon_path(reward.icon)
+	if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
+		lvcb.texture = load(icon_path)
+		lvcb.region_enabled = false
+	else:
+		lvcb.texture = null
 	lvTitle.text = "[color=" + reward.rarity + "]" + reward.reward_name + "[/color]"
 	lvLabel.text = reward.chinese_faction
 	lvcbd.text = reward.detail
@@ -394,7 +416,6 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 		PC.main_skill_qigong_advance += 1
 		handle_level_up("Qigong", 0, scene_tree, viewport)
 	elif PC.main_skill_water != 0 and PC.main_skill_water_advance < int(PC.main_skill_water / 3.0):
-		print("[DEBUG] Water 进阶触发: main_skill_water=%d, advance=%d, threshold=%d" % [PC.main_skill_water, PC.main_skill_water_advance, int(PC.main_skill_water / 3.0)])
 		PC.main_skill_water_advance += 1
 		handle_level_up("Water", 0, scene_tree, viewport)
 	elif PC.main_skill_qiankun != 0 and PC.main_skill_qiankun_advance < int(PC.main_skill_qiankun / 3.0):
@@ -474,7 +495,7 @@ func get_required_lv_up_value(level: int) -> float:
 	# todo 测试期间/10
 	var value: float = 1250
 	for i in range(level):
-		value = (value + 750 + 1.35 * (i + 1) * i)
+		value = (value + 750 + 1.5 * (i + 1) * i)
 	return value
 
 # 清理dark_overlay的私有函数
@@ -503,6 +524,7 @@ func _pause_all_animations(scene_tree: SceneTree) -> void:
 		var sprite = enemy.get_node_or_null("AnimatedSprite2D")
 		if sprite and sprite is AnimatedSprite2D:
 			sprite.pause()
+
 
 # 恢复所有人物和怪物的动画
 func _resume_all_animations(scene_tree: SceneTree) -> void:

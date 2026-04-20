@@ -15,6 +15,8 @@ var sector_angle: float = 60.0 # 扇形角度（度）
 var radius: float = 200.0 # 扇形半径
 var warning_time: float = 2.0 # 预警时间
 var damage: float = 50.0 # 伤害值
+var source_name: String = "范围伤害" # 伤害来源名称
+var attacker: Node2D = null # 实际攻击者，未设置时默认使用自身
 var animation_player: AnimationPlayer = null # 预警结束后播放的动画播放器
 
 # 内部变量
@@ -27,8 +29,6 @@ var center_direction: float = 0.0 # 扇形中心方向角度
 var current_alpha: float = 0.0
 var initial_scale: Vector2 = Vector2(0.1, 0.1)
 var grow_time: float = 0.0
-var attacker: Node = null # 攻击者引用，用于player_hit信号
-var skill_name: String = "攻击" # 技能名称，用于伤害来源显示
 
 func _ready():
 	# 设置为可暂停模式，升级等暂停期间动画也会暂停
@@ -46,7 +46,7 @@ func create_warning_shape():
 	add_child(warning_shape)
 	warning_shape.z_index = 10 # 确保在其他元素之上
 
-func start_warning(pos: Vector2, p_target_point: Vector2, p_sector_angle: float, p_warning_time: float, p_damage: float, p_animation_player: AnimationPlayer = null, p_grow_time: float = -1.0):
+func start_warning(pos: Vector2, p_target_point: Vector2, p_sector_angle: float, p_warning_time: float, p_damage: float, p_source_name: String = "范围伤害", p_animation_player: AnimationPlayer = null, p_grow_time: float = -1.0):
 	"""开始预警
 	pos: 生成位置（扇形顶点）
 	p_target_point: 目标点，决定扇形方向
@@ -60,6 +60,7 @@ func start_warning(pos: Vector2, p_target_point: Vector2, p_sector_angle: float,
 	self.sector_angle = deg_to_rad(p_sector_angle) # 转换为弧度
 	self.warning_time = p_warning_time
 	self.damage = p_damage
+	self.source_name = p_source_name
 	self.animation_player = p_animation_player
 	if p_grow_time < 0.0:
 		self.grow_time = p_warning_time
@@ -200,11 +201,12 @@ func deal_damage_to_player():
 		return
 	
 	# 触发受击效果
-	Global.emit_signal("player_hit", attacker)
 	
 	# 计算实际伤害（考虑减伤率）
 	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))
-	PC.apply_damage(actual_damage, skill_name)
+	var hit_source_name := source_name if not source_name.is_empty() else "范围伤害"
+	var final_attacker: Node2D = attacker if is_instance_valid(attacker) else self
+	PC.player_hit(actual_damage, final_attacker, hit_source_name)
 	
 	print("扇形AOE对玩家造成伤害: ", actual_damage)
 	

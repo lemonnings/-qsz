@@ -12,7 +12,7 @@ var current_state: State = State.RISE
 
 # 向上飘动参数
 var rise_distance: float = 40.0
-var rise_speed: float = 100.0 # 速度+50%
+var rise_speed: float = 80.0 # 速度+50%
 var rise_start_y: float = 0.0
 var rise_target_y: float = 0.0
 
@@ -27,7 +27,7 @@ var base_sprite_scale: float = 1.0
 var rotate_speed: float = 0.8 # 弧度/秒，缓慢旋转
 
 # 追踪参数
-var track_speed: float = 300.0
+var track_speed: float = 200.0
 var player_ref: Node2D = null
 
 # 渐隐参数

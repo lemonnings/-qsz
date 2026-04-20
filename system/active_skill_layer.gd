@@ -160,23 +160,23 @@ func _apply_panel_icon(icon: TextureRect, skill_id: String) -> void:
 func _get_default_icon_path(skill_id: String) -> String:
 	match skill_id:
 		"dodge":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/dodge.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanbi.png"
 		"mizongbu":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/dodge.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mizongbu.png"
 		"huanling":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/random_strike.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mingxiang.png"
 		"random_strike":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/random_strike.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/luanji.png"
 		"beastify":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/moyan.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shouhua.png"
 		"heal_hot":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_heal.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yuliao.png"
 		"water_sheild":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_sheild.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shuiliumu.png"
 		"holy_fire":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_fire.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png"
 		_:
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanbi.png"
 
 func _empty_drag_data(_at_position: Vector2) -> Variant:
 	return null

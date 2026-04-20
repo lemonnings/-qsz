@@ -12,9 +12,10 @@ signal critical_hit_played
 
 
 func _ready() -> void:
-	gun_hit_anime = $GunHit
-	gun_hit_sound = $GunHitSound
-	gun_hit_crit_anime = $GunHitCri # Assuming the node is named GunHitCri
-	gun_hit_crit_sound = $GunHitCriSound # Assuming the node is named GunHitCriSound
-	gun_hit_anime.stop()
-	gun_hit_crit_anime.stop()
+	#gun_hit_anime = $GunHit
+	#gun_hit_sound = $GunHitSound
+	#gun_hit_crit_anime = $GunHitCri # Assuming the node is named GunHitCri
+	#gun_hit_crit_sound = $GunHitCriSound # Assuming the node is named GunHitCriSound
+	#gun_hit_anime.stop()
+	#gun_hit_crit_anime.stop()
+	pass

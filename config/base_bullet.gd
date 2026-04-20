@@ -137,9 +137,9 @@ func get_bullet_damage_and_crit_status() -> Dictionary: # Returns {"damage": flo
 # 如果返回false，表示这一帧已经处理过碰撞，应该忽略当前碰撞
 func handle_penetration() -> bool:
 	var frame = Engine.get_process_frames()
-	if PC.swordQi_penetration_count > 1 and !PC.selected_rewards.has("SplitSwordQi32"):
+	if PC.swordQi_penetration_count > 1:
 		var now_penetration_count = PC.swordQi_penetration_count - penetration_count + 1
-		bullet_damage = bullet_damage * (1 - (0.4 * now_penetration_count))
+		bullet_damage = bullet_damage * pow(0.3, now_penetration_count)
 	# 如果是新的一帧，重置处理标志
 	if frame != current_frame:
 		current_frame = frame

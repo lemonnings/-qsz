@@ -37,7 +37,7 @@ func setup_monster_base(add_elite_group: bool = false) -> void:
 func _setup_debuff_manager() -> void:
 	if debuff_manager != null and is_instance_valid(debuff_manager):
 		return
-	debuff_manager = EnemyDebuffManager.new(self)
+	debuff_manager = EnemyDebuffManager.new(self )
 	add_child(debuff_manager)
 	var debuff_callable = Callable(debuff_manager, "add_debuff")
 	if not debuff_applied.is_connected(debuff_callable):
@@ -67,18 +67,20 @@ func _is_beyond_camera_margin(margin_pixels: float = OFFSCREEN_SPEED_MARGIN_PIXE
 	var camera := get_viewport().get_camera_2d()
 	if camera == null:
 		return false
-	var viewport_size := get_viewport().get_visible_rect().size
+	# 将怪物的全局坐标转换为相对于相机的偏移
+	var cam_center := camera.get_screen_center_position()
+	var offset := global_position - cam_center
 	var zoom := camera.zoom
-	var half_visible_size := viewport_size / zoom / 2.0
-	var margin_x := margin_pixels / zoom.x if zoom.x != 0.0 else 0.0
-	var margin_y := margin_pixels / zoom.y if zoom.y != 0.0 else 0.0
-	var monster_pos := global_position
-	var camera_pos := camera.global_position
+	# 将世界坐标偏移转换为屏幕像素偏移
+	var screen_offset := Vector2(offset.x * zoom.x, offset.y * zoom.y)
+	var screen_size := get_viewport().get_visible_rect().size
+	var half_screen := screen_size / 2.0
+	# 检查屏幕像素偏移是否超出屏幕范围（加边距）
 	return (
-		monster_pos.x < camera_pos.x - half_visible_size.x - margin_x
-		or monster_pos.x > camera_pos.x + half_visible_size.x + margin_x
-		or monster_pos.y < camera_pos.y - half_visible_size.y - margin_y
-		or monster_pos.y > camera_pos.y + half_visible_size.y + margin_y
+		screen_offset.x < -half_screen.x - margin_pixels
+		or screen_offset.x > half_screen.x + margin_pixels
+		or screen_offset.y < -half_screen.y - margin_pixels
+		or screen_offset.y > half_screen.y + margin_pixels
 	)
 
 func get_effective_move_speed(base_speed_value: float, extra_multiplier: float = 1.0, apply_offscreen_boost: bool = true) -> float:
@@ -94,7 +96,7 @@ func apply_debuff_effect(debuff_id: String):
 
 func apply_knockback(direction: Vector2, force: float):
 	var tween = create_tween()
-	tween.tween_property(self, "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self , "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 func get_health_bar_percentage() -> float:
 	var max_hp = float(get("hpMax"))
@@ -130,14 +132,10 @@ func handle_common_body_entered(body: Node2D) -> void:
 	if check_action_disabled_on_body_entered and debuff_manager != null and is_instance_valid(debuff_manager) and debuff_manager.is_action_disabled():
 		return
 	if body is CharacterBody2D and not is_dead and not PC.invincible:
-		if player_hit_emit_self:
-			Global.emit_signal("player_hit", self)
-		else:
-			Global.emit_signal("player_hit")
 		var actual_damage = float(get("atk")) * (1.0 - PC.damage_reduction_rate)
 		if use_debuff_take_damage_multiplier and debuff_manager != null and is_instance_valid(debuff_manager):
 			actual_damage *= debuff_manager.get_take_damage_multiplier()
-		PC.apply_damage(int(actual_damage), "攻击")
+		PC.player_hit(int(actual_damage), self , "攻击")
 		if PC.pc_hp <= 0:
 			body.game_over()
 
@@ -209,7 +207,7 @@ func get_common_bullet_damage_value(base_damage: float) -> int:
 	return int(final_damage)
 
 func get_non_bullet_damage_value(damage: float, use_debuff_multiplier: bool = true) -> int:
-	var final_damage = Global.apply_enemy_damage_bonus(damage, self)
+	var final_damage = Global.apply_enemy_damage_bonus(damage, self )
 	final_damage = apply_common_final_damage_multipliers(final_damage)
 	if use_debuff_multiplier and debuff_manager != null and is_instance_valid(debuff_manager):
 		final_damage *= debuff_manager.get_damage_multiplier()

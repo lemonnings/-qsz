@@ -68,18 +68,27 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 			if extra_blade_angle_offset >= 360.0:
 				extra_blade_angle_offset -= 360.0
 				
+			# 四个正向风刃
 			var up_dir = Vector2.UP.rotated(offset_rad)
 			var down_dir = Vector2.DOWN.rotated(offset_rad)
+			var left_dir = Vector2.LEFT.rotated(offset_rad)
+			var right_dir = Vector2.RIGHT.rotated(offset_rad)
 			
 			_spawn_blade(scene, tree, origin_pos, up_dir, data.extra_blade_damage_ratio, data)
 			_spawn_blade(scene, tree, origin_pos, down_dir, data.extra_blade_damage_ratio, data)
+			_spawn_blade(scene, tree, origin_pos, left_dir, data.extra_blade_damage_ratio, data)
+			_spawn_blade(scene, tree, origin_pos, right_dir, data.extra_blade_damage_ratio, data)
 			
-			# Xunfeng33: 添加正左和正右
+			# Xunfeng33: 添加四个斜向风刃
 			if PC.selected_rewards.has("Xunfeng33"):
-				var left_dir = Vector2.LEFT.rotated(offset_rad)
-				var right_dir = Vector2.RIGHT.rotated(offset_rad)
-				_spawn_blade(scene, tree, origin_pos, left_dir, data.extra_blade_damage_ratio, data)
-				_spawn_blade(scene, tree, origin_pos, right_dir, data.extra_blade_damage_ratio, data)
+				var diag_ur = (Vector2.UP + Vector2.RIGHT).normalized().rotated(offset_rad)
+				var diag_ul = (Vector2.UP + Vector2.LEFT).normalized().rotated(offset_rad)
+				var diag_dr = (Vector2.DOWN + Vector2.RIGHT).normalized().rotated(offset_rad)
+				var diag_dl = (Vector2.DOWN + Vector2.LEFT).normalized().rotated(offset_rad)
+				_spawn_blade(scene, tree, origin_pos, diag_ur, data.extra_blade_damage_ratio, data)
+				_spawn_blade(scene, tree, origin_pos, diag_ul, data.extra_blade_damage_ratio, data)
+				_spawn_blade(scene, tree, origin_pos, diag_dr, data.extra_blade_damage_ratio, data)
+				_spawn_blade(scene, tree, origin_pos, diag_dl, data.extra_blade_damage_ratio, data)
 
 static func _spawn_blade(scene: PackedScene, tree: SceneTree, origin_pos: Vector2, dir: Vector2, damage_ratio: float, data: Dictionary) -> void:
 	var instance = scene.instantiate()
@@ -166,7 +175,7 @@ func _on_area_entered(area: Area2D) -> void:
 			if area.is_in_group("elite") or area.is_in_group("boss"):
 				final_damage = final_damage * Faze.get_wind_elite_boss_multiplier(PC.faze_wind_level, PC.wind_huanfeng_stacks)
 				
-			#var damage_dealt = area.take_damage(int(final_damage), is_crit, false, "xunfeng")
+			area.take_damage(int(final_damage), _is_crit, false, "xunfeng")
 			# 击中粒子崩散特效
 			HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "xunfeng")
 			Faze.on_wind_weapon_hit()

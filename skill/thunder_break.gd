@@ -35,11 +35,8 @@ func _ready() -> void:
 	# 连接 area_entered 信号
 	if not area_entered.is_connected(_on_area_entered):
 		area_entered.connect(_on_area_entered)
-		
-	# 如果没有setup被调用（例如直接在场景中测试），使用默认值初始化
-	if created_sprites.is_empty() and sprite:
-		_update_visuals()
-		_update_collision()
+	# 注意：不在_ready中调用_update_visuals，由setup_thunder_break统一初始化
+	# 避免在add_child时重复创建精灵造成性能问题
 
 func _process(delta: float) -> void:
 	elapsed += delta
@@ -53,11 +50,12 @@ func _process(delta: float) -> void:
 		queue_free()
 
 func setup_thunder_break(pos: Vector2, dir: Vector2, p_damage: float, p_range: float, p_width: float, options: Dictionary = {}) -> void:
+	print("[ThunderBreak] setup_thunder_break called: range=", p_range, " width=", p_width, " damage=", p_damage)
 	global_position = pos
 	rotation = dir.angle()
 	damage = p_damage
 	range_val = p_range
-	width = p_width
+	width = max(1.0, p_width) # 安全保护：width最小为1防止除0导致卡死
 	
 	# 读取特殊选项
 	is_infinite_range = options.get("infinite_range", false)
@@ -78,15 +76,15 @@ func setup_thunder_break(pos: Vector2, dir: Vector2, p_damage: float, p_range: f
 
 func _update_visuals() -> void:
 	if not sprite:
+		print("[ThunderBreak] _update_visuals: sprite is null, skipping")
 		return
-		# === 清理之前创建的所有视觉子节点 ===
+	# === 清理之前创建的所有视觉子节点 ===
 	for child in created_sprites:
 		if is_instance_valid(child):
 			child.queue_free()
 	created_sprites.clear()
 
-	# 同样清理之前可能存在的 glow 线条（可选：如果你知道它们名字）
-	# 或者更通用：清理所有 Line2D（如果你确定只有 glow 用 Line2D）
+	# 清理所有 Line2D（glow线条）
 	for child in get_children():
 		if child is Line2D:
 			child.queue_free()
@@ -96,14 +94,25 @@ func _update_visuals() -> void:
 	
 	# 计算缩放比例
 	# 宽度提升，scale也等比提升
-	var scale_ratio = width / default_width
+	var scale_ratio = width / default_width if default_width > 0.0 else 1.0
 	var final_scale = base_scale * scale_ratio
 	
 	# 步长：假设base_scale对应50像素的步长，如果scale变大，步长也变大
-	# 用户描述：长度280是5.6个sprite -> 280/5.6 = 50
 	var stride = 35.0 * scale_ratio
 	
-	var num_sprites = ceil(range_val / stride)
+	# 安全检查：防止stride为0或负数导致无限循环（导出版中int(INF)可能返回极大值）
+	if stride <= 0.01:
+		print("[ThunderBreak] ERROR: stride <= 0! width=", width, " default_width=", default_width, " scale_ratio=", scale_ratio)
+		stride = 35.0 # 回退到默认步长
+	
+	var num_sprites = int(ceil(range_val / stride))
+	# 安全上限：防止异常值导致创建过多精灵卡死游戏
+	if num_sprites > 100:
+		print("[ThunderBreak] WARNING: num_sprites clamped from ", num_sprites, " to 100. range_val=", range_val, " stride=", stride)
+		num_sprites = 100
+	if num_sprites <= 0:
+		print("[ThunderBreak] WARNING: num_sprites <= 0, skipping visual creation. range_val=", range_val, " stride=", stride)
+		return
 	
 	for i in range(num_sprites):
 		var s = sprite.duplicate()

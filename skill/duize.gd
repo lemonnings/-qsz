@@ -125,6 +125,12 @@ func setup(pos: Vector2, p_damage: float, p_range: float) -> void:
 	if PC.selected_rewards.has("Duize4"):
 		apply_corrosion = true
 
+	# 记录 tscn 中的默认缩放值作为基础
+	if sprite and base_sprite_scale == Vector2.ZERO:
+		base_sprite_scale = sprite.scale
+	if collision and base_collision_scale == Vector2.ZERO:
+		base_collision_scale = collision.scale
+
 	# 范围缩放
 	# 默认 scale x1.0 y1.285
 	# 默认 collision x3.155 y1.645

@@ -14,6 +14,9 @@ var hotkey_label: Label = null
 var cooldown_label: Label = null
 var cooldown_progress: TextureProgressBar = null
 
+# 冷却遮罩纹理
+var _cooldown_mask: Texture2D = null
+
 func _ready() -> void:
 	# 获取或创建UI节点
 	_setup_ui_nodes()
@@ -22,7 +25,10 @@ func _ready() -> void:
 		cooldown_label.hide()
 	if cooldown_progress:
 		cooldown_progress.value = 0
-		cooldown_progress.texture_progress = texture_normal
+		_cooldown_mask = _create_rounded_square_mask()
+		cooldown_progress.texture_progress = _cooldown_mask
+		# 从12点方向开始顺时针扫描
+		cooldown_progress.radial_initial_angle = 0.0
 	
 	# 连接主动技能管理器信号
 	if Global.active_skill_manager:
@@ -46,7 +52,7 @@ func _setup_ui_nodes() -> void:
 	hotkey_label.add_theme_color_override("font_color", Color(1, 1, 0.7, 1))
 	hotkey_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
 	hotkey_label.add_theme_constant_override("outline_size", 3)
-	hotkey_label.add_theme_font_size_override("font_size", 28)
+	hotkey_label.add_theme_font_size_override("font_size", 23)
 	
 	add_child(hotkey_label)
 	hotkey_label.show()
@@ -84,7 +90,8 @@ func setup_active_skill(slot: String, hotkey_text: String) -> void:
 		if icon_texture:
 			texture_normal = icon_texture
 			if cooldown_progress:
-				cooldown_progress.texture_progress = icon_texture
+				_cooldown_mask = _create_rounded_square_mask(icon_texture.get_width(), icon_texture.get_height())
+				cooldown_progress.texture_progress = _cooldown_mask
 	
 	# 获取技能冷却时间
 	cooldown_time = _get_skill_cooldown(skill_name)
@@ -99,17 +106,29 @@ func setup_active_skill(slot: String, hotkey_text: String) -> void:
 
 func _get_skill_icon_path(skill_id: String) -> String:
 	## 根据技能ID获取图标路径
+	# 优先从 Global 数据里取（与存档修正逻辑保持一致）
+	var icon = Global.player_active_skill_data.get(skill_id, {}).get("icon", "")
+	if icon != "":
+		return icon
 	match skill_id:
 		"dodge":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/dodge.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanbi.png"
 		"mizongbu":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/dodge.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mizongbu.png"
 		"huanling":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/random_strike.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mingxiang.png"
 		"random_strike":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/random_strike.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/luanji.png"
+		"beastify":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shouhua.png"
+		"heal_hot":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yuliao.png"
+		"water_sheild":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shuiliumu.png"
+		"holy_fire":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png"
 		_:
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/slash.png"
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/luanji.png"
 
 func _get_skill_cooldown(skill_id: String) -> float:
 	## 根据技能ID和等级计算冷却时间
@@ -216,3 +235,28 @@ func set_game_paused(pause: bool) -> void:
 func refresh_skill_config() -> void:
 	## 刷新技能配置（当技能绑定变化时调用）
 	setup_active_skill(slot_key, hotkey_label.text if hotkey_label else "")
+
+## 生成带圆角的正方形遮罩纹理，用于 TextureProgressBar 的时钟扫描效果
+func _create_rounded_square_mask(width: int = 72, height: int = 72) -> ImageTexture:
+	var img = Image.create(width, height, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0)) # 透明背景
+	var color = Color(0, 0, 0, 0.886275) # 半透明黑底
+	var corner_radius = max(4, int(min(width, height) * 0.08)) # 圆角半径约8%
+	for x in range(width):
+		for y in range(height):
+			if _is_inside_rounded_rect(x, y, width, height, corner_radius):
+				img.set_pixel(x, y, color)
+	var tex = ImageTexture.create_from_image(img)
+	return tex
+
+## 判断像素是否在圆角矩形内部
+func _is_inside_rounded_rect(x: int, y: int, w: int, h: int, r: int) -> bool:
+	if x < r and y < r:
+		return Vector2(x, y).distance_to(Vector2(r, r)) <= r
+	if x >= w - r and y < r:
+		return Vector2(x, y).distance_to(Vector2(w - r - 1, r)) <= r
+	if x < r and y >= h - r:
+		return Vector2(x, y).distance_to(Vector2(r, h - r - 1)) <= r
+	if x >= w - r and y >= h - r:
+		return Vector2(x, y).distance_to(Vector2(w - r - 1, h - r - 1)) <= r
+	return true

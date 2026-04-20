@@ -95,6 +95,8 @@ var _tooltip_name_label: Label = null
 var _tooltip_desc_label: Label = null
 var _tooltip_power_label: Label = null
 var _tooltip_font: Font = null
+var _tooltip_cached_size: Vector2 = Vector2.ZERO
+var _tooltip_canvas_layer: CanvasLayer = null
 var _tooltip_request_id: int = 0
 var _selected_difficulty: String = Global.STAGE_DIFFICULTY_SHALLOW
 var _lock_texture: AtlasTexture = null
@@ -387,7 +389,14 @@ func _create_tooltip_panel() -> void:
 	style.content_margin_top = 8
 	style.content_margin_bottom = 8
 	_tooltip_panel.add_theme_stylebox_override("panel", style)
-	add_child(_tooltip_panel)
+
+	# 创建独立的 CanvasLayer 来放置提示框，避免父级 LevelChangeLayer 的
+	# offset/scale 影响提示框的坐标，导致鼠标位置与提示框位置不对应。
+	_tooltip_canvas_layer = CanvasLayer.new()
+	_tooltip_canvas_layer.name = "TooltipCanvasLayer"
+	_tooltip_canvas_layer.layer = 100
+	add_child(_tooltip_canvas_layer)
+	_tooltip_canvas_layer.add_child(_tooltip_panel)
 	
 	_tooltip_vbox = VBoxContainer.new()
 	_tooltip_vbox.name = "VBox"
@@ -435,7 +444,7 @@ func _update_tooltip_position() -> void:
 		return
 	var visible_rect := get_viewport().get_visible_rect()
 	var mouse_pos := get_viewport().get_mouse_position()
-	var tooltip_size := _get_tooltip_panel_size()
+	var tooltip_size := _tooltip_cached_size
 	if tooltip_size == Vector2.ZERO:
 		return
 	
@@ -460,10 +469,7 @@ func _update_tooltip_position() -> void:
 	# 最后统一夹紧，确保即使提示框很大也不会越过屏幕上下左右边界。
 	tooltip_pos.x = clampf(tooltip_pos.x, min_x, max(min_x, max_x))
 	tooltip_pos.y = clampf(tooltip_pos.y, min_y, max(min_y, max_y))
-	_tooltip_panel.custom_minimum_size = tooltip_size
-	_tooltip_panel.size = tooltip_size
 	_tooltip_panel.position = tooltip_pos - Vector2(0, 25)
-
 
 
 func _show_tip(message: String) -> void:
@@ -543,6 +549,7 @@ func _show_stage_tooltip(stage_key: String) -> void:
 	var panel_size := content_size + Vector2(20, 16)
 	_tooltip_panel.custom_minimum_size = panel_size
 	_tooltip_panel.size = panel_size
+	_tooltip_cached_size = panel_size
 	_update_tooltip_position()
 	
 	# 再等一帧，确保位置和尺寸都稳定后再真正显示出来。
@@ -557,6 +564,7 @@ func _show_stage_tooltip(stage_key: String) -> void:
 
 func _hide_tooltip() -> void:
 	_tooltip_request_id += 1
+	_tooltip_cached_size = Vector2.ZERO
 	if _tooltip_panel != null:
 		_tooltip_panel.visible = false
 
