@@ -14,7 +14,7 @@ var damage_per_debuff: float = 0.0
 var damage_per_enemy: float = 0.0
 var crit_on_3_debuffs: bool = false
 
-static var main_skill_qiankun_damage: float = 0.55
+static var main_skill_qiankun_damage: float = 0.45
 static var qiankun_final_damage_multi: float = 1.0
 static var qiankun_speed: float = 300.0
 static var qiankun_range: float = 240.0
@@ -26,7 +26,7 @@ static var qiankun_damage_per_enemy: float = 0.0
 static var qiankun_crit_on_3_debuffs: bool = false
 
 static func reset_data() -> void:
-	main_skill_qiankun_damage = 0.55
+	main_skill_qiankun_damage = 0.45
 	qiankun_final_damage_multi = 1.0
 	qiankun_speed = 300.0
 	qiankun_range = 240.0

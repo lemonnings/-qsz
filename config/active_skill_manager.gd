@@ -333,10 +333,6 @@ signal skill_cooldown_finished(skill_id: String)
 func _ready():
 	# 初始化技能
 	init_skills()
-	
-	print("主动技能管理器已初始化")
-	print("已掌握技能: ", mastered_skills.keys())
-	print("技能槽位配置: ", Global.player_now_active_skill)
 
 func _process(delta):
 	# 游戏暂停时不处理
@@ -427,7 +423,6 @@ func check_skill_inputs():
 	if Input.is_key_pressed(KEY_SPACE):
 		if is_key_just_pressed("space"):
 			var skill_name = Global.player_now_active_skill.get("space", {}).get("name", "")
-			print("[主动技能] Space按下, 技能: ", skill_name)
 			if skill_name != "":
 				use_skill(skill_name)
 			set_key_pressed("space")
@@ -436,7 +431,6 @@ func check_skill_inputs():
 	if Input.is_key_pressed(KEY_Q):
 		if is_key_just_pressed("q"):
 			var skill_name = Global.player_now_active_skill.get("q", {}).get("name", "")
-			print("[主动技能] Q按下, 技能: ", skill_name)
 			if skill_name != "":
 				use_skill(skill_name)
 			set_key_pressed("q")
@@ -445,7 +439,6 @@ func check_skill_inputs():
 	if Input.is_key_pressed(KEY_E):
 		if is_key_just_pressed("e"):
 			var skill_name = Global.player_now_active_skill.get("e", {}).get("name", "")
-			print("[主动技能] E按下, 技能: ", skill_name)
 			if skill_name != "":
 				use_skill(skill_name)
 			set_key_pressed("e")

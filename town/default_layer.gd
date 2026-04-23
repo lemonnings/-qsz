@@ -5,17 +5,21 @@ extends CanvasLayer
 @onready var bag_button: Button = $Bag
 @onready var skill_button: Button = $Skill
 @onready var jc_button: Button = $JC
-@onready var main_volume: HSlider = $Panel/MainVolume
-@onready var bgm_volume: HSlider = $Panel/BGMVolume
-@onready var se_volume: HSlider = $Panel/SEVolume
-@onready var bg_volume: HSlider = $Panel/BGVolume
-@onready var screen_resolution: OptionButton = $Panel/ScreenResolution
-@onready var full_screen: CheckButton = $Panel/FullScreen
-@onready var vignetting: CheckButton = $Panel/Vignetting
-@onready var noborder: CheckButton = $Panel/Noborder
-@onready var particle: CheckButton = $Panel/Particle
-@onready var damage_show: CheckButton = $Panel/DamageShow
-@onready var damage_type_item: OptionButton = $Panel/DamageTypeItem
+@onready var main_volume: HSlider = $Panel/shengyin2/MainVolume
+@onready var bgm_volume: HSlider = $Panel/shengyin2/BGMVolume
+@onready var se_volume: HSlider = $Panel/shengyin2/SEVolume
+@onready var bg_volume: HSlider = $Panel/shengyin2/BGVolume
+@onready var screen_resolution: OptionButton = $Panel/huamian2/ScreenResolution
+@onready var full_screen: CheckButton = $Panel/huamian2/FullScreen
+@onready var vignetting: CheckButton = $Panel/huamian2/Vignetting
+@onready var noborder: CheckButton = $Panel/huamian2/Noborder
+@onready var particle: CheckButton = $Panel/youxi/Particle
+@onready var damage_show: CheckButton = $Panel/youxi/DamageShow
+
+@onready var time_slow_button: CheckButton = $Panel/youxi/TimeSlow
+@onready var super_test_button: CheckButton = $Panel/youxi/SuperTest
+
+@onready var damage_type_item: OptionButton = $Panel/youxi/DamageTypeItem
 @onready var exit_button: Button = $Panel/Exit2
 @onready var dark_overlay: Control = get_node_or_null("../CanvasLayer/DarkOverlay")
 @onready var bag_layer: CanvasLayer = get_node_or_null("../BagLayer")
@@ -82,10 +86,10 @@ func setup_settings_ui() -> void:
 	noborder.button_pressed = Global.settings_manager.is_noborder_enabled()
 	noborder.toggled.connect(_on_noborder_toggled)
 
-	particle.button_pressed = Global.settings_manager.is_particle_enabled()
+	particle.set_pressed_no_signal(Global.settings_manager.is_particle_enabled())
 	particle.toggled.connect(_on_particle_toggled)
 
-	damage_show.button_pressed = Global.settings_manager.is_damage_show_enabled()
+	damage_show.set_pressed_no_signal(Global.settings_manager.is_damage_show_enabled())
 	damage_show.toggled.connect(_on_damage_show_toggled)
 
 	damage_type_item.clear()
@@ -96,6 +100,12 @@ func setup_settings_ui() -> void:
 	damage_type_item.item_selected.connect(_on_damage_type_selected)
 	# 根据伤害跳字开关状态设置格式选项的禁用状态
 	damage_type_item.disabled = not Global.settings_manager.is_damage_show_enabled()
+
+	time_slow_button.set_pressed_no_signal(Global.time_slow_enabled)
+	time_slow_button.toggled.connect(_on_time_slow_toggled)
+
+	super_test_button.set_pressed_no_signal(Global.is_test)
+	super_test_button.toggled.connect(_on_super_test_toggled)
 
 func _on_main_volume_changed(value: float) -> void:
 	Global.audio_manager.set_master_volume(value)
@@ -137,6 +147,14 @@ func _on_damage_show_toggled(pressed: bool) -> void:
 
 func _on_damage_type_selected(index: int) -> void:
 	Global.damage_show_type = index
+	Global.save_game()
+
+func _on_time_slow_toggled(pressed: bool) -> void:
+	Global.time_slow_enabled = pressed
+	Global.save_game()
+
+func _on_super_test_toggled(pressed: bool) -> void:
+	Global.is_test = pressed
 	Global.save_game()
 
 func _on_bg_volume_changed(value: float) -> void:

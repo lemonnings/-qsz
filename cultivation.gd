@@ -144,7 +144,7 @@ func get_cultivation_bonus_text(type: String, level: int) -> String:
 		"atk_speed":
 			return "+" + str(level * 0.8) + "% 攻速"
 		"spirit_gain":
-			return "+" + str(level * 2) + "% 灵气获取"
+			return "+" + str(level * 2) + "% 真气获取"
 		"crit_chance":
 			return "+" + str(level * 0.4) + "% 暴击率"
 		"damage_reduction":
@@ -288,7 +288,6 @@ func _transition_to_layer(target_layer: CanvasLayer, hide_layers: Array) -> void
 				transition_tween.tween_property(child, "modulate:a", 1.0, 0.125).set_delay(0.125)
 
 func _switch_to_cultivation_layer(_target_layer: CanvasLayer, hide_layers: Array) -> void:
-
 	# 隐藏旧层
 	for layer in hide_layers:
 		if layer:

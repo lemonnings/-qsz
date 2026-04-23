@@ -139,7 +139,7 @@ func _apply_debuff_effects(debuff_id: String):
 	var debuff_entry = active_debuffs[debuff_id]
 	var config: DebuffData = debuff_entry["config"]
 
-	if config.has_modulate:
+	if config.has_modulate and not target_enemy.is_in_group("boss"):
 		target_enemy.modulate = config.modulate_color
 
 	if config.has_effect and config.effect_path != "":
@@ -152,7 +152,7 @@ func _remove_debuff_effects(debuff_id: String):
 	var debuff_entry = active_debuffs[debuff_id]
 	var config: DebuffData = debuff_entry["config"]
 
-	if config.has_modulate:
+	if config.has_modulate and not target_enemy.is_in_group("boss"):
 		target_enemy.modulate = base_modulate
 
 	if debuff_entry["effect_instance"]:
@@ -168,6 +168,8 @@ func _on_debuff_expired(debuff_id: String):
 	_reapply_remaining_debuff_effects()
 
 func _reapply_remaining_debuff_effects():
+	if target_enemy.is_in_group("boss"):
+		return
 	if active_debuffs.is_empty():
 		target_enemy.modulate = base_modulate
 	else:
@@ -340,8 +342,9 @@ func _start_death_fade() -> void:
 		if debuff_entry["effect_instance"]:
 			debuff_entry["effect_instance"].queue_free()
 	active_debuffs.clear()
-	# 立即恢复颜色（不再渐变）
-	target_enemy.modulate = base_modulate
+	# 立即恢复颜色（Boss不受滤镜影响所以无需恢复）
+	if not target_enemy.is_in_group("boss"):
+		target_enemy.modulate = base_modulate
 	# 清除刀剑法则冷光图像效果
 	Faze.clear_sword_faze_effects(target_enemy)
 

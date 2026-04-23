@@ -17,9 +17,9 @@ var update_move_timer: Timer
 
 # 属性
 var speed: float = SettingMoster.stone_man("speed") * 1.2
-var hpMax: float = SettingMoster.stone_man("hp") * 25
+var hpMax: float = SettingMoster.stone_man("hp") * 12 # 正式版50
 var hp: float = hpMax
-var atk: float = SettingMoster.stone_man("atk") * 0.9
+var atk: float = SettingMoster.stone_man("atk") * 0.75
 var get_point: int = SettingMoster.stone_man("point") * 50
 var get_exp: int = 0
 
@@ -33,7 +33,17 @@ const ICE_SCENE = preload("res://Scenes/moster/boss_skill/ice.tscn")
 const CORE_ICE_SPIKE_ANGLE: float = 270.0
 
 func _drop_boss_rewards() -> void:
-	drop_items_from_table(SettingMoster.cave_boss("itemdrop"))
+	# 15%基础概率掉落1种以太（火风雷水土其一）
+	var ether_ids = ["item_031", "item_032", "item_033", "item_034", "item_035"]
+	if randf() <= 0.75:
+		var chosen_ether = ether_ids[randi() % ether_ids.size()]
+		Global.emit_signal("drop_out_item", chosen_ether, 1, global_position)
+	# 魔核+凝灵碎片掉落
+	drop_items_from_table(SettingMoster.get_boss_extra_drop())
+	# 固定掉落1个随机魔核
+	var magic_cores = ["item_097", "item_098", "item_099", "item_100", "item_101"]
+	var fixed_core = magic_cores[randi() % magic_cores.size()]
+	Global.emit_signal("drop_out_item", fixed_core, 1, global_position)
 
 var attack_timer: Timer
 
@@ -54,19 +64,26 @@ const SPELL_ICON_ORDER := {
 }
 const CHAIN_CHANT_COMBINATIONS := [
 	[5, 6, 3], # 十字火 + x形冰 + 环雷
-	[1, 5, 3], # 爆炎 + 十字火 + 环雷
 	[3, 1, 5], # 环雷 + 爆炎 + 十字火
 	[3, 1, 6], # 环雷 + 爆炎 + x形冰
 	[5, 3, 2], # 十字火 + 环雷 + 极冰
+	[5, 3, 2], # 十字火 + 环雷 + 极冰
+	[5, 3, 6], # 十字火 + 环雷 +  x形冰
+	[2, 3, 6], # 极冰 + 环雷 +  x形冰
+	[2, 3, 5], # 极冰 + 环雷 +  十字火
 	[6, 3, 2], # x形冰 + 环雷 + 极冰
+	[6, 3, 2], # x形冰 + 环雷 + 极冰
+	[6, 3, 5], # x形冰 + 环雷 + 十字火
+	[5, 1, 6], # 十字火 + 爆炎 + x形冰
+	[6, 1, 5], # x形冰 + 爆炎 + 十字火
 	[5, 1, 6], # 十字火 + 爆炎 + x形冰
 	[6, 1, 5], # x形冰 + 爆炎 + 十字火
 ]
 const POETRY_CHAIN_CHANT_PAIRS := [
-	[1, 2], # 炽炎+冰封
+	[1, 2], # 炽炎+极冰
 	[3, 5], # 环雷+十字火
 	[3, 6], # 环雷+x形冰
-	[2, 6], # 冰封+x形冰
+	[2, 6], # 极冰+x形冰
 	[1, 5], # 炽炎+十字火
 ]
 
@@ -75,23 +92,27 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
 	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 5
+	var dps_multiplier := 8
 	match Global.current_stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 6
+			dps_multiplier = 11
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 7
+			dps_multiplier = 14
 		Global.STAGE_DIFFICULTY_POETRY:
-			dps_multiplier = 7
+			dps_multiplier = 14
 	hpMax += Global.get_current_dps() * dps_multiplier
 	hp = hpMax
+	
+	# 浅层难度下Boss只造成25%伤害
+	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
+		atk *= 0.5
 
 	setup_monster_base()
 	player_hit_emit_self = true
 	use_debuff_take_damage_multiplier = false
 	check_action_disabled_on_body_entered = false
 
-	CharacterEffects.create_shadow(self , 50.0, 16.0, 14.0)
+	CharacterEffects.create_shadow(self , 50.0, 16.0, 40.0)
 
 	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "坎塞尔")
 	Global.emit_signal("boss_hp_bar_show")
@@ -114,6 +135,9 @@ func _ready():
 	symbol_node.z_index = 10
 	add_child(symbol_node)
 
+	# 从场景 StaticBody2D 动态读取场地边界，覆盖硬编码默认值
+	_read_arena_boundaries()
+
 
 func _update_target_position():
 	if not is_instance_valid(PC.player_instance): return
@@ -122,6 +146,68 @@ func _update_target_position():
 	if global_position.x < player_pos.x:
 		x_offset = -80
 	target_position = Vector2(player_pos.x + x_offset, player_pos.y)
+
+## 从当前场景的 Boundry 节点中读取 StaticBody2D，动态计算场地边界。
+## 覆盖 @export 的硬编码默认值，使耀星等技能适配任意大小场地。
+func _read_arena_boundaries() -> void:
+	var current_scene = get_tree().current_scene
+	if not current_scene:
+		return
+	var boundary_node = current_scene.find_child("Boundry", true, false)
+	if not boundary_node:
+		return
+	var result: Dictionary = {}
+	var margin := 0.1 # 角度容差
+	for child in boundary_node.get_children():
+		if not child is StaticBody2D:
+			continue
+		var static_body: StaticBody2D = child
+		var col_shape: CollisionShape2D = null
+		for sub in static_body.get_children():
+			if sub is CollisionShape2D:
+				col_shape = sub
+				break
+		if col_shape == null:
+			continue
+		if col_shape.shape == null or not col_shape.shape is WorldBoundaryShape2D:
+			continue
+		# 将旋转角度归一化到 [-PI, PI]
+		var rot = fposmod(static_body.global_rotation, TAU)
+		if rot > PI:
+			rot -= TAU
+		var abs_rot = absf(rot)
+		if abs_rot < margin or absf(abs_rot - PI) < margin:
+			# 水平墙壁 → 决定 Y 边界
+			var y_val = col_shape.global_position.y
+			if abs_rot < margin:
+				# 旋转≈0 → 底部墙壁 → max_y
+				if not result.has("max_y") or y_val < result["max_y"]:
+					result["max_y"] = y_val
+			else:
+				# 旋转≈±π → 顶部墙壁 → min_y
+				if not result.has("min_y") or y_val > result["min_y"]:
+					result["min_y"] = y_val
+		elif absf(abs_rot - PI / 2.0) < margin:
+			# 垂直墙壁 → 决定 X 边界
+			var x_val = col_shape.global_position.x
+			if rot < 0:
+				# 旋转≈-π/2 → 右侧墙壁 → max_x
+				if not result.has("max_x") or x_val < result["max_x"]:
+					result["max_x"] = x_val
+			else:
+				# 旋转≈+π/2 → 左侧墙壁 → min_x
+				if not result.has("min_x") or x_val > result["min_x"]:
+					result["min_x"] = x_val
+	if result.has("min_y"):
+		top_boundary = result["min_y"]
+	if result.has("max_y"):
+		bottom_boundary = result["max_y"]
+	if result.has("min_x"):
+		left_boundary = result["min_x"]
+	if result.has("max_x"):
+		right_boundary = result["max_x"]
+	print("[BossCansel] 动态边界: top=", top_boundary, " bottom=", bottom_boundary,
+		" left=", left_boundary, " right=", right_boundary)
 
 # 难度辅助方法
 func _is_deep_or_harder() -> bool:
@@ -462,7 +548,7 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, _direction: Vector2):
 					Global.emit_signal("player_hit", self )
 					var actual_damage = int(PC.pc_hp * 0.3)
 					PC.pc_hp -= actual_damage
-					Global.emit_signal("player_take_damage", float(actual_damage), 0.0, player_pos)
+					Global.emit_signal("player_hit", float(actual_damage), 0.0, self , player_pos, "灵火碎片")
 					var stacks = 1
 					if BuffManager.has_buff("burning_fire"):
 						stacks = BuffManager.get_buff_stack("burning_fire") + 1
@@ -482,10 +568,9 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, _direction: Vector2):
 					consumed = true
 				else:
 					# 否则：扣除当前生命30% + 叠加冰冻
-					Global.emit_signal("player_hit", self )
 					var actual_damage = int(PC.pc_hp * 0.3)
 					PC.pc_hp -= actual_damage
-					Global.emit_signal("player_take_damage", float(actual_damage), 0.0, player_pos)
+					Global.emit_signal("player_hit", float(actual_damage), 0.0, self , player_pos, "星冰碎片")
 					var stacks = 1
 					if BuffManager.has_buff("frozen"):
 						stacks = BuffManager.get_buff_stack("frozen") + 1
@@ -552,6 +637,51 @@ class _SparkDrawer extends Node2D:
 		var inner_col = Color(1.0, 1.0, 0.5) if is_fire else Color(0.5, 1.0, 1.0)
 		for f in inner_funcs: f.call(Vector2.ZERO, inner_col)
 
+# 十字形（上下左右四方向）粒子喷射
+func _spawn_cross_particles(pos: Vector2, color: Color, amount: int, radius: float):
+	var axes = [Vector2.RIGHT, Vector2.LEFT, Vector2.DOWN, Vector2.UP]
+	var per_axis = int(amount / 4)
+	for axis in axes:
+		for i in range(per_axis):
+			var p = _ParticleDot.new()
+			p.color = color
+			p.global_position = pos + Vector2(randf_range(-6, 6), randf_range(-6, 6))
+			get_tree().current_scene.add_child(p)
+			var spread = randf_range(-0.3, 0.3) # ±约17度扩散
+			var dir = axis.rotated(spread)
+			var dist = randf_range(radius * 0.2, radius)
+			var target = p.global_position + dir * dist
+			var tw = p.create_tween().set_parallel(true)
+			var fly_time = randf_range(0.3, 0.6)
+			tw.tween_property(p, "global_position", target, fly_time).set_ease(Tween.EASE_OUT)
+			tw.tween_property(p, "modulate:a", 0.0, fly_time)
+			tw.finished.connect(p.queue_free)
+
+# X形（四条对角线方向）粒子喷射
+func _spawn_x_particles(pos: Vector2, color: Color, amount: int, radius: float):
+	var diagonals = [
+		Vector2(1, 1).normalized(),
+		Vector2(-1, -1).normalized(),
+		Vector2(1, -1).normalized(),
+		Vector2(-1, 1).normalized(),
+	]
+	var per_diag = int(amount / 4)
+	for diag in diagonals:
+		for i in range(per_diag):
+			var p = _ParticleDot.new()
+			p.color = color
+			p.global_position = pos + Vector2(randf_range(-6, 6), randf_range(-6, 6))
+			get_tree().current_scene.add_child(p)
+			var spread = randf_range(-0.3, 0.3)
+			var dir = diag.rotated(spread)
+			var dist = randf_range(radius * 0.2, radius)
+			var target = p.global_position + dir * dist
+			var tw = p.create_tween().set_parallel(true)
+			var fly_time = randf_range(0.3, 0.6)
+			tw.tween_property(p, "global_position", target, fly_time).set_ease(Tween.EASE_OUT)
+			tw.tween_property(p, "modulate:a", 0.0, fly_time)
+			tw.finished.connect(p.queue_free)
+
 func _spawn_particles(pos: Vector2, color: Color, amount: int, radius: float):
 	for i in range(amount):
 		var p = _ParticleDot.new()
@@ -604,7 +734,7 @@ func _attack_blazing_fire():
 	var fire_radius = 144.0 * 0.9
 	warn.warning_finished.connect(func():
 		if is_instance_valid(warn): warn.cleanup()
-		_spawn_particles(player_pos, Color(1.0, 0.2, 0.0), 60, fire_radius)
+		_spawn_particles(player_pos, Color(1.0, 0.2, 0.0), 160, fire_radius)
 		_screen_shake(8.0, 0.3)
 		
 		var base_angle = randf() * TAU
@@ -631,7 +761,7 @@ func _attack_extreme_ice():
 	var ice_radius = 200.0 * 0.85
 	warn.warning_finished.connect(func():
 		if is_instance_valid(warn): warn.cleanup()
-		_spawn_particles(boss_pos, Color(0.0, 0.8, 1.0), 80, ice_radius)
+		_spawn_particles(boss_pos, Color(0.0, 0.8, 1.0), 160, ice_radius)
 		_screen_shake(8.0, 0.3)
 		
 		var base_angle = randf() * TAU
@@ -666,7 +796,7 @@ func _attack_ring_thunder():
 		await get_tree().create_timer(0.5).timeout
 	if is_instance_valid(ring_warn): ring_warn.queue_free()
 	
-	_spawn_particles(boss_pos, Color(0.6, 0.0, 1.0), 100, 400.0)
+	_spawn_particles(boss_pos, Color(0.6, 0.0, 1.0), 160, 400.0)
 	_screen_shake(6.0, 0.3)
 	
 	if is_instance_valid(PC.player_instance) and not PC.invincible:
@@ -705,9 +835,114 @@ class _RingWarn extends Node2D:
 			var poly = PackedVector2Array([pts[i], pts[i + 1], pts2[i + 1], pts2[i]])
 			draw_polygon(poly, PackedColorArray([c]))
 
+## 耀星方向箭头指示器
+## 在每个警告圈的指定半侧绘制像素风格 chevron 箭头（>>/<< 等），
+## 帮助玩家快速判断地火的移动方向。
+class _DirectionArrowIndicator extends Node2D:
+	var move_dir: Vector2 = Vector2.RIGHT
+	var warn_radius: float = 26.0
+	var warn_aspect: float = 1.5
+	var warn_duration: float = 1.0
+	var _elapsed: float = 0.0
+	const P := 2 # 像素块边长
+
+	func _ready():
+		z_index = 2 # 绘制在警告圈之上
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+	func _process(delta):
+		_elapsed += delta
+		queue_redraw()
+
+	func _draw():
+		if _elapsed > warn_duration + 0.05:
+			return
+		var progress := _elapsed / warn_duration
+		var alpha: float
+		if progress <= 0.1:
+			alpha = (progress / 0.1) * 0.85
+		elif progress <= 0.75:
+			alpha = 0.55 + 0.3 * sin(_elapsed * 7.0)
+		else:
+			alpha = 0.85 * (1.0 - (progress - 0.75) / 0.25)
+		alpha = clampf(alpha, 0.0, 1.0)
+
+		var arrow_color := Color(1.0, 0.85, 0.15, alpha)
+		var shadow_color := Color(0.0, 0.0, 0.0, alpha * 0.6)
+		var highlight_color := Color(1.0, 1.0, 0.8, alpha * 0.5)
+
+		var half_w := warn_radius * warn_aspect
+		var half_h := warn_radius
+
+		if move_dir == Vector2.RIGHT:
+			for i in 2:
+				var cx := half_w * (0.2 + i * 0.3)
+				_draw_chevron_right(Vector2(cx, 0), arrow_color, shadow_color, highlight_color)
+		elif move_dir == Vector2.LEFT:
+			for i in 2:
+				var cx := -half_w * (0.2 + i * 0.3)
+				_draw_chevron_left(Vector2(cx, 0), arrow_color, shadow_color, highlight_color)
+		elif move_dir == Vector2.DOWN:
+			for i in 2:
+				var cy := half_h * (0.2 + i * 0.3)
+				_draw_chevron_down(Vector2(0, cy), arrow_color, shadow_color, highlight_color)
+		elif move_dir == Vector2.UP:
+			for i in 2:
+				var cy := -half_h * (0.2 + i * 0.3)
+				_draw_chevron_up(Vector2(0, cy), arrow_color, shadow_color, highlight_color)
+
+	# —— ">" 右向 chevron（5 像素块对角线）——
+	func _draw_chevron_right(center: Vector2, color: Color, shadow: Color, highlight: Color):
+		var offsets := [
+			Vector2(-P, -2 * P), Vector2(0, -P), Vector2(P, 0),
+			Vector2(0, P), Vector2(-P, 2 * P)
+		]
+		for off in offsets:
+			draw_rect(Rect2(center + off + Vector2(1, 1), Vector2(P, P)), shadow)
+		for off in offsets:
+			draw_rect(Rect2(center + off, Vector2(P, P)), color)
+		# 高亮对角线中点
+		draw_rect(Rect2(center + Vector2(P, 0), Vector2(P, P)), highlight)
+
+	# —— "<" 左向 chevron ——
+	func _draw_chevron_left(center: Vector2, color: Color, shadow: Color, highlight: Color):
+		var offsets := [
+			Vector2(P, -2 * P), Vector2(0, -P), Vector2(-P, 0),
+			Vector2(0, P), Vector2(P, 2 * P)
+		]
+		for off in offsets:
+			draw_rect(Rect2(center + off + Vector2(1, 1), Vector2(P, P)), shadow)
+		for off in offsets:
+			draw_rect(Rect2(center + off, Vector2(P, P)), color)
+		draw_rect(Rect2(center + Vector2(-P, 0), Vector2(P, P)), highlight)
+
+	# —— "v" 下向 chevron ——
+	func _draw_chevron_down(center: Vector2, color: Color, shadow: Color, highlight: Color):
+		var offsets := [
+			Vector2(-2 * P, -P), Vector2(-P, 0), Vector2(0, P),
+			Vector2(P, 0), Vector2(2 * P, -P)
+		]
+		for off in offsets:
+			draw_rect(Rect2(center + off + Vector2(1, 1), Vector2(P, P)), shadow)
+		for off in offsets:
+			draw_rect(Rect2(center + off, Vector2(P, P)), color)
+		draw_rect(Rect2(center + Vector2(0, P), Vector2(P, P)), highlight)
+
+	# —— "^" 上向 chevron ——
+	func _draw_chevron_up(center: Vector2, color: Color, shadow: Color, highlight: Color):
+		var offsets := [
+			Vector2(-2 * P, P), Vector2(-P, 0), Vector2(0, -P),
+			Vector2(P, 0), Vector2(2 * P, P)
+		]
+		for off in offsets:
+			draw_rect(Rect2(center + off + Vector2(1, 1), Vector2(P, P)), shadow)
+		for off in offsets:
+			draw_rect(Rect2(center + off, Vector2(P, P)), color)
+		draw_rect(Rect2(center + Vector2(0, -P), Vector2(P, P)), highlight)
+
 func _attack_ground_fire():
 	Global.emit_signal("boss_chant_start", "耀星", 1.0)
-	await get_tree().create_timer(1.0).timeout
+	await get_tree().create_timer(1.5).timeout
 	if not is_instance_valid(self ) or is_dead: return
 	Global.emit_signal("boss_chant_end")
 	
@@ -730,8 +965,8 @@ func _run_ground_fire_rounds():
 	var total_rounds = 8 if _is_deep_or_harder() else 4
 	var cached_atk = atk
 	var cached_boundaries = {
-		"top": top_boundary, "bottom": bottom_boundary,
-		"left": left_boundary, "right": right_boundary
+		"top": top_boundary - 150, "bottom": bottom_boundary + 150,
+		"left": left_boundary - 150, "right": right_boundary + 150
 	}
 	
 	for round_idx in range(total_rounds):
@@ -804,9 +1039,11 @@ func _run_ground_fire_rounds():
 func _spawn_ground_fire_line(start_pos: Vector2, direction: Vector2, step_dist: float, count: int, size_scale: float = 1.0, cached_atk: float = -1.0):
 	var current_pos = start_pos
 	var actual_atk = atk if cached_atk < 0.0 else cached_atk
-	var warning_radius = 20.0 * size_scale
-	var particle_amount = int(ceil(10.0 * size_scale))
-	var particle_radius = 45.0 * size_scale
+	var warning_radius = 20.7 * size_scale
+	var particle_amount = int(ceil(40.0 * size_scale))
+	var particle_radius = 120.0 * size_scale
+	var warn_aspect = 1.6
+	var warn_duration = 2.0
 	
 	for i in range(count):
 		if not is_instance_valid(self ) or is_dead: break
@@ -820,9 +1057,17 @@ func _spawn_ground_fire_line(start_pos: Vector2, direction: Vector2, step_dist: 
 			if is_instance_valid(self ):
 				_spawn_particles(pos_to_damage, Color(1.0, 0.18, 0.08), particle_amount, particle_radius)
 		)
-		warn.start_warning(current_pos, 1.5, warning_radius, 1.0, actual_atk * 1.5, "耀星", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
+		warn.start_warning(current_pos, warn_aspect, warning_radius, warn_duration, actual_atk * 1.5, "耀星", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
 		
-		await get_tree().create_timer(1.0).timeout
+		# 在警告圈上添加方向箭头指示器
+		var arrow = _DirectionArrowIndicator.new()
+		arrow.move_dir = direction
+		arrow.warn_radius = warning_radius
+		arrow.warn_aspect = warn_aspect
+		arrow.warn_duration = warn_duration
+		warn.add_child(arrow)
+		
+		await get_tree().create_timer(0.75).timeout
 		current_pos += direction * step_dist
 
 func _attack_cross_fire():
@@ -850,7 +1095,7 @@ func _attack_cross_fire():
 	if not _combo_mode:
 		await get_tree().create_timer(chant_time).timeout
 	_hide_symbol()
-	_spawn_particles(boss_pos, Color(1.0, 0.5, 0.0), 60, 200.0)
+	_spawn_cross_particles(boss_pos, Color(1.0, 0.5, 0.0), 160, 600.0)
 	_screen_shake(4.0, 0.2)
 	
 	_finish_skill()
@@ -878,7 +1123,7 @@ func _attack_x_ice():
 	if not _combo_mode:
 		await get_tree().create_timer(chant_time).timeout
 	_hide_symbol()
-	_spawn_particles(boss_pos, Color(0.0, 0.5, 1.0), 60, 200.0)
+	_spawn_x_particles(boss_pos, Color(0.0, 0.5, 1.0), 160, 600.0)
 	_screen_shake(4.0, 0.2)
 	
 	_finish_skill()
@@ -1011,7 +1256,7 @@ func _attack_poetry_ultimate():
 		
 		# 判定：全屏特效 + 伤害
 		_screen_shake(15.0, 0.5)
-		_spawn_particles(global_position, Color(1.0, 0.3, 0.0), 120, 600.0)
+		_spawn_particles(global_position, Color(1.0, 0.3, 0.0), 180, 600.0)
 		
 		if is_instance_valid(PC.player_instance) and not PC.invincible:
 			var frozen_stacks = BuffManager.get_buff_stack("frozen") if BuffManager.has_buff("frozen") else 0
@@ -1051,7 +1296,7 @@ func _attack_poetry_ultimate():
 		
 		# 判定：全屏特效 + 伤害
 		_screen_shake(15.0, 0.5)
-		_spawn_particles(global_position, Color(0.0, 0.5, 1.0), 120, 600.0)
+		_spawn_particles(global_position, Color(0.0, 0.5, 1.0), 180, 600.0)
 		
 		if is_instance_valid(PC.player_instance) and not PC.invincible:
 			var fire_stacks = BuffManager.get_buff_stack("burning_fire") if BuffManager.has_buff("burning_fire") else 0

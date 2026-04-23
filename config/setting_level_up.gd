@@ -136,8 +136,8 @@ func _get_rewards_by_rarity_str(rarity_str: String, main_skill_name: String) -> 
 			# 主技能进阶升级（5的倍数）：只抽取if_advance=true且faction匹配的技能，忽略稀有度
 			if reward_item.if_advance == true and reward_item.faction == main_skill_name:
 				filtered_rewards.append(reward_item)
-			elif reward_item.if_advance == true:
-				print("[DEBUG] 跳过进阶技能 %s: faction=%s (期望=%s)" % [reward_item.id, reward_item.faction, main_skill_name])
+			# elif reward_item.if_advance == true:
+			# 	print("[DEBUG] 跳过进阶技能 %s: faction=%s (期望=%s)" % [reward_item.id, reward_item.faction, main_skill_name])
 
 	return filtered_rewards
 	
@@ -285,7 +285,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 						is_emblem_reward = true
 						break
 			if is_emblem_reward and EmblemManager.get_emblem_count() >= PC.emblem_slots_max:
-				print_debug("纹章已达上限，跳过奖励: " + r.id)
+				print("纹章已达上限，跳过奖励: " + r.id)
 				continue
 			if main_skill_name != '':
 				# 主技能进阶升级：_get_rewards_by_rarity_str已经筛选了if_advance=true和faction匹配的奖励
@@ -294,7 +294,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 				# 普通升级：按派系筛选
 				if r.faction == selected_faction:
 					faction_specific_rewards.append(r)
-		#print_debug("select_reward - faction_specific_rewards size after loop: ", faction_specific_rewards.size())
+		#print("select_reward - faction_specific_rewards size after loop: ", faction_specific_rewards.size())
 				
 		if faction_specific_rewards != null and faction_specific_rewards.size() != 0:
 			var chosen_reward = _select_reward_by_weight(faction_specific_rewards)
@@ -312,10 +312,10 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 							var condition_met = callable_func.call()
 							if not condition_met:
 								prerequisites_met = false
-								print_debug("因未满足前置条件函数 '" + func_name + "' 而重抽奖励 '" + chosen_reward.id + "'")
+								print("因未满足前置条件函数 '" + func_name + "' 而重抽奖励 '" + chosen_reward.id + "'")
 								break
 						else:
-							print_debug("错误：找不到前置条件函数 '" + func_name + "' 用于奖励 '" + chosen_reward.id + "'")
+							print("错误：找不到前置条件函数 '" + func_name + "' 用于奖励 '" + chosen_reward.id + "'")
 							prerequisites_met = false # 如果找不到函数，也视为条件不满足
 							break
 				
@@ -324,20 +324,20 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 					if chosen_reward.max_acquisitions == -1 or PC.get_reward_acquisition_count(chosen_reward.id) < chosen_reward.max_acquisitions:
 						return chosen_reward # 成功找到符合条件的奖励。
 					else:
-						print_debug("奖励 '" + chosen_reward.id + "' 已达最大获取次数: " + str(PC.get_reward_acquisition_count(chosen_reward.id)) + "/" + str(chosen_reward.max_acquisitions) + "，进行重抽。")
+						print("奖励 '" + chosen_reward.id + "' 已达最大获取次数: " + str(PC.get_reward_acquisition_count(chosen_reward.id)) + "/" + str(chosen_reward.max_acquisitions) + "，进行重抽。")
 						# 继续下一次重抽尝试。
 						continue
 				else:
 					# 前置条件未满足，继续下一次重抽尝试。
 					continue
 			else: # 如果在该派系下没有可选奖励，则重试。
-				print_debug("在稀有度 '" + csv_rarity_name + "' 的派系 '" + selected_faction + "' 下未找到奖励。重抽派系。")
+				print("在稀有度 '" + csv_rarity_name + "' 的派系 '" + selected_faction + "' 下未找到奖励。重抽派系。")
 				continue
 		elif main_skill_name != '':
 			# 进阶池为空时，返回NoAdvance默认强化选项
 			return _get_no_advance_reward()
 	
-	print_debug("稀有度 '" + csv_rarity_name + "' 已达到最大重抽次数。将返回null或该稀有度下首个可用的奖励。")
+	print("稀有度 '" + csv_rarity_name + "' 已达到最大重抽次数。将返回null或该稀有度下首个可用的奖励。")
 	# 如果达到最大重抽次数或未找到合适奖励时的回退逻辑。
 	var all_rewards_for_rarity_fallback = _get_rewards_by_rarity_str(csv_rarity_name, main_skill_name)
 	if not all_rewards_for_rarity_fallback.is_empty():
@@ -352,7 +352,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 						fb_is_emblem = true
 						break
 			if fb_is_emblem and EmblemManager.get_emblem_count() >= PC.emblem_slots_max:
-				print_debug("纹章已达上限，回退时跳过奖励: " + fallback_reward.id)
+				print("纹章已达上限，回退时跳过奖励: " + fallback_reward.id)
 				continue
 			var fb_prereq_met = true
 			if not fallback_reward.precondition.is_empty():
@@ -372,10 +372,10 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 			if fb_prereq_met and (fallback_reward.max_acquisitions == -1 or PC.get_reward_acquisition_count(fallback_reward.id) < fallback_reward.max_acquisitions):
 				return fallback_reward
 		# 如果在回退逻辑中仍然找不到完全符合条件的奖励 (for current csv_rarity_name)
-		print_debug("在稀有度 '" + csv_rarity_name + "' 的回退逻辑中，未能找到完全符合条件的奖励。将尝试其他稀有度。")
+		print("在稀有度 '" + csv_rarity_name + "' 的回退逻辑中，未能找到完全符合条件的奖励。将尝试其他稀有度。")
 
 	# 尝试从其他稀有度获取奖励
-	print_debug("稀有度 '" + csv_rarity_name + "' 无可用奖励后，开始尝试查找其他稀有度的奖励。")
+	print("稀有度 '" + csv_rarity_name + "' 无可用奖励后，开始尝试查找其他稀有度的奖励。")
 	# 定义实际使用的稀有度名称（与CSV文件中的稀有度名称一致）
 	var actual_rarity_levels: Array[String] = ["white", "green", "skyblue", "darkorchid", "gold", "red"]
 	for other_rarity_name in actual_rarity_levels:
@@ -395,7 +395,7 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 							other_is_emblem = true
 							break
 				if other_is_emblem and EmblemManager.get_emblem_count() >= PC.emblem_slots_max:
-					print_debug("纹章已达上限，跨稀有度跳过奖励: " + potential_reward.id)
+					print("纹章已达上限，跨稀有度跳过奖励: " + potential_reward.id)
 					continue
 				# 检查前置条件 (使用与主循环相同的逻辑)
 				var prereq_ok = true
@@ -415,10 +415,10 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 				if prereq_ok:
 					# 检查最大获取次数
 					if potential_reward.max_acquisitions == -1 or PC.get_reward_acquisition_count(potential_reward.id) < potential_reward.max_acquisitions:
-						print_debug("原稀有度 '" + csv_rarity_name + "' 无合适奖励。从备选稀有度 '" + other_rarity_name + "' 选中奖励: " + potential_reward.id)
+						print("原稀有度 '" + csv_rarity_name + "' 无合适奖励。从备选稀有度 '" + other_rarity_name + "' 选中奖励: " + potential_reward.id)
 						return potential_reward # 成功找到符合条件的奖励
 
-	print_debug("所有稀有度（包括 '" + csv_rarity_name + "' 的回退和其他稀有度）均尝试完毕，未找到任何可用奖励。")
+	print("所有稀有度（包括 '" + csv_rarity_name + "' 的回退和其他稀有度）均尝试完毕，未找到任何可用奖励。")
 	# 如果是主技能进阶但找不到任何奖励，返回NoAdvance默认强化选项
 	if is_main_skill_advance:
 		return _get_no_advance_reward()
@@ -690,6 +690,22 @@ func check_Thunderbreak2() -> bool:
 func check_Thunderbreak3() -> bool:
 	return PC.selected_rewards.has("ThunderBreak1") and PC.selected_rewards.has("ThunderBreak3")
 
+func check_speed_extreme() -> bool:
+	return PC.pc_atk_speed >= 0.8 and PC.pc_speed >= 0.8
+
+func check_mengyu_mastery() -> bool:
+	var mengyu_count = 0
+	for reward_id in PC.selected_rewards:
+		if reward_id in ["R09", "SR09", "SSR09", "UR09"]:
+			mengyu_count += 1
+	return mengyu_count >= 5
+
+func check_level_40() -> bool:
+	return PC.pc_lv >= 40
+
+func check_chaos_level_5() -> bool:
+	return PC.faze_chaos_level >= 5
+
 
 func reward_RQigong():
 	PC.main_skill_qigong += 1
@@ -862,6 +878,9 @@ func check_Summon_condition() -> bool:
 
 func check_Summon_condition_special() -> bool:
 	return PC.summon_count < PC.summon_count_max
+
+func check_have_Summon_condition() -> bool:
+	return PC.summon_count > 0
 
 func check_Moyan12() -> bool:
 	return PC.selected_rewards.has("Moyan1") and PC.selected_rewards.has("Moyan2")
@@ -1849,10 +1868,10 @@ func reward_R20():
 		battle_scene.add_summon(0) # 假设0是蓝色召唤物的类型ID
 	_level_up_action()
 
-# 召唤物伤害/治疗量+7% 召唤物弹体大小+6% 召唤物发射间隔缩短3%
+# 召唤物伤害/治疗量+10% 召唤物弹体大小+6% 召唤物发射间隔缩短3%
 func reward_R23():
-	PC.summon_damage_multiplier += 0.07
-	PC.summon_bullet_size_multiplier += 0.05
+	PC.summon_damage_multiplier += 0.10
+	PC.summon_bullet_size_multiplier += 0.06
 	PC.summon_interval_multiplier *= 0.97
 	# 更新当前所有召唤物的属性
 	var battle_scene = get_tree().get_first_node_in_group("player")
@@ -1861,7 +1880,7 @@ func reward_R23():
 	_level_up_action()
 	
 func reward_SR23():
-	PC.summon_damage_multiplier += 0.1
+	PC.summon_damage_multiplier += 0.14
 	PC.summon_bullet_size_multiplier += 0.08
 	PC.summon_interval_multiplier *= 0.96
 	# 更新当前所有召唤物的属性
@@ -1871,8 +1890,8 @@ func reward_SR23():
 	_level_up_action()
 
 func reward_SSR23():
-	PC.summon_damage_multiplier += 0.13
-	PC.summon_bullet_size_multiplier += 0.1
+	PC.summon_damage_multiplier += 0.18
+	PC.summon_bullet_size_multiplier += 0.10
 	PC.summon_interval_multiplier *= 0.95
 	# 更新当前所有召唤物的属性
 	var battle_scene = get_tree().get_first_node_in_group("player")
@@ -1903,9 +1922,9 @@ func reward_SR20():
 		battle_scene.add_summon(1) # 假设1是紫色召唤物的类型ID
 	_level_up_action()
 
-# 紫色召唤物伤害提升10%，子弹大小提升7.5%
+# 紫色召唤物伤害提升12%，子弹大小提升5%
 func reward_R24():
-	PC.summon_damage_multiplier += 0.1
+	PC.summon_damage_multiplier += 0.12
 	PC.summon_bullet_size_multiplier += 0.05
 	# 更新当前所有召唤物的属性
 	var battle_scene = get_tree().get_first_node_in_group("player")
@@ -1914,7 +1933,7 @@ func reward_R24():
 	_level_up_action()
 
 func reward_SR24():
-	PC.summon_damage_multiplier += 0.15
+	PC.summon_damage_multiplier += 0.16
 	PC.summon_bullet_size_multiplier += 0.075
 	# 更新当前所有召唤物的属性
 	var battle_scene = get_tree().get_first_node_in_group("player")
@@ -1923,8 +1942,8 @@ func reward_SR24():
 	_level_up_action()
 
 func reward_SSR24():
-	PC.summon_damage_multiplier += 0.2
-	PC.summon_bullet_size_multiplier += 0.1
+	PC.summon_damage_multiplier += 0.22
+	PC.summon_bullet_size_multiplier += 0.10
 	# 更新当前所有召唤物的属性
 	var battle_scene = get_tree().get_first_node_in_group("player")
 	if battle_scene and battle_scene.has_method("update_summons_properties"):
@@ -1941,7 +1960,7 @@ func reward_UR24():
 	_level_up_action()
 	
 func reward_R25():
-	PC.summon_damage_multiplier += 0.07
+	PC.summon_damage_multiplier += 0.10
 	PC.summon_interval_multiplier *= 0.95
 	# 更新当前所有召唤物的属性
 	var battle_scene = get_tree().get_first_node_in_group("player")
@@ -1950,7 +1969,7 @@ func reward_R25():
 	_level_up_action()
 
 func reward_SR25():
-	PC.summon_damage_multiplier += 0.11
+	PC.summon_damage_multiplier += 0.14
 	PC.summon_interval_multiplier *= 0.93
 	# 更新当前所有召唤物的属性
 	var battle_scene = get_tree().get_first_node_in_group("player")
@@ -1959,7 +1978,7 @@ func reward_SR25():
 	_level_up_action()
 	
 func reward_SSR25():
-	PC.summon_damage_multiplier += 0.15
+	PC.summon_damage_multiplier += 0.18
 	PC.summon_interval_multiplier *= 0.91
 	# 更新当前所有召唤物的属性
 	var battle_scene = get_tree().get_first_node_in_group("player")
@@ -3097,16 +3116,16 @@ func reward_DragonWind33():
 	PC.faze_wind_level += 1
 	_level_up_action()
 
-func check_Genshan_condition() -> bool:
+func check_genshan_condition() -> bool:
 	return PC.selected_rewards.has("Genshan")
 
-func check_Genshan_condition1() -> bool:
+func check_genshan_condition1() -> bool:
 	return PC.selected_rewards.has("Genshan2") and PC.selected_rewards.has("Genshan4")
 
-func check_Genshan_condition2() -> bool:
+func check_genshan_condition2() -> bool:
 	return PC.selected_rewards.has("Genshan1") and PC.selected_rewards.has("Genshan3")
 
-func check_Genshan_condition3() -> bool:
+func check_genshan_condition3() -> bool:
 	return PC.selected_rewards.has("Genshan2") and PC.selected_rewards.has("Genshan3")
 
 func reward_Genshan():
@@ -3707,9 +3726,117 @@ func reward_UR41():
 	PC.exp_multi += 0.28
 	_level_up_action()
 
+func reward_UR42():
+	# 疾风迅雷：10%攻击力 + 攻速加成10%的暴击率 + 移速加成30%的暴击伤害
+	PC.pc_atk = int(PC.pc_atk * 1.10)
+	PC.crit_chance += PC.pc_atk_speed * 0.10
+	PC.crit_damage_multi += PC.pc_speed * 0.30
+	_level_up_action()
+
+func reward_UR43():
+	# 梦玉成真：12天命 + 10%攻击力 + 10%攻击速度 + 10%体力上限
+	PC.now_lunky_level += 12
+	Global.emit_signal("lucky_level_up", 12)
+	PC.pc_atk = int(PC.pc_atk * 1.10)
+	PC.pc_atk_speed += 0.10
+	PC.pc_max_hp = int(PC.pc_max_hp * 1.10)
+	_level_up_action()
+
+func reward_UR44():
+	# 已至极境：20%最终伤害 + 10%减伤率
+	PC.pc_final_atk += 0.20
+	PC.damage_reduction_rate += 0.10
+	_level_up_action()
+
+func reward_UR45():
+	# 混沌之力：全部法则层数之和，每层+0.4%攻击、+0.3%攻速、+0.2%最终伤害、+0.1%减伤率
+	var total_faze = PC.faze_blood_level + PC.faze_sword_level + PC.faze_thunder_level + PC.faze_heal_level + PC.faze_summon_level + PC.faze_shield_level + PC.faze_fire_level + PC.faze_destroy_level + PC.faze_life_level + PC.faze_bullet_level + PC.faze_wide_level + PC.faze_bagua_level + PC.faze_treasure_level + PC.faze_chaos_level + PC.faze_skill_level + PC.faze_sixsense_level + PC.faze_wind_level
+	PC.pc_atk = int(PC.pc_atk * (1.0 + total_faze * 0.004))
+	PC.pc_atk_speed += total_faze * 0.003
+	PC.pc_final_atk += total_faze * 0.002
+	PC.damage_reduction_rate += total_faze * 0.001
+	_level_up_action()
+
 func reward_NoAdvance():
 	PC.pc_atk += 20
 	PC.pc_start_atk += 20
 	PC.pc_atk = int(PC.pc_atk * 1.05)
 	PC.pc_start_atk = int(PC.pc_start_atk * 1.05)
 	_level_up_action()
+
+func reward_R42():
+	PC.pc_atk = int(PC.pc_atk * 1.08)
+	PC.pc_start_atk = int(PC.pc_start_atk * 1.08)
+	_level_up_action()
+
+func reward_R43():
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.025, 0.7)
+	_level_up_action()
+
+func reward_R44():
+	PC.pc_speed += 0.10
+	_level_up_action()
+
+func reward_R45():
+	PC.sheild_multi += 0.12
+	_level_up_action()
+
+func reward_R46():
+	PC.heal_multi += 0.12
+	_level_up_action()
+
+func reward_R47():
+	PC.damage_deal_multiplier += 0.05
+	_level_up_action()
+
+# ================= 天道碎片 =================
+
+func _check_tiandao_fusion():
+	# 检查是否已集齐三块天道碎片，触发融合
+	if PC.selected_rewards.has("UR46") and PC.selected_rewards.has("UR47") and PC.selected_rewards.has("UR48"):
+		# 移除三个碎片 buff，替换为得道 buff
+		Global.emit_signal("buff_removed", "tiandao_1")
+		Global.emit_signal("buff_removed", "tiandao_2")
+		Global.emit_signal("buff_removed", "tiandao_3")
+		# 添加得道 buff（永久）
+		Global.emit_signal("buff_added", "dedao", 0.0, 1)
+		# 应用得道属性加成（扣掉碎片已给的基础值，补足得道值）
+		# 天道碎片已给：最终伤害+8%，体力上限+12%，减伤+5%
+		# 得道总值：最终伤害+100%，体力+150%，减伤+70%
+		# 追加差值：最终伤害+92%，体力+138%，减伤+65%
+		PC.pc_final_atk += 0.92
+		PC.pc_max_hp = int(PC.pc_max_hp * 2.38)  # 当前基础乘以(1+1.38)，即额外+138%
+		PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.65, 0.95)
+
+func reward_UR46():
+	# 天道碎片·一：最终伤害+8%，获得碎片buff
+	PC.selected_rewards.append("UR46")
+	PC.pc_final_atk += 0.08
+	Global.emit_signal("buff_added", "tiandao_1", 0.0, 1)
+	_check_tiandao_fusion()
+	_level_up_action()
+
+func reward_UR47():
+	# 天道碎片·二：体力上限+12%，获得碎片buff
+	PC.selected_rewards.append("UR47")
+	PC.pc_max_hp = int(PC.pc_max_hp * 1.12)
+	Global.emit_signal("buff_added", "tiandao_2", 0.0, 1)
+	_check_tiandao_fusion()
+	_level_up_action()
+
+func reward_UR48():
+	# 天道碎片·三：减伤率+5%，获得碎片buff
+	PC.selected_rewards.append("UR48")
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.05, 0.95)
+	Global.emit_signal("buff_added", "tiandao_3", 0.0, 1)
+	_check_tiandao_fusion()
+	_level_up_action()
+
+func check_not_have_UR46() -> bool:
+	return not PC.selected_rewards.has("UR46")
+
+func check_not_have_UR47() -> bool:
+	return not PC.selected_rewards.has("UR47")
+
+func check_not_have_UR48() -> bool:
+	return not PC.selected_rewards.has("UR48")

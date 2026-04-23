@@ -7,11 +7,14 @@ var is_attacking: bool = false
 
 # 属性配置
 var speed: float = 0.0 # 石碑不移动
-var hpMax: float = SettingMoster.stone_man("hp") * 25
+var hpMax: float = SettingMoster.stone_man("hp") * 24
 var hp: float = hpMax
-var atk: float = SettingMoster.stone_man("atk") * 0.9
+var atk: float = SettingMoster.stone_man("atk") * 0.85
 var get_point: int = SettingMoster.stone_man("point") * 75
 var get_exp: int = 0
+
+# 难度系统
+var stage_difficulty: String = Global.STAGE_DIFFICULTY_SHALLOW
 
 # 屏幕边界
 @export var top_boundary: float = 50.0
@@ -22,7 +25,7 @@ var get_exp: int = 0
 var allow_turning: bool = true
 var attack_timer: Timer
 var restrainers: Array = [] # 存储所有的拘束器
-var hp_milestones: Array = [0.8, 0.55, 0.3] # 生成拘束器的血量比例
+var hp_milestones: Array = [0.85, 0.45, 0.15] # 生成拘束器的血量比例
 var spawned_milestones: Array = [false, false, false]
 
 const RESTRAINER_MIN_GAP := 68.0
@@ -39,6 +42,10 @@ var phase1_next_skill_is_ray: bool = true
 var disable_contact_damage: bool = false
 var restrainer_player_count: int = 0
 var restrainer_applied_dr_delta: float = 0.0
+
+var damage_history: Array = []
+var is_invincible: bool = false
+var invincibility_timer: Timer
 
 func _on_body_entered(body: Node2D) -> void:
 	if disable_contact_damage: return
@@ -64,17 +71,22 @@ func remove_restrainer_buff():
 func _ready():
 	add_to_group("boss")
 	process_mode = Node.PROCESS_MODE_PAUSABLE
+	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
 	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 5
+	var dps_multiplier := 8
 	match Global.current_stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 6
+			dps_multiplier = 11
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 7
+			dps_multiplier = 14
 		Global.STAGE_DIFFICULTY_POETRY:
-			dps_multiplier = 7
+			dps_multiplier = 14
 	hpMax += Global.get_current_dps() * dps_multiplier
 	hp = hpMax
+	
+	# 浅层难度下Boss只造成25%伤害
+	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
+		atk *= 0.5
 
 	setup_monster_base()
 	player_hit_emit_self = true
@@ -92,6 +104,11 @@ func _ready():
 	attack_timer.wait_time = 2.0
 	attack_timer.timeout.connect(_choose_attack)
 	attack_timer.start()
+	
+	invincibility_timer = Timer.new()
+	invincibility_timer.one_shot = true
+	invincibility_timer.timeout.connect(_on_invincibility_timeout)
+	add_child(invincibility_timer)
 	
 	if sprite and sprite.has_method("play"):
 		sprite.play("idle")
@@ -331,17 +348,23 @@ func _skill_shadow_tornado():
 func _skill_shadow_displacement():
 	var active_restrainers = _get_active_restrainers()
 	if active_restrainers.is_empty(): _finish_skill(); return
-	Global.emit_signal("boss_chant_start", "暗影置换", 2.5)
+	# 浅层难度：额外0.75秒反应时间，警告区提前0.2秒出现
+	var is_shallow = (stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW)
+	var chant_time = 3.25 if is_shallow else 2.5
+	var pre_warn_delay = 0.9 if is_shallow else 1.1 # 浅层提前0.2秒
+	var warn_duration = 1.65 if is_shallow else 0.9 # 浅层延长0.75秒
+	var post_warn_delay = 1.55 if is_shallow else 0.8 # 浅层延长0.75秒
+	Global.emit_signal("boss_chant_start", "暗影置换", chant_time)
 	var target_r = active_restrainers[randi() % active_restrainers.size()]
 	var icon = _TargetIcon.new(); target_r.add_child(icon)
-	await get_tree().create_timer(1.1).timeout
+	await get_tree().create_timer(pre_warn_delay).timeout
 	if is_dead or not is_instance_valid(target_r):
 		if is_instance_valid(icon): icon.queue_free()
 		_finish_skill(); return
 	var ring_warn = _DisplacementRingWarn.new()
-	ring_warn.global_position = target_r.global_position; ring_warn.inner_rx = DISPLACEMENT_SAFE_RX; ring_warn.inner_ry = DISPLACEMENT_SAFE_RY; ring_warn.outer_radius = DISPLACEMENT_DAMAGE_RADIUS; ring_warn.duration = 0.9
+	ring_warn.global_position = target_r.global_position; ring_warn.inner_rx = DISPLACEMENT_SAFE_RX; ring_warn.inner_ry = DISPLACEMENT_SAFE_RY; ring_warn.outer_radius = DISPLACEMENT_DAMAGE_RADIUS; ring_warn.duration = warn_duration
 	get_tree().current_scene.add_child(ring_warn)
-	await get_tree().create_timer(0.8).timeout
+	await get_tree().create_timer(post_warn_delay).timeout
 	if is_instance_valid(icon): icon.queue_free()
 	if is_instance_valid(ring_warn): ring_warn.queue_free()
 	if is_dead or not is_instance_valid(target_r): _finish_skill(); return
@@ -351,11 +374,35 @@ func _skill_shadow_displacement():
 	var original_mask = collision_mask
 	collision_mask = 0
 	
-	for i in range(300):
-		var angle = randf() * TAU; var dist = randf_range(80.0, DISPLACEMENT_DAMAGE_RADIUS); var spawn_pos = global_position + Vector2(cos(angle), sin(angle)) * dist
-		var p = _PixelDot.new(); p.color = Color(0.5, 0.0, 0.8); p.global_position = spawn_pos; get_tree().current_scene.add_child(p)
-		var target = spawn_pos + Vector2(0, -randf_range(10, 40)); var tw = p.create_tween().set_parallel(true)
-		tw.tween_property(p, "global_position", target, 0.5); tw.tween_property(p, "modulate:a", 0.0, 0.5); tw.finished.connect(p.queue_free)
+	# GPUParticles2D 替代 300 个 _PixelDot 用于置换爆炸粒子
+	var gpu = GPUParticles2D.new()
+	gpu.global_position = global_position
+	gpu.amount = 256
+	gpu.lifetime = 0.5
+	gpu.one_shot = true
+	gpu.explosiveness = 1.0
+	gpu.emitting = false
+	var gpu_mat = ParticleProcessMaterial.new()
+	gpu_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	gpu_mat.emission_sphere_radius = DISPLACEMENT_DAMAGE_RADIUS
+	gpu_mat.direction = Vector3(0, -1, 0)
+	gpu_mat.spread = 180.0
+	gpu_mat.initial_velocity_min = 10.0
+	gpu_mat.initial_velocity_max = 40.0
+	gpu_mat.gravity = Vector3.ZERO
+	gpu_mat.scale_min = 2.0
+	gpu_mat.scale_max = 4.0
+	gpu_mat.color = Color(0.5, 0.0, 0.8, 0.9)
+	var grad_tex2 = GradientTexture1D.new()
+	var grad2 = Gradient.new()
+	grad2.add_point(0.0, Color(1, 1, 1, 1))
+	grad2.add_point(1.0, Color(1, 1, 1, 0))
+	grad_tex2.gradient = grad2
+	gpu_mat.alpha_curve = grad_tex2
+	gpu.process_material = gpu_mat
+	get_tree().current_scene.add_child(gpu)
+	gpu.emitting = true
+	gpu.finished.connect(gpu.queue_free)
 	if is_instance_valid(PC.player_instance) and not PC.invincible:
 		var d = PC.player_instance.global_position - global_position
 		var inside_safe = (pow(d.x / DISPLACEMENT_SAFE_RX, 2) + pow(d.y / DISPLACEMENT_SAFE_RY, 2)) <= 1.0
@@ -449,7 +496,7 @@ func _explode_restrainers(r1, r2):
 	# 拘束爆炸判定跟读条同时
 	if is_instance_valid(PC.player_instance) and not PC.invincible:
 		if pos.distance_to(PC.player_instance.global_position) < 800.0:
-			PC.player_hit(int(atk * 4.5 * (1.0 - PC.damage_reduction_rate)), self , "拘束爆炸")
+			PC.player_hit(int(atk * 999999 * (1.0 - PC.damage_reduction_rate)), self , "拘束爆炸")
 			if PC.pc_hp <= 0: PC.player_instance.game_over()
 	
 	await get_tree().create_timer(1.0).timeout
@@ -467,26 +514,71 @@ func _explode_restrainers(r1, r2):
 # ================= 交互判定 =================
 
 func _on_area_entered(area: Area2D) -> void:
+	if is_invincible: return
 	if area.is_in_group("bullet") and area.has_method("get_bullet_damage_and_crit_status"):
 		var collision_result = BulletCalculator.handle_bullet_collision_full(area, self , true)
-		var dmg = get_common_bullet_damage_value(collision_result["final_damage"])
-		Global.emit_signal("boss_hp_bar_take_damage", dmg)
-		hp -= int(dmg); _check_milestones(hp + dmg, hp)
 		if collision_result["should_rebound"]: area.call_deferred("create_rebound")
 		if collision_result["should_delete_bullet"]: area.queue_free()
-		if hp <= 0: _die()
-		else: Global.play_hit_anime(position, collision_result["is_crit"])
+		# 统一走 take_damage 入口，由其集中处理扣血、阶段检查与死亡判定
+		var raw_dmg = get_common_bullet_damage_value(collision_result["final_damage"])
+		take_damage(int(raw_dmg), collision_result["is_crit"], false, "bullet")
 
 func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:
 	if is_dead: return
+	if is_invincible: return
 	var old_h = hp
-	var res = apply_common_take_damage(damage, is_crit, is_summon, damage_type, {"use_debuff_multiplier": false, "update_boss_hp_bar": true, "play_hit_animation": true, "randomize_popup_offset": true})
+	var show_popup = (damage_type != "bullet")
+	var res = apply_common_take_damage(damage, is_crit, is_summon, damage_type, {"use_debuff_multiplier": false, "update_boss_hp_bar": true, "play_hit_animation": true, "randomize_popup_offset": true, "show_damage_popup": show_popup})
 	if res["applied"]:
+		var actual_damage = old_h - hp
+		_record_damage(actual_damage)
 		_check_milestones(old_h, hp)
 		if hp <= 0: _die()
 
+func _record_damage(amount: float) -> void:
+	if amount <= 0: return
+	var current_time = Time.get_ticks_msec() / 1000.0
+	damage_history.append({"time": current_time, "damage": amount})
+	
+	var valid_history = []
+	var recent_total = 0.0
+	for record in damage_history:
+		if current_time - record["time"] <= 3.0:
+			valid_history.append(record)
+			recent_total += record["damage"]
+	damage_history = valid_history
+	
+	if recent_total >= hpMax * 0.25:
+		_trigger_invincibility()
+
+func _trigger_invincibility() -> void:
+	if is_invincible: return
+	is_invincible = true
+	damage_history.clear()
+	
+	if sprite:
+		sprite.modulate = Color(2.0, 2.0, 1.2, 1.0) # 浅黄色发亮
+		
+	if invincibility_timer:
+		invincibility_timer.start(4.0)
+
+func _on_invincibility_timeout() -> void:
+	is_invincible = false
+	if sprite:
+		sprite.modulate = Color.WHITE
+
 func _drop_boss_rewards() -> void:
-	drop_items_from_table(SettingMoster.ruin_boss("itemdrop"))
+	# 15%基础概率掉落1种以太（火风雷水土其一）
+	var ether_ids = ["item_031", "item_032", "item_033", "item_034", "item_035"]
+	if randf() <= 0.75:
+		var chosen_ether = ether_ids[randi() % ether_ids.size()]
+		Global.emit_signal("drop_out_item", chosen_ether, 1, global_position)
+	# 魔核+凝灵碎片掉落
+	drop_items_from_table(SettingMoster.get_boss_extra_drop())
+	# 固定掉落1个随机魔核
+	var magic_cores = ["item_097", "item_098", "item_099", "item_100", "item_101"]
+	var fixed_core = magic_cores[randi() % magic_cores.size()]
+	Global.emit_signal("drop_out_item", fixed_core, 1, global_position)
 
 func _die():
 	if not is_dead:
@@ -503,24 +595,75 @@ func _die():
 func apply_knockback(_dir: Vector2, _force: float): pass
 
 func _spawn_particles(pos: Vector2, color: Color, amount: int, radius: float):
-	for i in range(amount):
-		var p = _PixelDot.new(); p.color = color; p.global_position = pos + Vector2(randf_range(-10, 10), randf_range(-10, 10)); get_tree().current_scene.add_child(p)
-		var target = p.global_position + Vector2.RIGHT.rotated(randf() * TAU) * randf_range(radius * 0.3, radius); var tw = p.create_tween().set_parallel(true)
-		var dur = randf_range(0.4, 0.7); tw.tween_property(p, "global_position", target, dur).set_ease(Tween.EASE_OUT); tw.tween_property(p, "modulate:a", 0.0, dur); tw.finished.connect(p.queue_free)
+	var gpu = GPUParticles2D.new()
+	gpu.global_position = pos
+	gpu.amount = clampi(amount, 1, 256)
+	gpu.lifetime = 0.7
+	gpu.one_shot = true
+	gpu.explosiveness = 1.0
+	gpu.emitting = false
+	
+	var mat = ParticleProcessMaterial.new()
+	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	mat.emission_sphere_radius = 10.0
+	mat.direction = Vector3(0, -1, 0)
+	mat.spread = 180.0
+	mat.initial_velocity_min = radius * 0.3
+	mat.initial_velocity_max = radius
+	mat.gravity = Vector3.ZERO
+	mat.scale_min = 2.0
+	mat.scale_max = 4.0
+	mat.color = Color(color.r, color.g, color.b, 0.9)
+	# 透明度渐出
+	var grad_tex = GradientTexture1D.new()
+	var grad = Gradient.new()
+	grad.add_point(0.0, Color(1, 1, 1, 1))
+	grad.add_point(1.0, Color(1, 1, 1, 0))
+	grad_tex.gradient = grad
+	mat.alpha_curve = grad_tex
+	gpu.process_material = mat
+	
+	get_tree().current_scene.add_child(gpu)
+	gpu.emitting = true
+	# 自动清理
+	gpu.finished.connect(gpu.queue_free)
 
 func _spawn_particles_in_sectors(pos: Vector2, angles: Array, color: Color, amount: int, range_dist: float):
-	for i in range(amount):
-		var ang_base = angles[randi() % angles.size()]
-		var angle = ang_base + randf_range(-PI / 4.0, PI / 4.0); var dist = randf_range(50.0, range_dist); var spawn_pos = pos + Vector2(cos(angle), sin(angle)) * dist
-		var p = _PixelDot.new(); p.color = color; p.global_position = spawn_pos; get_tree().current_scene.add_child(p)
-		var target = spawn_pos + Vector2(cos(angle), sin(angle)) * randf_range(20.0, 100.0) * 2.6; var tw = p.create_tween().set_parallel(true)
-		var dur = randf_range(0.6, 1.2); tw.tween_property(p, "global_position", target, dur).set_ease(Tween.EASE_OUT); tw.tween_property(p, "modulate:a", 0.0, dur); tw.finished.connect(p.queue_free)
+	var per_angle_amount = clampi(int(amount / max(angles.size(), 1)), 1, 256)
+	for ang_base in angles:
+		var gpu = GPUParticles2D.new()
+		gpu.global_position = pos
+		gpu.amount = per_angle_amount
+		gpu.lifetime = 0.9
+		gpu.one_shot = true
+		gpu.explosiveness = 1.0
+		gpu.emitting = false
+		
+		var mat = ParticleProcessMaterial.new()
+		mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_POINT
+		# 方向设置：将 GDScript Vector2 角度转换为 Godot3D 粒子方向
+		var dir2d = Vector2(cos(ang_base), sin(ang_base))
+		mat.direction = Vector3(dir2d.x, dir2d.y, 0)
+		mat.spread = 45.0
+		mat.initial_velocity_min = range_dist * 0.4
+		mat.initial_velocity_max = range_dist * 1.1
+		mat.gravity = Vector3.ZERO
+		mat.scale_min = 2.0
+		mat.scale_max = 4.0
+		mat.color = Color(color.r, color.g, color.b, 0.9)
+		var grad_tex = GradientTexture1D.new()
+		var grad = Gradient.new()
+		grad.add_point(0.0, Color(1, 1, 1, 1))
+		grad.add_point(1.0, Color(1, 1, 1, 0))
+		grad_tex.gradient = grad
+		mat.alpha_curve = grad_tex
+		gpu.process_material = mat
+		
+		get_tree().current_scene.add_child(gpu)
+		gpu.emitting = true
+		gpu.finished.connect(gpu.queue_free)
 
 # ================= 辅助类 =================
-
-class _PixelDot extends Node2D:
-	var color: Color
-	func _draw(): draw_rect(Rect2(-2, -2, 4, 4), color)
 
 class _RayEffect extends Node2D:
 	var t = 0.0; var ray_width = 160.0
@@ -623,6 +766,7 @@ class _ShadowTornado extends Node2D:
 			if global_position.distance_to(PC.player_instance.global_position) < hit_radius:
 				has_hit = true; _screen_flash_purple()
 				PC.player_hit(int(damage_val * (1.0 - PC.damage_reduction_rate)), self , "暗影龙卷")
+				Global.emit_signal("buff_added", "stun", 2.0, 1)
 				if PC.pc_hp <= 0: PC.player_instance.game_over()
 				queue_free()
 		if t > 20.0 and not fading_out:
@@ -635,10 +779,24 @@ class _ShadowTornado extends Node2D:
 	func _draw():
 		var frame = int(t * 8.0)
 		var rot = frame * 1000.0 / 8.0 * 0.015
+		# 边缘发光层（最底层，半透明扩散）
+		for y in range(-20, 20, 4):
+			var flipped_y = -y - 4
+			var radius = 10.0 + (flipped_y + 20) * 0.4; var ang = rot * (1.0 + flipped_y * 0.05); var offset_x = cos(ang) * radius
+			# 外层发光（向两侧扩散4像素）
+			draw_rect(Rect2(offset_x - 4, y - 1, 12, 6), Color(0.5, 0.1, 0.9, 0.25))
+			draw_rect(Rect2(-offset_x - 4, y - 1, 12, 6), Color(0.5, 0.1, 0.9, 0.25))
+		# 主体像素层
 		for y in range(-20, 20, 4):
 			var flipped_y = -y - 4
 			var radius = 10.0 + (flipped_y + 20) * 0.4; var ang = rot * (1.0 + flipped_y * 0.05); var offset_x = cos(ang) * radius
 			draw_rect(Rect2(offset_x, y, 4, 4), Color(0.2, 0.0, 0.3)); draw_rect(Rect2(-offset_x, y, 4, 4), Color(0.4, 0.1, 0.6))
+		# 边缘高亮描边（紧贴主体外侧）
+		for y in range(-20, 20, 4):
+			var flipped_y = -y - 4
+			var radius = 10.0 + (flipped_y + 20) * 0.4; var ang = rot * (1.0 + flipped_y * 0.05); var offset_x = cos(ang) * radius
+			draw_rect(Rect2(offset_x - 2, y, 2, 4), Color(0.7, 0.2, 1.0, 0.7)); draw_rect(Rect2(offset_x + 4, y, 2, 4), Color(0.7, 0.2, 1.0, 0.7))
+			draw_rect(Rect2(-offset_x - 2, y, 2, 4), Color(0.7, 0.2, 1.0, 0.7)); draw_rect(Rect2(-offset_x + 4, y, 2, 4), Color(0.7, 0.2, 1.0, 0.7))
 
 class _TargetIcon extends Node2D:
 	func _process(_delta): queue_redraw()

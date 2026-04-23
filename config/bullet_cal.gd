@@ -114,6 +114,10 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 	if final_damage_val > 0 and enemy and is_instance_valid(enemy):
 		HitParticleSpawner.spawn_by_weapon(area.get_tree(), enemy.global_position, weapon_tag)
 	
+	# 击中闪烁效果回调（子弹伤害不走 apply_common_take_damage，需要单独触发）
+	if final_damage_val > 0 and is_instance_valid(enemy) and enemy.has_method("on_bullet_hit_response"):
+		enemy.on_bullet_hit_response()
+	
 	return result
 
 # 检查是否应该处理子弹反弹

@@ -267,10 +267,13 @@ func _process(_delta: float) -> void:
 		#rotation = joystick_right.output.angle()
 	# 统一使用关卡内移速公式，基础速度120.0
 	var bloodwave_speed_bonus = _get_bloodwave_move_speed_bonus()
+	var raw_move_bonus: float
 	if Global.in_town:
-		move_speed = 120.0 * 1.2 * (1 + (Global.cultivation_zhuifeng_level * 0.01))
+		raw_move_bonus = (Global.cultivation_zhuifeng_level * 0.01)
+		move_speed = 120.0 * 1.2 * (1 + raw_move_bonus)
 	else:
-		move_speed = 120.0 * (1 + (Global.cultivation_zhuifeng_level * 0.01) + PC.pc_speed + bloodwave_speed_bonus)
+		raw_move_bonus = (Global.cultivation_zhuifeng_level * 0.01) + PC.pc_speed + bloodwave_speed_bonus
+		move_speed = 120.0 * (1 + _diminishing_returns(raw_move_bonus))
 		
 	_update_dynamic_emblem_effects()
 	
@@ -325,10 +328,6 @@ func _input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_zoom_camera(-zoom_speed)
 	
-	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_Q:
-			Global.emit_signal("buff_added", "attack_boost", 10.0, 3)
-
 
 func _reset_camera() -> void:
 	if boss_defeat_camera_active:
@@ -505,6 +504,18 @@ func game_over():
 		
 		Global.save_game()
 		$GameOver.play()
+		# 停止所有技能冷却，防止快速重开时技能仍处于冷却中
+		stop_all_skill_cooldowns()
+		# 兽化状态下切换回yiqiu再播放game_over动画
+		if beastify_active and yiqiu_sprite:
+			beastify_active = false
+			if qujie_sprite:
+				qujie_sprite.visible = false
+				qujie_sprite.modulate.a = 1.0
+			yiqiu_sprite.visible = true
+			yiqiu_sprite.modulate.a = 1.0
+			animator = yiqiu_sprite
+			sprite = yiqiu_sprite
 		animator.play("game_over")
 		if is_inside_tree() and get_tree().current_scene != null:
 			get_tree().current_scene.show_game_over()
@@ -1908,6 +1919,13 @@ func update_timer_preserve_ratio(timer: Timer, new_wait_time: float) -> void:
 	timer.wait_time = new_wait_time
 
 # 更新所有技能的攻击速度
+# 递减收益：超过80%后，超出部分仅40%生效
+# 例：输入1.2(120%) → 输出0.8 + 0.4*0.4 = 0.96(96%)
+func _diminishing_returns(raw_value: float, threshold: float = 0.8, decay_rate: float = 0.4) -> float:
+	if raw_value <= threshold:
+		return raw_value
+	return threshold + (raw_value - threshold) * decay_rate
+
 func update_skill_attack_speeds() -> void:
 	# 计算踏风buff的冷却缩减
 	var cooldown_reduction = 0.0
@@ -1917,7 +1935,9 @@ func update_skill_attack_speeds() -> void:
 		cooldown_reduction = (move_speed_percent / 10.0) * 0.005 * tafeng_stack
 	
 	# 基础攻速公式：初始攻速 / (1 + PC.pc_atk_speed + 冷却缩减)
-	var total_speed_multiplier = 1 + PC.pc_atk_speed + cooldown_reduction
+	# 攻速加成超过80%后，超出部分仅40%生效
+	var effective_atk_speed = _diminishing_returns(PC.pc_atk_speed + cooldown_reduction)
+	var total_speed_multiplier = 1 + effective_atk_speed
 	var life_interval_multiplier = Faze.get_life_attack_interval_multiplier(PC.faze_life_level)
 	
 	# 主攻击

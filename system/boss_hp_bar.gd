@@ -67,7 +67,7 @@ func _ready():
 
 
 	# 创建并配置Boss名字标签
-	_boss_name_label.z_index = 100
+	_boss_name_label.z_index = 20
 	_boss_name_label.text = boss_name
 	_boss_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_boss_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -78,7 +78,7 @@ func _ready():
 	_boss_name_label.offset_bottom = -2
 
 	# 创建并配置血条条数标签
-	_bar_count_label.z_index = 100
+	_bar_count_label.z_index = 20
 	_bar_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_bar_count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_bar_count_label.set_anchors_preset(Control.PRESET_RIGHT_WIDE)

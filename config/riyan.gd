@@ -25,7 +25,7 @@ func _on_damage_timer_timeout() -> void:
 	if player_node:
 		_check_updates()
 		
-		# 基础系数 0.10 (riyan_hp_max_damage)
+		# 基础系数 0.08 (riyan_hp_max_damage)
 		var hp_damage_ratio = PC.riyan_hp_max_damage
 		# Riyan22: 20% (0.20)
 		if PC.selected_rewards.has("Riyan22"):
@@ -71,8 +71,14 @@ func _check_updates() -> void:
 	if PC.selected_rewards.has("Riyan3"):
 		new_range_mult = 1.2
 	
-	if new_range_mult != current_range_multiplier:
-		current_range_multiplier = new_range_mult
+	# 广域法则范围加成
+	var wide_range_mult = Faze.get_wide_range_multiplier()
+	# 全局攻击范围加成
+	var global_range_mult = Global.get_attack_range_multiplier()
+	var total_range_mult = new_range_mult * wide_range_mult * global_range_mult
+	
+	if not is_equal_approx(total_range_mult, current_range_multiplier):
+		current_range_multiplier = total_range_mult
 		_update_visuals()
 		
 	# Check speed (Riyan4)
@@ -105,7 +111,9 @@ func _on_get_riyan():
 	
 	collision_shape = CollisionShape2D.new()
 	var circle_shape = CircleShape2D.new()
-	circle_shape.radius = PC.riyan_range
+	var initial_range_mult = Faze.get_wide_range_multiplier() * Global.get_attack_range_multiplier()
+	current_range_multiplier = initial_range_mult
+	circle_shape.radius = PC.riyan_range * current_range_multiplier
 	collision_shape.shape = circle_shape
 	add_child(collision_shape)
 	

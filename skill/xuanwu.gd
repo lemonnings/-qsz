@@ -5,7 +5,7 @@ class_name Xuanwu
 @export var collision: CollisionShape2D
 
 static var main_skill_xuanwu_damage: float = 0.45
-static var xuanwu_hp_damage_ratio: float = 0.3
+static var xuanwu_hp_damage_ratio: float = 0.075
 static var xuanwu_range: float = 240.0
 static var xuanwu_shield_base: int = 40
 static var xuanwu_shield_hp_ratio: float = 0.06
@@ -20,7 +20,7 @@ static var xuanwu_shield_duration: float = 6.0
 
 static func reset_data() -> void:
 	main_skill_xuanwu_damage = 0.45
-	xuanwu_hp_damage_ratio = 0.35
+	xuanwu_hp_damage_ratio = 0.10
 	xuanwu_range = 240.0
 	xuanwu_shield_base = 6
 	xuanwu_shield_hp_ratio = 0.06
@@ -44,7 +44,7 @@ var traveled_dist = 0.0
 var return_angle_offset = 0.0
 var return_start_dist = 0.0 # Distance to player when starting return
 var return_traveled_dist = 0.0
-var miss_dist = 150.0
+var miss_dist = 400.0
 var miss_traveled = 0.0
 var base_node_scale: Vector2 = Vector2.ONE
 
@@ -91,7 +91,7 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 	instance.setup(origin_pos, target_pos, data)
 
 static func _build_data() -> Dictionary:
-	var damage_multiplier = main_skill_xuanwu_damage # 45% 攻击? User code says 0.3
+	var damage_multiplier = main_skill_xuanwu_damage # 45% 攻击 + 10% 最大体力
 	var hp_damage_ratio = xuanwu_hp_damage_ratio
 	var range_val = xuanwu_range
 	var shield_base = xuanwu_shield_base

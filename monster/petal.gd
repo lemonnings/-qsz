@@ -69,7 +69,6 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 
 
-
 func _process(delta: float) -> void:
 	time += delta
 
@@ -98,7 +97,7 @@ func _on_body_entered(body: Node2D) -> void:
 
 	if not PC.invincible:
 		var dmg: int = max(1, int(damage))
-		PC.player_hit(int(dmg), self, "飞花")
+		PC.player_hit(int(dmg), self , "落花")
 		Global.emit_signal("player_hit")
 		if PC.pc_hp <= 0:
 			PC.player_instance.game_over()

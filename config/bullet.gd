@@ -303,8 +303,13 @@ func find_nearest_enemy_for_split() -> Node:
 	var nearest_distance = INF
 	
 	for enemy in enemies:
+		if not is_instance_valid(enemy):
+			continue
+		# 跳过已死亡的敌人
+		if enemy.get("is_dead") == true:
+			continue
 		var distance = global_position.distance_to(enemy.global_position)
-		if enemy and is_instance_valid(enemy) and enemy.has_method("_on_area_entered"):
+		if enemy.has_method("_on_area_entered"):
 			if distance < nearest_distance:
 				nearest_distance = distance
 				nearest_enemy = enemy
@@ -391,8 +396,13 @@ func find_nearest_enemy() -> void:
 	var nearest_distance = INF
 	
 	for enemy in enemies:
+		if not is_instance_valid(enemy):
+			continue
+		# 跳过已死亡的敌人
+		if enemy.get("is_dead") == true:
+			continue
 		var distance = global_position.distance_to(enemy.global_position)
-		if enemy and is_instance_valid(enemy) and enemy.has_method("_on_area_entered"):
+		if enemy.has_method("_on_area_entered"):
 			if distance < nearest_distance:
 				nearest_distance = distance
 				nearest_enemy = enemy
@@ -401,9 +411,10 @@ func find_nearest_enemy() -> void:
 		target_enemy = nearest_enemy
 
 func update_sword_qi4_tracking(delta: float) -> void:
-	# 检查目标敌人是否仍然有效
-	if not target_enemy or not is_instance_valid(target_enemy):
-		# 目标无效，重新寻找最近的敌人
+	# 检查目标敌人是否仍然有效且未死亡
+	if not target_enemy or not is_instance_valid(target_enemy) or target_enemy.get("is_dead") == true:
+		# 目标无效或已死亡，重新寻找最近的敌人
+		target_enemy = null
 		find_nearest_enemy()
 		if not target_enemy:
 			return
@@ -420,4 +431,8 @@ func update_sword_qi4_tracking(delta: float) -> void:
 
 func on_hit_target() -> void:
 	if sword_qi4_enabled:
-		has_hit_target = true
+		# 穿透追踪剑气：击中后重新寻找下一个目标继续追踪
+		target_enemy = null
+		find_nearest_enemy()
+		if not target_enemy:
+			has_hit_target = true

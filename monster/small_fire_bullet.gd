@@ -1,9 +1,10 @@
 extends Area2D
 
-@export var bullet_speed: float  # Boss子弹速度
-@export var bullet_damage: float  # Boss子弹伤害
-@export var bullet_range: float = 4000.0  # 子弹射程
+@export var bullet_speed: float # Boss子弹速度
+@export var bullet_damage: float # Boss子弹伤害
+@export var bullet_range: float = 4000.0 # 子弹射程
 @export var rotation_speed_degrees: float = 680.0
+@export var source_name: String = "远程攻击" # 伤害来源名称，可由外部设置
 
 var direction: Vector2 = Vector2.RIGHT
 var start_position: Vector2
@@ -44,7 +45,7 @@ func set_direction(new_direction: Vector2) -> void:
 func _on_body_entered(body: Node2D) -> void:
 	# 击中玩家
 	if body.is_in_group("player"):
-		PC.player_hit(int(int(bullet_damage)), self, "远程攻击")
+		PC.player_hit(int(int(bullet_damage)), self , source_name)
 		if PC.pc_hp <= 0:
 			PC.player_instance.game_over()
 		queue_free()

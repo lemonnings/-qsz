@@ -154,8 +154,8 @@ func fire_directed_bullets() -> void:
 	var spawn_pos_down = player_global_pos + Vector2(0, spawn_offset_y)
 
 	# Create bullets at specified positions, moving horizontally
-	create_bullet(bullet_direction, 0.35, 1.0, spawn_pos_up)
-	create_bullet(bullet_direction, 0.35, 1.0, spawn_pos_down)
+	create_bullet(bullet_direction, damage_multiplier, 1.0, spawn_pos_up)
+	create_bullet(bullet_direction, damage_multiplier, 1.0, spawn_pos_down)
 
 
 func fire_tracking_bullet() -> void:
@@ -163,7 +163,7 @@ func fire_tracking_bullet() -> void:
 	var target_enemy = find_nearest_enemy()
 	if target_enemy:
 		var direction = (target_enemy.position - position).normalized()
-		create_bullet(direction, 0.4, 1.5) # 子弹速度提升100%
+		create_bullet(direction, damage_multiplier, 1.5) # 子弹速度提升100%
 
 
 func fire_enhanced_tracking_bullets() -> void:
@@ -177,8 +177,8 @@ func fire_enhanced_tracking_bullets() -> void:
 		var direction1 = base_direction.rotated(-angle_offset)
 		var direction2 = base_direction.rotated(angle_offset)
 		
-		create_bullet(direction1, 0.45, 1.5)
-		create_bullet(direction2, 0.45, 1.5)
+		create_bullet(direction1, damage_multiplier, 1.5)
+		create_bullet(direction2, damage_multiplier, 1.5)
 
 func fire_sword_spirit_bullet() -> void:
 	var target_enemy = find_nearest_enemy()
@@ -271,7 +271,6 @@ func create_sword_spirit_bullet(direction: Vector2) -> void:
 	bullet.direction = direction
 	bullet.rotation = direction.angle()
 	var final_damage = PC.pc_atk * damage_multiplier * (1.0 + PC.summon_damage_multiplier)
-	print("最终伤害为，倍率为，召唤倍率为", final_damage, damage_multiplier, PC.summon_damage_multiplier)
 	bullet.summon_damage = final_damage
 	var bullet_size = Global.get_attack_range_multiplier() * PC.summon_bullet_size_multiplier
 	bullet.set_bullet_scale(Vector2(bullet_size, bullet_size))
@@ -317,21 +316,21 @@ func set_summon_type(type: SummonType) -> void:
 	# 根据类型设置属性
 	match type:
 		SummonType.BLUE_RANDOM:
-			damage_multiplier = 0.36
+			damage_multiplier = 0.70
 			fire_interval = 0.85
 			bullets_per_shot = 1
 		SummonType.DARK_DIRECTED:
-			damage_multiplier = 0.2
+			damage_multiplier = 0.35
 			fire_interval = 0.8
 			bullets_per_shot = 2
 		SummonType.ORANGE_TRACKING:
-			damage_multiplier = 0.4
+			damage_multiplier = 0.65
 			fire_interval = 0.65
 			bullets_per_shot = 1
 			bullet_speed_multiplier = 2.0
 		SummonType.GOLD_ENHANCED:
-			damage_multiplier = 0.24
-			fire_interval = 0.75
+			damage_multiplier = 0.55
+			fire_interval = 0.70
 			bullets_per_shot = 2
 			bullet_speed_multiplier = 2.0
 		# --- 治疗类 ---

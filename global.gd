@@ -7,6 +7,8 @@ const DEBUG_F1_ZHENQI_AMOUNT := 1000000
 
 # 测试模式：跳过开屏动画，直接进入游戏
 var is_test: bool = false
+var time_slow_enabled: bool = false
+var is_debug: bool = true
 
 # 保存指示器相关
 const SAVE_INDICATOR_SCENE := preload("res://Scenes/global/loading_anime.tscn")
@@ -35,21 +37,21 @@ const STAGE_ID_LIST := ["peach_grove", "ruin", "cave", "forest"]
 const STAGE_DIFFICULTY_MULTIPLIERS := {
 	"peach_grove": {
 		STAGE_DIFFICULTY_SHALLOW: 1.0,
-		STAGE_DIFFICULTY_DEEP: 1.75,
-		STAGE_DIFFICULTY_CORE: 1.75 * 1.7821,
-		STAGE_DIFFICULTY_POETRY: 1.75 * 1.7821
+		STAGE_DIFFICULTY_DEEP: 2.25,
+		STAGE_DIFFICULTY_CORE: 2.25 * 1.3821,
+		STAGE_DIFFICULTY_POETRY: 2.25 * 1.3821
 	},
 	"ruin": {
 		STAGE_DIFFICULTY_SHALLOW: 1.0,
-		STAGE_DIFFICULTY_DEEP: 1.75,
-		STAGE_DIFFICULTY_CORE: 1.75 * 1.9524,
-		STAGE_DIFFICULTY_POETRY: 1.75 * 1.9524
+		STAGE_DIFFICULTY_DEEP: 1.85,
+		STAGE_DIFFICULTY_CORE: 1.85 * 1.8524,
+		STAGE_DIFFICULTY_POETRY: 1.85 * 1.8524
 	},
 	"cave": {
 		STAGE_DIFFICULTY_SHALLOW: 1.0,
-		STAGE_DIFFICULTY_DEEP: 1.9417,
-		STAGE_DIFFICULTY_CORE: 1.9417 * 1.5794,
-		STAGE_DIFFICULTY_POETRY: 1.9417 * 1.5794
+		STAGE_DIFFICULTY_DEEP: 1.8417,
+		STAGE_DIFFICULTY_CORE: 1.8417 * 1.5294,
+		STAGE_DIFFICULTY_POETRY: 1.8417 * 1.5294
 	},
 	"forest": {
 		STAGE_DIFFICULTY_SHALLOW: 1.0,
@@ -57,14 +59,6 @@ const STAGE_DIFFICULTY_MULTIPLIERS := {
 		STAGE_DIFFICULTY_CORE: 1.6132 * 1.3267,
 		STAGE_DIFFICULTY_POETRY: 1.6132 * 1.3267
 	}
-}
-
-# 每个关卡用于计算“推荐修为”的基础血量
-const STAGE_BASE_MONSTER_HP := {
-	"peach_grove": 30.0,
-	"ruin": 45.0,
-	"cave": 90.0,
-	"forest": 148.0
 }
 
 # 合成界面状态 - 用于禁用缩放等操作
@@ -186,7 +180,8 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 	"recipe_002": false,
 	"recipe_003": false,
 	"recipe_004": false,
-	"recipe_noam": false
+	"recipe_noam": false,
+	"recipe_028": true
 }
 
 # lunky概率
@@ -209,7 +204,7 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 @export var cultivation_poxu_level: int = 0 # 破虚 - 提升攻击力
 @export var cultivation_xuanyuan_level: int = 0 # 玄元 - 提升生命值
 @export var cultivation_liuguang_level: int = 0 # 流光 - 提升攻速
-@export var cultivation_hualing_level: int = 0 # 化灵 - 提升灵气获取
+@export var cultivation_hualing_level: int = 0 # 化灵 - 提升真气获取
 @export var cultivation_fengrui_level: int = 0 # 锋锐 - 提升暴击率
 @export var cultivation_huti_level: int = 0 # 护体 - 提升减伤率
 @export var cultivation_zhuifeng_level: int = 0 # 追风 - 提升移速
@@ -314,9 +309,11 @@ signal setup_summons
 @warning_ignore("unused_signal")
 signal level_up_selection_complete
 @warning_ignore("unused_signal")
-signal monster_damage
+signal manual_level_up_pending
 @warning_ignore("unused_signal")
-signal player_heal(heal_value, world_position)
+signal player_heal(heal_value: float, world_position: Vector2)
+@warning_ignore("unused_signal")
+signal monster_damage
 @warning_ignore("unused_signal")
 signal monster_mechanism_gained
 @warning_ignore("unused_signal")
@@ -527,16 +524,22 @@ func _debug_command_f1() -> void:
 	_show_debug_command_feedback("调试指令 F1：真气 +%d，当前 %d" % [DEBUG_F1_ZHENQI_AMOUNT, total_points])
 
 func _debug_command_f2() -> void:
-	pass
+	PC.pc_atk += 100
+	_show_debug_command_feedback("调试指令 F2：攻击力 +100，当前 %d" % PC.pc_atk)
 
 func _debug_command_f3() -> void:
-	pass
+	PC.pc_atk -= 100
+	_show_debug_command_feedback("调试指令 F3：攻击力 -100，当前 %d" % PC.pc_atk)
 
 func _debug_command_f4() -> void:
-	pass
+	PC.pc_max_hp += 1000
+	PC.pc_hp = mini(PC.pc_hp + 1000, PC.pc_max_hp)
+	_show_debug_command_feedback("调试指令 F4：体力上限 +1000，当前 %d" % PC.pc_max_hp)
 
 func _debug_command_f5() -> void:
-	pass
+	PC.pc_max_hp -= 1000
+	PC.pc_hp = mini(PC.pc_hp, PC.pc_max_hp)
+	_show_debug_command_feedback("调试指令 F5：体力上限 -1000，当前 %d" % PC.pc_max_hp)
 
 func _debug_command_f6() -> void:
 	pass
@@ -759,20 +762,43 @@ func get_stage_difficulty_stat_multiplier(stage_id: String = "", difficulty_id: 
 func get_current_stage_stat_multiplier() -> float:
 	return get_stage_difficulty_stat_multiplier(current_stage_id, current_stage_difficulty)
 
-# 把数值向下取整到 100。
-# 例如：4198 会变成 4100。
-func floor_to_hundred(value: float) -> int:
-	if value <= 0.0:
-		return 0
-	return int(floor(value / 100.0) * 100.0)
+# 推荐修为固定值配置（关卡 × 难度 → 修为值）
+const STAGE_RECOMMENDED_POWER := {
+	"peach_grove": {
+		"shallow": 1200,
+		"deep": 4500,
+		"core": 7000,
+		"poetry": 7000
+	},
+	"ruin": {
+		"shallow": 3200,
+		"deep": 8000,
+		"core": 12000,
+		"poetry": 12000
+	},
+	"cave": {
+		"shallow": 9000,
+		"deep": 14000,
+		"core": 19000,
+		"poetry": 19000
+	},
+	"forest": {
+		"shallow": 16000,
+		"deep": 22000,
+		"core": 26000,
+		"poetry": 26000
+	}
+}
 
-# 按“普通怪1基础血量 × 难度倍率 × 120”计算推荐修为。
+# 返回指定关卡和难度的推荐修为（固定值）
 func get_stage_recommended_power(stage_id: String, difficulty_id: String) -> int:
-	if not STAGE_BASE_MONSTER_HP.has(stage_id):
+	var valid_difficulty := validate_stage_difficulty_id(difficulty_id)
+	if not STAGE_RECOMMENDED_POWER.has(stage_id):
 		return 0
-	var base_hp := float(STAGE_BASE_MONSTER_HP.get(stage_id, 0.0))
-	var stat_multiplier := get_stage_difficulty_stat_multiplier(stage_id, difficulty_id)
-	return floor_to_hundred(base_hp * stat_multiplier * 120.0) - 2200
+	var stage_data = STAGE_RECOMMENDED_POWER.get(stage_id, {})
+	if typeof(stage_data) != TYPE_DICTIONARY:
+		return 0
+	return int(stage_data.get(valid_difficulty, 0))
 
 func _get_effective_normal_monster_bonus() -> float:
 	if typeof(PC) != TYPE_NIL:
@@ -972,6 +998,8 @@ func save_game():
 		"damage_show_enabled": damage_show_enabled,
 		"damage_show_type": damage_show_type,
 		"particle_enable": particle_enable,
+		"time_slow_enabled": time_slow_enabled,
+		"is_test": is_test,
 		"resolution_index": settings_manager.get_current_resolution_index() if settings_manager else 6,
 		"is_fullscreen": settings_manager.is_fullscreen_enabled() if settings_manager else true,
 		"noborder_enabled": settings_manager.is_noborder_enabled() if settings_manager else true,
@@ -1040,6 +1068,9 @@ func load_game():
 		lingshi += int(player_inventory[LINGSHI_ITEM_ID])
 		player_inventory.erase(LINGSHI_ITEM_ID)
 	recipe_unlock_progress = config.get_value("save", "recipe_unlock_progress", recipe_unlock_progress)
+	# 补齐旧存档缺失的配方解锁项
+	if not recipe_unlock_progress.has("recipe_028"):
+		recipe_unlock_progress["recipe_028"] = true
 
 
 	unlock_moning = config.get_value("save", "unlock_moning", true)
@@ -1098,6 +1129,8 @@ func load_game():
 	damage_show_enabled = config.get_value("save", "damage_show_enabled", true)
 	damage_show_type = config.get_value("save", "damage_show_type", 2)
 	particle_enable = config.get_value("save", "particle_enable", true)
+	time_slow_enabled = config.get_value("save", "time_slow_enabled", false)
+	is_test = config.get_value("save", "is_test", is_test)
 	if settings_manager:
 		settings_manager.particle_enabled = particle_enable
 		settings_manager.damage_show_enabled = damage_show_enabled

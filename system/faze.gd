@@ -23,6 +23,7 @@ var last_shield_level: int = 0
 var last_wide_level: int = 0
 var last_bagua_level: int = 0
 var last_treasure_lucky_bonus: int = 0
+var last_treasure_atk_speed_bonus: float = 0.0
 var last_sixsense_multiplier: float = 1.0
 var last_wind_level: int = 0
 var last_wind_base_move_speed_bonus: float = 0.0
@@ -111,16 +112,16 @@ func _fire_heal_bullet(amount: float, is_heal: bool) -> void:
 	var level_multiplier = pow(1.10, PC.faze_heal_level - 6)
 	final_damage *= level_multiplier
 	
-	# Tier 11: 弹体伤害*150%
-	if PC.faze_heal_level >= 11:
+	# Tier 10: 弹体伤害*150%
+	if PC.faze_heal_level >= 10:
 		final_damage *= 1.5
 		
-	# Tier 14: 弹体伤害累计*600%（替换11阶的*150%为*600%）
-	if PC.faze_heal_level >= 14:
-		final_damage *= 4.0 # 11阶*1.5 -> 替换为*6.0，所以*4.0
+	# Tier 13: 弹体伤害累计*600%（替换10阶的*150%为*600%）
+	if PC.faze_heal_level >= 13:
+		final_damage *= 4.0 # 10阶*1.5 -> 替换为*6.0，所以*4.0
 		
 	var is_crit = false
-	if PC.faze_heal_level >= 14:
+	if PC.faze_heal_level >= 13:
 		if randf() < PC.crit_chance:
 			is_crit = true
 			final_damage *= PC.crit_damage_multi
@@ -147,7 +148,7 @@ func _trigger_electrified(source: String = "unknown") -> void:
 	PC.add_shield(shield_amount, 7.0)
 
 func _get_blood_electrified_damage_multiplier(level: int) -> float:
-	if level >= 15:
+	if level >= 14:
 		return 5.0
 	if level >= 7:
 		return 2.0
@@ -159,21 +160,21 @@ func _get_blood_electrified_elite_bonus(level: int) -> float:
 	return 0.0
 
 func _get_blood_bleed_chance(level: int) -> float:
-	if level >= 11:
+	if level >= 10:
 		return 1.0
 	return 0.5
 
 func _get_blood_electrified_range_scale(level: int) -> float:
-	if level >= 15:
-		return 3.4 # 极大幅提升，较旧值4.0减少15%
-	if level >= 11:
-		return 1.7 # 大幅提升，较旧值2.0减少15%
+	if level >= 14:
+		return 3.4 # 极大幅提升
+	if level >= 10:
+		return 1.7 # 大幅提升
 	if level >= 3:
 		return 1.35 # 基础 +35%
 	return 1.0
 
 func _get_blood_shield_ratio(level: int) -> float:
-	if level >= 15:
+	if level >= 14:
 		return 0.07
 	return 0.05
 
@@ -183,7 +184,7 @@ func _update_blood_debuff_bonus() -> void:
 		return
 	last_blood_level = level
 	var bleed_elite_bonus = 0.0
-	if level >= 11:
+	if level >= 10:
 		bleed_elite_bonus = 1.0
 	EnemyDebuffManager.set_debuff_elite_boss_bonus("bleed", bleed_elite_bonus)
 
@@ -411,8 +412,8 @@ func _update_wind_bonus() -> void:
 	if base_move_bonus != last_wind_base_move_speed_bonus:
 		PC.pc_speed += base_move_bonus - last_wind_base_move_speed_bonus
 		last_wind_base_move_speed_bonus = base_move_bonus
-	# 8阶：啿风类攻击速度+25%
-	var base_atk_speed_bonus = 0.25 if level >= 8 else 0.0
+	# 7阶：啸风类攻击速度+25%
+	var base_atk_speed_bonus = 0.25 if level >= 7 else 0.0
 	if base_atk_speed_bonus != last_wind_base_atk_speed_bonus:
 		PC.pc_atk_speed += base_atk_speed_bonus - last_wind_base_atk_speed_bonus
 		last_wind_base_atk_speed_bonus = base_atk_speed_bonus
@@ -423,11 +424,11 @@ func _update_wind_bonus() -> void:
 		wind_huanfeng_expiries.sort()
 		while wind_huanfeng_expiries.size() > max_stacks:
 			wind_huanfeng_expiries.pop_front()
-	if level < 8:
+	if level < 7:
 		_clear_wind_huanfeng()
 
 func _add_wind_huanfeng_stack() -> void:
-	if PC.faze_wind_level < 8:
+	if PC.faze_wind_level < 7:
 		return
 	var max_stacks = Faze.get_wind_huanfeng_max_stacks(PC.faze_wind_level)
 	if max_stacks <= 0:
@@ -440,7 +441,7 @@ func _add_wind_huanfeng_stack() -> void:
 	_update_wind_huanfeng()
 
 func _update_wind_huanfeng() -> void:
-	if PC.faze_wind_level < 8:
+	if PC.faze_wind_level < 7:
 		if wind_huanfeng_expiries.size() > 0:
 			_clear_wind_huanfeng()
 		return
@@ -498,17 +499,23 @@ func _update_wide_bonus() -> void:
 	PC.faze_wide_damage_bonus = 0.0
 	PC.faze_wide_range_to_damage_ratio = 0.0
 	
-	# 4阶：广域类武器的范围加成每提高1%，伤害提高1%
+	# 4阶：广域类武器伤害及范围提升20%
 	if level >= 4:
+		PC.faze_wide_range_bonus += 0.20
+		PC.faze_wide_damage_bonus += 0.20
+		
+	# 7阶：广域类武器范围提升10%，并且广域类武器的范围加成每提高1%，伤害提高1%
+	if level >= 7:
+		PC.faze_wide_range_bonus += 0.10
 		PC.faze_wide_range_to_damage_ratio = 1.0
 		
-	# 8阶：广域类武器伤害及范围提升30%
-	if level >= 8:
-		PC.faze_wide_range_bonus += 0.30
-		PC.faze_wide_damage_bonus += 0.30
+	# 10阶：广域类武器的伤害提升45%，范围提升25%
+	if level >= 10:
+		PC.faze_wide_damage_bonus += 0.45
+		PC.faze_wide_range_bonus += 0.25
 		
-	# 12阶：广域类武器的范围提升1%，伤害提升值提升到3%
-	if level >= 12:
+	# 13阶：广域类武器的范围提升1%，伤害提升值提升到3%
+	if level >= 13:
 		PC.faze_wide_range_to_damage_ratio = 3.0
 		
 	# 16阶：广域类武器伤害及范围再次提升80%
@@ -623,8 +630,8 @@ static func get_wide_range_multiplier() -> float:
 
 static func get_destroy_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
-	if level >= 8:
-		bonus += 0.3
+	if level >= 7:
+		bonus += 0.25
 	if level >= 16:
 		bonus += 1.5
 	return 1.0 + bonus
@@ -633,20 +640,22 @@ static func get_destroy_crit_chance_bonus(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
 		bonus += 0.15
-	if level >= 12:
+	if level >= 13:
 		bonus += 0.25
 	return bonus
 
 static func get_destroy_crit_damage_bonus(level: int) -> float:
-	if level >= 8:
-		return 0.3
+	if level >= 7:
+		return 0.25
 	return 0.0
 
 static func get_destroy_crit_fluctuation_multiplier(level: int) -> float:
 	if level >= 16:
 		return randf_range(0.5, 4.0) # -50% ~ +300%
-	if level >= 12:
+	if level >= 13:
 		return randf_range(0.6, 2.2) # -40% ~ +120%
+	if level >= 10:
+		return randf_range(0.7, 1.9) # -30% ~ +90%
 	return 1.0
 
 static func apply_destroy_crit_overflow(base_chance: float, base_crit_multi: float, level: int) -> Dictionary:
@@ -665,26 +674,28 @@ static func get_life_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
 		bonus += 0.25
-	if level >= 8:
+	if level >= 7:
 		bonus += 0.35
-	if level >= 12:
-		bonus += 0.80
+	if level >= 10:
+		bonus += 0.50
+	if level >= 13:
+		bonus += 0.70
 	if level >= 16:
 		bonus += 1.80
 	return 1.0 + bonus
 
 static func get_life_range_multiplier(level: int) -> float:
 	var bonus = 0.0
-	if level >= 8:
+	if level >= 7:
 		bonus += 0.25
 	return 1.0 + bonus
 
 static func get_life_exp_multiplier(level: int) -> float:
 	if level >= 16:
 		return 3.0
-	if level >= 12:
+	if level >= 10:
 		return 1.8
-	if level >= 8:
+	if level >= 7:
 		return 1.4
 	if level >= 4:
 		return 1.2
@@ -697,7 +708,7 @@ static func get_exp_multiplier() -> float:
 	return multiplier
 
 static func get_life_attack_interval_multiplier(level: int) -> float:
-	if level >= 12:
+	if level >= 13:
 		return 0.8
 	return 1.0
 
@@ -754,9 +765,11 @@ static func get_treasure_lucky_bonus(level: int) -> int:
 	var bonus = 0
 	if level >= 4:
 		bonus += 4
-	if level >= 8:
+	if level >= 7:
 		bonus += 6
-	if level >= 12:
+	if level >= 10:
+		bonus += 12
+	if level >= 13:
 		bonus += 8
 	if level >= 16:
 		bonus += 12
@@ -766,10 +779,10 @@ static func get_treasure_weapon_damage_multiplier(level: int, lucky: int) -> flo
 	var bonus = 0.0
 	if level >= 4:
 		bonus += 0.15
-	if level >= 8:
+	if level >= 7:
 		bonus += float(lucky) * 0.03
-	if level >= 12:
-		bonus += 0.40
+	if level >= 13:
+		bonus += 0.35
 	if level >= 16:
 		bonus += 1.0
 	return 1.0 + bonus
@@ -780,7 +793,7 @@ static func get_treasure_elite_boss_multiplier(level: int, lucky: int) -> float:
 	return 1.0 + float(lucky) * 0.06
 
 static func get_treasure_extra_refresh_count(level: int, lucky: int) -> int:
-	if level < 12:
+	if level < 13:
 		return 0
 	if lucky <= 0:
 		return 0
@@ -802,26 +815,31 @@ static func get_wind_weapon_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
 		bonus += 0.25
-	if level >= 12:
+	if level >= 10:
+		bonus += 0.25
+	if level >= 13:
 		bonus += 0.40
 	if level >= 16:
 		bonus += 0.90
 	return 1.0 + bonus
 
 static func get_wind_base_move_speed_bonus(level: int) -> float:
+	var bonus = 0.0
 	if level >= 4:
-		return 0.10
-	return 0.0
+		bonus += 0.10
+	if level >= 10:
+		bonus += 0.25
+	return bonus
 
 static func get_wind_huanfeng_max_stacks(level: int) -> int:
-	if level >= 12:
+	if level >= 13:
 		return 300
-	if level >= 8:
+	if level >= 7:
 		return 200
 	return 0
 
 static func get_wind_huanfeng_speed_bonus_per_stack(level: int) -> float:
-	if level >= 8:
+	if level >= 7:
 		return 0.001
 	return 0.0
 
@@ -918,6 +936,14 @@ static func _calculate_chaos_level() -> int:
 
 func _update_treasure_bonus() -> void:
 	var bonus = Faze.get_treasure_lucky_bonus(PC.faze_treasure_level)
+	var level = PC.faze_treasure_level
+	
+	# 10阶：宝器类武器攻击速度+25%
+	var atk_speed_bonus = 0.25 if level >= 10 else 0.0
+	if atk_speed_bonus != last_treasure_atk_speed_bonus:
+		PC.pc_atk_speed += atk_speed_bonus - last_treasure_atk_speed_bonus
+		last_treasure_atk_speed_bonus = atk_speed_bonus
+	
 	if bonus == last_treasure_lucky_bonus:
 		return
 	var delta = bonus - last_treasure_lucky_bonus
@@ -995,23 +1021,29 @@ static func get_sword_attack_speed_multiplier(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
 		bonus += 0.2
+	if level >= 10:
+		bonus += 0.3
 	if level >= 16:
-		bonus += 0.5
+		bonus += 0.6
 	return 1.0 + bonus
 
 static func get_sword_crit_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
 		bonus += 0.1
+	if level >= 10:
+		bonus += 0.3
 	return PC.crit_damage_multi + bonus
 
 static func get_coldlight_damage_multiplier(level: int) -> float:
 	if level >= 16:
 		return 5.0
-	return 3.0
+	if level >= 7:
+		return 2.4
+	return 0.0
 
 static func on_sword_weapon_hit(enemy: Node) -> void:
-	if PC.faze_sword_level < 8:
+	if PC.faze_sword_level < 7:
 		return
 	assert(enemy != null, "faze.gd: enemy is null")
 	var stack = 0
@@ -1038,7 +1070,7 @@ static func on_sword_weapon_hit(enemy: Node) -> void:
 		var damage_multiplier = get_coldlight_damage_multiplier(PC.faze_sword_level)
 		var damage = PC.pc_atk * damage_multiplier
 		var is_crit = false
-		if PC.faze_sword_level >= 12:
+		if PC.faze_sword_level >= 13:
 			if enemy.is_in_group("elite") or enemy.is_in_group("boss"):
 				damage *= 1.5
 			if randf() < PC.crit_chance:
@@ -1152,7 +1184,7 @@ static func get_thunder_weapon_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
 		bonus += 0.2
-	if level >= 14:
+	if level >= 13:
 		bonus += 1.6
 	return 1.0 + bonus
 
@@ -1160,7 +1192,7 @@ static func get_thunder_electrified_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
 		bonus += 0.4
-	if level >= 11:
+	if level >= 10:
 		bonus += 1.0
 	return 1.0 + bonus
 
@@ -1170,9 +1202,9 @@ static func get_thunder_damage_vs_electrified_bonus(level: int) -> float:
 	return 0.0
 
 static func get_thunder_electrified_elite_bonus(level: int) -> float:
-	if level >= 14:
+	if level >= 13:
 		return 3.0
-	if level >= 11:
+	if level >= 10:
 		return 1.0
 	return 0.0
 
@@ -1180,8 +1212,8 @@ static func get_heal_shield_bonus(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
 		bonus += 0.30
-	if level >= 11:
+	if level >= 10:
 		bonus += 0.35
-	if level >= 14:
+	if level >= 13:
 		bonus += 0.50
 	return bonus

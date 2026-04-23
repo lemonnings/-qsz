@@ -98,7 +98,7 @@ func _initialize_emblem_configs():
 		"健步",
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianbu.png",
 		5,
-		"开悟获得的每4%移速可以提升0.5*层数%的攻击与0.5*层数%的体力上限。"
+		"领悟获得的每4%移速可以提升0.5*层数%的攻击与0.5*层数%的体力上限。"
 	)
 	
 	# 加护纹章
@@ -107,7 +107,7 @@ func _initialize_emblem_configs():
 		"加护",
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/jiahu.png",
 		5,
-		"开悟获得的每点额外天命可以提升0.3*层数%的攻击与0.3*层数%的体力上限。"
+		"领悟获得的每点额外天命可以提升0.3*层数%的攻击与0.3*层数%的体力上限。"
 	)
 	
 	# 归元纹章
@@ -116,7 +116,7 @@ func _initialize_emblem_configs():
 		"归元",
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/guiyuan.png",
 		5,
-		"开悟获得的每5%攻速可以提升0.3*层数%的攻击与0.3*层数%的体力上限。"
+		"领悟获得的每5%攻速可以提升0.3*层数%的攻击与0.3*层数%的体力上限。"
 	)
 	
 	# 蛮力纹章

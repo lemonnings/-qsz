@@ -190,45 +190,19 @@ var in_range = player_distance <= sector_radius and
                angle_in_sector_range(player_angle, sector_start_angle, sector_end_angle)
 ```
 
-## 性能优化建议
 
-1. **合理设置分段数**：`SectorDrawer`的`segments`参数影响绘制质量和性能
-2. **及时清理资源**：预警结束后自动调用`cleanup()`方法
-3. **避免过多同时预警**：大量同时存在的扇形预警可能影响性能
-4. **优化角度计算**：使用缓存避免重复的三角函数计算
 
-## 注意事项
-
-1. **玩家节点要求**：确保玩家节点在"player"组中，且有`take_damage`方法
-2. **角度单位**：API中角度参数使用度（degree），内部计算使用弧度（radian）
-3. **坐标系统**：使用Godot的标准2D坐标系统
-4. **动画播放器**：动画播放器参数是可选的，可以传入`null`
-5. **信号连接**：记得连接信号以处理预警结束和伤害事件
-
-## 扩展建议
-
-1. **多段扇形**：可以扩展支持多段不连续的扇形
-2. **动态角度**：支持预警过程中动态改变扇形角度
-3. **渐变效果**：添加从中心到边缘的颜色渐变效果
-4. **粒子效果**：集成粒子系统增强视觉效果
-5. **音效集成**：添加预警音效和触发音效
-
-## 与其他AOE工具的配合
-
-`WarnSectorUtil`可以与`WarnCircleUtil`和`WarnRectUtil`配合使用，创建复杂的组合攻击模式：
+`WarnSectorUtil`可以与`WarnCircleUtil`和`WarnRectUtil`配合使用，创建复杂的组合模式：
 
 ```gdscript
-# 组合攻击示例：中心爆炸 + 四方向扇形
 func combo_attack():
-    # 中心圆形爆炸
     var center_warning = WarnCircleUtil.new()
     center_warning.start_warning(boss_pos, 100.0, 2.0, 80.0)
     
-    # 四个方向的扇形攻击
     for direction in [Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT, Vector2.UP]:
         var sector_warning = WarnSectorUtil.new()
         var target = boss_pos + direction * 200
         sector_warning.start_warning(boss_pos, target, 60.0, 180.0, 3.0, 60.0)
 ```
+qian:
 
-通过合理使用这些AOE预警工具，可以创造出丰富多样的Boss战斗体验。

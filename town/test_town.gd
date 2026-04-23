@@ -1,10 +1,10 @@
 extends Node2D
 
-@export var dialog_control : Control
-@export var npc1 : AnimatableBody2D 
-@export var npc2 : AnimatableBody2D 
-@export var npc3 : AnimatableBody2D 
-@export var interaction_distance : float = 40.0 
+@export var dialog_control: Control
+@export var npc1: AnimatableBody2D
+@export var npc2: AnimatableBody2D
+@export var npc3: AnimatableBody2D
+@export var interaction_distance: float = 40.0
 @export var dialog_file_to_start: String = "res://AssetBundle/Dialog/test_dialog.txt"
 
 var player: CharacterBody2D
@@ -41,7 +41,7 @@ func _process(delta: float) -> void:
 			if not dialog_control.visible:
 				start_dialog_interaction(1)
 			else:
-				print_debug("Dialog is already active.")
+				print("Dialog is already active.")
 
 		#if player.global_position.distance_to($NPC2/AnimatedSprite2D.global_position) < interaction_distance:
 			#if not dialog_control.visible:

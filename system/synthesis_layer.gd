@@ -2,9 +2,9 @@ extends CanvasLayer
 
 # 物品合成管理器 - 专门负责合成逻辑
 
-@export var shang_button: Button # 合成分类：一阶
-@export var xia_button: Button # 合成分类：二阶
-@export var yitai_button: Button # 合成分类：以太，诺姆入队后开启
+@export var shang_button: Button # 合成分类：丹药类
+@export var xia_button: Button # 合成分类：元素类
+@export var yitai_button: Button # 合成分类：其他类
 
 @export var synthesis_detail: RichTextLabel # 合成信息具体详情
 # 已持有：0
@@ -19,85 +19,12 @@ extends CanvasLayer
 
 # 合成配方数据
 var recipes_data = {
-	# ============== 元素转化 ==============
-	"recipe_009": {
-		"recipe_name": "元水",
-		"recipe_description": "水灵叶转化为3个元水",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanshui2.png",
-		"category": "yijie",
-		"required_items": [
-			{"item_id": "item_009", "count": 1}
-		],
-		"result_items": [
-			{"item_id": "item_018", "min_count": 3, "max_count": 3, "probability": 1.0}
-		]
-	},
-	"recipe_010": {
-		"recipe_name": "元风",
-		"recipe_description": "风灵草转化为3个元风",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanfeng2.png",
-		"category": "yijie",
-		"required_items": [
-			{"item_id": "item_010", "count": 1}
-		],
-		"result_items": [
-			{"item_id": "item_019", "min_count": 3, "max_count": 3, "probability": 1.0}
-		]
-	},
-	"recipe_011": {
-		"recipe_name": "元火",
-		"recipe_description": "火灵晶转化为3个元火",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanhuo2.png",
-		"category": "yijie",
-		"required_items": [
-			{"item_id": "item_015", "count": 1}
-		],
-		"result_items": [
-			{"item_id": "item_022", "min_count": 3, "max_count": 3, "probability": 1.0}
-		]
-	},
-	"recipe_012": {
-		"recipe_name": "元雷",
-		"recipe_description": "雷灵丝转化为3个元雷",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanlei2.png",
-		"category": "yijie",
-		"required_items": [
-			{"item_id": "item_017", "count": 1}
-		],
-		"result_items": [
-			{"item_id": "item_020", "min_count": 3, "max_count": 3, "probability": 1.0}
-		]
-	},
-	"recipe_013": {
-		"recipe_name": "元土",
-		"recipe_description": "土灵矿转化为3个元土",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuantu2.png",
-		"category": "yijie",
-		"required_items": [
-			{"item_id": "item_014", "count": 1}
-		],
-		"result_items": [
-			{"item_id": "item_021", "min_count": 3, "max_count": 3, "probability": 1.0}
-		]
-	},
-	"recipe_027": {
-		"recipe_name": "灵石",
-		"recipe_description": "3个灵髓碎片合成为10个灵石",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/juling.png",
-		"category": "yijie",
-		"required_items": [
-			{"item_id": "item_007", "count": 3}
-		],
-		"result_items": [
-			{"item_id": "item_084", "min_count": 10, "max_count": 10, "probability": 1.0}
-		]
-	},
-	# ============== 一阶丹药 ==============
+	# ============== 丹药类：一阶散药 ==============
 	"recipe_014": {
 		"recipe_name": "破阵散",
 		"recipe_description": "使破虚（攻击）修炼上限提升2阶",
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/ruifeng.png",
-		"category": "yijie",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_002", "count": 5},
 			{"item_id": "item_018", "count": 5}
@@ -110,7 +37,7 @@ var recipes_data = {
 		"recipe_name": "固元散",
 		"recipe_description": "使玄元（HP）修炼上限提升2阶",
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jinshen1.png",
-		"category": "yijie",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_045", "count": 5},
 			{"item_id": "item_019", "count": 5}
@@ -123,7 +50,7 @@ var recipes_data = {
 		"recipe_name": "明光散",
 		"recipe_description": "使流光（攻速）修炼上限提升1阶",
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/liuguang.png",
-		"category": "yijie",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_003", "count": 5},
 			{"item_id": "item_021", "count": 5}
@@ -134,9 +61,9 @@ var recipes_data = {
 	},
 	"recipe_017": {
 		"recipe_name": "引灵散",
-		"recipe_description": "使化灵（灵气获取）修炼上限提升2阶",
+		"recipe_description": "使化灵（真气获取）修炼上限提升2阶",
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/hualing.png",
-		"category": "yijie",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_002", "count": 5},
 			{"item_id": "item_020", "count": 5}
@@ -149,7 +76,7 @@ var recipes_data = {
 		"recipe_name": "磨锋散",
 		"recipe_description": "使锋锐（暴击率）修炼上限提升1阶",
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/liejin.png",
-		"category": "yijie",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_044", "count": 5},
 			{"item_id": "item_022", "count": 5}
@@ -162,7 +89,7 @@ var recipes_data = {
 		"recipe_name": "铁骨散",
 		"recipe_description": "使护体（减伤率）修炼上限提升1阶",
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huti.png",
-		"category": "yijie",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_023", "count": 5},
 			{"item_id": "item_021", "count": 5}
@@ -175,7 +102,7 @@ var recipes_data = {
 		"recipe_name": "疾步散",
 		"recipe_description": "使追风（移速）修炼上限提升1阶",
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/zhuifeng2.png",
-		"category": "yijie",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_003", "count": 5},
 			{"item_id": "item_019", "count": 5}
@@ -188,7 +115,7 @@ var recipes_data = {
 		"recipe_name": "爆烈散",
 		"recipe_description": "使烈劲（暴击伤害）修炼上限提升2阶",
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fengrui.png",
-		"category": "yijie",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_046", "count": 5},
 			{"item_id": "item_022", "count": 5}
@@ -197,12 +124,11 @@ var recipes_data = {
 			{"item_id": "item_054", "min_count": 1, "max_count": 1, "probability": 1.0}
 		]
 	},
-	# ============== 其他一阶配方 ==============
 	"recipe_005": {
 		"recipe_name": "回春露",
 		"recipe_description": "愈疗气息回复效果提升10%（最多10次）",
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huichunlu.png",
-		"category": "yijie",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_018", "count": 10}
 		],
@@ -210,25 +136,12 @@ var recipes_data = {
 			{"item_id": "item_040", "min_count": 1, "max_count": 1, "probability": 1.0}
 		]
 	},
-	"recipe_026": {
-		"recipe_name": "进货单",
-		"recipe_description": "记录着货物清单的纸条",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/qizhi.png",
-		"category": "yijie",
-		"required_items": [
-			{"item_id": "item_011", "count": 10},
-			{"item_id": "item_020", "count": 5}
-		],
-		"result_items": [
-			{"item_id": "item_059", "min_count": 1, "max_count": 1, "probability": 1.0}
-		]
-	},
-	# ============== 二阶丹药 ==============
+	# ============== 丹药类：二阶丹药 ==============
 	"recipe_001": {
 		"recipe_name": "化脉丹",
 		"recipe_description": "使破虚（攻击）修炼上限提升4阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huamaidan.png",
-		"category": "erjie",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/ruifeng2.png",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_002", "count": 15},
 			{"item_id": "item_018", "count": 15}
@@ -240,8 +153,8 @@ var recipes_data = {
 	"recipe_002": {
 		"recipe_name": "玄露丹",
 		"recipe_description": "使玄元（HP）修炼上限提升4阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xuanludan.png",
-		"category": "erjie",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jinshen2.png",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_045", "count": 15},
 			{"item_id": "item_019", "count": 15}
@@ -253,8 +166,8 @@ var recipes_data = {
 	"recipe_003": {
 		"recipe_name": "迅风丹",
 		"recipe_description": "使流光（攻速）修炼上限提升2阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xunfengdan.png",
-		"category": "erjie",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/liuguang2.png",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_003", "count": 15},
 			{"item_id": "item_021", "count": 15}
@@ -265,9 +178,9 @@ var recipes_data = {
 	},
 	"recipe_004": {
 		"recipe_name": "汲灵丹",
-		"recipe_description": "使化灵（灵气获取）修炼上限提升4阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jilingdan.png",
-		"category": "erjie",
+		"recipe_description": "使化灵（真气获取）修炼上限提升4阶",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/hualing2.png",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_002", "count": 15},
 			{"item_id": "item_020", "count": 15}
@@ -279,8 +192,8 @@ var recipes_data = {
 	"recipe_022": {
 		"recipe_name": "锐锋丹",
 		"recipe_description": "使锋锐（暴击率）修炼上限提升2阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huolingjing.png",
-		"category": "erjie",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/liejin.png",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_044", "count": 15},
 			{"item_id": "item_022", "count": 15}
@@ -292,8 +205,8 @@ var recipes_data = {
 	"recipe_023": {
 		"recipe_name": "金身丹",
 		"recipe_description": "使护体（减伤率）修炼上限提升2阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jiake.png",
-		"category": "erjie",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huti2.png",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_023", "count": 15},
 			{"item_id": "item_021", "count": 15}
@@ -305,8 +218,8 @@ var recipes_data = {
 	"recipe_024": {
 		"recipe_name": "追风丹",
 		"recipe_description": "使追风（移速）修炼上限提升2阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xunfengdan.png",
-		"category": "erjie",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/zhuifeng2.png",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_003", "count": 15},
 			{"item_id": "item_019", "count": 15}
@@ -318,8 +231,8 @@ var recipes_data = {
 	"recipe_025": {
 		"recipe_name": "烈焰丹",
 		"recipe_description": "使烈劲（暴击伤害）修炼上限提升4阶",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanhuo.png",
-		"category": "erjie",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fengrui2.png",
+		"category": "danyao",
 		"required_items": [
 			{"item_id": "item_046", "count": 15},
 			{"item_id": "item_022", "count": 15}
@@ -328,35 +241,171 @@ var recipes_data = {
 			{"item_id": "item_058", "min_count": 1, "max_count": 1, "probability": 1.0}
 		]
 	},
-	# ============== 二阶武器 ==============
-	"recipe_006": {
-		"recipe_name": "仙枝",
-		"recipe_description": "解锁武器-仙枝",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xianzhi.png",
-		"category": "erjie",
+	# ============== 元素类：元素转化 ==============
+	"recipe_009": {
+		"recipe_name": "元水",
+		"recipe_description": "水灵叶转化为3个元水",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanshui2.png",
+		"category": "yuansu",
 		"required_items": [
-			{"item_id": "item_023", "count": 4}
+			{"item_id": "item_009", "count": 1}
 		],
 		"result_items": [
-			{"item_id": "item_041", "min_count": 1, "max_count": 1, "probability": 1.0}
+			{"item_id": "item_018", "min_count": 3, "max_count": 3, "probability": 1.0}
 		]
 	},
-	"recipe_007": {
-		"recipe_name": "柔水",
-		"recipe_description": "解锁武器-柔水",
-		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/roushui.png",
-		"category": "erjie",
+	"recipe_010": {
+		"recipe_name": "元风",
+		"recipe_description": "风灵草转化为3个元风",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanfeng2.png",
+		"category": "yuansu",
 		"required_items": [
-			{"item_id": "item_003", "count": 4}
+			{"item_id": "item_010", "count": 1}
 		],
 		"result_items": [
-			{"item_id": "item_042", "min_count": 1, "max_count": 1, "probability": 1.0}
+			{"item_id": "item_019", "min_count": 3, "max_count": 3, "probability": 1.0}
+		]
+	},
+	"recipe_011": {
+		"recipe_name": "元火",
+		"recipe_description": "火灵晶转化为3个元火",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanhuo2.png",
+		"category": "yuansu",
+		"required_items": [
+			{"item_id": "item_015", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_022", "min_count": 3, "max_count": 3, "probability": 1.0}
+		]
+	},
+	"recipe_012": {
+		"recipe_name": "元雷",
+		"recipe_description": "雷灵丝转化为3个元雷",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuanlei2.png",
+		"category": "yuansu",
+		"required_items": [
+			{"item_id": "item_017", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_020", "min_count": 3, "max_count": 3, "probability": 1.0}
+		]
+	},
+	"recipe_013": {
+		"recipe_name": "元土",
+		"recipe_description": "土灵矿转化为3个元土",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/yuantu2.png",
+		"category": "yuansu",
+		"required_items": [
+			{"item_id": "item_014", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_021", "min_count": 3, "max_count": 3, "probability": 1.0}
+		]
+	},
+
+	# ============== 其他类：碎片与特殊道具 ==============
+	"recipe_027": {
+		"recipe_name": "灵髓碎片",
+		"recipe_description": "3个灵髓碎片炼化为10个灵石",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/juling.png",
+		"category": "qita",
+		"required_items": [
+			{"item_id": "item_007", "count": 3}
+		],
+		"result_items": [
+			{"item_id": "item_084", "min_count": 10, "max_count": 10, "probability": 1.0}
+		]
+	},
+	"recipe_028": {
+		"recipe_name": "凝灵碎片",
+		"recipe_description": "3个凝灵碎片炼化为50个灵石",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/julingsuipian.png",
+		"category": "qita",
+		"required_items": [
+			{"item_id": "item_102", "count": 3}
+		],
+		"result_items": [
+			{"item_id": "item_084", "min_count": 50, "max_count": 50, "probability": 1.0}
+		]
+	},
+	"recipe_026": {
+		"recipe_name": "进货单",
+		"recipe_description": "记录着货物清单的纸条",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/qizhi.png",
+		"category": "qita",
+		"required_items": [
+			{"item_id": "item_011", "count": 10},
+			{"item_id": "item_020", "count": 5}
+		],
+		"result_items": [
+			{"item_id": "item_059", "min_count": 1, "max_count": 1, "probability": 1.0}
+		]
+	},
+	# ============== 其他类：以太转化灵石 ==============
+	"recipe_029": {
+		"recipe_name": "以太炼化",
+		"recipe_description": "1个水以太炼化为12个灵石",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/shuiyitai.png",
+		"category": "qita",
+		"required_items": [
+			{"item_id": "item_031", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_084", "min_count": 12, "max_count": 12, "probability": 1.0}
+		]
+	},
+	"recipe_030": {
+		"recipe_name": "以太炼化",
+		"recipe_description": "1个风以太炼化为12个灵石",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/fengyitai.png",
+		"category": "qita",
+		"required_items": [
+			{"item_id": "item_032", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_084", "min_count": 12, "max_count": 12, "probability": 1.0}
+		]
+	},
+	"recipe_031": {
+		"recipe_name": "以太炼化",
+		"recipe_description": "1个雷以太炼化为12个灵石",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/leiyitai.png",
+		"category": "qita",
+		"required_items": [
+			{"item_id": "item_033", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_084", "min_count": 12, "max_count": 12, "probability": 1.0}
+		]
+	},
+	"recipe_032": {
+		"recipe_name": "以太炼化",
+		"recipe_description": "1个土以太炼化为12个灵石",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/tuyitai.png",
+		"category": "qita",
+		"required_items": [
+			{"item_id": "item_034", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_084", "min_count": 12, "max_count": 12, "probability": 1.0}
+		]
+	},
+	"recipe_033": {
+		"recipe_name": "以太炼化",
+		"recipe_description": "1个火以太炼化为12个灵石",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huoyitai.png",
+		"category": "qita",
+		"required_items": [
+			{"item_id": "item_035", "count": 1}
+		],
+		"result_items": [
+			{"item_id": "item_084", "min_count": 12, "max_count": 12, "probability": 1.0}
 		]
 	}
 }
 
 # 当前选中的分类和配方
-var current_category = "yijie"
+var current_category = "danyao"
 var current_recipe_id = ""
 var current_craft_count = 1
 
@@ -384,18 +433,18 @@ func _ready():
 	if item_msg:
 		item_msg.visible = false
 	
-	# 默认选择一阶分类
-	_select_category("yijie")
+	# 默认选择丹药类分类
+	_select_category("danyao")
 
 # 分类按钮点击事件
 func _on_shang_button_pressed():
-	_select_category("yijie")
+	_select_category("danyao")
 
 func _on_xia_button_pressed():
-	_select_category("erjie")
+	_select_category("yuansu")
 
 func _on_yitai_button_pressed():
-	_select_category("yitai")
+	_select_category("qita")
 
 # 选择分类
 func _select_category(category: String):

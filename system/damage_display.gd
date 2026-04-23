@@ -103,8 +103,7 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	if (damage_type == DamageType.PLAYER_HURT or damage_type == DamageType.SHIELD_ABSORB) and source_name != "":
 		text_to_display = source_name + " " + text_to_display
 	
-	# 使用font_size控制大小而非scale缩放，避免像素字体模糊
-	var size_multiplier := 0.8
+	var size_multiplier := 1
 	
 	# 整体字号在现有基础上乘以缩放因子；DOT/护盾类型额外 -2；是万/k时+2，是亿/m时+4
 	var final_font_size: int

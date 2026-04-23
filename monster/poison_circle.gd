@@ -6,8 +6,9 @@ extends Area2D
 
 var damage_per_tick: float = 0.0 # 每秒伤害（由外部赋值）
 var attacker: Node2D = null # 真实攻击者，未设置时回退到毒圈自身
-var source_name: String = "剧毒结界" # 伤害来源名
+var source_name: String = "中毒" # 伤害来源名
 var duration: float = 5.0 # 持续时间（秒）
+var is_permanent: bool = false # 是否永久存在（不自动消失）
 const FADE_IN_TIME: float = 0.6 # 渐入时间（秒）
 const FADE_OUT_TIME: float = 0.8 # 渐出时间（秒）
 const TICK_INTERVAL: float = 1.0 # 伤害间隔（秒）
@@ -32,8 +33,8 @@ func _process(delta: float) -> void:
 	pulse_time += delta
 	queue_redraw() # 每帧重绘（脉冲动画）
 
-	# 到达结束时间前开始渐出
-	if life_timer >= duration - FADE_OUT_TIME and not fading_out:
+	# 到达结束时间前开始渐出（永久毒圈不会自动消失）
+	if not is_permanent and life_timer >= duration - FADE_OUT_TIME and not fading_out:
 		fading_out = true
 		var tween = create_tween()
 		tween.tween_property(self , "modulate:a", 0.0, FADE_OUT_TIME)

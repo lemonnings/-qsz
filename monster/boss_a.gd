@@ -22,16 +22,26 @@ var move_direction: int = 4
 var target_position: Vector2 # 用于存储移动目标位置
 var update_move_timer: Timer # 移动模式计时器
 
-var speed: float = SettingMoster.slime_blue("speed") * 0.9 # Boss移动速度，可以调整
-var hpMax: float = SettingMoster.slime_blue("hp") * 25 # Boss最大生命值，可以调整
+var speed: float = SettingMoster.slime_blue("speed") * 0.75 # Boss移动速度，可以调整
+var hpMax: float = SettingMoster.slime_blue("hp") * 22 # Boss最大生命值，可以调整
 #var hpMax : float = SettingMoster.slime("hp") * 0.1 # Boss最大生命值，可以调整
 var hp: float = hpMax # Boss当前生命值
-var atk: float = SettingMoster.slime_blue("atk") * 1.1 # Boss攻击力，可以调整
+var atk: float = SettingMoster.slime_blue("atk") * 0.9 # Boss攻击力，可以调整
 var get_point: int = SettingMoster.slime_blue("point") * 25 # 击败首领获得的积分
 var get_exp: int = 0 # 击败首领获得的经验
 
 func _drop_boss_rewards() -> void:
-	drop_items_from_table(SettingMoster.peach_grove_boss("itemdrop"))
+	# 15%基础概率掉落1种以太（火风雷水土其一）
+	var ether_ids = ["item_031", "item_032", "item_033", "item_034", "item_035"]
+	if randf() <= 0.75:
+		var chosen_ether = ether_ids[randi() % ether_ids.size()]
+		Global.emit_signal("drop_out_item", chosen_ether, 1, global_position)
+	# 魔核+凝灵碎片掉落
+	drop_items_from_table(SettingMoster.get_boss_extra_drop())
+	# 固定掉落1个随机魔核
+	var magic_cores = ["item_097", "item_098", "item_099", "item_100", "item_101"]
+	var fixed_core = magic_cores[randi() % magic_cores.size()]
+	Global.emit_signal("drop_out_item", fixed_core, 1, global_position)
 
 var attack_timer: Timer # Boss攻击计时器
 var attack_indicator: Node2D # 攻击范围指示器
@@ -85,27 +95,33 @@ func _ready():
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
 	hpMax *= _get_difficulty_hp_multiplier()
 	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 5
+	var dps_multiplier := 8
 	match Global.current_stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 6
+			dps_multiplier = 11
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 7
+			dps_multiplier = 14
 		Global.STAGE_DIFFICULTY_POETRY:
-			dps_multiplier = 7
+			dps_multiplier = 14
 	hpMax += Global.get_current_dps() * dps_multiplier
-	# 防止boss升级期间打人（但没生效，子弹会在暂停期间积累到一起全射出来）
+	print("[BossA] DPS加成HP: +", Global.get_current_dps() * dps_multiplier, "  最终hpMax: ", hpMax)
+	
+	# 防止boss升级期间打人
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	hp = hpMax # 初始化当前血量
+	
+	# 浅层难度下Boss只造成25%伤害
+	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
+		atk *= 0.5
 	
 	setup_monster_base()
 	use_debuff_take_damage_multiplier = false
 	check_action_disabled_on_body_entered = false
 	
 	# 创建脚底阴影（Boss阴影较大）
-	CharacterEffects.create_shadow(self , 60.0, 20.0, 24.0)
+	CharacterEffects.create_shadow(self , 50.0, 20.0, 41.0)
 	
-	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "测试BOSS")
+	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "桃树精王")
 	Global.emit_signal("boss_hp_bar_show")
 	
 	# 初始化移动相关
@@ -172,7 +188,7 @@ func _get_poison_circle_scale() -> Vector2:
 
 
 func _get_petal_spawn_count() -> int:
-	var count := petal_use_count * 2 + 2
+	var count := petal_use_count * 2 + 1
 	if _is_deep_or_harder():
 		count += 2
 	if _is_poetry():
@@ -207,7 +223,7 @@ func _get_random_player_side_meteor_position(player_pos: Vector2, min_distance: 
 	return _clamp_position_to_arena(player_pos + Vector2.RIGHT.rotated(angle) * distance, 28.0)
 
 
-func _spawn_meteor_warning_at(spawn_pos: Vector2, persistent: bool = false) -> void:
+func _spawn_meteor_warning_at(spawn_pos: Vector2, persistent: bool = false, _source_name: String = "陨石") -> void:
 	var warning_circle := WarnCircleUtil.new()
 	add_child(warning_circle)
 	var meteor_radius := _get_meteor_radius()
@@ -225,7 +241,7 @@ func _spawn_meteor_warning_at(spawn_pos: Vector2, persistent: bool = false) -> v
 		meteor_radius,
 		METEOR_WARNING_TIME,
 		0.0 if persistent else atk * 1.5,
-		"陨石",
+		_source_name,
 		null,
 		WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE
 	)
@@ -510,7 +526,7 @@ func _attack_straight_line():
 		if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
 			Global.emit_signal("player_hit")
 			var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-			PC.player_hit(int(actual_damage), self , "飞花")
+			PC.player_hit(int(actual_damage), self , "荆棘之刺")
 			if PC.pc_hp <= 0:
 				PC.player_instance.game_over()
 			print("Player hit by straight line attack, damage: ", actual_damage)
@@ -668,7 +684,7 @@ func _attack_triple_line():
 			if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
 				Global.emit_signal("player_hit")
 				var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-				PC.player_hit(int(actual_damage), self , "落花")
+				PC.player_hit(int(actual_damage), self , "分裂荆棘")
 				if PC.pc_hp <= 0:
 					PC.player_instance.game_over()
 				_player_damaged_this_round = true
@@ -768,7 +784,7 @@ func _attack_eight_directions():
 			if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
 				Global.emit_signal("player_hit")
 				var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
-				PC.player_hit(int(actual_damage), self , "花雨")
+				PC.player_hit(int(actual_damage), self , "荆棘遍布")
 				if PC.pc_hp <= 0:
 					PC.player_instance.game_over()
 				_player_damaged_this_attack = true
@@ -1001,6 +1017,7 @@ func _attack_random_barrage():
 		bullet.set_direction(direction)
 		bullet.bullet_speed = 190.0
 		bullet.bullet_damage = atk
+		bullet.source_name = "花雨"
 		
 		await get_tree().create_timer(barrage_interval, false).timeout
 	
@@ -1030,7 +1047,7 @@ func _attack_meteor_instant():
 			randf_range(-METEOR_SPAWN_RANGE, METEOR_SPAWN_RANGE),
 			randf_range(-METEOR_SPAWN_RANGE, METEOR_SPAWN_RANGE)
 		)
-		_spawn_meteor_warning_at(player_pos + random_offset)
+		_spawn_meteor_warning_at(player_pos + random_offset, false, "盛放之棘")
 		
 		# 每个陨石之间稍微延迟，创造连续感
 		await get_tree().create_timer(0.15, false).timeout
@@ -1072,7 +1089,7 @@ func _attack_meteor_persistent():
 			randf_range(-METEOR_SPAWN_RANGE, METEOR_SPAWN_RANGE),
 			randf_range(-METEOR_SPAWN_RANGE, METEOR_SPAWN_RANGE)
 		)
-		_spawn_meteor_warning_at(player_pos + random_offset, true)
+		_spawn_meteor_warning_at(player_pos + random_offset, true, "剧毒之棘")
 		
 		# 每个陨石之间稍微延迟
 		await get_tree().create_timer(0.15, false).timeout
@@ -1094,7 +1111,7 @@ func _on_meteor_persistent_warning_finished(spawn_pos: Vector2, warning_circle: 
 	var pc_instance = poison_circle_scene.instantiate()
 	pc_instance.damage_per_tick = atk * 0.4
 	pc_instance.attacker = self
-	pc_instance.source_name = "剧毒结界"
+	pc_instance.source_name = "剧毒之棘"
 	pc_instance.duration = METEOR_PERSIST_DURATION
 	pc_instance.is_permanent = _is_core_or_harder()
 	pc_instance.global_position = spawn_pos
@@ -1351,7 +1368,7 @@ func _spawn_one_petal() -> void:
 	var p = petal_scene.instantiate()
 	var is_golden_petal := _should_spawn_golden_petal()
 	get_tree().current_scene.add_child(p)
-	p.scale = Vector2(0.25, 0.25) * (GOLDEN_PETAL_SCALE_MULTIPLIER if is_golden_petal else 1.0)
+	p.scale = Vector2(0.3, 0.3) * (GOLDEN_PETAL_SCALE_MULTIPLIER if is_golden_petal else 1.0)
 	var spawn_x = randf_range(left_boundary, right_boundary)
 	var spawn_y = top_boundary - randf_range(20.0, 80.0) # 从顶部边界上方飘落
 	p.initialize(

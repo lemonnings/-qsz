@@ -3,8 +3,8 @@ class_name BuffManager
 
 # Buff类型枚举
 enum BuffType {
-	PERMANENT,  # 永久buff
-	TEMPORARY   # 临时buff
+	PERMANENT, # 永久buff
+	TEMPORARY # 临时buff
 }
 
 # Buff数据结构
@@ -45,16 +45,16 @@ func _ready():
 	_init_buff_configs()
 	
 	# 连接全局信号
-	Global.connect("buff_added", Callable(self, "_on_buff_added"))
-	Global.connect("buff_removed", Callable(self, "_on_buff_removed"))
-	Global.connect("buff_updated", Callable(self, "_on_buff_updated"))
-	Global.connect("buff_stack_changed", Callable(self, "_on_buff_stack_changed"))
+	Global.connect("buff_added", Callable(self , "_on_buff_added"))
+	Global.connect("buff_removed", Callable(self , "_on_buff_removed"))
+	Global.connect("buff_updated", Callable(self , "_on_buff_updated"))
+	Global.connect("buff_stack_changed", Callable(self , "_on_buff_stack_changed"))
 
 static func _init_buff_configs():
 	buff_configs["faze_bullet"] = BuffData.new(
 		"faze_bullet",
 		"弹雨法则",
-		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_bullet.png",
 		BuffType.PERMANENT,
 		99,
 		"弹雨法则层数"
@@ -62,17 +62,17 @@ static func _init_buff_configs():
 	
 	buff_configs["barrage_charge"] = BuffData.new(
 		"barrage_charge",
-		"弹幕积累",
-		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		"弹雨积累",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_bullet.png",
 		BuffType.PERMANENT,
 		9999,
-		"弹幕积累层数"
+		"弹雨积累层数"
 	)
 	
 	buff_configs["bagua_progress"] = BuffData.new(
 		"bagua_progress",
 		"推衍度",
-		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_bagua.png",
 		BuffType.PERMANENT,
 		9999,
 		"推衍度，下一层需要" + str(PC.faze_bagua_next_threshold) + "推衍度"
@@ -81,7 +81,7 @@ static func _init_buff_configs():
 	buff_configs["bagua_completed"] = BuffData.new(
 		"bagua_completed",
 		"推衍完成",
-		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_bagua.png",
 		BuffType.PERMANENT,
 		9999,
 		"已完成推衍的层数，每层提升4%的八卦类武器伤害加成与经验获取"
@@ -90,16 +90,16 @@ static func _init_buff_configs():
 	buff_configs["huanfeng"] = BuffData.new(
 		"huanfeng",
 		"唤风",
-		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_wind.png",
 		BuffType.TEMPORARY,
-		500,
-		"唤风层数，每层提升0.1%攻击速度与移动速度，持续5秒"
+		300,
+		"唤风层数，每层提升0.1%攻击速度与移动速度，持续30秒"
 	)
 	
 	buff_configs["mizongbu"] = BuffData.new(
 		"mizongbu",
 		"迷踪步",
-		"res://AssetBundle/Sprites/Sprite sheets/RingFire.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_mizongbu.png",
 		BuffType.TEMPORARY,
 		1,
 		"移动速度提升50%，减伤40%，造成伤害降低50%"
@@ -108,7 +108,7 @@ static func _init_buff_configs():
 	buff_configs["heal_hot"] = BuffData.new(
 		"heal_hot",
 		"疗愈",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_heal.png",
 		BuffType.TEMPORARY,
 		1,
 		"持续恢复体力"
@@ -117,7 +117,7 @@ static func _init_buff_configs():
 	buff_configs["water_sheild"] = BuffData.new(
 		"water_sheild",
 		"水幕护体",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_shuiliumu.png",
 		BuffType.TEMPORARY,
 		1,
 		"获得护盾并提升减伤率"
@@ -126,7 +126,7 @@ static func _init_buff_configs():
 	buff_configs["holy_fire"] = BuffData.new(
 		"holy_fire",
 		"神圣灼烧",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/buff_zhuoshao.png",
 		BuffType.TEMPORARY,
 		1,
 		"对周围造成伤害并恢复体力"
@@ -134,8 +134,8 @@ static func _init_buff_configs():
 
 	buff_configs["beastify"] = BuffData.new(
 		"beastify",
-		"魔化·趋桀",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"兽化",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_shouhua.png",
 		BuffType.TEMPORARY,
 		1,
 		"大幅提升各项属性，并将攻击变为爪击"
@@ -186,6 +186,42 @@ static func _init_buff_configs():
 		"持续3秒，期间触碰 boss_a 的毒圈会将其净化销毁"
 	)
 
+	buff_configs["tiandao_1"] = BuffData.new(
+		"tiandao_1",
+		"天道碎片·一",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.PERMANENT,
+		1,
+		"已获得天道碎片·一，最终伤害+8%。集齐三块碎片可得悟天道！"
+	)
+
+	buff_configs["tiandao_2"] = BuffData.new(
+		"tiandao_2",
+		"天道碎片·二",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.PERMANENT,
+		1,
+		"已获得天道碎片·二，体力上限+12%。集齐三块碎片可得悟天道！"
+	)
+
+	buff_configs["tiandao_3"] = BuffData.new(
+		"tiandao_3",
+		"天道碎片·三",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.PERMANENT,
+		1,
+		"已获得天道碎片·三，减伤率+5%。集齐三块碎片可得悟天道！"
+	)
+
+	buff_configs["dedao"] = BuffData.new(
+		"dedao",
+		"得道",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.PERMANENT,
+		1,
+		"三块天道碎片已融合！最终伤害+100%，体力上限+150%，减伤率+70%"
+	)
+
 
 static func get_buff_data(buff_id: String) -> BuffData:
 	if buff_configs.is_empty():
@@ -226,13 +262,11 @@ func setup_buff_container(container: HBoxContainer) -> void:
 		buff_container.add_theme_constant_override("separation", 8)
 
 func _on_buff_added(buff_id: String, duration: float, stack: int):
-	print("Adding buff: ", buff_id, " Duration: ", duration, " Stack: ", stack)
-	
 	# 获取buff配置数据
 	var buff_config = get_buff_data(buff_id)
 	if not buff_config:
 		print("Error: Buff config not found for ID: ", buff_id)
-		return  # 添加这行，如果配置不存在就直接返回
+		return # 添加这行，如果配置不存在就直接返回
 	
 	# 如果buff已存在，更新它
 	if active_buffs.has(buff_id):

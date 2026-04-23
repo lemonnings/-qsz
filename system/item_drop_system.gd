@@ -12,6 +12,9 @@ var victory_speed: float = 100.0
 var _victory_collect_request_id: int = 0
 var _pending_drop_entries: Array = []
 var _pending_drop_flush_queued: bool = false
+# 缓存当前场景的可移动边界（从 Boundry 节点计算）
+var _cached_boundary: Dictionary = {}
+var _cached_boundary_scene: Node = null
 
 func _ready():
 	# 连接到全局信号
@@ -210,7 +213,14 @@ func _clamp_position_to_scene_bounds(pos: Vector2) -> Vector2:
 	if not current_scene:
 		return pos
 	
-	# 优先从场景中的 Camera2D 获取边界（每个关卡都已配好 limit）
+	# 优先从场景中的 Boundry 节点获取实际可移动边界（StaticBody2D 圈定的范围）
+	var bounds = _get_scene_boundary(current_scene)
+	if bounds.has("min_x") and bounds.has("max_x") and bounds.has("min_y") and bounds.has("max_y"):
+		pos.x = clamp(pos.x, bounds["min_x"] + 10, bounds["max_x"] - 10)
+		pos.y = clamp(pos.y, bounds["min_y"] + 10, bounds["max_y"] - 10)
+		return pos
+	
+	# 回退：从 Camera2D 获取边界
 	var camera = _find_scene_camera()
 	if camera:
 		pos.x = clamp(pos.x, camera.limit_left + 10, camera.limit_right - 10)
@@ -218,6 +228,85 @@ func _clamp_position_to_scene_bounds(pos: Vector2) -> Vector2:
 		return pos
 	
 	return pos
+
+## 获取当前场景的可移动边界（带缓存，场景切换时自动刷新）
+func _get_scene_boundary(current_scene: Node) -> Dictionary:
+	# 场景切换时清除缓存
+	if _cached_boundary_scene != current_scene:
+		_cached_boundary = {}
+		_cached_boundary_scene = current_scene
+	if not _cached_boundary.is_empty():
+		return _cached_boundary
+	# 从 Boundry 节点计算边界
+	var boundary_node = current_scene.find_child("Boundry", true, false)
+	if boundary_node:
+		_cached_boundary = _compute_boundary_from_static_bodies(boundary_node)
+	return _cached_boundary
+
+## 从 Boundry 节点的 StaticBody2D 子节点计算实际可移动区域边界
+## StaticBody2D 使用 WorldBoundaryShape2D，根据旋转角度判断墙壁方向：
+##   rotation≈0    → 底部墙壁（max_y）
+##   rotation≈±π   → 顶部墙壁（min_y）
+##   rotation≈-π/2 → 右侧墙壁（max_x）
+##   rotation≈+π/2 → 左侧墙壁（min_x）
+## 关键：WorldBoundaryShape2D 的 distance 属性定义了沿法线方向的偏移，
+## 实际边界位置 = 碰撞形状原点位置 + distance 沿旋转后法线方向的偏移
+func _compute_boundary_from_static_bodies(boundary_node: Node2D) -> Dictionary:
+	var result: Dictionary = {}
+	var margin := 0.15 # 角度容差
+	for child in boundary_node.get_children():
+		if not child is StaticBody2D:
+			continue
+		var static_body: StaticBody2D = child
+		# 查找 CollisionShape2D 子节点
+		var col_shape: CollisionShape2D = null
+		for sub in static_body.get_children():
+			if sub is CollisionShape2D:
+				col_shape = sub
+				break
+		if col_shape == null:
+			continue
+		if col_shape.shape == null or not col_shape.shape is WorldBoundaryShape2D:
+			continue
+		
+		var wb_shape: WorldBoundaryShape2D = col_shape.shape
+		var dist: float = wb_shape.distance
+		
+		# 将旋转角度归一化到 [-PI, PI]
+		var rot = fposmod(static_body.global_rotation, TAU)
+		if rot > PI:
+			rot -= TAU
+		var abs_rot = absf(rot)
+		
+		# 旋转后的法线方向（WorldBoundaryShape2D 默认法线为 (0, -1)）
+		var normal := Vector2(0.0, -1.0).rotated(rot)
+		# 边界线的全局位置 = 碰撞形状原点 + distance 沿法线方向的偏移
+		var boundary_pos = col_shape.global_position + normal * dist
+		
+		if abs_rot < margin or absf(abs_rot - PI) < margin:
+			# 水平墙壁 → 决定 Y 边界
+			var y_val = boundary_pos.y
+			if abs_rot < margin:
+				# 旋转≈0 → 底部墙壁 → max_y
+				if not result.has("max_y") or y_val < result["max_y"]:
+					result["max_y"] = y_val
+			else:
+				# 旋转≈±π → 顶部墙壁 → min_y
+				if not result.has("min_y") or y_val > result["min_y"]:
+					result["min_y"] = y_val
+		elif absf(abs_rot - PI / 2.0) < margin:
+			# 垂直墙壁 → 决定 X 边界
+			var x_val = boundary_pos.x
+			if rot < 0:
+				# 旋转≈-π/2 → 右侧墙壁 → max_x
+				if not result.has("max_x") or x_val < result["max_x"]:
+					result["max_x"] = x_val
+			else:
+				# 旋转≈+π/2 → 左侧墙壁 → min_x
+				if not result.has("min_x") or x_val > result["min_x"]:
+					result["min_x"] = x_val
+	
+	return result
 
 ## 从当前场景中查找 Camera2D（优先找玩家身上的相机）
 func _find_scene_camera() -> Camera2D:

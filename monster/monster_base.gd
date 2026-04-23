@@ -13,18 +13,23 @@ var health_bar_shown: bool = false
 var health_bar: Node2D
 var progress_bar: ProgressBar
 var health_bar_offset: Vector2 = Vector2(-15, -10)
-var health_bar_tween_duration: float = 0.35
+var health_bar_tween_duration: float = 0.3
 
 var player_hit_emit_self: bool = false
 var use_debuff_take_damage_multiplier: bool = true
 var check_action_disabled_on_body_entered: bool = true
 
-const OFFSCREEN_SPEED_MARGIN_PIXELS: float = 20.0
-const OFFSCREEN_SPEED_MULTIPLIER: float = 4.0 # 超出视野20像素后，移动速度额外提升300%
-const RANDOM_SPEED_VARIATION_MIN: float = 0.95
-const RANDOM_SPEED_VARIATION_MAX: float = 1.05
+const OFFSCREEN_SPEED_MARGIN_PIXELS: float = 30.0
+const OFFSCREEN_SPEED_MULTIPLIER_MIN: float = 2.5 # 超出视野后，移动速度额外提升100%~300%（随机）
+const OFFSCREEN_SPEED_MULTIPLIER_MAX: float = 5.0
+const RANDOM_SPEED_VARIATION_MIN: float = 0.9
+const RANDOM_SPEED_VARIATION_MAX: float = 1.1
 
 var movement_speed_variation_multiplier: float = 1.0
+var _hit_flash_tween: Tween = null
+var _hit_flash_frame: int = -1
+var _hit_flash_base_modulate: Color = Color.WHITE
+var _spawn_protection_active: bool = false
 
 signal debuff_applied(debuff_id: String)
 
@@ -33,6 +38,9 @@ func setup_monster_base(add_elite_group: bool = false) -> void:
 		add_to_group("elite")
 	_setup_debuff_manager()
 	_setup_common_movement_data()
+	# Boss出场保护：1.5秒内不对玩家造成碰撞伤害
+	if is_in_group("boss"):
+		start_spawn_protection()
 
 func _setup_debuff_manager() -> void:
 	if debuff_manager != null and is_instance_valid(debuff_manager):
@@ -88,7 +96,7 @@ func get_effective_move_speed(base_speed_value: float, extra_multiplier: float =
 	if debuff_manager != null and is_instance_valid(debuff_manager):
 		speed_multiplier *= debuff_manager.get_speed_multiplier()
 	if apply_offscreen_boost and _is_beyond_camera_margin():
-		speed_multiplier *= OFFSCREEN_SPEED_MULTIPLIER
+		speed_multiplier *= randf_range(OFFSCREEN_SPEED_MULTIPLIER_MIN, OFFSCREEN_SPEED_MULTIPLIER_MAX)
 	return base_speed_value * speed_multiplier
 
 func apply_debuff_effect(debuff_id: String):
@@ -130,6 +138,9 @@ func free_health_bar() -> void:
 
 func handle_common_body_entered(body: Node2D) -> void:
 	if check_action_disabled_on_body_entered and debuff_manager != null and is_instance_valid(debuff_manager) and debuff_manager.is_action_disabled():
+		return
+	# 出场保护期间不对玩家造成碰撞伤害
+	if _spawn_protection_active:
 		return
 	if body is CharacterBody2D and not is_dead and not PC.invincible:
 		var actual_damage = float(get("atk")) * (1.0 - PC.damage_reduction_rate)
@@ -254,6 +265,10 @@ func apply_common_take_damage(damage: int, is_crit: bool, is_summon: bool, damag
 	if options.get("play_hit_animation", false) and current_hp > 0 and not is_dot_damage_type(damage_type):
 		Global.play_hit_anime(position, is_crit)
 
+	# 击中白色闪烁效果（非DOT伤害才触发）
+	if not is_dot_damage_type(damage_type):
+		_play_hit_flash()
+
 	return result
 
 func drop_items_from_table(itemdrop: Dictionary) -> void:
@@ -270,3 +285,46 @@ func drop_items_from_table(itemdrop: Dictionary) -> void:
 			drop_chance = float(drop_entry)
 		if randf() <= drop_chance:
 			Global.emit_signal("drop_out_item", item_id, max(1, drop_quantity), global_position)
+
+func _play_hit_flash() -> void:
+	# 防止同一帧内重复闪烁（子弹伤害可能同时经过 BulletCalculator 和 apply_common_take_damage）
+	var current_frame = Engine.get_process_frames()
+	if _hit_flash_frame == current_frame:
+		return
+	_hit_flash_frame = current_frame
+	var sprite = _get_hit_flash_sprite()
+	if sprite == null:
+		return
+	# 如果有正在进行的闪烁动画，kill掉但不更新底色（底色已由首次闪白记录）
+	# 如果没有活动动画，说明是全新的闪白，记录当前modulate作为底色
+	if _hit_flash_tween != null and _hit_flash_tween.is_valid():
+		_hit_flash_tween.kill()
+	else:
+		_hit_flash_base_modulate = sprite.modulate
+	# 白色闪烁：RGB > 1 使精灵过曝变白（modulate是乘法，值越大越亮）
+	sprite.modulate = Color(3, 3, 3, 1)
+	_hit_flash_tween = create_tween()
+	_hit_flash_tween.tween_property(sprite, "modulate", _hit_flash_base_modulate, 0.25)
+
+## 获取用于闪烁效果的精灵节点，子类可覆盖以适配不同节点名
+func _get_hit_flash_sprite() -> CanvasItem:
+	var sprite = get_node_or_null("AnimatedSprite2D")
+	if sprite != null:
+		return sprite
+	# 兼容Boss节点名
+	sprite = get_node_or_null("BossStone")
+	if sprite != null:
+		return sprite
+	sprite = get_node_or_null("BossA")
+	if sprite != null:
+		return sprite
+	return null
+
+## 启动出场保护，在指定时间内不对玩家造成碰撞伤害（Boss专用）
+func start_spawn_protection(duration: float = 1.5) -> void:
+	_spawn_protection_active = true
+	get_tree().create_timer(duration).timeout.connect(func(): _spawn_protection_active = false)
+
+## 子弹命中闪烁回调，由 BulletCalculator.handle_bullet_collision_full 调用
+func on_bullet_hit_response() -> void:
+	_play_hit_flash()

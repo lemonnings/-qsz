@@ -95,6 +95,7 @@ extends Node
 @export var faze_bagua_completed_layers: int = 0
 
 @export var invincible: bool = false
+@export var instant_level_up: bool = true # true=升级立即弹出，false=存储待手动触发
 
 @export var current_time: float = 0
 @export var real_time: float = 0
@@ -152,7 +153,7 @@ extends Node
 @export var first_has_riyan_pc: bool = true
 @export var riyan_range: float = 70.0
 @export var riyan_cooldown: float = 1 # 赤曜伤害频率：1秒/次
-@export var riyan_hp_max_damage: float = 0.20 # 赤曜基础伤害：最大HP的20%
+@export var riyan_hp_max_damage: float = 0.08 # 赤曜基础伤害：最大体力的8%/秒
 @export var riyan_atk_damage: float = 0.16 # 赤曜基础伤害：攻击力的16%
 
 # 环火相关量
@@ -557,7 +558,7 @@ func reset_player_attr() -> void:
 	PC.first_has_riyan_pc = true
 	PC.riyan_range = 70.0
 	PC.riyan_cooldown = 1.0
-	PC.riyan_hp_max_damage = 0.10
+	PC.riyan_hp_max_damage = 0.08
 	PC.riyan_atk_damage = 0.08
 	
 	# 重置环火相关属性
@@ -983,7 +984,7 @@ func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: floa
 	var total_cultivation = atk_part + hp_part + point_part + exp_bonus + drop_bonus \
 		+ atk_speed_bonus + move_speed_bonus + crit_rate_bonus + crit_damage_bonus + damage_reduction_bonus \
 		+ bullet_size_bonus + body_size_bonus + heal_multi_bonus + sheild_multi_bonus \
-		+ normal_monster_bonus + boss_bonus + cooldown_bonus + active_skill_bonus - 2350
+		+ normal_monster_bonus + boss_bonus + cooldown_bonus + active_skill_bonus - 2750
 	
 	return int(total_cultivation)
 

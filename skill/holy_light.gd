@@ -13,7 +13,7 @@ static var holylight_heal_base: int = 30
 static var holylight_heal_ratio: float = 0.03
 static var holylight_dot_damage: float = 0.0
 static var holylight_interval: float = 3.2
-static var holylight_size_multiplier: float = 1.2
+static var holylight_size_multiplier: float = 1.56
 static var holylight_vulnerable_damage_bonus: float = 0.0
 static var holylight_vulnerable_crit: bool = false
 
@@ -27,7 +27,7 @@ static func reset_data() -> void:
 	holylight_heal_ratio = 0.03
 	holylight_dot_damage = 0.0
 	holylight_interval = 3.2
-	holylight_size_multiplier = 1.2
+	holylight_size_multiplier = 1.56
 	holylight_vulnerable_damage_bonus = 0.0
 	holylight_vulnerable_crit = false
 

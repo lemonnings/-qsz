@@ -43,14 +43,22 @@ func initialize(p_canvas_layer: CanvasLayer, p_lv_up_change: Control,
 # 主要升级处理函数
 func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 					 scene_tree: SceneTree = null, viewport: Viewport = null) -> void:
+	# 战败后不再弹出升级界面，防止游戏卡死
+	if PC.is_game_over:
+		return
 	# 初始展示升级界面时才需要延迟（刷新按键点击时不延迟，由调用方管理过渡）
 	if scene_tree and refresh_id == 0:
-		await scene_tree.create_timer(0.25).timeout
+		await scene_tree.create_timer(0.25, true, false, true).timeout
 	
 	now_main_skill_name = main_skill_name # Always update now_main_skill_name from the parameter
 	pending_level_ups -= 1
 	Global.is_level_up = true
 	lv_up_change.visible = true
+	
+	# 渐入 instant_level_up_button（与升级选项一同出现；刷新时按钮不渐入渐出）
+	var is_refresh = (refresh_id != 0)
+	if not is_refresh:
+		_fade_instant_level_up_button(true, true)
 	
 	PC.last_speed = PC.pc_speed
 	PC.last_atk_speed = PC.pc_atk_speed
@@ -66,17 +74,13 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	var reward2 = null
 	var reward3 = null
 	
-	# 判断哪些位置有锁定奖励（普通升级时跳过锁定位置的抽取，避免浪费奖池）
-	var pos1_locked = refresh_id == 0 and main_skill_name == "" and locked_rewards.has(1)
-	var pos2_locked = refresh_id == 0 and main_skill_name == "" and locked_rewards.has(2)
-	var pos3_locked = refresh_id == 0 and main_skill_name == "" and locked_rewards.has(3)
-	
 	# 主技能进阶时，检查进阶池是否完全为空
 	var advance_pool_is_empty = false
 	if main_skill_name != "":
 		advance_pool_is_empty = LvUp.is_advance_pool_empty(main_skill_name)
 	
-	if (refresh_id == 0 or refresh_id == 1) and not pos1_locked:
+	# 所有位置都正常抽取（锁定位置也会抽取以消耗奖池，稍后用锁定内容覆盖）
+	if (refresh_id == 0 or refresh_id == 1):
 		reward1 = LvUp.get_reward_level(r1_rand, main_skill_name)
 		if reward1 == null:
 			if refresh_id != 0:
@@ -92,7 +96,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 			if refresh_id != 0:
 				PC.refresh_num += 1
 			print("进阶池不为空，跳过精进选项")
-	if (refresh_id == 0 or refresh_id == 2) and not pos2_locked:
+	if (refresh_id == 0 or refresh_id == 2):
 		reward2 = LvUp.get_reward_level(r2_rand, main_skill_name)
 		if reward2 == null:
 			if refresh_id != 0:
@@ -108,7 +112,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 			if refresh_id != 0:
 				PC.refresh_num += 1
 			print("进阶池不为空，跳过精进选项")
-	if (refresh_id == 0 or refresh_id == 3) and not pos3_locked:
+	if (refresh_id == 0 or refresh_id == 3):
 		reward3 = LvUp.get_reward_level(r3_rand, main_skill_name)
 		if reward3 == null:
 			if refresh_id != 0:
@@ -173,20 +177,20 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	lv_up_change_b2.visible = true
 	lv_up_change_b3.visible = true
 	
-	# 如果是普通升级且全部刷新（refresh_id == 0），检查是否有锁定的奖励需要继承
-	# 注意：仅普通升级时继承锁定，主技能进阶时不消费锁定数据
-	if refresh_id == 0 and main_skill_name == "" and not locked_rewards.is_empty():
-		print_debug("[Lock] 继承锁定奖励: ", locked_rewards.keys())
+	# 如果是普通升级或刷新，有锁定数据时强制覆盖对应位置（在实际展示前替换）
+	# 主技能进阶时不消费锁定数据
+	if main_skill_name == "" and not locked_rewards.is_empty():
+		print("[Lock] 覆盖锁定奖励: ", locked_rewards.keys())
 		if locked_rewards.has(1):
 			reward1 = locked_rewards[1]
-			print_debug("[Lock] 位置1继承: ", reward1.reward_name)
+			print("[Lock] 位置1覆盖: ", reward1.reward_name)
 		if locked_rewards.has(2):
 			reward2 = locked_rewards[2]
-			print_debug("[Lock] 位置2继承: ", reward2.reward_name)
+			print("[Lock] 位置2覆盖: ", reward2.reward_name)
 		if locked_rewards.has(3):
 			reward3 = locked_rewards[3]
-			print_debug("[Lock] 位置3继承: ", reward3.reward_name)
-		# 继承后隐藏被锁定位置的刷新和锁定按钮（已锁定，无需再操作）
+			print("[Lock] 位置3覆盖: ", reward3.reward_name)
+		# 隐藏被锁定位置的刷新和锁定按钮（已锁定，无需再操作）
 		if locked_rewards.has(1):
 			if refresh_b1: refresh_b1.visible = false
 			if lock_b1: lock_b1.visible = false
@@ -196,14 +200,13 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 		if locked_rewards.has(3):
 			if refresh_b3: refresh_b3.visible = false
 			if lock_b3: lock_b3.visible = false
-		# 清空锁定数据（继承后清除，不保留锁定状态）
-		locked_rewards.clear()
+		# 注意：锁定数据不在此处清空，等玩家选择完成后由 _on_level_up_selection_complete 清空
 	
-	# 重置按钮颜色（清除锁定状态下的灰色滤镜）
+	# 重置按钮颜色（清除上一次的状态；锁定位置保持灰色0.5，其他位置从透明渐入）
 	if refresh_id == 0:
-		lv_up_change_b1.modulate = Color(1, 1, 1, 0.0)
-		lv_up_change_b2.modulate = Color(1, 1, 1, 0.0)
-		lv_up_change_b3.modulate = Color(1, 1, 1, 0.0)
+		lv_up_change_b1.modulate = Color(1, 1, 1, 0.0) if not locked_rewards.has(1) else Color(0.5, 0.5, 0.5, 0.0)
+		lv_up_change_b2.modulate = Color(1, 1, 1, 0.0) if not locked_rewards.has(2) else Color(0.5, 0.5, 0.5, 0.0)
+		lv_up_change_b3.modulate = Color(1, 1, 1, 0.0) if not locked_rewards.has(3) else Color(0.5, 0.5, 0.5, 0.0)
 	
 	# 连接升级选择完成信号，用于清理dark_overlay
 	if !Global.is_connected("level_up_selection_complete", _on_level_up_selection_complete):
@@ -339,17 +342,13 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 		lvAdvanceProgress3.region_rect = rect_off
 		
 		var mainLV = LvUp._select_PC_main_skill_lv(reward.faction)
-		lvSkillLv.text = "LV. " + str(mainLV)
+		lvSkillLv.text = "LV. " + str(mainLV) + "→" + str(mainLV + 1)
 		
 		var lights_to_turn_on = min(mainLV % 3, mainLV)
-		if lights_to_turn_on >= 0:
-			lvAdvanceProgress1.region_rect = rect_ready
 		if lights_to_turn_on >= 1:
 			lvAdvanceProgress1.region_rect = rect_on
-			lvAdvanceProgress2.region_rect = rect_ready
 		if lights_to_turn_on >= 2:
 			lvAdvanceProgress2.region_rect = rect_on
-			lvAdvanceProgress3.region_rect = rect_ready
 	
 	var icon_path = LvUp.get_icon_path(reward.icon)
 	if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
@@ -369,6 +368,9 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 
 # 检查并处理待升级
 func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport: Viewport = null) -> void:
+	# 战败后不再处理待升级项
+	if PC.is_game_over:
+		return
 	# 清理dark_overlay
 	_cleanup_dark_overlay()
 	
@@ -449,16 +451,51 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 func _on_level_up_selection_complete(_viewport: Viewport = null) -> void:
 	# 清理升级选择时创建的背景变暗效果
 	_cleanup_dark_overlay()
-	# 隐藏升级界面
-	lv_up_change.visible = false
-	Global.is_level_up = false
-	# 清空当前奖励数据（锁定数据保留到下次升级界面使用）
+	# 玩家做出选择后清空锁定数据（锁定仅保留一次，选完即失效）
+	if not locked_rewards.is_empty():
+		print("[Lock] 选择完成，清空锁定数据: ", locked_rewards.keys())
+		locked_rewards.clear()
+		# 重置所有按钮颜色，清除锁定时留下的灰色滤镜
+		lv_up_change_b1.modulate = Color(1, 1, 1, 1)
+		lv_up_change_b2.modulate = Color(1, 1, 1, 1)
+		lv_up_change_b3.modulate = Color(1, 1, 1, 1)
+	# 清空当前奖励数据（锁定数据已在上面清除）
 	current_rewards.clear()
-	# 恢复游戏
-	if get_tree():
-		get_tree().set_pause(false)
-		# 恢复人物和怪物的动画
-		_resume_all_animations(get_tree())
+	
+	# 检查是否还有待升级（包括 advance）
+	var has_more = _has_pending_upgrades()
+	
+	if has_more and PC.instant_level_up:
+		# 即时模式（PC.instant_level_up=true）：渐出当前界面 0.25s，再自动触发下一次（保持游戏暂停）
+		_fade_instant_level_up_button(false)
+		var tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tween.tween_property(lv_up_change, "modulate:a", 0.0, 0.25)
+		tween.tween_callback(func():
+			lv_up_change.modulate.a = 1.0
+			Global.emit_signal("level_up_selection_complete")
+		)
+	elif has_more:
+		# 手动模式（PC.instant_level_up=false）：隐藏当前界面，回到等待玩家点击状态
+		# 保持游戏暂停，避免渐出动画期间被打；所有升级完成后再统一取消暂停
+		lv_up_change.visible = false
+		lv_up_change.modulate.a = 1.0
+		_fade_instant_level_up_button(false)
+		Global.is_level_up = false
+		# 通知 battle_canvas_layer 更新 badge
+		Global.emit_signal("manual_level_up_pending")
+	else:
+		# 所有升级完成，隐藏界面
+		lv_up_change.visible = false
+		# 渐出 instant_level_up_button（与升级选项一同消失）
+		_fade_instant_level_up_button(false)
+		Global.is_level_up = false
+		if get_tree():
+			get_tree().set_pause(false)
+			# 恢复人物和怪物的动画
+			_resume_all_animations(get_tree())
+		# 只有普通升级结束时播放0.5秒缓速；如果是advance升级后结束则跳过
+		if now_main_skill_name == "":
+			_play_slow_motion_focus()
 
 # 刷新按钮处理函数
 func handle_refresh_button(refresh_id: int, scene_tree: SceneTree = null, viewport: Viewport = null) -> void:
@@ -493,9 +530,9 @@ func set_now_main_skill_name(value: String) -> void:
 # 获取升级所需经验值（升级经验）
 func get_required_lv_up_value(level: int) -> float:
 	# todo 测试期间/10
-	var value: float = 1250
+	var value: float = 1200
 	for i in range(level):
-		value = (value + 750 + 1.5 * (i + 1) * i)
+		value = (value + 800 + 4 * (i + 1) * i)
 	return value
 
 # 清理dark_overlay的私有函数
@@ -544,3 +581,121 @@ func _resume_all_animations(scene_tree: SceneTree) -> void:
 		var sprite = enemy.get_node_or_null("AnimatedSprite2D")
 		if sprite and sprite is AnimatedSprite2D:
 			sprite.play()
+
+# ============== 待升级检查 ==============
+
+# 检查是否还有待升级（普通 + advance）
+func _has_pending_upgrades() -> bool:
+	if pending_level_ups > 0:
+		return true
+	return _check_any_advance_pending()
+
+# 仅检查是否有待触发的 advance（不执行）
+func _check_any_advance_pending() -> bool:
+	if PC.main_skill_swordQi != 0 and PC.main_skill_swordQi_advance < int(PC.main_skill_swordQi / 3.0):
+		return true
+	if PC.main_skill_branch != 0 and PC.main_skill_branch_advance < int(PC.main_skill_branch / 3.0):
+		return true
+	if PC.main_skill_moyan != 0 and PC.main_skill_moyan_advance < int(PC.main_skill_moyan / 3.0):
+		return true
+	if PC.main_skill_riyan != 0 and PC.main_skill_riyan_advance < int(PC.main_skill_riyan / 3.0):
+		return true
+	if PC.main_skill_ringFire != 0 and PC.main_skill_ringFire_advance < int(PC.main_skill_ringFire / 3.0):
+		return true
+	if PC.main_skill_thunder != 0 and PC.main_skill_thunder_advance < int(PC.main_skill_thunder / 3.0):
+		return true
+	if PC.main_skill_bloodwave != 0 and PC.main_skill_bloodwave_advance < int(PC.main_skill_bloodwave / 3.0):
+		return true
+	if PC.main_skill_bloodboardsword != 0 and PC.main_skill_bloodboardsword_advance < int(PC.main_skill_bloodboardsword / 3.0):
+		return true
+	if PC.main_skill_ice != 0 and PC.main_skill_ice_advance < int(PC.main_skill_ice / 3.0):
+		return true
+	if PC.main_skill_thunder_break != 0 and PC.main_skill_thunder_break_advance < int(PC.main_skill_thunder_break / 3.0):
+		return true
+	if PC.main_skill_light_bullet != 0 and PC.main_skill_light_bullet_advance < int(PC.main_skill_light_bullet / 3.0):
+		return true
+	if PC.main_skill_qigong != 0 and PC.main_skill_qigong_advance < int(PC.main_skill_qigong / 3.0):
+		return true
+	if PC.main_skill_water != 0 and PC.main_skill_water_advance < int(PC.main_skill_water / 3.0):
+		return true
+	if PC.main_skill_qiankun != 0 and PC.main_skill_qiankun_advance < int(PC.main_skill_qiankun / 3.0):
+		return true
+	if PC.main_skill_xuanwu != 0 and PC.main_skill_xuanwu_advance < int(PC.main_skill_xuanwu / 3.0):
+		return true
+	if PC.main_skill_xunfeng != 0 and PC.main_skill_xunfeng_advance < int(PC.main_skill_xunfeng / 3.0):
+		return true
+	if PC.main_skill_genshan != 0 and PC.main_skill_genshan_advance < int(PC.main_skill_genshan / 3.0):
+		return true
+	if PC.main_skill_duize != 0 and PC.main_skill_duize_advance < int(PC.main_skill_duize / 3.0):
+		return true
+	if PC.main_skill_dragonwind != 0 and PC.main_skill_dragonwind_advance < int(PC.main_skill_dragonwind / 3.0):
+		return true
+	if PC.main_skill_holylight != 0 and PC.main_skill_holylight_advance < int(PC.main_skill_holylight / 3.0):
+		return true
+	return false
+
+# 计算待 advance 数量（用于 badge 显示）
+func count_pending_advances() -> int:
+	var count = 0
+	if PC.main_skill_swordQi != 0 and PC.main_skill_swordQi_advance < int(PC.main_skill_swordQi / 3.0): count += 1
+	if PC.main_skill_branch != 0 and PC.main_skill_branch_advance < int(PC.main_skill_branch / 3.0): count += 1
+	if PC.main_skill_moyan != 0 and PC.main_skill_moyan_advance < int(PC.main_skill_moyan / 3.0): count += 1
+	if PC.main_skill_riyan != 0 and PC.main_skill_riyan_advance < int(PC.main_skill_riyan / 3.0): count += 1
+	if PC.main_skill_ringFire != 0 and PC.main_skill_ringFire_advance < int(PC.main_skill_ringFire / 3.0): count += 1
+	if PC.main_skill_thunder != 0 and PC.main_skill_thunder_advance < int(PC.main_skill_thunder / 3.0): count += 1
+	if PC.main_skill_bloodwave != 0 and PC.main_skill_bloodwave_advance < int(PC.main_skill_bloodwave / 3.0): count += 1
+	if PC.main_skill_bloodboardsword != 0 and PC.main_skill_bloodboardsword_advance < int(PC.main_skill_bloodboardsword / 3.0): count += 1
+	if PC.main_skill_ice != 0 and PC.main_skill_ice_advance < int(PC.main_skill_ice / 3.0): count += 1
+	if PC.main_skill_thunder_break != 0 and PC.main_skill_thunder_break_advance < int(PC.main_skill_thunder_break / 3.0): count += 1
+	if PC.main_skill_light_bullet != 0 and PC.main_skill_light_bullet_advance < int(PC.main_skill_light_bullet / 3.0): count += 1
+	if PC.main_skill_qigong != 0 and PC.main_skill_qigong_advance < int(PC.main_skill_qigong / 3.0): count += 1
+	if PC.main_skill_water != 0 and PC.main_skill_water_advance < int(PC.main_skill_water / 3.0): count += 1
+	if PC.main_skill_qiankun != 0 and PC.main_skill_qiankun_advance < int(PC.main_skill_qiankun / 3.0): count += 1
+	if PC.main_skill_xuanwu != 0 and PC.main_skill_xuanwu_advance < int(PC.main_skill_xuanwu / 3.0): count += 1
+	if PC.main_skill_xunfeng != 0 and PC.main_skill_xunfeng_advance < int(PC.main_skill_xunfeng / 3.0): count += 1
+	if PC.main_skill_genshan != 0 and PC.main_skill_genshan_advance < int(PC.main_skill_genshan / 3.0): count += 1
+	if PC.main_skill_duize != 0 and PC.main_skill_duize_advance < int(PC.main_skill_duize / 3.0): count += 1
+	if PC.main_skill_dragonwind != 0 and PC.main_skill_dragonwind_advance < int(PC.main_skill_dragonwind / 3.0): count += 1
+	if PC.main_skill_holylight != 0 and PC.main_skill_holylight_advance < int(PC.main_skill_holylight / 3.0): count += 1
+	return count
+
+# 升级完成后0.5秒引擎减速效果，让玩家看清当前位置
+func _play_slow_motion_focus() -> void:
+	if not Global.time_slow_enabled:
+		return
+	Engine.time_scale = 0.2
+	# 使用不受time_scale影响的SceneTreeTimer，0.1s实际时间 = 0.5s游戏时间
+	get_tree().create_timer(0.5, true, false, true).timeout.connect(func():
+		Engine.time_scale = 1.0
+	)
+
+## 渐入/渐出 instant_level_up_button 及其 label，与升级选项界面同步
+## fade_label: 是否同步渐入渐出label（刷新时不渐入label）
+func _fade_instant_level_up_button(fade_in: bool, fade_label: bool = true) -> void:
+	if not canvas_layer or not canvas_layer.has_method("get"):
+		return
+	var btn: CheckButton = canvas_layer.get("instant_level_up_button")
+	var lbl: Label = canvas_layer.get("instant_level_up_button_label")
+	if not btn or not is_instance_valid(btn):
+		return
+	if fade_in:
+		btn.visible = true
+		btn.modulate.a = 0.0
+		var tw := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tw.tween_property(btn, "modulate:a", 1.0, 0.25)
+		if fade_label and lbl and is_instance_valid(lbl):
+			lbl.visible = true
+			lbl.modulate.a = 0.0
+			tw.parallel().tween_property(lbl, "modulate:a", 1.0, 0.25)
+	else:
+		var tw := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tw.tween_property(btn, "modulate:a", 0.0, 0.2)
+		if fade_label and lbl and is_instance_valid(lbl):
+			tw.parallel().tween_property(lbl, "modulate:a", 0.0, 0.2)
+		tw.tween_callback(func():
+			btn.visible = false
+			btn.modulate.a = 1.0
+			if fade_label and lbl and is_instance_valid(lbl):
+				lbl.visible = false
+				lbl.modulate.a = 1.0
+		)

@@ -450,7 +450,7 @@ var items_data = {
 			"item_price": 500,
 			"item_source": "合成获得\n神秘货摊中购买",
 			"item_use_condition": "",
-			"item_detail": "使化灵（提升灵气获取）修炼上限提升4阶（最多8次）",
+			"item_detail": "使化灵（提升真气获取）修炼上限提升4阶（最多8次）",
 			"item_rare": "epic",
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
@@ -595,7 +595,7 @@ var items_data = {
 			"item_price": 200,
 			"item_source": "合成获得\n神秘货摊中购买",
 			"item_use_condition": "",
-			"item_detail": "使化灵（提升灵气获取）修炼上限提升2阶（最多10次）",
+			"item_detail": "使化灵（提升真气获取）修炼上限提升2阶（最多10次）",
 			"item_rare": "rare",
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
@@ -741,7 +741,7 @@ var items_data = {
 			"item_price": 1000,
 			"item_source": "神秘货摊中购买",
 			"item_use_condition": "",
-			"item_detail": "使化灵（提升灵气获取）修炼上限提升6阶（最多6次）",
+			"item_detail": "使化灵（提升真气获取）修炼上限提升6阶（最多6次）",
 			"item_rare": "epic",
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
@@ -838,7 +838,7 @@ var items_data = {
 			"item_price": 2000,
 			"item_source": "神秘货摊中购买",
 			"item_use_condition": "",
-			"item_detail": "使化灵（提升灵气获取）修炼上限提升8阶（最多4次）",
+			"item_detail": "使化灵（提升真气获取）修炼上限提升8阶（最多4次）",
 			"item_rare": "legendary",
 			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
 		},
@@ -938,7 +938,7 @@ var items_data = {
 			"item_price": 5000,
 			"item_source": "神秘货摊中购买",
 			"item_use_condition": "",
-			"item_detail": "使化灵（提升灵气获取）修炼上限提升10阶（最多3次）",
+			"item_detail": "使化灵（提升真气获取）修炼上限提升10阶（最多3次）",
 			"item_rare": "artifact",
 			"item_color": Color(1.0, 0.2, 0.2, 1),
 			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
@@ -1200,6 +1200,18 @@ var items_data = {
 			"item_detail": "具有衍化特性的魔核，可用于特殊强化相关内容。",
 			"item_rare": "artifact",
 			"item_anime": "res://assets/animations/item_pickup_epic.tres"
+		},
+		"item_102": {
+			"item_name": "凝灵碎片",
+			"item_stack_max": 9999,
+			"item_type": "material",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/julingsuipian.png",
+			"item_price": 100,
+			"item_source": "击败Boss必定获取",
+			"item_use_condition": "",
+			"item_detail": "蕴含高度凝练的灵力碎片，可炼化为灵石。",
+			"item_rare": "legendary",
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
 		},
 		# ============== 特殊物品 ==============
 		"item_059": {
