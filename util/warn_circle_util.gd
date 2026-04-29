@@ -173,18 +173,29 @@ func is_player_in_range() -> bool:
 	if not player_ref:
 		return false
 	
-	var distance_to_player = global_position.distance_to(player_ref.global_position)
+	var hitbox_info = PC.get_player_hitbox_info()
+	var player_pos: Vector2
+	var player_radius: float = 0.0
+	
+	if hitbox_info.is_empty() or hitbox_info.get("type") != "circle":
+		# fallback：使用玩家节点中心位置
+		player_pos = player_ref.global_position
+	else:
+		player_pos = hitbox_info.get("position", player_ref.global_position)
+		player_radius = hitbox_info.get("radius", 0.0)
+	
+	var distance_to_player = global_position.distance_to(player_pos)
 	
 	# 对于椭圆形，需要考虑长宽比
 	if aspect_ratio != 1.0:
 		# 简化处理：将玩家位置转换到标准圆形坐标系
-		var relative_pos = player_ref.global_position - global_position
+		var relative_pos = player_pos - global_position
 		var normalized_x = relative_pos.x / aspect_ratio
 		var normalized_distance = Vector2(normalized_x, relative_pos.y).length()
-		return normalized_distance <= radius
+		return normalized_distance <= radius + player_radius
 	else:
-		# 圆形直接比较距离
-		return distance_to_player <= radius
+		# 圆形：判定范围扩展玩家碰撞半径
+		return distance_to_player <= radius + player_radius
 
 func deal_damage_to_player():
 	if not player_ref or not is_instance_valid(player_ref):
@@ -201,10 +212,6 @@ func deal_damage_to_player():
 	PC.player_hit(actual_damage, final_attacker, hit_source_name)
 	
 	print("圆形AOE对玩家造成伤害: ", actual_damage)
-	
-	# 检查死亡
-	if PC.pc_hp <= 0:
-		PC.player_instance.game_over()
 	
 	damage_dealt.emit(float(actual_damage))
 

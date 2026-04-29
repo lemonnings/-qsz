@@ -75,7 +75,7 @@ func add_dash_visual_effects():
 	create_dash_particles()
 	
 	# 屏幕震动效果
-	add_screen_shake()
+	GU.screen_shake(2.0, 0.1)
 
 func create_dash_afterimage():
 	"""创建闪避残影效果"""
@@ -88,12 +88,6 @@ func create_dash_particles():
 	"""创建闪避粒子效果"""
 	# TODO: 实现粒子效果
 	# 可以在起始位置和结束位置添加粒子效果
-	pass
-
-func add_screen_shake():
-	"""添加屏幕震动效果"""
-	# TODO: 实现屏幕震动
-	# 可以通过摄像头的轻微震动来增强冲击感
 	pass
 
 func play_dash_sound():

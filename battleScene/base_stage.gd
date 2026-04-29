@@ -8,10 +8,10 @@ extends Node2D
 @export var layer_ui: BattleCanvasLayer
 
 # ============== 所有关卡完全一致的常数 ==============
-const MONSTER_LIMIT_INCREASE_WAVE_STEP: int = 2
+const MONSTER_LIMIT_INCREASE_WAVE_STEP: int = 1
 const INITIAL_WAVE_SPAWN_COUNT: int = 4
 const WAVE_SPAWN_INCREASE_STEP: int = 5
-const MAX_WAVE_SPAWN_COUNT: int = 15
+const MAX_WAVE_SPAWN_COUNT: int = 30
 const EARLY_WAVE_LIMIT: int = 10
 
 # 精英怪配置（所有关卡一致）
@@ -33,9 +33,9 @@ const DYNAMIC_BALANCE_HP_MIN_REDUCTION: float = 0.1 # 最小HP削减10%
 var STAGE_ID: String = ""
 var SPAWN_INTERVAL_SECONDS: float = 5.0
 var INITIAL_MONSTER_LIMIT: int = 50
-var MAX_MONSTER_CAP: int = 100
+var MAX_MONSTER_CAP: int = 120
 var DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD: float = 0.3
-var DYNAMIC_BALANCE_SPAWN_MAX_BONUS: float = 1.0
+var DYNAMIC_BALANCE_SPAWN_MAX_BONUS: float = 1.5
 var DYNAMIC_BALANCE_HP_MAX_REDUCTION: float = 0.4
 var LOW_POPULATION_FORCE_WAVE_MIN_TIME_LEFT: float = 1.25 # 场上怪过少且离下次刷怪还很久时，提前补下一波
 var LATE_GAME_TIME_THRESHOLD: float = 180.0 # 180秒后进入后期
@@ -74,10 +74,11 @@ func _ready() -> void:
 	Global.emit_signal("reset_camera")
 
 	map_mechanism_num = 0
-	if Global.current_stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
-		map_mechanism_num_max = 8000
+	var stage_index = Global.STAGE_ID_LIST.find(Global.current_stage_id)
+	if Global.current_stage_id == "peach_grove" and Global.current_stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
+		map_mechanism_num_max = 5
 	else:
-		map_mechanism_num_max = 26000
+		map_mechanism_num_max = 52000 + stage_index * 2000
 
 	DpsManager.reset_dps_counter()
 
@@ -268,7 +269,7 @@ func _get_capacity_ratio() -> float:
 		return 0.0
 	return float(current_monster_count) / float(max_monster_limit)
 
-## 计算出怪数量增量（30%时+100%，60%时+0%，线性衰减）
+## 计算出怪数量增量（30%时+150%，60%时+0%，线性衰减）
 func _calculate_spawn_count_multiplier() -> float:
 	var ratio = _get_capacity_ratio()
 	var base_mult = 1.0

@@ -19,11 +19,11 @@ var player_hit_emit_self: bool = false
 var use_debuff_take_damage_multiplier: bool = true
 var check_action_disabled_on_body_entered: bool = true
 
-const OFFSCREEN_SPEED_MARGIN_PIXELS: float = 30.0
-const OFFSCREEN_SPEED_MULTIPLIER_MIN: float = 2.5 # 超出视野后，移动速度额外提升100%~300%（随机）
+const OFFSCREEN_SPEED_MARGIN_PIXELS: float = 50.0
+const OFFSCREEN_SPEED_MULTIPLIER_MIN: float = 1 # 超出视野后，移动速度额外提升100%~300%（随机）
 const OFFSCREEN_SPEED_MULTIPLIER_MAX: float = 5.0
-const RANDOM_SPEED_VARIATION_MIN: float = 0.9
-const RANDOM_SPEED_VARIATION_MAX: float = 1.1
+const RANDOM_SPEED_VARIATION_MIN: float = 0.85
+const RANDOM_SPEED_VARIATION_MAX: float = 1.15
 
 var movement_speed_variation_multiplier: float = 1.0
 var _hit_flash_tween: Tween = null
@@ -146,9 +146,7 @@ func handle_common_body_entered(body: Node2D) -> void:
 		var actual_damage = float(get("atk")) * (1.0 - PC.damage_reduction_rate)
 		if use_debuff_take_damage_multiplier and debuff_manager != null and is_instance_valid(debuff_manager):
 			actual_damage *= debuff_manager.get_take_damage_multiplier()
-		PC.player_hit(int(actual_damage), self , "攻击")
-		if PC.pc_hp <= 0:
-			body.game_over()
+		PC.player_hit(int(actual_damage), self , "受击")
 
 func _on_body_entered(body: Node2D) -> void:
 	handle_common_body_entered(body)
@@ -321,7 +319,7 @@ func _get_hit_flash_sprite() -> CanvasItem:
 	return null
 
 ## 启动出场保护，在指定时间内不对玩家造成碰撞伤害（Boss专用）
-func start_spawn_protection(duration: float = 1.5) -> void:
+func start_spawn_protection(duration: float = 1) -> void:
 	_spawn_protection_active = true
 	get_tree().create_timer(duration).timeout.connect(func(): _spawn_protection_active = false)
 

@@ -1,763 +1,770 @@
 extends CanvasLayer
 
-@export var study_level1: Button
-@export var study_level2: Button
-@export var study_level3: Button
-@export var study_level4: Button
-@export var study_level5: Button
-
 @export var detail: RichTextLabel
-@export var point_label: RichTextLabel
 
-@export var up1: Button
-@export var up1_detail: RichTextLabel
-@export var up11: Button
-@export var up11_detail: RichTextLabel
-@export var up12: Button
-@export var up12_detail: RichTextLabel
-@export var up2: Button
-@export var up2_detail: RichTextLabel
-@export var up21: Button
-@export var up21_detail: RichTextLabel
-@export var up22: Button
-@export var up22_detail: RichTextLabel
-@export var up3: Button
-@export var up3_detail: RichTextLabel
-@export var up31: Button
-@export var up31_detail: RichTextLabel
-@export var up32: Button
-@export var up32_detail: RichTextLabel
-@export var up4: Button
-@export var up4_detail: RichTextLabel
-@export var up41: Button
-@export var up41_detail: RichTextLabel
-@export var up42: Button
-@export var up42_detail: RichTextLabel
-@export var up5: Button
-@export var up5_detail: RichTextLabel
-@export var up51: Button
-@export var up51_detail: RichTextLabel
-@export var up52: Button
-@export var up52_detail: RichTextLabel
+@export var rui: Button
+@export var qi: Button
+@export var li: Button
+@export var cu: Button
+@export var yan: Button
 
-var current_player = "yiqiu"
-var current_study_level = 0
-var in_study: bool = false
-var transition_tween: Tween
+@export var tips: Panel
 
-# 玩家修习数据结构
-var player_study_config = {
-	"yiqiu": {
-		1: {
-			"skills": ["up1", "up11", "up12", "up2", "up21", "up3", "up4", "up41", "up5"],
-			"skill_names": {
-				"up1": "闪避",
-				"up11": "无敌时间",
-				"up12": "闪避CD",
-				"up2": "剑气",
-				"up21": "紫色系",
-				"up3": "天命",
-				"up4": "剑气强化",
-				"up41": "剑气伤害",
-				"up5": "刷新次数"
-			},
-			"descriptions": {
-				"up1": "习得闪避",
-				"up11": "闪避无敌0.3/0.4/0.5秒",
-				"up12": "闪避冷却10/9/8秒",
-				"up2": "开启召唤蓝色系",
-				"up21": "开启紫色系",
-				"up3": "天命初始+3/6/9",
-				"up4": "剑气初始强化+1/2",
-				"up41": "剑气伤害提升6%/12%/18%",
-				"up5": "刷新次数+1/2"
-			},
-			"max_levels": {
-				"up1": 1,
-				"up11": 3,
-				"up12": 3,
-				"up2": 1,
-				"up21": 1,
-				"up3": 3,
-				"up4": 2,
-				"up41": 3,
-				"up5": 2
-			},
-			"point_costs": {
-				"up1": 200,
-				"up11": 400,
-				"up12": 600,
-				"up2": 1000,
-				"up21": 1250,
-				"up3": 400,
-				"up4": 400,
-				"up41": 600,
-				"up5": 400
-			}
-		}
-	}
+@onready var tree_control: Control = $tree_control
+
+@export var back: Button
+
+@export var exit: Button
+
+const CORE_ITEM_IDS = {
+	"rui": "item_097",
+	"qi": "item_099",
+	"li": "item_100",
+	"cu": "item_098",
+	"yan": "item_101"
 }
 
-func _ready() -> void:
-	# 连接可见性变化信号
-	visibility_changed.connect(_on_visibility_changed)
-	# 确保在显示时刷新真气数值
-	await get_tree().process_frame
-	# 确保玩家数据存在并设置默认显示1阶
-	if not Global.player_study_data.has(current_player):
-		Global.player_study_data[current_player] = {
-			"study_level": 0,
-			"learned_skills": [],
-			"skill_levels": {}
-		}
-	
-	# 连接所有技能按钮的鼠标悬停事件
-	connect_skill_hover_events()
-	
-	update_study_display()
+const BUTTON_DETAIL_TEMPLATES = {
+	"rui": "武器篇\n[font_size=55][color=yellow]锐之魔核：",
+	"qi": "技能篇\n[font_size=55][color=yellow]启之魔核：",
+	"li": "领悟强化\n[font_size=55][color=yellow]砺之魔核：",
+	"cu": "团队强化\n[font_size=55][color=yellow]簇之魔核：",
+	"yan": "特殊强化\n[font_size=55][color=yellow]衍之魔核："
+}
 
-# 处理输入事件，禁用鼠标滚轮缩放
-func _input(event: InputEvent) -> void:
-	if visible and event is InputEventMouseButton:
-		var mouse_event = event as InputEventMouseButton
-		# 禁用鼠标滚轮缩放（滚轮上滚和下滚）
-		if mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP or mouse_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			get_viewport().set_input_as_handled()
+const STUDY_LAYER_PATH = "tree_control/study_layer"
+const STUDY_TREE_PATH = "tree_control/study_layer/ClipPolygon/ClipRect/DragContainer/StudyTreeWeapon"
 
-# 连接所有技能按钮的鼠标悬停事件
-func connect_skill_hover_events() -> void:
-	var skill_buttons = [
-		{"button": up1, "skill": "up1"},
-		{"button": up11, "skill": "up11"},
-		{"button": up12, "skill": "up12"},
-		{"button": up2, "skill": "up2"},
-		{"button": up21, "skill": "up21"},
-		{"button": up22, "skill": "up22"},
-		{"button": up3, "skill": "up3"},
-		{"button": up31, "skill": "up31"},
-		{"button": up32, "skill": "up32"},
-		{"button": up4, "skill": "up4"},
-		{"button": up41, "skill": "up41"},
-		{"button": up42, "skill": "up42"},
-		{"button": up5, "skill": "up5"},
-		{"button": up51, "skill": "up51"},
-		{"button": up52, "skill": "up52"}
-	]
-	
-	for skill_data in skill_buttons:
-		var button = skill_data["button"]
-		var skill_name = skill_data["skill"]
-		if button:
-			if not button.mouse_entered.is_connected(_on_skill_mouse_entered):
-				button.mouse_entered.connect(_on_skill_mouse_entered.bind(skill_name))
-			if not button.mouse_exited.is_connected(_on_skill_mouse_exited):
-				button.mouse_exited.connect(_on_skill_mouse_exited)
+const TYPE_CORE_NAMES = {
+	"weapon": "锐之魔核",
+	"skill": "启之魔核",
+	"learn": "砺之魔核",
+	"team": "蔟之魔核",
+	"special": "衍之魔核"
+}
 
-# 当界面变为可见时刷新显示
-func _on_visibility_changed() -> void:
-	if visible:
-		in_study = true
-		update_study_display()
-	else:
-		in_study = false
+const TYPE_CORE_ITEM_IDS = {
+	"weapon": "item_097",
+	"skill": "item_099",
+	"learn": "item_100",
+	"team": "item_098",
+	"special": "item_101"
+}
 
-func update_study_display() -> void:
-	# 获取当前玩家数据
-	var player_data = Global.player_study_data.get(current_player, {})
-	current_study_level = player_data.get("study_level", 0)
-	var _learned_skills = player_data.get("learned_skills", [])
-	var skill_levels = player_data.get("skill_levels", {})
-	
-	# 更新修习等级显示
-	point_label.text = "真气\n" + str(Global.total_points)
-	
-	# 隐藏所有升级按钮
-	hide_all_upgrade_buttons()
+const TOOLTIP_FONT_SIZE := 20
+const HOLD_DURATION := 1.0
 
-	# 更新技能等级显示
-	update_skill_level_display(skill_levels)
-	
-	# 根据当前阶段显示可用技能
-	# 修习阶段0对应配置中的阶段1
-	var config_stage = current_study_level + 1
-	show_available_skills(config_stage)
-	
-	# 更新技能描述
-	update_skill_descriptions()
+var _tooltip_canvas: CanvasLayer
+var _tooltip_panel: Panel
+var _tooltip_vbox: VBoxContainer
+var _tooltip_name_label: Label
+var _tooltip_current_label: Label
+var _tooltip_next_label: Label
+var _tooltip_cost_label: Label
+var _tooltip_sep_current: HSeparator
+var _tooltip_sep_next: HSeparator
+var _tooltip_sep_cost: HSeparator
+var _tooltip_precondition_label: Label
+var _tooltip_sep_precondition: HSeparator
+var _tooltip_font: Font
+var _hovered_study_btn: Button = null
+var _tooltip_request_id: int = 0
 
-func hide_all_upgrade_buttons() -> void:
-	var all_buttons = [up1, up11, up12, up2, up21, up22, up3, up31, up32, up4, up41, up42, up5, up51, up52]
-	for button in all_buttons:
-		if button:
-			button.visible = false
+var _holding_btn: Button = null
+var _hold_timer: float = 0.0
+var _ring: Control = null
+var _upgrade_done: bool = false
 
-func show_available_skills(stage: int) -> void:
-	var config = player_study_config.get(current_player, {})
-	var stage_config = config.get(stage, {})
-	var available_skills = stage_config.get("skills", [])
-	
-	for skill_name in available_skills:
-		# 使用正确的节点路径
-		var button = get_node_or_null("Panel/study_detail/" + skill_name)
-		if button:
-			button.visible = true
-
-func update_skill_level_display(skill_levels: Dictionary) -> void:
-	# 获取配置信息
-	var config = player_study_config.get(current_player, {})
-	# 修正阶段映射：当前修习阶段0对应配置中的阶段1
-	var config_stage = current_study_level + 1
-	var stage_config = config.get(config_stage, {})
-	var max_levels = stage_config.get("max_levels", {})
-	var point_costs = stage_config.get("point_costs", {})
-	var skill_names = stage_config.get("skill_names", {})
-	
-	# 更新每个技能的等级显示
-	var current_level: int
-	var max_level: int
-	var base_cost: int
-	var _true_cost: int
-	
-	# 更新up1相关
-	if up1 and up1.visible:
-		current_level = skill_levels.get("up1", 0)
-		max_level = max_levels.get("up1", 1)
-		base_cost = point_costs.get("up1", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up1.text = skill_names.get("up1", "up1")
-		up1_detail.text = str(current_level) + "/" + str(max_level)
-	
-	if up11 and up11.visible:
-		current_level = skill_levels.get("up11", 0)
-		max_level = max_levels.get("up11", 1)
-		base_cost = point_costs.get("up11", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up11.text = skill_names.get("up11", "up11")
-		up11_detail.text = str(current_level) + "/" + str(max_level)
-	
-	if up12 and up12.visible:
-		current_level = skill_levels.get("up12", 0)
-		max_level = max_levels.get("up12", 1)
-		base_cost = point_costs.get("up12", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up12.text = skill_names.get("up12", "up12")
-		up12_detail.text = str(current_level) + "/" + str(max_level)
-	
-	# 更新up2相关
-	if up2 and up2.visible:
-		current_level = skill_levels.get("up2", 0)
-		max_level = max_levels.get("up2", 1)
-		base_cost = point_costs.get("up2", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up2.text = skill_names.get("up2", "up2")
-		up2_detail.text = str(current_level) + "/" + str(max_level)
-	
-	if up21 and up21.visible:
-		current_level = skill_levels.get("up21", 0)
-		max_level = max_levels.get("up21", 1)
-		base_cost = point_costs.get("up21", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up21.text = skill_names.get("up21", "up21")
-		up21_detail.text = str(current_level) + "/" + str(max_level)
-	
-	if up22 and up22.visible:
-		current_level = skill_levels.get("up22", 0)
-		max_level = max_levels.get("up22", 1)
-		base_cost = point_costs.get("up22", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up22.text = skill_names.get("up22", "up22")
-		up22_detail.text = str(current_level) + "/" + str(max_level)
-	
-	# 更新up3相关
-	if up3 and up3.visible:
-		current_level = skill_levels.get("up3", 0)
-		max_level = max_levels.get("up3", 1)
-		base_cost = point_costs.get("up3", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up3.text = skill_names.get("up3", "up3")
-		up3_detail.text = str(current_level) + "/" + str(max_level)
-	
-	if up31 and up31.visible:
-		current_level = skill_levels.get("up31", 0)
-		max_level = max_levels.get("up31", 1)
-		base_cost = point_costs.get("up31", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up31.text = skill_names.get("up31", "up31")
-		up31_detail.text = str(current_level) + "/" + str(max_level)
-	
-	if up32 and up32.visible:
-		current_level = skill_levels.get("up32", 0)
-		max_level = max_levels.get("up32", 1)
-		base_cost = point_costs.get("up32", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up32.text = skill_names.get("up32", "up32")
-		up32_detail.text = str(current_level) + "/" + str(max_level)
-	
-	# 更新up4相关
-	if up4 and up4.visible:
-		current_level = skill_levels.get("up4", 0)
-		max_level = max_levels.get("up4", 1)
-		base_cost = point_costs.get("up4", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up4.text = skill_names.get("up4", "up4")
-		up4_detail.text = str(current_level) + "/" + str(max_level)
-	
-	if up41 and up41.visible:
-		current_level = skill_levels.get("up41", 0)
-		max_level = max_levels.get("up41", 1)
-		base_cost = point_costs.get("up41", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up41.text = skill_names.get("up41", "up41")
-		up41_detail.text = str(current_level) + "/" + str(max_level)
-	
-	if up42 and up42.visible:
-		current_level = skill_levels.get("up42", 0)
-		max_level = max_levels.get("up42", 1)
-		base_cost = point_costs.get("up42", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up42.text = skill_names.get("up42", "up42")
-		up42_detail.text = str(current_level) + "/" + str(max_level)
-	
-	# 更新up5相关
-	if up5 and up5.visible:
-		current_level = skill_levels.get("up5", 0)
-		max_level = max_levels.get("up5", 1)
-		base_cost = point_costs.get("up5", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up5.text = skill_names.get("up5", "up5")
-		up5_detail.text = str(current_level) + "/" + str(max_level)
-	
-	if up51 and up51.visible:
-		current_level = skill_levels.get("up51", 0)
-		max_level = max_levels.get("up51", 1)
-		base_cost = point_costs.get("up51", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up51.text = skill_names.get("up51", "up51")
-		up51_detail.text = str(current_level) + "/" + str(max_level)
-	
-	if up52 and up52.visible:
-		current_level = skill_levels.get("up52", 0)
-		max_level = max_levels.get("up52", 1)
-		base_cost = point_costs.get("up52", 0)
-		_true_cost = true_cost_culculate(base_cost, current_level + 1)
-		up52.text = skill_names.get("up52", "up52")
-		up52_detail.text = str(current_level) + "/" + str(max_level)
-
-func update_skill_descriptions() -> void:
-	var config = player_study_config.get(current_player, {})
-	var descriptions = {}
-	
-	# 合并所有阶段的描述
-	for stage in config.values():
-		descriptions.merge(stage.get("descriptions", {}))
-	
-	# 更新详细描述
-	var player_data = Global.player_study_data.get(current_player, {})
-	var learned_skills = player_data.get("learned_skills", [])
-	
-	var description_text = ""
-	for skill in learned_skills:
-		if descriptions.has(skill):
-			description_text += descriptions[skill] + "\n"
-	
-	detail.text = description_text
-
-func true_cost_culculate(default_cost: int, next_level: int) -> int:
-	for i in range(1, next_level + 1):
-		default_cost = int(default_cost * 1.5)
-	return default_cost
+var _study_btns_connected: bool = false
+var _btn_level_labels: Dictionary = {}
 
 
-func learn_skill(skill_name: String) -> void:
-	var main_town = get_parent()
-	var player_data = Global.player_study_data.get(current_player, {})
-	var learned_skills = player_data.get("learned_skills", [])
-	var skill_levels = player_data.get("skill_levels", {})
-	
-	# 获取配置信息
-	var config = player_study_config.get(current_player, {})
-	# 修正阶段映射：当前修习阶段0对应配置中的阶段1
-	var config_stage = current_study_level + 1
-	var stage_config = config.get(config_stage, {})
-	var max_levels = stage_config.get("max_levels", {})
-	var point_costs = stage_config.get("point_costs", {})
-	# 获取当前技能等级来计算真实消耗
-	var current_level = skill_levels.get(skill_name, 0)
-	var next_level = current_level + 1
-	var base_cost = point_costs.get(skill_name, 0)
-	var true_cost = true_cost_culculate(base_cost, next_level)
-	
-	# 检查技能是否存在配置
-	if not max_levels.has(skill_name) or not point_costs.has(skill_name):
-		main_town = get_parent()
-		if main_town and main_town.has_method("get") and main_town.tip:
-			main_town.tip.start_animation("技能配置不存在: " + skill_name, 0.5)
-		else:
-			print("技能配置不存在: " + skill_name)
+class RingProgress:
+	extends Control
+
+	var progress: float = 0.0
+	var _particles: GPUParticles2D = null
+
+	const CORNER_RADIUS := 8.0
+	const BORDER_WIDTH := 3.0
+	const BORDER_COLOR := Color(1.0, 1.0, 1.0, 0.9)
+	const ARC_SEGMENTS := 6
+
+	func _ready():
+		_setup_particles()
+
+	func _setup_particles():
+		_particles = GPUParticles2D.new()
+		_particles.emitting = false
+		_particles.amount = 24
+		_particles.lifetime = 0.7
+		_particles.position = size / 2
+
+		var mat = ParticleProcessMaterial.new()
+		mat.direction = Vector3(0, 0, 0)
+		mat.spread = 0.0
+		mat.initial_velocity_min = 0.0
+		mat.initial_velocity_max = 0.0
+		mat.radial_velocity_min = 60.0
+		mat.radial_velocity_max = 140.0
+		mat.gravity = Vector3(0, 0, 0)
+		mat.scale_min = 2.0
+		mat.scale_max = 5.0
+		mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+		mat.emission_ring_radius = 48.0
+		mat.emission_ring_inner_radius = 44.0
+		mat.emission_ring_height = 0.0
+		mat.emission_ring_axis = Vector3(0, 0, 1)
+
+		var gradient = Gradient.new()
+		gradient.offsets = PackedFloat32Array([0.0, 0.3, 1.0])
+		gradient.colors = PackedColorArray([
+			Color(1.0, 1.0, 1.0, 1.0),
+			Color(0.6, 0.6, 0.6, 0.6),
+			Color(0.1, 0.1, 0.1, 0.0)
+		])
+		var color_ramp = GradientTexture1D.new()
+		color_ramp.gradient = gradient
+		mat.color_ramp = color_ramp
+
+		var scale_curve = CurveTexture.new()
+		var curve = Curve.new()
+		curve.add_point(Vector2(0.0, 1.0))
+		curve.add_point(Vector2(1.0, 0.0))
+		scale_curve.curve = curve
+		mat.scale_curve = scale_curve
+
+		_particles.process_material = mat
+
+		var img = Image.create(3, 3, false, Image.FORMAT_RGBA8)
+		img.fill(Color.WHITE)
+		_particles.texture = ImageTexture.create_from_image(img)
+
+		add_child(_particles)
+
+	func _get_perimeter_points() -> PackedVector2Array:
+		var pts := PackedVector2Array()
+		var w = size.x
+		var h = size.y
+		var r = CORNER_RADIUS
+		var m = BORDER_WIDTH / 2.0
+		var left = m
+		var right = w - m
+		var top = m
+		var bot = h - m
+		var mx = w / 2.0
+
+		pts.append(Vector2(mx, top))
+
+		# Top-right corner
+		var c = Vector2(right - r, top + r)
+		for i in range(ARC_SEGMENTS + 1):
+			var angle = - PI / 2 + (PI / 2) * float(i) / ARC_SEGMENTS
+			pts.append(c + Vector2(cos(angle), sin(angle)) * r)
+
+		# Bottom-right corner
+		c = Vector2(right - r, bot - r)
+		for i in range(ARC_SEGMENTS + 1):
+			var angle = 0.0 + (PI / 2) * float(i) / ARC_SEGMENTS
+			pts.append(c + Vector2(cos(angle), sin(angle)) * r)
+
+		# Bottom-left corner
+		c = Vector2(left + r, bot - r)
+		for i in range(ARC_SEGMENTS + 1):
+			var angle = PI / 2 + (PI / 2) * float(i) / ARC_SEGMENTS
+			pts.append(c + Vector2(cos(angle), sin(angle)) * r)
+
+		# Top-left corner
+		c = Vector2(left + r, top + r)
+		for i in range(ARC_SEGMENTS + 1):
+			var angle = PI + (PI / 2) * float(i) / ARC_SEGMENTS
+			pts.append(c + Vector2(cos(angle), sin(angle)) * r)
+
+		pts.append(Vector2(mx, top))
+		return pts
+
+	func _draw():
+		if progress <= 0.0:
+			return
+
+		var points = _get_perimeter_points()
+		if points.size() < 2:
+			return
+
+		var lengths := [0.0]
+		var total := 0.0
+		for i in range(1, points.size()):
+			total += points[i].distance_to(points[i - 1])
+			lengths.append(total)
+
+		if total <= 0:
+			return
+
+		var target_len = total * progress
+
+		for i in range(1, points.size()):
+			if lengths[i - 1] >= target_len:
+				break
+			var seg_end: Vector2
+			if lengths[i] <= target_len:
+				seg_end = points[i]
+			else:
+				var seg_len = lengths[i] - lengths[i - 1]
+				var t_ratio = (target_len - lengths[i - 1]) / seg_len if seg_len > 0 else 0.0
+				seg_end = points[i - 1].lerp(points[i], t_ratio)
+			draw_line(points[i - 1], seg_end, BORDER_COLOR, BORDER_WIDTH, false)
+			if lengths[i] > target_len:
+				break
+
+	func set_progress(val: float):
+		progress = clamp(val, 0.0, 1.0)
+		if _particles:
+			_particles.emitting = progress > 0.0
+		queue_redraw()
+
+
+func _ready():
+	StudyTreeConfig.load_data()
+
+	if ResourceLoader.exists("res://AssetBundle/Uranus_Pixel_11Px.ttf"):
+		_tooltip_font = load("res://AssetBundle/Uranus_Pixel_11Px.ttf")
+
+	for btn in [rui, qi, li, cu, yan]:
+		if btn:
+			btn.modulate = Color(1, 1, 1, 0)
+
+	var study_area = get_node_or_null(STUDY_LAYER_PATH)
+	if study_area:
+		study_area.visible = false
+	if back:
+		back.visible = false
+
+	_connect_button_signals(rui, "rui")
+	_connect_button_signals(qi, "qi")
+	_connect_button_signals(li, "li")
+	_connect_button_signals(cu, "cu")
+	_connect_button_signals(yan, "yan")
+
+	if exit:
+		exit.pressed.connect(_on_exit_pressed)
+	if rui:
+		rui.pressed.connect(_on_rui_pressed)
+	if back:
+		back.pressed.connect(_on_back_pressed)
+
+	_create_study_tooltip()
+
+
+func _process(delta: float) -> void:
+	if _holding_btn and not _upgrade_done:
+		_hold_timer += delta
+		var p = clamp(_hold_timer / HOLD_DURATION, 0.0, 1.0)
+		if _ring:
+			_ring.set_progress(p)
+			_ring.global_position = _holding_btn.global_position
+		if _hold_timer >= HOLD_DURATION:
+			_upgrade_done = true
+			_try_upgrade(_holding_btn)
+
+
+# ===== 五行按钮信号 =====
+
+func _connect_button_signals(btn: Button, name_str: String):
+	if not btn:
 		return
-	
-	# 获取最大等级
-	var max_level = max_levels[skill_name]
-	
-	# 检查是否已达到最大等级
+	btn.mouse_entered.connect(_on_button_mouse_entered.bind(name_str))
+	btn.mouse_exited.connect(_on_button_mouse_exited.bind(name_str))
+
+
+func _on_button_mouse_entered(name_str: String):
+	var btn = get(name_str) as Button
+	if btn and btn.is_inside_tree():
+		var tween = create_tween()
+		tween.tween_property(btn, "modulate:a", 1.0, 0.2)
+	var item_id = CORE_ITEM_IDS[name_str]
+	var count = Global.player_inventory.get(item_id, 0)
+	detail.text = BUTTON_DETAIL_TEMPLATES[name_str] + str(count) + "[/color][/font_size]"
+
+
+func _on_button_mouse_exited(name_str: String):
+	var btn = get(name_str) as Button
+	if btn and btn.is_inside_tree():
+		var tween = create_tween()
+		tween.tween_property(btn, "modulate:a", 0.0, 0.2)
+
+
+# ===== 页面切换 =====
+
+func _on_rui_pressed():
+	tree_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var panel = get_node_or_null("Control/Panel")
+	if panel:
+		panel.play("detail")
+
+	for btn in [rui, qi, li, cu, yan]:
+		if btn:
+			btn.visible = false
+
+	var study_detail_panel = get_node_or_null("study_detail")
+	if study_detail_panel:
+		study_detail_panel.visible = false
+
+	var study_area = get_node_or_null(STUDY_LAYER_PATH)
+	if study_area:
+		study_area.visible = true
+		study_area.modulate = Color(1, 1, 1, 0)
+		var tw = create_tween()
+		tw.tween_property(study_area, "modulate:a", 1.0, 0.3)
+
+	if back:
+		back.visible = true
+		back.modulate = Color(1, 1, 1, 0)
+		var tw = create_tween()
+		tw.tween_property(back, "modulate:a", 1.0, 0.3)
+
+	if not _study_btns_connected:
+		_connect_study_tree_buttons()
+
+
+func _on_back_pressed():
+	_hide_study_tooltip()
+	_cancel_hold()
+
+	tree_control.mouse_filter = Control.MOUSE_FILTER_STOP
+	var panel = get_node_or_null("Control/Panel")
+	if panel:
+		panel.stop()
+		panel.animation = &"default"
+		panel.frame = panel.sprite_frames.get_frame_count(&"default") - 1
+
+	var study_area = get_node_or_null(STUDY_LAYER_PATH)
+	if study_area:
+		study_area.visible = false
+	if back:
+		back.visible = false
+
+	for btn in [rui, qi, li, cu, yan]:
+		if btn:
+			btn.visible = true
+			btn.modulate = Color(1, 1, 1, 0)
+
+
+func _on_exit_pressed():
+	_hide_study_tooltip()
+	_cancel_hold()
+
+	var tw = create_tween()
+	tw.set_parallel(true)
+	for child in get_children():
+		if child.has_method("set_modulate"):
+			tw.tween_property(child, "modulate:a", 0.0, 0.2)
+	tw.tween_callback(func():
+		visible = false
+		for child in get_children():
+			if child.has_method("set_modulate"):
+				child.modulate.a = 1.0
+	).set_delay(0.2)
+
+
+# ===== 天赋树提示框创建 =====
+
+func _create_study_tooltip() -> void:
+	_tooltip_canvas = CanvasLayer.new()
+	_tooltip_canvas.name = "StudyTooltipCanvas"
+	_tooltip_canvas.layer = 100
+	add_child(_tooltip_canvas)
+
+	_tooltip_panel = Panel.new()
+	_tooltip_panel.name = "StudyTooltipPanel"
+	_tooltip_panel.visible = false
+	_tooltip_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.85)
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	_tooltip_panel.add_theme_stylebox_override("panel", style)
+	_tooltip_canvas.add_child(_tooltip_panel)
+
+	_tooltip_vbox = VBoxContainer.new()
+	_tooltip_vbox.name = "VBox"
+	_tooltip_vbox.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_tooltip_vbox.position = Vector2(10, 8)
+	_tooltip_panel.add_child(_tooltip_vbox)
+
+	_tooltip_name_label = Label.new()
+	_setup_label_style(_tooltip_name_label)
+	_tooltip_vbox.add_child(_tooltip_name_label)
+
+	_tooltip_sep_current = HSeparator.new()
+	_tooltip_vbox.add_child(_tooltip_sep_current)
+
+	_tooltip_current_label = Label.new()
+	_tooltip_current_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tooltip_current_label.custom_minimum_size = Vector2(200, 0)
+	_setup_label_style(_tooltip_current_label)
+	_tooltip_vbox.add_child(_tooltip_current_label)
+
+	_tooltip_sep_next = HSeparator.new()
+	_tooltip_vbox.add_child(_tooltip_sep_next)
+
+	_tooltip_next_label = Label.new()
+	_tooltip_next_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tooltip_next_label.custom_minimum_size = Vector2(200, 0)
+	_setup_label_style(_tooltip_next_label)
+	_tooltip_vbox.add_child(_tooltip_next_label)
+
+	_tooltip_sep_cost = HSeparator.new()
+	_tooltip_vbox.add_child(_tooltip_sep_cost)
+
+	_tooltip_cost_label = Label.new()
+	_setup_label_style(_tooltip_cost_label, Color(1.0, 0.85, 0.0))
+	_tooltip_vbox.add_child(_tooltip_cost_label)
+
+	_tooltip_sep_precondition = HSeparator.new()
+	_tooltip_vbox.add_child(_tooltip_sep_precondition)
+
+	_tooltip_precondition_label = Label.new()
+	_setup_label_style(_tooltip_precondition_label, Color(0.7, 0.7, 0.7))
+	_tooltip_vbox.add_child(_tooltip_precondition_label)
+
+	_ring = RingProgress.new()
+	_ring.name = "RingProgress"
+	_ring.size = Vector2(108, 108)
+	_ring.visible = false
+	_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tooltip_canvas.add_child(_ring)
+
+
+func _setup_label_style(label: Label, font_color: Color = Color.WHITE) -> void:
+	if _tooltip_font:
+		label.add_theme_font_override("font", _tooltip_font)
+	label.add_theme_font_size_override("font_size", TOOLTIP_FONT_SIZE)
+	label.add_theme_color_override("font_color", font_color)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.add_theme_constant_override("outline_size", 3)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+# ===== 天赋树按钮信号 =====
+
+func _connect_study_tree_buttons() -> void:
+	var study_tree = get_node_or_null(STUDY_TREE_PATH)
+	if not study_tree:
+		return
+	for child in study_tree.get_children():
+		if child is Button:
+			child.mouse_entered.connect(_on_study_btn_entered.bind(child))
+			child.mouse_exited.connect(_on_study_btn_exited.bind(child))
+			child.button_down.connect(_on_study_btn_down.bind(child))
+			child.button_up.connect(_on_study_btn_up.bind(child))
+			_create_level_label(child)
+	_study_btns_connected = true
+
+
+func _create_level_label(btn: Button) -> void:
+	var entry = StudyTreeConfig.get_entry(btn.name)
+	if entry.is_empty():
+		return
+	var lbl = Label.new()
+	lbl.name = "LevelLabel"
+	if _tooltip_font:
+		lbl.add_theme_font_override("font", _tooltip_font)
+	lbl.add_theme_font_size_override("font_size", 26)
+	lbl.add_theme_color_override("font_color", Color.WHITE)
+	lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	lbl.add_theme_constant_override("outline_size", 4)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	lbl.offset_right = -6
+	lbl.offset_bottom = -4
+	btn.add_child(lbl)
+	_btn_level_labels[btn.name] = lbl
+	_update_level_label(btn)
+
+
+func _update_level_label(btn: Button) -> void:
+	var entry = StudyTreeConfig.get_entry(btn.name)
+	if entry.is_empty():
+		return
+	var id: String = entry["id"]
+	var max_level := int(entry.get("max_level", "1"))
+	var current_level: int = Global.player_study_tree.get(id, 0)
+	var lbl = _btn_level_labels.get(btn.name)
+	if lbl:
+		lbl.text = "%d/%d" % [current_level, max_level]
+		if current_level >= max_level:
+			lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0))
+		else:
+			lbl.add_theme_color_override("font_color", Color.WHITE)
+
+
+func _on_study_btn_entered(btn: Button) -> void:
+	_hovered_study_btn = btn
+	_show_study_tooltip(btn)
+
+
+func _on_study_btn_exited(btn: Button) -> void:
+	if _hovered_study_btn == btn:
+		_hovered_study_btn = null
+	_hide_study_tooltip()
+	_cancel_hold()
+
+
+func _on_study_btn_down(btn: Button) -> void:
+	var entry = StudyTreeConfig.get_entry(btn.name)
+	if entry.is_empty():
+		return
+	var id: String = entry["id"]
+	var max_level := int(entry.get("max_level", "1"))
+	var current_level: int = Global.player_study_tree.get(id, 0)
 	if current_level >= max_level:
-		main_town = get_parent()
-		if main_town and main_town.has_method("get") and main_town.tip:
-			main_town.tip.start_animation("技能已达到最大等级: " + skill_name, 0.5)
-		else:
-			print("技能已达到最大等级: " + skill_name)
 		return
-	
-	# 检查真气是否足够
-	if Global.total_points < true_cost:
-		main_town = get_parent()
-		if main_town and main_town.has_method("get") and main_town.tip:
-			main_town.tip.start_animation("真气不足，需要: " + str(true_cost) + "，当前: " + str(Global.total_points), 0.5)
-		else:
-			print("真气不足，需要: " + str(true_cost) + "，当前: " + str(Global.total_points))
+
+	# 递归检查前置条件
+	var fail_reason = _check_precondition(id)
+	if fail_reason != "":
+		if tips:
+			tips.start_animation(fail_reason, 0.5)
 		return
-	
-	# 升级技能
-	skill_levels[skill_name] = current_level + 1
-	Global.total_points -= true_cost
-	
-	# 如果是第一次学习，添加到已学习技能列表
-	if current_level == 0 and not skill_name in learned_skills:
-		learned_skills.append(skill_name)
-	
-	# 更新全局数据
-	Global.player_study_data[current_player]["learned_skills"] = learned_skills
-	Global.player_study_data[current_player]["skill_levels"] = skill_levels
-	
-	# 应用技能效果
-	apply_skill_effect(skill_name)
-	
-	# 更新显示
-	update_study_display()
-	
-	main_town = get_parent()
-	if main_town and main_town.has_method("get") and main_town.tip:
-		main_town.tip.start_animation("学习技能: " + skill_name + " 等级: " + str(skill_levels[skill_name]) + " 消耗真气: " + str(true_cost), 0.5)
 
-func apply_skill_effect(skill_name: String) -> void:
-	# 获取当前技能等级
-	var player_data = Global.player_study_data.get(current_player, {})
-	var skill_levels = player_data.get("skill_levels", {})
-	var skill_level = skill_levels.get(skill_name, 0)
-	
-	# 调用技能效果配置文件中的函数
-	SkillEffects.apply_skill_effect(current_player, current_study_level, skill_name, skill_level)
+	# 检查魔核是否足够
+	var cast := int(entry.get("cast", "1"))
+	var type: String = entry.get("type", "weapon")
+	var core_item_id = TYPE_CORE_ITEM_IDS.get(type, "")
+	var core_count = Global.player_inventory.get(core_item_id, 0)
+	if core_count < cast:
+		var core_name = TYPE_CORE_NAMES.get(type, type)
+		if tips:
+			tips.start_animation("%s不足" % core_name, 0.5)
+		return
 
-func _on_study_level_1_pressed() -> void:
-	# 1阶对应study_level = 0
-	Global.player_study_data[current_player]["study_level"] = 0
-	update_study_display()
+	_holding_btn = btn
+	_hold_timer = 0.0
+	_upgrade_done = false
+	if _ring:
+		_ring.visible = true
+		_ring.set_progress(0.0)
+		_ring.global_position = btn.global_position
 
-func _on_study_level_2_pressed() -> void:
-	# 2阶对应study_level = 1
-	Global.player_study_data[current_player]["study_level"] = 1
-	update_study_display()
 
-func _on_study_level_3_pressed() -> void:
-	# 3阶对应study_level = 2
-	Global.player_study_data[current_player]["study_level"] = 2
-	update_study_display()
+func _on_study_btn_up(_btn: Button) -> void:
+	_cancel_hold()
 
-func _on_study_level_4_pressed() -> void:
-	# 4阶对应study_level = 3
-	Global.player_study_data[current_player]["study_level"] = 3
-	update_study_display()
 
-func _on_study_level_5_pressed() -> void:
-	# 5阶对应study_level = 4
-	Global.player_study_data[current_player]["study_level"] = 4
-	update_study_display()
+func _cancel_hold() -> void:
+	_holding_btn = null
+	_hold_timer = 0.0
+	_upgrade_done = false
+	if _ring:
+		_ring.set_progress(0.0)
+		_ring.visible = false
 
-# 检查技能是否在当前阶段可用
-func is_skill_available(skill_name: String) -> bool:
-	var config = player_study_config.get(current_player, {})
-	# 修正阶段映射：当前修习阶段0对应配置中的阶段1
-	var config_stage = current_study_level + 1
-	var stage_config = config.get(config_stage, {})
-	var skills = stage_config.get("skills", [])
-	return skill_name in skills
 
-func _on_up_1_pressed() -> void:
-	if is_skill_available("up1"):
-		learn_skill("up1")
+# ===== 提示框显示 =====
 
-func _on_up_11_pressed() -> void:
-	if is_skill_available("up11"):
-		learn_skill("up11")
+func _show_study_tooltip(btn: Button) -> void:
+	var entry = StudyTreeConfig.get_entry(btn.name)
+	if entry.is_empty() or entry.get("name", "") == "":
+		_tooltip_panel.visible = false
+		return
 
-func _on_up_12_pressed() -> void:
-	if is_skill_available("up12"):
-		learn_skill("up12")
+	var id: String = entry["id"]
+	var display_name: String = entry["name"]
+	var description: String = entry.get("description", "")
+	var max_level := int(entry.get("max_level", "1"))
+	var cast := int(entry.get("cast", "1"))
+	var type: String = entry.get("type", "weapon")
+	var v1: String = entry.get("value1", "")
+	var v2: String = entry.get("value2", "")
+	var v3: String = entry.get("value3", "")
 
-func _on_up_2_pressed() -> void:
-	if is_skill_available("up2"):
-		learn_skill("up2")
+	var current_level: int = Global.player_study_tree.get(id, 0)
+	var is_maxed := current_level >= max_level
 
-func _on_up_21_pressed() -> void:
-	if is_skill_available("up21"):
-		learn_skill("up21")
+	_tooltip_name_label.text = "[font_size=29]%s  Lv.%d/%d [/font_size]" % [display_name, current_level, max_level]
 
-func _on_up_22_pressed() -> void:
-	if is_skill_available("up22"):
-		learn_skill("up22")
+	if max_level == 1:
+		if current_level == 0:
+			_tooltip_current_label.visible = false
+			_tooltip_sep_current.visible = false
+			_tooltip_next_label.text = "下一等级：" + description
+			_tooltip_next_label.visible = true
+			_tooltip_sep_next.visible = true
+		else:
+			_tooltip_current_label.text = "当前等级：" + description
+			_tooltip_current_label.visible = true
+			_tooltip_sep_current.visible = true
+			_tooltip_next_label.text = "此项修习已至极境"
+			_tooltip_next_label.visible = true
+			_tooltip_sep_next.visible = true
+	else:
+		_tooltip_current_label.text = "当前等级：" + _replace_placeholders(description, v1, v2, v3, current_level)
+		_tooltip_current_label.visible = true
+		_tooltip_sep_current.visible = true
+		if is_maxed:
+			_tooltip_next_label.text = "此项修习已至极境"
+		else:
+			_tooltip_next_label.text = "下一等级：" + _replace_placeholders(description, v1, v2, v3, current_level + 1)
+		_tooltip_next_label.visible = true
+		_tooltip_sep_next.visible = true
 
-func _on_up_3_pressed() -> void:
-	if is_skill_available("up3"):
-		learn_skill("up3")
+	if is_maxed:
+		_tooltip_cost_label.visible = false
+		_tooltip_sep_cost.visible = false
+	else:
+		var core_name = TYPE_CORE_NAMES.get(type, type)
+		var core_item_id = TYPE_CORE_ITEM_IDS.get(type, "")
+		var core_count = Global.player_inventory.get(core_item_id, 0)
+		_tooltip_cost_label.text = "消耗 %s %d 个（当前持有：%d）" % [core_name, cast, core_count]
+		_tooltip_cost_label.visible = true
+		_tooltip_sep_cost.visible = true
 
-func _on_up_31_pressed() -> void:
-	if is_skill_available("up31"):
-		learn_skill("up31")
+	# 前置条件
+	var precondition_id: String = entry.get("precondition", "")
+	var precondition_level_str: String = entry.get("precondition_level", "")
+	if precondition_id != "" and precondition_level_str != "":
+		var pre_entry = StudyTreeConfig.get_entry(precondition_id)
+		var pre_name = pre_entry.get("name", precondition_id) if not pre_entry.is_empty() else precondition_id
+		_tooltip_precondition_label.text = "前置条件：%s 达到%s级" % [pre_name, precondition_level_str]
+		_tooltip_precondition_label.visible = true
+		_tooltip_sep_precondition.visible = true
+	else:
+		_tooltip_precondition_label.visible = false
+		_tooltip_sep_precondition.visible = false
 
-func _on_up_32_pressed() -> void:
-	if is_skill_available("up32"):
-		learn_skill("up32")
+	_tooltip_panel.size = Vector2.ZERO
+	_tooltip_panel.custom_minimum_size = Vector2.ZERO
+	_tooltip_panel.global_position = Vector2(-10000, -10000)
+	_tooltip_panel.visible = true
 
-func _on_up_4_pressed() -> void:
-	if is_skill_available("up4"):
-		learn_skill("up4")
+	_tooltip_request_id += 1
+	var request_id = _tooltip_request_id
 
-func _on_up_41_pressed() -> void:
-	if is_skill_available("up41"):
-		learn_skill("up41")
+	await get_tree().process_frame
+	await get_tree().process_frame
 
-func _on_up_42_pressed() -> void:
-	if is_skill_available("up42"):
-		learn_skill("up42")
+	if request_id != _tooltip_request_id:
+		return
+	if _hovered_study_btn != btn:
+		return
 
-func _on_up_5_pressed() -> void:
-	if is_skill_available("up5"):
-		learn_skill("up5")
+	var content_size = _tooltip_vbox.get_combined_minimum_size()
+	var panel_size = content_size + Vector2(20, 16)
+	_tooltip_panel.custom_minimum_size = panel_size
+	_tooltip_panel.size = panel_size
+	_position_tooltip(btn)
+	# 渐入动画 0.2秒
+	_tooltip_panel.modulate.a = 0.0
+	var fade_in_tween = create_tween()
+	fade_in_tween.tween_property(_tooltip_panel, "modulate:a", 1.0, 0.2)
 
-func _on_up_51_pressed() -> void:
-	if is_skill_available("up51"):
-		learn_skill("up51")
 
-func _on_up_52_pressed() -> void:
-	if is_skill_available("up52"):
-		learn_skill("up52")
+func _position_tooltip(btn: Button) -> void:
+	var btn_pos = btn.global_position
+	var tooltip_pos = btn_pos + Vector2(btn.size.x + 10, 0)
+	var vp_size = get_viewport().get_visible_rect().size
+	if tooltip_pos.x + _tooltip_panel.size.x > vp_size.x:
+		tooltip_pos.x = btn_pos.x - _tooltip_panel.size.x - 10
+	if tooltip_pos.y + _tooltip_panel.size.y > vp_size.y:
+		tooltip_pos.y = vp_size.y - _tooltip_panel.size.y - 10
+	if tooltip_pos.y < 0:
+		tooltip_pos.y = 0
+	_tooltip_panel.global_position = tooltip_pos
 
-func _on_exit_pressed() -> void:
-	in_study = false
-	_transition_to_layer()
 
-func _transition_to_layer():
-	# 先淡出当前界面
-	if transition_tween:
-		transition_tween.kill()
-	
-	transition_tween = create_tween()
-	transition_tween.set_parallel(true)
-	
-	# 淡出当前层的所有子节点
-	for child in get_children():
-		if child.has_method("set_modulate"):
-			transition_tween.tween_property(child, "modulate:a", 0.0, 0.125)
-	
-	# 等待淡出完成后处理退出逻辑
-	transition_tween.tween_callback(_handle_exit).set_delay(0.125)
+func _hide_study_tooltip() -> void:
+	_tooltip_request_id += 1
+	if _tooltip_panel and _tooltip_panel.visible:
+		var fade_out_tween = create_tween()
+		fade_out_tween.tween_property(_tooltip_panel, "modulate:a", 0.0, 0.2)
+		fade_out_tween.tween_callback(func(): _tooltip_panel.visible = false)
 
-func _handle_exit():
-	# 调用main_town的_on_exit_pressed方法来处理dark_overlay
-	var main_town = get_parent()
-	if main_town and main_town.has_method("_on_exit_pressed"):
-		main_town._on_exit_pressed()
-	
-	# 调用本地的_switch_layers来隐藏界面
-	_switch_layers()
 
-func _switch_layers():
-	# 隐藏当前层
-	visible = false
-	# 重置所有子节点的透明度
-	for child in get_children():
-		if child.has_method("set_modulate"):
-			child.modulate.a = 1.0
-	
-	# 保存游戏
+func _replace_placeholders(text: String, v1: String, v2: String, v3: String, level: int) -> String:
+	var result = text
+	result = result.replace("$$", str(int(v1) * level) if v1 != "" else "0")
+	result = result.replace("##", str(int(v2) * level) if v2 != "" else "0")
+	result = result.replace("@@", str(int(v3) * level) if v3 != "" else "0")
+	return result
+
+
+# ===== 升级逻辑 =====
+
+func _try_upgrade(btn: Button) -> void:
+	var entry = StudyTreeConfig.get_entry(btn.name)
+	if entry.is_empty():
+		return
+
+	var id: String = entry["id"]
+	var max_level := int(entry.get("max_level", "1"))
+	var cast := int(entry.get("cast", "1"))
+	var type: String = entry.get("type", "weapon")
+	var current_level: int = Global.player_study_tree.get(id, 0)
+
+	if current_level >= max_level:
+		return
+
+	var core_item_id = TYPE_CORE_ITEM_IDS.get(type, "")
+	var core_count = Global.player_inventory.get(core_item_id, 0)
+
+	if core_count < cast:
+		var core_name = TYPE_CORE_NAMES.get(type, type)
+		if tips:
+			tips.start_animation("%s不足" % core_name, 0.5)
+		return
+
+	Global.player_inventory[core_item_id] = core_count - cast
+	Global.player_study_tree[id] = current_level + 1
 	Global.save_game()
-	
-	# 恢复玩家控制和游戏状态
-	PC.movement_disabled = false
-	get_tree().paused = false
 
-# 鼠标悬停事件处理函数
-func _on_skill_mouse_entered(skill_name: String) -> void:
-	var player_data = Global.player_study_data.get(current_player, {})
-	var skill_levels = player_data.get("skill_levels", {})
-	var current_level = skill_levels.get(skill_name, 0)
-	
-	# 获取配置信息
-	var config = player_study_config.get(current_player, {})
-	var config_stage = current_study_level + 1
-	var stage_config = config.get(config_stage, {})
-	var max_levels = stage_config.get("max_levels", {})
-	var point_costs = stage_config.get("point_costs", {})
-	var _descriptions = stage_config.get("descriptions", {})
-	var _skill_names = stage_config.get("skill_names", {})
-	
-	var max_level = max_levels.get(skill_name, 1)
-	var base_cost = point_costs.get(skill_name, 0)
-	var _true_cost = true_cost_culculate(base_cost, current_level + 1)
-	#var description = descriptions.get(skill_name, "")
-	#var skill_display_name = skill_names.get(skill_name, skill_name)
-	
-	# 构建技能升级效果文本
-	var effect_text = get_skill_effect_text(skill_name, current_level, max_level)
-	
-	# 构建完整的详情文本
-	var detail_text = ""
-	if effect_text != "":
-		detail_text += effect_text + "\n\n"
-	detail_text += "消耗真气：\n" + str(_true_cost)
-	
-	detail.text = detail_text
+	_cancel_hold()
+	_update_level_label(btn)
+	_show_study_tooltip(btn)
 
-func _on_skill_mouse_exited() -> void:
-	# 鼠标离开时清空详情显示
-	detail.text = ""
+	var display_name: String = entry.get("name", id)
+	if tips:
+		tips.start_animation("%s 修习成功" % display_name, 0.5)
 
-# 获取技能升级效果文本
-func get_skill_effect_text(skill_name: String, current_level: int, max_level: int) -> String:
-	var effect_text = ""
-	
-	match skill_name:
-		"up1":
-			effect_text = "[font_size=28]闪避技能[/font_size]\n"
-			effect_text += "解锁闪避能力"
-		"up11":
-			effect_text = "[font_size=28]无敌时间[/font_size]\n"
-			effect_text += "无敌时间 "
-			for i in range(max_level):
-				var value = 0.3 + i * 0.1 # 0.3/0.4/0.5秒
-				if i == current_level:
-					effect_text += "[color=green]" + str(value) + "[/color]/"
-				else:
-					effect_text += "[color=#999]" + str(value) + "[/color]/"
-			effect_text = effect_text.rstrip("/") + "秒"
-		"up12":
-			effect_text = "[font_size=28]闪避冷却降低[/font_size]\n"
-			effect_text += "CD "
-			for i in range(max_level):
-				var value = 10 - i # 10/9/8秒
-				if i == current_level:
-					effect_text += "[color=green]" + str(value) + "[/color]/"
-				else:
-					effect_text += "[color=#999]" + str(value) + "[/color]/"
-			effect_text = effect_text.rstrip("/") + "秒"
-		"up2":
-			effect_text = "[font_size=28]蓝色系召唤[/font_size]\n"
-			effect_text += "开启蓝色系召唤技能"
-		"up21":
-			effect_text = "[font_size=28]紫色系召唤[/font_size]\n"
-			effect_text += "开启紫色系召唤技能"
-		"up3":
-			effect_text = "[font_size=28]天命提升[/font_size]\n"
-			effect_text += "天命初始 +"
-			for i in range(max_level):
-				var value = 3 + i * 3 # +3/6/9
-				if i == current_level:
-					effect_text += "[color=green]" + str(value) + "[/color]/"
-				else:
-					effect_text += "[color=#999]" + str(value) + "[/color]/"
-			effect_text = effect_text.rstrip("/")
-		"up4":
-			effect_text = "[font_size=28]剑气强化[/font_size]\n"
-			effect_text += "剑气初始强化 +"
-			for i in range(max_level):
-				var value = i + 1 # +1/2
-				if i == current_level:
-					effect_text += "[color=green]" + str(value) + "[/color]/"
-				else:
-					effect_text += "[color=#999]" + str(value) + "[/color]/"
-			effect_text = effect_text.rstrip("/")
-		"up41":
-			effect_text = "[font_size=28]剑气伤害提升[/font_size]\n"
-			effect_text += "剑气伤害 +"
-			for i in range(max_level):
-				var value = 6 + i * 6 # +6%/12%/18%
-				if i == current_level:
-					effect_text += "[color=green]" + str(value) + "%[/color]/"
-				else:
-					effect_text += "[color=#999]" + str(value) + "%[/color]/"
-			effect_text = effect_text.rstrip("/")
-		"up22":
-			effect_text = "[font_size=28]召唤强化[/font_size]\n"
-			effect_text += "召唤初始强化 +"
-			for i in range(max_level):
-				var value = i + 1 # +1/2
-				if i == current_level:
-					effect_text += "[color=green]" + str(value) + "[/color]/"
-				else:
-					effect_text += "[color=#999]" + str(value) + "[/color]/"
-			effect_text = effect_text.rstrip("/")
-		"up31":
-			effect_text = "[font_size=28]天命上限提升[/font_size]\n"
-			effect_text += "天命上限 +"
-			for i in range(max_level):
-				var value = 10 + i * 10 # +10/20/30
-				if i == current_level:
-					effect_text += "[color=green]" + str(value) + "[/color]/"
-				else:
-					effect_text += "[color=#999]" + str(value) + "[/color]/"
-			effect_text = effect_text.rstrip("/")
-		"up32":
-			effect_text = "[font_size=28]天命获取提升[/font_size]\n"
-			effect_text += "天命获取 +"
-			for i in range(max_level):
-				var value = 10 + i * 10 # +10%/20%/30%
-				if i == current_level:
-					effect_text += "[color=green]" + str(value) + "%[/color]/"
-				else:
-					effect_text += "[color=#999]" + str(value) + "%[/color]/"
-			effect_text = effect_text.rstrip("/")
-		"up42":
-			effect_text = "[font_size=28]剑气冷却降低[/font_size]\n"
-			effect_text += "剑气CD -"
-			for i in range(max_level):
-				var value = 0.5 + i * 0.5 # -0.5/-1.0/-1.5秒
-				if i == current_level:
-					effect_text += "[color=green]" + str(value) + "[/color]/"
-				else:
-					effect_text += "[color=#999]" + str(value) + "[/color]/"
-			effect_text = effect_text.rstrip("/") + "秒"
-		"up5":
-			effect_text = "[font_size=28]刷新次数[/font_size]\n"
-			effect_text += "刷新次数 +"
-			for i in range(max_level):
-				var value = i + 1 # +1/2
-				if i == current_level:
-					effect_text += "[color=green]" + str(value) + "[/color]/"
-				else:
-					effect_text += "[color=#999]" + str(value) + "[/color]/"
-			effect_text = effect_text.rstrip("/")
-		"up51":
-			effect_text = "[font_size=28]刷新冷却降低[/font_size]\n"
-			effect_text += "刷新CD -"
-			for i in range(max_level):
-				var value = 5 + i * 5 # -5/-10/-15秒
-				if i == current_level:
-					effect_text += "[color=green]" + str(value) + "[/color]/"
-				else:
-					effect_text += "[color=#999]" + str(value) + "[/color]/"
-			effect_text = effect_text.rstrip("/") + "秒"
-		"up52":
-			effect_text = "[font_size=28]刷新品质提升[/font_size]\n"
-			effect_text += "刷新品质 +"
-			for i in range(max_level):
-				var value = 10 + i * 10 # +10%/20%/30%
-				if i == current_level:
-					effect_text += "[color=green]" + str(value) + "%[/color]/"
-				else:
-					effect_text += "[color=#999]" + str(value) + "%[/color]/"
-			effect_text = effect_text.rstrip("/")
-		_:
-			# 默认情况，显示技能名称
-			effect_text = "[font_size=28]" + skill_name + "[/font_size]"
-	
-	return effect_text
+
+# ===== 前置条件递归检查 =====
+
+func _check_precondition(id: String, _visited: Dictionary = {}) -> String:
+	var fails: Array = []
+	_collect_precondition_fails(id, _visited, fails)
+	if fails.is_empty():
+		return ""
+	return "需" + "、".join(fails)
+
+
+func _collect_precondition_fails(id: String, _visited: Dictionary, fails: Array) -> void:
+	if _visited.has(id):
+		return
+	_visited[id] = true
+
+	var entry = StudyTreeConfig.get_entry(id)
+	if entry.is_empty():
+		return
+
+	var pre_id: String = entry.get("precondition", "")
+	var pre_level_str: String = entry.get("precondition_level", "")
+	if pre_id == "" or pre_level_str == "":
+		return
+
+	# 先递归检查更深层的前置条件
+	_collect_precondition_fails(pre_id, _visited, fails)
+
+	var pre_level := int(pre_level_str)
+	var pre_current: int = Global.player_study_tree.get(pre_id, 0)
+	if pre_current < pre_level:
+		var pre_entry = StudyTreeConfig.get_entry(pre_id)
+		var pre_name = pre_entry.get("name", pre_id) if not pre_entry.is_empty() else pre_id
+		fails.append("%s%d级" % [pre_name, pre_level])

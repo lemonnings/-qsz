@@ -75,7 +75,7 @@ func _process(delta: float) -> void:
 	if reached_max_range:
 		modulate.a -= delta / fade_out_duration
 		if modulate.a <= 0.0:
-			queue_free()
+			ObjectPool.recycle(self )
 		return
 	
 	travelled_distance += speed * delta
@@ -104,7 +104,7 @@ func _on_area_entered(area: Area2D) -> void:
 			penetration_count -= 1
 			damage *= (1.0 - pierce_decay)
 		else:
-			queue_free()
+			ObjectPool.recycle(self )
 
 func _deal_damage(enemy: Area2D) -> void:
 	var final_damage = damage
@@ -141,3 +141,29 @@ func _deal_damage(enemy: Area2D) -> void:
 	if apply_light_accumulation:
 		if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("add_debuff"):
 			enemy.debuff_manager.add_debuff("light_accumulation", accumulation_max_stacks_bonus)
+
+## 对象池重置：清除状态供复用
+func reset_for_pool() -> void:
+	damage = 0.0
+	speed = 320.0
+	range_val = 300.0
+	penetration_count = 0
+	pierce_decay = 0.3
+	duration = 0.0
+	elapsed = 0.0
+	apply_light_accumulation = false
+	accumulation_max_stacks_bonus = 0
+	start_position = Vector2.ZERO
+	velocity = Vector2.ZERO
+	hit_targets.clear()
+	travelled_distance = 0.0
+	reached_max_range = false
+	modulate.a = 1.0
+	rotation = 0.0
+	global_position = Vector2.ZERO
+	if sprite:
+		sprite.scale = base_sprite_scale
+		sprite.play("default")
+	if collision_shape:
+		collision_shape.scale = base_collision_scale
+		collision_shape.set_deferred("disabled", false)

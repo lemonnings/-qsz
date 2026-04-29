@@ -46,8 +46,6 @@ func _on_body_entered(body: Node2D) -> void:
 	# 击中玩家
 	if body.is_in_group("player"):
 		PC.player_hit(int(int(bullet_damage)), self , source_name)
-		if PC.pc_hp <= 0:
-			PC.player_instance.game_over()
 		queue_free()
 
 func _on_area_entered(area: Area2D) -> void:

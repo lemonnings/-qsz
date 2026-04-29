@@ -48,7 +48,7 @@ func _process(delta: float) -> void:
 			fade_ratio = 1.0
 		modulate.a = 1.0 - fade_ratio
 	if traveled_distance >= range_val:
-		queue_free()
+		ObjectPool.recycle(self )
 
 func _on_area_entered(area: Area2D) -> void:
 	if has_hit:
@@ -63,4 +63,19 @@ func _on_area_entered(area: Area2D) -> void:
 		final_damage *= PC.crit_damage_multi
 	if area.has_method("take_damage"):
 		area.take_damage(int(final_damage), is_crit, false, "faze_rain")
-	queue_free()
+	ObjectPool.recycle(self )
+
+## 对象池重置：清除状态供复用
+func reset_for_pool() -> void:
+	damage = 0.0
+	direction = Vector2.RIGHT
+	start_position = Vector2.ZERO
+	traveled_distance = 0.0
+	has_hit = false
+	modulate.a = 1.0
+	rotation = 0.0
+	global_position = Vector2.ZERO
+	if sprite:
+		sprite.play("default")
+	if collision_shape:
+		collision_shape.set_deferred("disabled", false)

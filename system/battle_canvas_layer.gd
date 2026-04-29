@@ -64,6 +64,7 @@ var warning_active: bool = false
 
 # 战斗内Tips节点（用于显示刷新次数不足等提示）
 @export var lv_up_tip: Panel
+@export var spell: Control
 
 @export var refreshOrLockNum: RichTextLabel
 # 刷新次数配置（每达REFRESH_LEVEL_STEP级，额外获得REFRESH_BONUS_PER_STEP次刷新）
@@ -174,6 +175,17 @@ var faze_details: Array
 var faze_level_labels: Array
 var faze_slot_laws: Array
 
+# ============== 咏唱魔法 UI 状态 ==============
+var _spell_icon: TextureRect = null
+var _spell_name_label: Label = null
+var _spell_chant_bar: ProgressBar = null
+var _spell_status_label: Label = null
+var _spell_time_label: Label = null
+var _spell_chant_active: bool = false
+var _spell_chant_total_time: float = 0.0
+var _spell_chant_elapsed: float = 0.0
+var _spell_chant_timer: Timer = null
+
 # ============== 信号 ==============
 @warning_ignore("unused_signal")
 signal refresh_button_pressed(button_id: int)
@@ -192,6 +204,7 @@ func _ready() -> void:
 	_init_lv_up_start_button()
 	victory_summary_container.visible = false
 	_raise_tooltip_z_index()
+	_init_spell_ui()
 
 func _init_managers() -> void:
 	# 初始化升级管理器
@@ -603,10 +616,10 @@ func _build_destroy_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("破坏法则"))
 	lines.append(_color_owned_weapons("破坏系武器：冰刺术，爆炎诀，天雷破"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：破坏系武器暴击率提升 15%，溢出的暴击率会等量转换为暴击伤害"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：破坏系武器暴击伤害提升 25%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：破坏系武器造成的暴击伤害会从 -30% ~ +90% 之间波动"))
+	lines.append(_format_faze_line(level, current_tier, 7, "7阶：破坏系武器造成暴击或击杀敌人后，有 6% 的概率引爆目标，对大范围造成 75% 攻击的可暴击伤害"))
+	lines.append(_format_faze_line(level, current_tier, 10, "10阶：破坏系武器造成的暴击伤害会从 -30% ~ +90% 之间波动，引爆的伤害提升至 160% 攻击"))
 	lines.append(_format_faze_line(level, current_tier, 13, "13阶：破坏系武器暴击率再次提升 25%，破坏系武器造成的暴击伤害会从 -40% ~ +120% 之间波动"))
-	lines.append(_format_faze_line(level, current_tier, 16, "16阶：破坏系武器伤害再次提升 150%，造成的暴击伤害波动提升至 -50% ~ +300%"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：破坏系武器伤害再次提升 100%，引爆的范围大幅增加，引爆的伤害提升至 800% 攻击"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -624,10 +637,10 @@ func _build_life_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("生灵法则"))
 	lines.append(_color_owned_weapons("生灵系武器：光弹，坎水诀，圣光术"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：生灵系武器伤害提升 25%，经验获取提升 20%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：生灵系武器伤害再次提升 35%，射程提升 25%，经验获取加成提升至 40%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：生灵系武器伤害再次提升 50%，经验获取加成提升至 80%"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：生灵系武器伤害再次提升 70%，攻击间隔减少 20%"))
-	lines.append(_format_faze_line(level, current_tier, 16, "16阶：生灵系武器伤害再次提升 180%，经验获取加成提升至 300%"))
+	lines.append(_format_faze_line(level, current_tier, 7, "7阶：每 20 秒或升级时，会降下神圣光辉，对大范围的敌人造成 300% 攻击的伤害"))
+	lines.append(_format_faze_line(level, current_tier, 10, "10阶：神圣光辉的伤害提升至 500% ，范围提升，经验获取加成提升至 75%"))
+	lines.append(_format_faze_line(level, current_tier, 13, "13阶：生灵系武器伤害再次提升 50%，神圣光辉范围大幅提升 ，经验获取加成提升至 120%"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：生灵系武器伤害再次提升 120%，神圣光辉触发时间缩短至 4 秒，伤害提升至 1800%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -645,9 +658,9 @@ func _build_bullet_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("弹雨法则"))
 	lines.append(_color_owned_weapons("弹雨类武器：剑气诀，光弹，巽风诀，仙枝，冰刺术"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：弹雨类武器伤害提升 15%，射程提升 20%"))
-	lines.append(_format_faze_line(level, current_tier, 8, "8阶：弹雨类武器累计命中 100 次后，会以自身为中心连续发射 90 发弹幕，每发造成 50% 攻击的伤害"))
-	lines.append(_format_faze_line(level, current_tier, 12, "12阶：弹雨类武器伤害再次提升 35%，范围提升 30%，弹幕弹体数提升至 135 发，伤害提升至 90% 攻击"))
-	lines.append(_format_faze_line(level, current_tier, 15, "15阶：弹雨类武器伤害再次提升 50%，弹幕弹体数提升至 180 发，伤害提升至 180% 攻击"))
+	lines.append(_format_faze_line(level, current_tier, 8, "8阶：弹雨类武器累计命中 100 次后，会以自身为中心连续发射 90 发弹幕，每发造成 45% 攻击的伤害"))
+	lines.append(_format_faze_line(level, current_tier, 12, "12阶：弹雨类武器伤害再次提升 35%，范围提升 30%，弹幕弹体数提升至 135 发，伤害提升至 80% 攻击"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：弹雨类武器伤害再次提升 50%，弹幕弹体数提升至 180 发，伤害提升至 150% 攻击"))
 	lines.append(_format_faze_line(level, current_tier, 18, "18阶：弹雨类武器伤害再次提升 120%，弹幕弹体数提升至 270 发，伤害提升至 500% 攻击"))
 	var text = ""
 	for i in range(lines.size()):
@@ -687,9 +700,9 @@ func _build_thunder_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("鸣雷法则"))
 	lines.append(_color_owned_weapons("鸣雷系武器：天雷破，震雷诀"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：鸣雷系武器伤害提升 20% ，感电伤害提升 40%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：对感电状态下的敌人，鸣雷系武器伤害再次提升 60%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：感电伤害再次提升 100% ，感电对精英、首领的伤害额外提升 100%"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：鸣雷系武器伤害再次提升 160% ，感电对精英、首领的额外伤害增加到 300%"))
+	lines.append(_format_faze_line(level, current_tier, 7, "7阶：鸣雷系武器击中敌人或感电触发，有 5% 概率召唤鸣雷劈向目标，造成 70 % 攻击的范围伤害"))
+	lines.append(_format_faze_line(level, current_tier, 10, "10阶：鸣雷的伤害提升到 150% 攻击，鸣雷触发概率提升至 15% ，鸣雷对精英、首领的伤害额外提升 100%"))
+	lines.append(_format_faze_line(level, current_tier, 13, "13阶：鸣雷系武器伤害再次提升 120% ，鸣雷触发概率提升至 60% ，鸣雷对精英、首领的额外伤害增加到 300%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -718,17 +731,18 @@ func _build_heal_faze_detail(level: int) -> String:
 	return text
 
 func _build_summon_faze_detail(level: int) -> String:
-	var tiers = [3, 6, 10, 14]
+	var tiers = [4, 7, 10, 13, 16]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
 			current_tier = tier
 	var lines: Array = []
 	lines.append(_build_law_title("御灵法则"))
-	lines.append(_format_faze_line(level, current_tier, 3, "3阶：召唤物伤害 + 15% ，触发间隔 - 10% "))
-	lines.append(_format_faze_line(level, current_tier, 6, "6阶：最大召唤物容量 + 1 ，召唤物弹体大小 + 20%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：召唤 1 个不占容量的双极魔剑，召唤物伤害 + 40%"))
-	lines.append(_format_faze_line(level, current_tier, 14, "14阶：召唤 1 个不占容量的陨灭剑灵，召唤物伤害 + 100%，触发间隔 - 30%"))
+	lines.append(_format_faze_line(level, current_tier, 4, "4阶：召唤物伤害与治疗 + 20% ，触发间隔 - 10% "))
+	lines.append(_format_faze_line(level, current_tier, 7, "7阶：最大召唤物容量 + 1 ，召唤物弹体大小 + 20%"))
+	lines.append(_format_faze_line(level, current_tier, 10, "10阶：召唤 1 个不占容量的双极魔剑，召唤物伤害与治疗 + 40%"))
+	lines.append(_format_faze_line(level, current_tier, 13, "13阶：每个召唤物可以使角色的攻击力提升 10%，攻击速度提升 8%"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：召唤 1 个不占容量的陨灭剑灵，召唤物伤害与治疗 + 100%，触发间隔 - 30%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -748,7 +762,7 @@ func _build_shield_faze_detail(level: int) -> String:
 	lines.append(_format_faze_line(level, current_tier, 3, "3阶：护盾获取加成提升 20% ，最大体力提升 10%"))
 	lines.append(_format_faze_line(level, current_tier, 5, "5阶：最大体力再次提升 25% ，护盾因时间结束消失后，其 30% 会转为生命回复"))
 	lines.append(_format_faze_line(level, current_tier, 7, "7阶：最大体力再次提升 35% ，每存在相当于最大体力 3% 的护盾，获得额外 1% 的减伤率，最高 20%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：护盾获取加成再次提升 50%，护盾因时间结束消失后，其 50% 会转为生命回复"))
+	lines.append(_format_faze_line(level, current_tier, 10, "10阶：护盾获取加成再次提升 50%，护盾因时间结束消失后，其 60% 会转为生命回复"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -789,10 +803,19 @@ func _connect_signals() -> void:
 	Global.connect("level_up_selection_complete", Callable(self , "_check_and_process_pending_level_ups"))
 	Global.connect("manual_level_up_pending", Callable(self , "_on_manual_level_up_pending"))
 	
+	# 连接玩家咏唱信号
+	Global.connect("player_chant_start", Callable(self , "_on_player_chant_start"))
+	Global.connect("player_chant_end", Callable(self , "_on_player_chant_end"))
+	
 	# 连接主动技能信号
 	# if Global.active_skill_manager:
 	# 	Global.active_skill_manager.skill_cooldown_started.connect(_on_active_skill_cooldown_started)
 	# 	Global.active_skill_manager.skill_cooldown_finished.connect(_on_active_skill_cooldown_finished)
+
+## 断开信号上指定回调的所有连接
+func _disconnect_callable(sig: Signal, callable: Callable) -> void:
+	while sig.is_connected(callable):
+		sig.disconnect(callable)
 
 ## 连接刷新按钮信号
 func _connect_refresh_buttons() -> void:
@@ -803,26 +826,38 @@ func _connect_refresh_buttons() -> void:
 	
 	if refresh_button1:
 		refresh_button1.process_mode = Node.PROCESS_MODE_ALWAYS
-		if not refresh_button1.pressed.is_connected(_on_refresh_button_1_pressed):
-			refresh_button1.pressed.connect(_on_refresh_button_1_pressed)
+		_disconnect_callable(refresh_button1.pressed, _on_refresh_button_1_pressed)
+		refresh_button1.pressed.connect(_on_refresh_button_1_pressed)
+		print("[Connect] 刷新按钮1 信号已连接")
+	else:
+		print("[Connect] 刷新按钮1 未找到!")
 	
 	if refresh_button2:
 		refresh_button2.process_mode = Node.PROCESS_MODE_ALWAYS
-		if not refresh_button2.pressed.is_connected(_on_refresh_button_2_pressed):
-			refresh_button2.pressed.connect(_on_refresh_button_2_pressed)
+		_disconnect_callable(refresh_button2.pressed, _on_refresh_button_2_pressed)
+		refresh_button2.pressed.connect(_on_refresh_button_2_pressed)
+		print("[Connect] 刷新按钮2 信号已连接")
+	else:
+		print("[Connect] 刷新按钮2 未找到!")
 	
 	if refresh_button3:
 		refresh_button3.process_mode = Node.PROCESS_MODE_ALWAYS
-		if not refresh_button3.pressed.is_connected(_on_refresh_button_3_pressed):
-			refresh_button3.pressed.connect(_on_refresh_button_3_pressed)
+		_disconnect_callable(refresh_button3.pressed, _on_refresh_button_3_pressed)
+		refresh_button3.pressed.connect(_on_refresh_button_3_pressed)
+		print("[Connect] 刷新按钮3 信号已连接")
+	else:
+		print("[Connect] 刷新按钮3 未找到!")
 
 func _on_refresh_button_1_pressed() -> void:
+	print("[Connect] 刷新按钮1 被点击")
 	handle_refresh_button(1)
 
 func _on_refresh_button_2_pressed() -> void:
+	print("[Connect] 刷新按钮2 被点击")
 	handle_refresh_button(2)
 
 func _on_refresh_button_3_pressed() -> void:
+	print("[Connect] 刷新按钮3 被点击")
 	handle_refresh_button(3)
 
 ## 连接锁定按钮信号
@@ -834,18 +869,27 @@ func _connect_lock_buttons() -> void:
 	
 	if lock_button1:
 		lock_button1.process_mode = Node.PROCESS_MODE_ALWAYS
-		if not lock_button1.pressed.is_connected(_on_lock_button_1_pressed):
-			lock_button1.pressed.connect(_on_lock_button_1_pressed)
+		_disconnect_callable(lock_button1.pressed, _on_lock_button_1_pressed)
+		lock_button1.pressed.connect(_on_lock_button_1_pressed)
+		print("[Connect] 锁定按钮1 信号已连接")
+	else:
+		print("[Connect] 锁定按钮1 未找到!")
 	
 	if lock_button2:
 		lock_button2.process_mode = Node.PROCESS_MODE_ALWAYS
-		if not lock_button2.pressed.is_connected(_on_lock_button_2_pressed):
-			lock_button2.pressed.connect(_on_lock_button_2_pressed)
+		_disconnect_callable(lock_button2.pressed, _on_lock_button_2_pressed)
+		lock_button2.pressed.connect(_on_lock_button_2_pressed)
+		print("[Connect] 锁定按钮2 信号已连接")
+	else:
+		print("[Connect] 锁定按钮2 未找到!")
 	
 	if lock_button3:
 		lock_button3.process_mode = Node.PROCESS_MODE_ALWAYS
-		if not lock_button3.pressed.is_connected(_on_lock_button_3_pressed):
-			lock_button3.pressed.connect(_on_lock_button_3_pressed)
+		_disconnect_callable(lock_button3.pressed, _on_lock_button_3_pressed)
+		lock_button3.pressed.connect(_on_lock_button_3_pressed)
+		print("[Connect] 锁定按钮3 信号已连接")
+	else:
+		print("[Connect] 锁定按钮3 未找到!")
 
 func _on_lock_button_1_pressed() -> void:
 	handle_lock_button(1)
@@ -858,13 +902,6 @@ func _on_lock_button_3_pressed() -> void:
 
 ## 处理锁定按钮点击
 func handle_lock_button(button_id: int) -> void:
-	if PC.lock_num <= 0:
-		# 锁定次数不足，显示Tip提示
-		var tip = lv_up_tip if lv_up_tip else get_node_or_null("TipsLayer/Tip")
-		if tip and tip.has_method("start_animation"):
-			tip.start_animation("锁定次数不足", 0.5)
-		return
-	
 	# 找对应的大按钮
 	var target_btn: Button
 	match button_id:
@@ -875,30 +912,60 @@ func handle_lock_button(button_id: int) -> void:
 	if not is_instance_valid(target_btn):
 		return
 	
+	# 如果该位置已经是临时锁定，则取消锁定并返还次数
+	if level_up_manager and level_up_manager.tentative_locked_rewards.has(button_id):
+		level_up_manager.tentative_locked_rewards.erase(button_id)
+		PC.lock_num += 1
+		print("[Lock] 取消临时锁定 位置", button_id, "，返还锁定次数")
+		# 恢复按钮颜色
+		var tween = target_btn.create_tween()
+		tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tween.tween_property(target_btn, "modulate", Color(1, 1, 1, 1.0), 0.15)
+		_update_refresh_lock_display()
+		return
+	
+	# 如果该位置是已确认锁定，取消但不返还次数，并自动刷新该位置
+	if level_up_manager and level_up_manager.locked_rewards.has(button_id):
+		level_up_manager.locked_rewards.erase(button_id)
+		print("[Lock] 取消已确认锁定 位置", button_id, "，不返还次数")
+		# 恢复按钮颜色后自动刷新该位置（不消耗刷新次数）
+		var tween = target_btn.create_tween()
+		tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tween.tween_property(target_btn, "modulate", Color(1, 1, 1, 1.0), 0.15)
+		tween.tween_callback(func():
+			var saved_refresh_num = PC.refresh_num
+			level_up_manager.handle_level_up(level_up_manager.now_main_skill_name, button_id, get_tree(), get_viewport())
+			PC.refresh_num = saved_refresh_num
+			_update_refresh_lock_display()
+		)
+		return
+	
+	# 锁定次数不足检查
+	if PC.lock_num <= 0:
+		var tip = lv_up_tip if lv_up_tip else get_node_or_null("TipsLayer/Tip")
+		if tip and tip.has_method("start_animation"):
+			tip.start_animation("锁定次数不足", 0.5)
+		return
+	
 	# 消耗锁定次数
 	PC.lock_num -= 1
 	
-	# 保存锁定的奖励数据到 level_up_manager
+	# 保存到临时锁定（当前界面有效，选择其他项后才转正）
 	if level_up_manager and level_up_manager.current_rewards.has(button_id):
-		level_up_manager.locked_rewards[button_id] = level_up_manager.current_rewards[button_id]
-		print("[Lock] 锁定位置", button_id, ": ", level_up_manager.current_rewards[button_id].reward_name)
+		level_up_manager.tentative_locked_rewards[button_id] = level_up_manager.current_rewards[button_id]
+		print("[Lock] 临时锁定位置", button_id, ": ", level_up_manager.current_rewards[button_id].reward_name)
 	else:
-		print("[Lock] 锁定失败！current_rewards不包含位置", button_id)
+		print("[Lock] 临时锁定失败！current_rewards不包含位置", button_id, "，当前keys=", level_up_manager.current_rewards.keys() if level_up_manager else "null")
+		var tip = lv_up_tip if lv_up_tip else get_node_or_null("TipsLayer/Tip")
+		if tip and tip.has_method("start_animation"):
+			tip.start_animation("该栏位暂无奖励", 0.5)
+		PC.lock_num += 1
+		return
 	
 	# 添加灰色滤镜（通过设置modulate颜色）
 	var tween = target_btn.create_tween()
 	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	tween.tween_property(target_btn, "modulate", Color(0.5, 0.5, 0.5, 1.0), 0.15)
-	
-	# 隐藏刷新按钮和锁定按钮
-	var refresh_btn_name = "RefreshButton" if button_id == 1 else "RefreshButton" + str(button_id)
-	var lock_btn_name = "LockButton" if button_id == 1 else "LockButton" + str(button_id)
-	var refresh_btn = target_btn.get_node_or_null(refresh_btn_name)
-	var lock_btn = target_btn.get_node_or_null(lock_btn_name)
-	if refresh_btn:
-		refresh_btn.visible = false
-	if lock_btn:
-		lock_btn.visible = false
 	
 	# 更新显示
 	_update_refresh_lock_display()
@@ -983,6 +1050,8 @@ func show_active_skill_label(slot_key: String) -> void:
 			text = _build_water_shield_skill_text(level)
 		"holy_fire":
 			text = _build_holy_fire_skill_text(level)
+		"wind_thunder":
+			text = _build_wind_thunder_skill_text(level)
 		_:
 			text = "[未知技能]"
 	
@@ -1076,6 +1145,17 @@ func _build_holy_fire_skill_text(level: int) -> String:
 		if level >= lv:
 			cooldown -= 1.0
 	cooldown = max(4.0, cooldown)
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	text += "冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	return text
+
+## 构建风雷破技能详情文本
+func _build_wind_thunder_skill_text(level: int) -> String:
+	var text = "[font_size=24]风雷破  LV. " + str(level) + "[/font_size]\n"
+	text += "咏唱后向鼠标方向发射风雷弹\n击中敌人造成大范围爆炸\n\n"
+	text += "咏唱时间：1.2秒\n"
+	text += "伤害：275%攻击力\n"
+	var cooldown = 15.0
 	var final_cooldown = cooldown * (1 - PC.cooldown)
 	text += "冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	return text
@@ -1510,6 +1590,17 @@ func show_attr_label() -> void:
 	text += "主动技能冷却缩减：" + str(int(PC.cooldown * 100)) + "%    "
 	text += "主动技能增伤：+" + str(int(PC.active_skill_multi * 100)) + "%\n"
 	
+	# ===== 领悟概率 =====
+	var _red_p: float = PC.now_red_p
+	var _gold_p: float = PC.now_gold_p
+	var _darkorchid_p: float = PC.now_darkorchid_p
+	var _blue_p: float = 100.0 - _red_p - _gold_p - _darkorchid_p
+	text += "[font_size=21][color=#FFD700]═══ 领悟出现概率 ═══[/color][/font_size]\n"
+	text += "[color=#87CEEB]通明[/color]：" + "%.1f" % _blue_p + "%    "
+	text += "[color=#DA70D6]悟道[/color]：" + "%.1f" % _darkorchid_p + "%\n"
+	text += "[color=#FFD700]臻境[/color]：" + "%.1f" % _gold_p + "%    "
+	text += "[color=#FF4444]逆天[/color]：" + "%.1f" % _red_p + "%\n"
+	
 	# ===== 技艺 =====
 	if PC.ring_bullet_enabled or PC.wave_bullet_enabled:
 		text += "[font_size=21][color=#DDA0DD]═══ 技艺 ═══[/color][/font_size]\n"
@@ -1880,7 +1971,7 @@ func _update_lv_up_start_button_badge() -> void:
 	var pending_count = level_up_manager.get_pending_level_ups()
 	var advance_count = level_up_manager.count_pending_advances()
 	var total = pending_count + advance_count
-	lv_up_start_button.visible = instant_level_up_button.button_pressed and total > 0 and not Global.is_level_up
+	lv_up_start_button.visible = not PC.instant_level_up and total > 0 and not Global.is_level_up
 	# 动态创建或查找右下角 badge
 	var badge = lv_up_start_button.get_node_or_null("PendingBadge")
 	if badge == null:
@@ -1898,7 +1989,9 @@ func _on_lv_up_start_button_pressed() -> void:
 		return
 	if PC.is_game_over:
 		return
-	_check_and_process_pending_level_ups()
+	level_up_manager.check_and_process_pending_level_ups(get_tree(), get_viewport())
+	_refresh_faze_ui()
+	_update_lv_up_start_button_badge()
 
 func _on_level_up(main_skill_name: String = '', refresh_id: int = 0) -> void:
 	# 每达REFRESH_LEVEL_STEP级，额外获得REFRESH_BONUS_PER_STEP次刷新次数
@@ -1910,6 +2003,9 @@ func _on_level_up(main_skill_name: String = '', refresh_id: int = 0) -> void:
 		PC.lock_num += LOCK_BONUS_PER_STEP
 		print("[Lock] 第", PC.pc_lv, "级奖励锁定+", LOCK_BONUS_PER_STEP, "，当前锁定次数：", PC.lock_num)
 	_update_refresh_lock_display()
+	# 【修复】防止同时段多次升级时重复调用 handle_level_up，导致 pending_level_ups 被重复减1
+	if Global.is_level_up and refresh_id == 0:
+		return
 	if PC.instant_level_up:
 		level_up_manager.handle_level_up(main_skill_name, refresh_id, get_tree(), get_viewport())
 	else:
@@ -1917,6 +2013,10 @@ func _on_level_up(main_skill_name: String = '', refresh_id: int = 0) -> void:
 		_update_lv_up_start_button_badge()
 
 func _check_and_process_pending_level_ups() -> void:
+	# 手动模式：不通过信号自动链式处理，等待玩家点击按钮
+	if not PC.instant_level_up:
+		_update_lv_up_start_button_badge()
+		return
 	level_up_manager.check_and_process_pending_level_ups(get_tree(), get_viewport())
 	_refresh_faze_ui()
 	_update_lv_up_start_button_badge()
@@ -1926,18 +2026,36 @@ func _on_manual_level_up_pending() -> void:
 	_update_lv_up_start_button_badge()
 
 func handle_refresh_button(button_id: int) -> void:
+	# 如果该栏位是临时锁定，取消锁定并返还次数，然后继续刷新
+	if level_up_manager and level_up_manager.tentative_locked_rewards.has(button_id):
+		level_up_manager.tentative_locked_rewards.erase(button_id)
+		PC.lock_num += 1
+		print("[Lock] 刷新取消临时锁定 位置", button_id, "，返还锁定次数")
+		# 恢复按钮颜色（在刷新动画中会重新设置）
+		var target_btn: Button
+		match button_id:
+			1: target_btn = lv_up_change_b1
+			2: target_btn = lv_up_change_b2
+			3: target_btn = lv_up_change_b3
+		if is_instance_valid(target_btn):
+			target_btn.modulate = Color(1, 1, 1, 1.0)
+		_update_refresh_lock_display()
+		# 继续执行下面的刷新逻辑
+	
+	# 如果该栏位是已确认锁定，拒绝刷新
+	if level_up_manager and level_up_manager.locked_rewards.has(button_id):
+		var tip = lv_up_tip if lv_up_tip else get_node_or_null("TipsLayer/Tip")
+		if tip and tip.has_method("start_animation"):
+			tip.start_animation("该栏位已锁定", 0.5)
+		return
+	
 	if PC.refresh_num <= 0:
 		# 刷新次数不足，显示Tip提示
 		var tip = lv_up_tip if lv_up_tip else get_node_or_null("TipsLayer/Tip")
 		if tip and tip.has_method("start_animation"):
 			tip.start_animation("刷新次数不足", 0.5)
 		return
-	# 如果该栏位已被锁定，拒绝刷新并给出提示
-	if level_up_manager and level_up_manager.locked_rewards.has(button_id):
-		var tip = lv_up_tip if lv_up_tip else get_node_or_null("TipsLayer/Tip")
-		if tip and tip.has_method("start_animation"):
-			tip.start_animation("该栏位已锁定", 0.5)
-		return
+	
 	# 找对应的大按钮
 	var target_btn: Button
 	match button_id:
@@ -2042,7 +2160,7 @@ func _build_treasure_faze_detail(level: int) -> String:
 	return text
 
 func _build_chaos_faze_detail(level: int) -> String:
-	var tiers = [2, 4, 6, 9]
+	var tiers = [3, 5, 7, 9]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -2050,13 +2168,205 @@ func _build_chaos_faze_detail(level: int) -> String:
 	var lines: Array = []
 	lines.append(_build_law_title("混沌法则"))
 	lines.append("每个达到 4、7 层的法则使混沌法则阶级提升 1，达到 10 层的法则使混沌法则阶级降低 2")
-	lines.append(_format_faze_line(level, current_tier, 2, "2阶：最终伤害、经验获得率提升 20%，真气获取率提升 10%"))
-	lines.append(_format_faze_line(level, current_tier, 4, "4阶：最终伤害、经验获得率再次提升 40%，真气获取率再次提升 20%"))
-	lines.append(_format_faze_line(level, current_tier, 6, "6阶：最终伤害、经验获得率再次提升 80%，真气获取率再次提升 40%"))
-	lines.append(_format_faze_line(level, current_tier, 9, "9阶：最终伤害、经验获得率再次提升 160%，真气获取率再次提升 80%"))
+	lines.append(_format_faze_line(level, current_tier, 3, "3阶：最终伤害、经验获得率、真气获取率提升 15%"))
+	lines.append(_format_faze_line(level, current_tier, 5, "5阶：最终伤害、经验获得率再次提升 30%，真气获取率再次提升 25%"))
+	lines.append(_format_faze_line(level, current_tier, 7, "7阶：最终伤害、经验获得率再次提升 60%，真气获取率再次提升 40%"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：最终伤害、经验获得率再次提升 120%，真气获取率再次提升 80%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
 		if i < lines.size() - 1:
 			text += "\n"
 	return text
+
+# ============== 咏唱魔法 UI ==============
+func _init_spell_ui() -> void:
+	"""初始化玩家咏唱魔法UI，动态创建子节点到spell控件内"""
+	if not spell:
+		return
+	spell.visible = false
+	
+	var font = load("res://AssetBundle/Uranus_Pixel_11Px.ttf")
+	var outline_color = Color(0.37, 0.17, 0.0, 1.0) # 褒色勾边，复刻boss chant样式
+	
+	# === 左侧技能图标 ===
+	_spell_icon = TextureRect.new()
+	_spell_icon.name = "SpellIcon"
+	_spell_icon.position = Vector2(4, 4)
+	_spell_icon.size = Vector2(60, 60)
+	_spell_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_spell_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	spell.add_child(_spell_icon)
+	
+	# === 第一行：技能名 ===
+	_spell_name_label = Label.new()
+	_spell_name_label.name = "SpellName"
+	_spell_name_label.position = Vector2(70, 0)
+	_spell_name_label.size = Vector2(200, 22)
+	_spell_name_label.add_theme_font_override("font", font)
+	_spell_name_label.add_theme_font_size_override("font_size", 24)
+	_spell_name_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8, 1.0))
+	_spell_name_label.add_theme_color_override("font_outline_color", outline_color)
+	_spell_name_label.add_theme_constant_override("outline_size", 6)
+	_spell_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_spell_name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	spell.add_child(_spell_name_label)
+	
+	# === 第二行：咏唱条（更窄更长） ===
+	# 用一个带clip_contents的容器包裹，确保精确控制高度为11px
+	var bar_container = Control.new()
+	bar_container.name = "SpellChantBarContainer"
+	bar_container.position = Vector2(70, 24)
+	bar_container.size = Vector2(200, 11)
+	bar_container.clip_contents = true
+	spell.add_child(bar_container)
+	
+	_spell_chant_bar = ProgressBar.new()
+	_spell_chant_bar.name = "SpellChantBar"
+	_spell_chant_bar.position = Vector2.ZERO
+	_spell_chant_bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_spell_chant_bar.show_percentage = false
+	_spell_chant_bar.max_value = 1.0
+	_spell_chant_bar.value = 0.0
+	_spell_chant_bar.add_theme_font_size_override("font_size", 1)
+	# 填充样式：复刻boss chant颜色
+	var fill_style = StyleBoxFlat.new()
+	fill_style.bg_color = Color(0.98, 0.96, 0.82, 1.0)
+	fill_style.corner_radius_top_left = 2
+	fill_style.corner_radius_top_right = 2
+	fill_style.corner_radius_bottom_right = 2
+	fill_style.corner_radius_bottom_left = 2
+	fill_style.border_width_left = 1
+	fill_style.border_width_top = 1
+	fill_style.border_width_right = 1
+	fill_style.border_width_bottom = 1
+	fill_style.border_color = Color(0.45, 0.30, 0.12, 0.9)
+	fill_style.shadow_color = Color(0.45, 0.30, 0.12, 0.45)
+	fill_style.shadow_size = 2
+	fill_style.content_margin_top = 0
+	fill_style.content_margin_bottom = 0
+	fill_style.content_margin_left = 0
+	fill_style.content_margin_right = 0
+	_spell_chant_bar.add_theme_stylebox_override("fill", fill_style)
+	# 背景样式
+	var bg_style = StyleBoxFlat.new()
+	bg_style.bg_color = Color(0.15, 0.12, 0.08, 0.5)
+	bg_style.corner_radius_top_left = 2
+	bg_style.corner_radius_top_right = 2
+	bg_style.corner_radius_bottom_right = 2
+	bg_style.corner_radius_bottom_left = 2
+	bg_style.border_width_left = 1
+	bg_style.border_width_top = 1
+	bg_style.border_width_right = 1
+	bg_style.border_width_bottom = 1
+	bg_style.border_color = Color(0.55, 0.40, 0.22, 0.7)
+	bg_style.shadow_color = Color(0.55, 0.40, 0.22, 0.35)
+	bg_style.shadow_size = 2
+	bg_style.content_margin_top = 0
+	bg_style.content_margin_bottom = 0
+	bg_style.content_margin_left = 0
+	bg_style.content_margin_right = 0
+	_spell_chant_bar.add_theme_stylebox_override("background", bg_style)
+	bar_container.add_child(_spell_chant_bar)
+	
+	# === 第三行左侧："发动中...." 状态文字（咏唱条下方） ===
+	_spell_status_label = Label.new()
+	_spell_status_label.name = "SpellStatus"
+	_spell_status_label.position = Vector2(70, 38)
+	_spell_status_label.size = Vector2(100, 22)
+	_spell_status_label.add_theme_font_override("font", font)
+	_spell_status_label.add_theme_font_size_override("font_size", 20)
+	_spell_status_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8, 1.0))
+	_spell_status_label.add_theme_color_override("font_outline_color", outline_color)
+	_spell_status_label.add_theme_constant_override("outline_size", 6)
+	_spell_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_spell_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_spell_status_label.text = "发动中...."
+	spell.add_child(_spell_status_label)
+		
+	# === 第三行右侧：剩余咏唱时间（咏唱条下方） ===
+	_spell_time_label = Label.new()
+	_spell_time_label.name = "SpellTime"
+	_spell_time_label.position = Vector2(170, 38)
+	_spell_time_label.size = Vector2(100, 22)
+	_spell_time_label.add_theme_font_override("font", font)
+	_spell_time_label.add_theme_font_size_override("font_size", 20)
+	_spell_time_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8, 1.0))
+	_spell_time_label.add_theme_color_override("font_outline_color", outline_color)
+	_spell_time_label.add_theme_constant_override("outline_size", 6)
+	_spell_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_spell_time_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	spell.add_child(_spell_time_label)
+	
+	# 创建咏唱刷新Timer（设为PAUSABLE，暂停时停止tick）
+	_spell_chant_timer = Timer.new()
+	_spell_chant_timer.wait_time = 0.1
+	_spell_chant_timer.one_shot = false
+	_spell_chant_timer.process_mode = Node.PROCESS_MODE_PAUSABLE
+	_spell_chant_timer.timeout.connect(_on_spell_chant_timer_tick)
+	add_child(_spell_chant_timer)
+
+func _on_player_chant_start(skill_display_name: String, chant_duration: float, icon_path: String) -> void:
+	"""玩家咏唱开始，显示spell UI"""
+	_spell_chant_total_time = chant_duration
+	_spell_chant_elapsed = 0.0
+	_spell_chant_active = true
+	
+	# 设置技能图标
+	if _spell_icon and icon_path != "":
+		var tex = load(icon_path)
+		if tex:
+			_spell_icon.texture = tex
+	
+	# 设置技能名
+	if _spell_name_label:
+		_spell_name_label.text = skill_display_name
+	
+	# 设置咏唱条
+	if _spell_chant_bar:
+		_spell_chant_bar.max_value = chant_duration
+		_spell_chant_bar.value = 0.0
+	
+	# 设置时间显示
+	if _spell_time_label:
+		_spell_time_label.text = str(snapped(chant_duration, 0.1)) + "s"
+	
+	# 显示spell控件
+	if spell:
+		spell.visible = true
+	
+	# 启动刷新计时器
+	if _spell_chant_timer:
+		if not _spell_chant_timer.is_stopped():
+			_spell_chant_timer.stop()
+		_spell_chant_timer.start()
+
+func _on_player_chant_end() -> void:
+	"""玩家咏唱结束，隐藏spell UI"""
+	_spell_chant_active = false
+	if _spell_chant_timer and not _spell_chant_timer.is_stopped():
+		_spell_chant_timer.stop()
+	if spell:
+		spell.visible = false
+
+func _process(delta: float) -> void:
+	# 咏唱条平滑更新（游戏暂停时不更新）
+	if _spell_chant_active and not get_tree().paused:
+		_spell_chant_elapsed += delta
+		if _spell_chant_bar:
+			_spell_chant_bar.value = min(_spell_chant_elapsed, _spell_chant_total_time)
+		if _spell_chant_elapsed >= _spell_chant_total_time:
+			_spell_chant_active = false
+			if _spell_chant_timer and not _spell_chant_timer.is_stopped():
+				_spell_chant_timer.stop()
+			if spell:
+				spell.visible = false
+
+func _on_spell_chant_timer_tick() -> void:
+	"""每0.1秒刷新咏唱剩余时间文字"""
+	if not _spell_chant_active:
+		_spell_chant_timer.stop()
+		return
+	var remaining = max(_spell_chant_total_time - _spell_chant_elapsed, 0.0)
+	if _spell_time_label:
+		_spell_time_label.text = str(snapped(remaining, 0.1)) + "s"

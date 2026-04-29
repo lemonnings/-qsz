@@ -1,16 +1,19 @@
 extends Control
 
+# 对话完成信号（用于对话流程编排）
+signal dialog_completed
+
 # 对话节点引用
 @onready var speaker_left: TextureRect = $SpeakerLeft
 @onready var speaker_middle: TextureRect = $SpeakerMiddle
 @onready var speaker_right: TextureRect = $SpeakerRight
 @onready var dialog_panel: Panel = $DialogPanel
-@onready var speaker_name_panel_left: Panel = $SpeakerNamePanelLeft
-@onready var speaker_name_left: RichTextLabel = $SpeakerNamePanelLeft/SpeakerName
-@onready var speaker_info_button_left: Button = $SpeakerNamePanelLeft/SpeakerInfoButton
-@onready var speaker_name_panel_right: Panel = $SpeakerNamePanelRight
-@onready var speaker_name_right: RichTextLabel = $SpeakerNamePanelRight/SpeakerName
-@onready var speaker_info_button_right: Button = $SpeakerNamePanelRight/SpeakerInfoButton
+@onready var speaker_name_panel_left: Panel = $DialogPanel/SpeakerNamePanelLeft
+@onready var speaker_name_left: RichTextLabel = $DialogPanel/SpeakerNamePanelLeft/SpeakerName
+@onready var speaker_info_button_left: Button = $DialogPanel/SpeakerNamePanelLeft/SpeakerInfoButton
+@onready var speaker_name_panel_right: Panel = $DialogPanel/SpeakerNamePanelRight
+@onready var speaker_name_right: RichTextLabel = $DialogPanel/SpeakerNamePanelRight/SpeakerName
+@onready var speaker_info_button_right: Button = $DialogPanel/SpeakerNamePanelRight/SpeakerInfoButton
 @onready var dialog_text_label: RichTextLabel = $DialogText
 @onready var history_button: Button = $ToolButton/HistoryButton
 @onready var change_container: VBoxContainer = $ChangeContainer
@@ -32,7 +35,7 @@ const COLOR_DIM: Color = Color("#5b5b5b")
 const COLOR_NORMAL: Color = Color.WHITE
 
 func _ready():
-	Global.connect("start_dialog", Callable(self, "_on_start_dialog"))
+	Global.connect("start_dialog", Callable(self , "_on_start_dialog"))
 	# 初始化时隐藏选项容器和按钮
 	change_container.visible = false
 	change_button_1.visible = false
@@ -50,6 +53,17 @@ func _on_start_dialog(dialog_file_path: String):
 	if current_dialog_data.is_empty():
 		printerr("Dialog data is empty or failed to load: ", dialog_file_path)
 		return
+
+	# 重置立绘，防止 tscn 占位贴图触发淡出动画
+	speaker_left.visible = false
+	speaker_left.texture = null
+	speaker_left.modulate = Color.WHITE
+	speaker_middle.visible = false
+	speaker_middle.texture = null
+	speaker_middle.modulate = Color.WHITE
+	speaker_right.visible = false
+	speaker_right.texture = null
+	speaker_right.modulate = Color.WHITE
 
 	current_dialog_index = 0 # 从第一个有效行开始（数组索引0，csv的第2行）
 	_process_current_dialog_line()
@@ -121,31 +135,57 @@ func _process_current_dialog_line():
 	# 重置选项显示标志，为新的对话行做准备
 	choices_already_shown = false
 
-	# 发言人名称和面板可见性（立即，这些面板本身暂时没有过渡）
+	# 发言人名称和面板可见性（先隐藏再重置 alpha，防止闪烁）
 	var speaker_name_text = current_line_data.get("speaker", "")
+	var speaker2_name_text = current_line_data.get("speaker2", "")
+	var speaker_pos = current_line_data.get("speaker_position", "")
 	var ill_left_status = current_line_data.get("illustrationLeftStatus", false)
 	var ill_mid_status = current_line_data.get("illustrationMiddleStatus", false)
 	var ill_right_status = current_line_data.get("illustrationRightStatus", false)
 
+	# 先隐藏两侧面板，再重置透明度（顺序很重要，防止闪烁）
 	speaker_name_panel_left.visible = false
 	speaker_name_panel_right.visible = false
+	speaker_name_panel_left.modulate.a = 1.0
+	speaker_name_panel_right.modulate.a = 1.0
 
-	if ill_left_status or ill_mid_status:
-		speaker_name_panel_left.visible = true
-		speaker_name_left.text = speaker_name_text
-	elif ill_right_status:
-		speaker_name_panel_right.visible = true
-		speaker_name_right.text = speaker_name_text
-	else: # 如果没有状态为true但存在发言人姓名，则默认为左侧
+	# 根据 speaker_position 显式配置决定显示位置
+	if speaker_pos == "both":
+		# 两侧都显示：speaker 左侧，speaker2 右侧
 		if not speaker_name_text.is_empty():
 			speaker_name_panel_left.visible = true
 			speaker_name_left.text = speaker_name_text
+		if not speaker2_name_text.is_empty():
+			speaker_name_panel_right.visible = true
+			speaker_name_right.text = speaker2_name_text
+	elif speaker_pos == "right":
+		if not speaker_name_text.is_empty():
+			speaker_name_panel_right.visible = true
+			speaker_name_right.text = speaker_name_text
+	elif speaker_pos == "left":
+		if not speaker_name_text.is_empty():
+			speaker_name_panel_left.visible = true
+			speaker_name_left.text = speaker_name_text
+	else:
+		# 未指定 speaker_position，回退自动推断（兼容旧数据）
+		if ill_left_status or ill_mid_status:
+			if not speaker_name_text.is_empty():
+				speaker_name_panel_left.visible = true
+				speaker_name_left.text = speaker_name_text
+		elif ill_right_status:
+			if not speaker_name_text.is_empty():
+				speaker_name_panel_right.visible = true
+				speaker_name_right.text = speaker_name_text
+		else:
+			if not speaker_name_text.is_empty():
+				speaker_name_panel_left.visible = true
+				speaker_name_left.text = speaker_name_text
 
 	# 立绘 - 带过渡更新
-	print("ill_status",ill_left_status,ill_mid_status,ill_right_status)
+	print("ill_status", ill_left_status, ill_mid_status, ill_right_status)
 	_update_illustration(speaker_left, current_line_data.get("illustrationLeft", ""), ill_left_status is bool if ill_left_status else false, true)
-	_update_illustration(speaker_middle, current_line_data.get("illustrationMiddle", ""),  ill_mid_status is bool if ill_mid_status else false, true)
-	_update_illustration(speaker_right, current_line_data.get("illustrationRight", ""),  ill_right_status is bool if ill_right_status else false, true)
+	_update_illustration(speaker_middle, current_line_data.get("illustrationMiddle", ""), ill_mid_status is bool if ill_mid_status else false, true)
+	_update_illustration(speaker_right, current_line_data.get("illustrationRight", ""), ill_right_status is bool if ill_right_status else false, true)
 
 	# 对话文本（打字机效果）
 	var dialog_content = current_line_data.get("dialog", "")
@@ -154,7 +194,7 @@ func _process_current_dialog_line():
 func _update_illustration(texture_rect: TextureRect, path: String, is_speaking: bool, use_transition: bool = false):
 	var target_modulate = COLOR_NORMAL if is_speaking else COLOR_DIM
 	var should_be_visible = not path.is_empty() and ResourceLoader.exists(path)
-	var transition_duration = 0.35
+	var transition_duration = 0.2
 
 	# 清除此 TextureRect 上任何现有的补间动画以避免冲突
 	# 假设补间动画是作为其动画目标的 texture_rect 的子节点添加的
@@ -182,11 +222,11 @@ func _update_illustration(texture_rect: TextureRect, path: String, is_speaking: 
 		else: # 应该可见
 			var new_texture = load(path)
 			if not texture_rect.visible or texture_rect.texture != new_texture:
-				# 如果不可见或纹理更改，则设置新纹理，使其透明，然后淡入
+				# 如果不可见或纹理更改，则设置新纹理，先设好目标颜色但透明，然后只淡入透明度
 				texture_rect.texture = new_texture
-				texture_rect.modulate.a = 0.0
+				texture_rect.modulate = Color(target_modulate.r, target_modulate.g, target_modulate.b, 0.0)
 				texture_rect.visible = true
-				tween.tween_property(texture_rect, "modulate", target_modulate, transition_duration)
+				tween.tween_property(texture_rect, "modulate:a", target_modulate.a, transition_duration)
 				tween.tween_callback(func(): is_animating_illustrations = false)
 			elif texture_rect.modulate != target_modulate:
 				# 如果可见且纹理相同，但说话状态（变暗/正常）发生变化
@@ -272,7 +312,7 @@ func _check_for_choices():
 	else:
 		# 如果没有选项，则允许通过输入（例如，单击/回车）继续
 		# 这部分需要根据您希望如何推进对话来实现
-		pass 
+		pass
 
 func _fade_in_node(node: Control, duration: float = 0.15): # 已调整默认持续时间
 	node.modulate.a = 0
@@ -384,7 +424,14 @@ func _end_dialog():
 	choices_already_shown = false
 	
 	# 隐藏或移除对话UI
-	self.visible = false 
+	# 渐出 0.25s 后隐藏并发信号
+	var fade_out := create_tween()
+	fade_out.tween_property(self , "modulate:a", 0.0, 0.25)
+	await fade_out.finished
+	self.modulate.a = 1.0
+	self.visible = false
+	
+	dialog_completed.emit()
 
 
 func _input(event: InputEvent): # 确保为此节点设置 process_input(true) 或全局处理输入
@@ -436,6 +483,11 @@ func _advance_dialog_with_transition():
 
 	# 淡出当前文本
 	transition_tween.tween_property(dialog_text_label, "modulate:a", 0.0, 0.15)
+	# 淡出当前可见的 speaker 名称面板
+	if speaker_name_panel_left.visible:
+		transition_tween.tween_property(speaker_name_panel_left, "modulate:a", 0.0, 0.15)
+	if speaker_name_panel_right.visible:
+		transition_tween.tween_property(speaker_name_panel_right, "modulate:a", 0.0, 0.15)
 
 	# 在推进索引之前，查看下一行以决定立绘的淡出效果
 	if current_dialog_index + 1 < current_dialog_data.size():
@@ -454,3 +506,54 @@ func _advance_dialog_with_transition():
 
 func set_text_display_speed(speed: float):
 	text_display_speed = max(0.01, speed) # 确保速度不要太快或为零
+
+## 通过内联数组启动对话（替代 CSV 文件方式）
+## data 格式：与 CSV 解析结果一致的 Dictionary 数组
+func start_dialog_from_data(data: Array):
+	# 杀灭残留 tween，防止旧状态干扰
+	if current_text_tween and current_text_tween.is_valid():
+		current_text_tween.kill()
+		current_text_tween = null
+
+	# 重置全部状态
+	is_displaying_text = false
+	is_animating_illustrations = false
+	choices_already_shown = false
+	dialog_text_label.text = ""
+	dialog_text_label.visible_characters = 0
+	dialog_text_label.modulate.a = 1.0
+
+	# 重置立绘纹理为隐藏，防止 tscn 占位贴图被当成“现存的立绘”触发淡出动画
+	speaker_left.visible = false
+	speaker_left.texture = null
+	speaker_left.modulate = Color.WHITE
+	speaker_middle.visible = false
+	speaker_middle.texture = null
+	speaker_middle.modulate = Color.WHITE
+	speaker_right.visible = false
+	speaker_right.texture = null
+	speaker_right.modulate = Color.WHITE
+	
+	# 重置 speaker 名称面板，防止上一次对话的残留名称在渐入时闪烁
+	speaker_name_panel_left.visible = false
+	speaker_name_panel_left.modulate.a = 1.0
+	speaker_name_panel_right.visible = false
+	speaker_name_panel_right.modulate.a = 1.0
+
+	# 隐藏选项
+	change_container.visible = false
+	change_button_1.visible = false
+	change_button_2.visible = false
+	change_button_3.visible = false
+	change_button_4.visible = false
+
+	# 加载数据并启动
+	current_dialog_data = data
+	current_dialog_index = 0
+	self.modulate.a = 0.0
+	self.visible = true
+	# 渐入 0.25s
+	var fade_in := create_tween()
+	fade_in.tween_property(self , "modulate:a", 1.0, 0.25)
+	await fade_in.finished
+	_process_current_dialog_line()

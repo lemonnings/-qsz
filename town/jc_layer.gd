@@ -4,12 +4,7 @@ extends CanvasLayer
 @export var exit: Button
 
 const JC_TEXTURES = [
-	preload("res://AssetBundle/Sprites/image/jc1.png"),
-	preload("res://AssetBundle/Sprites/image/jc2.png"),
-	preload("res://AssetBundle/Sprites/image/jc3.png"),
-	preload("res://AssetBundle/Sprites/image/jc4.png"),
-	preload("res://AssetBundle/Sprites/image/jc5.png"),
-	preload("res://AssetBundle/Sprites/image/jc6.png"),
+	preload("res://AssetBundle/Sprites/image/start1.png"),
 ]
 
 var current_page: int = 0

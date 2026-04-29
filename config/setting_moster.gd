@@ -27,43 +27,47 @@ func _calc_stage_scaled_value(base_value: float) -> float:
 
 func _calc_atk(base_atk: float) -> float:
 	var t = PC.real_time
-	return base_atk + (1.33 * t) * pow(1.02, PC.pc_lv - 1) * _get_current_stage_multiplier()
+	return base_atk + (0.75 * t) * pow(1.015, PC.pc_lv - 1) * _get_current_stage_multiplier()
 
 # 计算新武器带来的怪物血量加成
 func _get_new_weapon_hp_multiplier() -> float:
 	var count = PC.new_weapon_obtained_count
 	var multiplier = 1.0
 	if count >= 1:
-		multiplier *= 1.65
+		multiplier *= 1.85
 	if count >= 2:
-		multiplier *= 1.4
+		multiplier *= 1.65
 	if count >= 3:
 		multiplier *= 1.3
 	if count >= 4:
-		multiplier *= 1.25
+		multiplier *= 1.15
 	if count >= 5:
-		multiplier *= 1.2
+		multiplier *= 1.1
 	return multiplier
 
 func _calc_hp(base_hp: float) -> float:
 	var t = float(PC.real_time)
-	var lv_bonus = pow(1.11, PC.pc_lv - 1) # 玩家每升1级，怪物血量提升11.5%
+	var lv_bonus = pow(1.1, PC.pc_lv - 1) # 玩家每升1级，怪物血量提升10%
 	var new_weapon_bonus = _get_new_weapon_hp_multiplier() # 新武器带来的血量加成
 	
 	var first_part = base_hp + t / 8.0
-	var linear_part = 5.0 * t / 25000.0
-	var quadratic_part = t * t / 300000.0
+	var linear_part = 5.0 * t / 45000.0
+	var quadratic_part = t * t / 500000.0
 	var second_part = 1.0 + linear_part + quadratic_part
 	
-	var first_jump_time = 60.0
-	var second_jump_time = 150.0
-	var third_jump_time = 240.0
-	var fourth_jump_time = 330.0
+	var first_jump_time = 90.0
+	var second_jump_time = 180.0
+	var third_jump_time = 270.0
+	var fourth_jump_time = 360.0
+	var fifth_jump_time = 450.0
+	var sixth_jump_time = 540.0
 	
-	var first_jump_multiplier = 1.5
-	var second_jump_multiplier = 2.1
-	var third_jump_multiplier = 2.8
-	var fourth_jump_multiplier = 3.6
+	var first_jump_multiplier = 1.35
+	var second_jump_multiplier = 1.8
+	var third_jump_multiplier = 2.4
+	var fourth_jump_multiplier = 3.2
+	var fifth_jump_multiplier = 4
+	var sixth_jump_multiplier = 5
 	
 	var jump_multiplier = 1.0
 	if t < first_jump_time:
@@ -74,25 +78,27 @@ func _calc_hp(base_hp: float) -> float:
 		jump_multiplier = second_jump_multiplier
 	elif t < fourth_jump_time:
 		jump_multiplier = third_jump_multiplier
-	else:
+	elif t < fifth_jump_time:
 		jump_multiplier = fourth_jump_multiplier
+	elif t < sixth_jump_time:
+		jump_multiplier = fifth_jump_multiplier
+	else:
+		jump_multiplier = sixth_jump_multiplier
 	
-	return first_part * second_part * jump_multiplier * lv_bonus * new_weapon_bonus * _get_current_stage_multiplier() * 1.5
+	return first_part * second_part * jump_multiplier * lv_bonus * new_weapon_bonus * _get_current_stage_multiplier()
 
 
 func _finalize_monster_data(data: Dictionary, query: String):
-	# 所有怪物的 mechanism 统一翻倍。
-	# 这里收口在一个函数里，后面如果你想再改成 ×1.5 或 ×3，
-	# 只需要改这一处，不用逐个怪去找。
+	# 所有怪物的 mechanism 统一翻倍
 	if data.has("mechanism"):
-		data["mechanism"] = int(data.get("mechanism", 0)) * 2
+		data["mechanism"] = int(data.get("mechanism", 0)) * 1
 	return data.get(query, null)
 
 # ============== 关卡1 桃林(PEACH_GROVE) ==============
 
 func slime_blue(query: String): # 蓝色史莱姆 / 普通怪1
 	var data = {
-		"atk": _calc_atk(230),
+		"atk": _calc_atk(200),
 		"hp": _calc_hp(30),
 		"speed": 42,
 		"exp": 350,
@@ -104,7 +110,7 @@ func slime_blue(query: String): # 蓝色史莱姆 / 普通怪1
 
 func taohua_yao(query: String): # 桃花妖 / 普通怪2
 	var data = {
-		"atk": _calc_atk(280),
+		"atk": _calc_atk(220),
 		"hp": _calc_hp(33),
 		"speed": 36,
 		"exp": 450,
@@ -116,7 +122,7 @@ func taohua_yao(query: String): # 桃花妖 / 普通怪2
 
 func frog(query: String): # 幼体树精 / 远程怪
 	var data = {
-		"atk": _calc_atk(210),
+		"atk": _calc_atk(180),
 		"hp": _calc_hp(27),
 		"speed": 35,
 		"exp": 500,
@@ -142,7 +148,7 @@ func lantern(query: String): # 灯笼怪 / 普通怪2
 
 func paper(query: String): # 宣纸精 / 普通怪1
 	var data = {
-		"atk": _calc_atk(400),
+		"atk": _calc_atk(360),
 		"hp": _calc_hp(50),
 		"speed": 42,
 		"exp": 500,
@@ -154,7 +160,7 @@ func paper(query: String): # 宣纸精 / 普通怪1
 
 func bat(query: String): # 草药怪 / 远程怪
 	var data = {
-		"atk": _calc_atk(290),
+		"atk": _calc_atk(320),
 		"hp": _calc_hp(41),
 		"speed": 36,
 		"exp": 600,
@@ -166,7 +172,7 @@ func bat(query: String): # 草药怪 / 远程怪
 
 func slime_grey(query: String): # 灰色史莱姆 / 特殊怪
 	var data = {
-		"atk": _calc_atk(350),
+		"atk": _calc_atk(360),
 		"hp": _calc_hp(50),
 		"speed": 36,
 		"exp": 550,
@@ -180,8 +186,8 @@ func slime_grey(query: String): # 灰色史莱姆 / 特殊怪
 
 func ghost(query: String): # 鬼魂 / 远程怪
 	var data = {
-		"atk": _calc_atk(600),
-		"hp": _calc_hp(105),
+		"atk": _calc_atk(500),
+		"hp": _calc_hp(80),
 		"speed": 45,
 		"exp": 500,
 		"point": 18 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -192,8 +198,8 @@ func ghost(query: String): # 鬼魂 / 远程怪
 
 func armor_stone(query: String): # 甲石 / 普通怪1
 	var data = {
-		"atk": _calc_atk(670),
-		"hp": _calc_hp(110),
+		"atk": _calc_atk(550),
+		"hp": _calc_hp(88),
 		"speed": 32,
 		"exp": 400,
 		"point": 19 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -204,8 +210,8 @@ func armor_stone(query: String): # 甲石 / 普通怪1
 
 func stone_man(query: String): # 石人 / 特殊怪
 	var data = {
-		"atk": _calc_atk(600),
-		"hp": _calc_hp(125),
+		"atk": _calc_atk(550),
+		"hp": _calc_hp(80),
 		"speed": 28,
 		"exp": 550,
 		"point": 22 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -216,8 +222,8 @@ func stone_man(query: String): # 石人 / 特殊怪
 
 func slime_green(query: String): # 绿色史莱姆 / 普通怪2
 	var data = {
-		"atk": _calc_atk(600),
-		"hp": _calc_hp(100),
+		"atk": _calc_atk(500),
+		"hp": _calc_hp(72),
 		"speed": 42,
 		"exp": 550,
 		"point": 16 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -230,8 +236,8 @@ func slime_green(query: String): # 绿色史莱姆 / 普通怪2
 
 func shen(query: String): # 参精怪 / 普通怪1
 	var data = {
-		"atk": _calc_atk(900),
-		"hp": _calc_hp(155),
+		"atk": _calc_atk(800),
+		"hp": _calc_hp(140),
 		"speed": 42,
 		"exp": 450,
 		"point": 24 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -242,8 +248,8 @@ func shen(query: String): # 参精怪 / 普通怪1
 
 func frog_new(query: String): # 新蛙 / 远程怪
 	var data = {
-		"atk": _calc_atk(800),
-		"hp": _calc_hp(140),
+		"atk": _calc_atk(700),
+		"hp": _calc_hp(130),
 		"speed": 35,
 		"exp": 600,
 		"point": 22 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -254,8 +260,8 @@ func frog_new(query: String): # 新蛙 / 远程怪
 
 func ball(query: String): # 弹跳兽 / 特殊怪
 	var data = {
-		"atk": _calc_atk(900),
-		"hp": _calc_hp(185),
+		"atk": _calc_atk(800),
+		"hp": _calc_hp(140),
 		"speed": 50,
 		"exp": 500,
 		"point": 26 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),

@@ -104,6 +104,9 @@ func _apply_damage_to_enemy(enemy: Node) -> void:
 		# 避免直接调用 set_process(false) 导致 thunder 节点释放后协程中断、敌人永久卡死
 		if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("add_debuff"):
 			enemy.debuff_manager.add_debuff("paralyze", 0, paralyze_duration)
+	
+	# 鸣雷法则：鸣雷击中敌人时有概率召唤鸣雷劈向目标
+	Faze.on_thunder_weapon_hit(enemy)
 
 func _find_nearest_enemy(from_position: Vector2, excluded_id: int) -> Node:
 	var enemies = get_tree().get_nodes_in_group("enemies")

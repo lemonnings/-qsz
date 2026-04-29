@@ -28,28 +28,44 @@ var parent_bullet: bool = true # 标记是否为父级子弹，默认为true
 var grandson_bullet: bool = false # 标记是否为孙级子弹
 var base_node_scale: Vector2 = Vector2.ONE
 var current_scale_factor: Vector2 = Vector2.ONE
+var _life_timer: float = 0.0
+const LIFE_DURATION: float = 3.0
 
 func _ready() -> void:
-	# 记录子弹起始位置
+	# 一次性设置：连接碰撞信号
+	area_entered.connect(_on_area_entered)
+
+## 每次从对象池取出或初始化后调用，启动子弹逻辑
+func activate_bullet() -> void:
 	start_position = global_position
-	bullet_range = bullet_range * Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
+	bullet_range = PC.branch_range * Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
+	traveled_distance = 0.0
+	is_fading = false
+	is_half_split = false
+	fade_timer = 0.0
+	_life_timer = 0.0
+	penetration_count = 999
+	collision_processed_this_frame = false
+	current_frame = -1
 	
 	# 初始化子弹伤害和暴击状态
 	initialize_bullet_damage()
-		
-	# 初始化碰撞形状大小
 	update_collision_shape_size()
-	
-	# 连接区域进入信号
-	area_entered.connect(_on_area_entered)
-	
-	await get_tree().create_timer(3).timeout
-	if !Global.is_level_up:
-		queue_free()
-	# 初始化时设置精灵方向
 	_update_sprite_rotation()
+	
+	# 重置视觉状态
+	if sprite:
+		sprite.modulate.a = 1.0
+	if collision_shape:
+		collision_shape.set_deferred("disabled", false)
 
 func _physics_process(delta: float) -> void:
+	# 生命周期计时
+	_life_timer += delta
+	if _life_timer >= LIFE_DURATION and not Global.is_level_up:
+		ObjectPool.recycle(self )
+		return
+	
 	# 子弹始终保持移动（包括渐隐过程中）
 	position += direction * bullet_speed * delta
 	# 更新已飞行距
@@ -86,14 +102,14 @@ func _physics_process(delta: float) -> void:
 		# 树枝12: 分裂的子枝在达到最大射程后，会向随机方向再射出一个孙枝，造成同等伤害但不会触发分裂与多重分裂-返
 		elif PC.selected_rewards.has("Branch12") and not parent_bullet and not grandson_bullet:
 			# 创建孙枝
-			var spawned_grandson_bullet = BranchScene.instantiate()
-			spawned_grandson_bullet.direction = Vector2.from_angle(randf() * 2 * PI) # 随机方向
+			var spawned_grandson_bullet = Global.branch_pool.acquire(get_parent())
 			spawned_grandson_bullet.global_position = global_position
-			spawned_grandson_bullet.parent_bullet = false # 孙枝也不会分裂
-			spawned_grandson_bullet.is_rebound = true # 避免多重分裂-返效果
+			spawned_grandson_bullet.parent_bullet = false
+			spawned_grandson_bullet.is_rebound = true
+			spawned_grandson_bullet.grandson_bullet = true
+			spawned_grandson_bullet.set_direction(Vector2.from_angle(randf() * 2 * PI))
+			spawned_grandson_bullet.activate_bullet()
 			spawned_grandson_bullet.bullet_damage = bullet_damage # 继承当前伤害
-			spawned_grandson_bullet.grandson_bullet = true # 标记为孙级子弹
-			get_parent().add_child(spawned_grandson_bullet)
 			start_fade_out()
 		else:
 			start_fade_out()
@@ -118,9 +134,9 @@ func _physics_process(delta: float) -> void:
 		if alpha < 0.2 and collision_shape and not collision_shape.disabled:
 			collision_shape.set_deferred("disabled", true)
 		
-		# 渐隐完成后销毁子弹
+		# 渐隐完成后回收子弹
 			if fade_progress >= 1.0:
-				queue_free()
+				ObjectPool.recycle(self )
 
 # 开始渐隐动画
 func start_fade_out() -> void:
@@ -234,17 +250,16 @@ func _create_sword_wave_instance(spawn_position: Vector2) -> void:
 		var angle_range = deg_to_rad(330)
 
 		for i in range(split_count):
-			var new_bullet = BranchScene.instantiate()
+			var new_bullet = Global.branch_pool.acquire(get_parent())
 			var random_angle = base_angle - angle_range / 2 + randf() * angle_range
-			new_bullet.direction = Vector2.from_angle(random_angle)
 			new_bullet.global_position = spawn_position
 			new_bullet.parent_bullet = false # 子弹不再分裂
+			new_bullet.set_direction(Vector2.from_angle(random_angle))
+			new_bullet.activate_bullet()
 			
 			# 树枝12: 分裂出的子树枝也会继承这个加成
 			if PC.selected_rewards.has("Branch21"):
 				new_bullet.bullet_damage = bullet_damage # 继承当前伤害
-			
-			get_parent().add_child(new_bullet)
 
 # 设置子弹缩放并同步更新碰撞形状
 func set_bullet_scale(new_scale: Vector2) -> void:
@@ -293,3 +308,30 @@ func _on_area_entered(area: Area2D) -> void:
 		# 应用击退效果（只对父级子弹生效）
 		if area.has_method("apply_knockback"):
 			area.apply_knockback(direction, 30)
+
+## 对象池重置：清除状态供复用
+func reset_for_pool() -> void:
+	bullet_damage = 0.0
+	is_crit_hit = false
+	start_position = Vector2.ZERO
+	traveled_distance = 0.0
+	is_fading = false
+	is_half_split = false
+	fade_timer = 0.0
+	is_rebound = false
+	parent_bullet = true
+	grandson_bullet = false
+	_life_timer = 0.0
+	penetration_count = 999
+	collision_processed_this_frame = false
+	current_frame = -1
+	direction = Vector2.ZERO
+	bullet_fisson = 1
+	scale = Vector2.ONE
+	base_node_scale = Vector2.ONE
+	current_scale_factor = Vector2.ONE
+	modulate.a = 1.0
+	global_position = Vector2.ZERO
+	if sprite:
+		sprite.modulate.a = 1.0
+		sprite.rotation = 0.0

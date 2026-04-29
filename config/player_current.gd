@@ -33,7 +33,7 @@ extends Node
 
 @export var faze_blood_level: int = 0
 @export var faze_sword_level: int = 0
-@export var faze_thunder_level: int = 0
+@export var faze_thunder_level: int = 7
 @export var faze_heal_level: int = 0
 @export var faze_summon_level: int = 0
 @export var faze_shield_level: int = 0
@@ -119,10 +119,10 @@ extends Node
 # 跟升级抽卡有关系的
 @export var now_lunky_level: int = 1
 @export var lucky: int = 1
-@export var now_red_p: float = 3
-@export var now_gold_p: float = 6
-@export var now_darkorchid_p: float = 18
-@export var now_blue_p: float = 73
+@export var now_red_p: float = 0.5
+@export var now_gold_p: float = 4
+@export var now_darkorchid_p: float = 25.5
+@export var now_blue_p: float = 70
 @export var selected_rewards = []
 
 # 存储主要技能等级
@@ -311,8 +311,8 @@ func _ready():
 	Global.connect("lucky_level_up", Callable(self , "_on_lucky_level_up"))
 
 func _on_lucky_level_up(lunky_up: float) -> void:
-	now_red_p = now_red_p + lunky_up * 0.2
-	now_gold_p = now_gold_p + lunky_up * 0.4
+	now_red_p = now_red_p + lunky_up * 0.1
+	now_gold_p = now_gold_p + lunky_up * 0.5
 	now_darkorchid_p = now_darkorchid_p + lunky_up * 0.6
 	now_blue_p = now_blue_p + lunky_up * 1
 	lucky = now_lunky_level
@@ -410,7 +410,7 @@ func reset_player_attr() -> void:
 	PC.pc_lv = 1
 	PC.pc_exp = 0
 	PC.pc_speed = 0 # 修炼追风加成在移速公式中单独计算，此处不重复叠加
-	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.01) # 流光提升攻速，每级+1%
+	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.008) # 流光提升攻速，每级+0.8%
 	PC.pc_sheild = []
 
 	PC.current_weapon_num = 0
@@ -443,8 +443,8 @@ func reset_player_attr() -> void:
 	PC.summon_bullet_size_multiplier = 1.0
 	
 	# 重置暴击相关属性
-	PC.crit_chance = 0.1 + (Global.cultivation_fengrui_level * 0.005) # 基础暴击率 + 局外成长
-	PC.crit_damage_multi = 1.5 + (Global.cultivation_liejin_level * 0.01) # 基础暴击伤害倍率 + 局外成长
+	PC.crit_chance = 0.1 + (Global.cultivation_fengrui_level * 0.004) # 基础暴击率 + 局外成长
+	PC.crit_damage_multi = 1.5 + (Global.cultivation_liejin_level * 0.016) # 基础暴击伤害倍率 + 局外成长
 	
 	PC.damage_reduction_rate = min(0.0 + (Global.cultivation_huti_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
 	PC.damage_deal_multiplier = 1.0
@@ -465,6 +465,7 @@ func reset_player_attr() -> void:
 	PC.sixsense_applied_atk_speed = 0.0
 	PC.sixsense_applied_damage_reduction = 0.0
 	PC.sixsense_applied_atk = 0.0
+	PC.point_multi = 0 + (Global.cultivation_hualing_level * 0.02)
 	PC.exp_multi = Global.exp_multi
 	PC.drop_multi = Global.drop_multi
 	PC.body_size = Global.body_size
@@ -739,7 +740,58 @@ func player_hit(damage: int, attacker: Node2D = null, source_name: String = "未
 	if player_instance:
 		Global.emit_signal("player_hit", float(remaining_damage), float(absorbed_damage), attacker, player_instance.global_position, source_name)
 		
+	# 集中致死判断
+	if pc_hp <= 0:
+		player_instance.game_over()
+		
 	return remaining_damage
+
+## 无视无敌状态的伤害（用于DOT、燃烧等不应触发受击无敌的伤害）
+func player_hit_ignore_invincible(damage: int, attacker: Node2D = null, source_name: String = "未知") -> int:
+	if is_game_over:
+		return 0
+	var remaining_damage = damage
+	var absorbed_damage = 0
+	
+	# 护盾吸收（同player_hit）
+	if pc_sheild.size() > 0:
+		pc_sheild.sort_custom(func(a, b): return a["time_left"] < b["time_left"])
+		for i in range(pc_sheild.size()):
+			if remaining_damage <= 0:
+				break
+			var shield = pc_sheild[i]
+			var shield_value = int(shield["value"])
+			if shield_value > remaining_damage:
+				shield["value"] = shield_value - remaining_damage
+				absorbed_damage += remaining_damage
+				remaining_damage = 0
+				pc_sheild[i] = shield
+			else:
+				absorbed_damage += shield_value
+				remaining_damage -= shield_value
+				shield["value"] = 0
+				pc_sheild[i] = shield
+		_remove_empty_shields()
+	if remaining_damage > 0:
+		pc_hp -= remaining_damage
+	
+	if player_instance:
+		Global.emit_signal("player_hit_ignore_invincible", float(remaining_damage), float(absorbed_damage), attacker, player_instance.global_position, source_name)
+	
+	# 集中致死判断
+	if pc_hp <= 0:
+		player_instance.game_over()
+	
+	return remaining_damage
+
+## 无视无敌状态的秒杀（用于核爆/玄冰等Buff不匹配时的即死判定）
+func player_instakill(attacker: Node2D = null, source_name: String = "未知") -> void:
+	if is_game_over:
+		return
+	pc_hp = 0
+	if player_instance:
+		Global.emit_signal("player_instakill", attacker, player_instance.global_position, source_name)
+		player_instance.game_over()
 
 func _remove_empty_shields() -> void:
 	var remain: Array[Dictionary] = []
@@ -760,7 +812,7 @@ func _remove_empty_shields() -> void:
 
 	
 func exec_pc_atk() -> void:
-	PC.pc_atk = int(25 + int(Global.cultivation_poxu_level * 1))
+	PC.pc_atk = int(25 + int(Global.cultivation_poxu_level * 2))
 	PC.pc_start_atk = PC.pc_atk
 	
 func exec_pc_hp() -> void:
@@ -781,9 +833,9 @@ func add_attack_range(delta: float) -> void:
 func exec_lucky_level() -> void:
 	PC.now_lunky_level = Global.lunky_level
 	PC.lucky = PC.now_lunky_level
-	PC.now_red_p = Global.red_p + Global.lunky_level * 0.25
+	PC.now_red_p = Global.red_p + Global.lunky_level * 0.1
 	PC.now_gold_p = Global.gold_p + Global.lunky_level * 0.5
-	PC.now_darkorchid_p = Global.darkorchid_p + Global.lunky_level * 0.8
+	PC.now_darkorchid_p = Global.darkorchid_p + Global.lunky_level * 0.6
 	PC.now_blue_p = Global.blue_p + Global.lunky_level * 1
 
 func exec_swordqi_skills() -> void:
@@ -1024,7 +1076,7 @@ func get_secondary_attributes_text() -> String:
 	
 	# 计算次要属性
 	var bullet_size_val = (1 + Global.attack_range - 1.0 + equipment_stats["bullet_size"]) * 100 # 攻击范围包含秘丹加成
-	var point_multi_val = (1 + Global.cultivation_hualing_level * 0.03 + equipment_stats["point_multi"]) * 100
+	var point_multi_val = (1 + Global.cultivation_hualing_level * 0.02 + equipment_stats["point_multi"]) * 100
 	var exp_multi_val = (1 + Global.exp_multi + equipment_stats["exp_multi"]) * 100
 	var drop_multi_val = (1 + Global.drop_multi + equipment_stats["drop_multi"]) * 100
 	var body_size_val = Global.body_size * 100 # 秘丹加成
@@ -1049,3 +1101,26 @@ func get_secondary_attributes_text() -> String:
 	attr_text += "主动技能增伤  " + _fmt_attr(active_skill_multi_val) + "%"
 	
 	return attr_text
+
+## 获取玩家碰撞体信息（用于技能伤害判定，以CollisionShape2D为准）
+func get_player_hitbox_info() -> Dictionary:
+	if not is_instance_valid(player_instance):
+		return {}
+	var col_shape = player_instance.get_node_or_null("CollisionShape2D")
+	if not col_shape or not col_shape.shape:
+		return {}
+	var info = {
+		"position": col_shape.global_position,
+		"shape": col_shape.shape,
+		"scale": col_shape.global_scale,
+	}
+	var shape = col_shape.shape
+	if shape is CircleShape2D:
+		info["radius"] = shape.radius * max(col_shape.global_scale.x, col_shape.global_scale.y)
+		info["type"] = "circle"
+	elif shape is RectangleShape2D:
+		info["size"] = shape.size * col_shape.global_scale
+		info["type"] = "rect"
+	else:
+		info["type"] = "unknown"
+	return info

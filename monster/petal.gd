@@ -99,6 +99,4 @@ func _on_body_entered(body: Node2D) -> void:
 		var dmg: int = max(1, int(damage))
 		PC.player_hit(int(dmg), self , "落花")
 		Global.emit_signal("player_hit")
-		if PC.pc_hp <= 0:
-			PC.player_instance.game_over()
 	queue_free()

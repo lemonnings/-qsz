@@ -318,6 +318,8 @@ func _deal_damage(enemy: Area2D) -> void:
 		enemy.take_damage(int(final_damage), is_crit, false, "genshan")
 		# 击中粒子崩散特效
 		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "genshan")
+		# 艮山震屏
+		GU.screen_shake(2.0, 0.1)
 		
 		# 八卦法则推衍度
 		Faze.add_bagua_progress(1, enemy.is_in_group("elite") or enemy.is_in_group("boss"))

@@ -7,6 +7,9 @@ static var barrage_running: bool = false
 static var faze_rain_bullet_scene: PackedScene = preload("res://Scenes/player/faze_rain_bullet.tscn")
 static var faze_sword_scene: PackedScene = preload("res://Scenes/player/faze_sword.tscn")
 static var faze_heal_bullet_scene: PackedScene = preload("res://Scenes/player/faze_heal_bullet.tscn")
+static var faze_thunder_scene: PackedScene = preload("res://Scenes/player/faze_thunder.tscn")
+static var faze_destory_scene: PackedScene = preload("res://Scenes/player/faze_destory.tscn")
+static var faze_light_scene: PackedScene = preload("res://Scenes/player/faze_light.tscn")
 static var manager_instance: Faze
 
 var bath_blood_thud_scene: PackedScene = preload("res://Scenes/player/faze_bath_blood_thud.tscn")
@@ -31,12 +34,17 @@ var last_wind_base_atk_speed_bonus: float = 0.0
 var last_wind_stack_atk_speed_bonus: float = 0.0
 var last_wind_stack_move_speed_bonus: float = 0.0
 var wind_huanfeng_expiries: Array[float] = []
+# 生灵法则 7阶：神圣光辉计时器
+var life_sacred_light_timer: float = 0.0
+var life_sacred_light_interval: float = 20.0
 
 func setup(p_player: Node2D) -> void:
 	player = p_player
 	Global.connect("player_hit", Callable(self , "_on_player_hit"))
 	Global.connect("player_healed", Callable(self , "_on_player_healed"))
 	Global.connect("player_shield_damaged", Callable(self , "_on_player_shield_damaged"))
+	# 生灵法则：监听升级信号，升级时触发神圣光辉
+	Global.connect("player_lv_up", Callable(self , "_on_life_level_up_trigger"))
 	manager_instance = self
 	
 	# 初始化时检查一次法则加成，确保初始等级（如调试时）能生效
@@ -49,6 +57,15 @@ func _process(delta: float) -> void:
 	if PC.faze_shield_level >= 7:
 		_update_shield_dynamic_dr()
 	_update_wind_huanfeng()
+	# 13阶御灵法则：召唤物数量动态加成
+	if PC.faze_summon_level >= 13:
+		_update_summon_count_bonus()
+	# 生灵法则 7阶：每 20 秒触发神圣光辉
+	if PC.faze_life_level >= 7 and not Global.in_menu and not Global.in_town:
+		life_sacred_light_timer += delta
+		if life_sacred_light_timer >= life_sacred_light_interval:
+			life_sacred_light_timer = 0.0
+			_trigger_sacred_light()
 		
 	if PC.faze_blood_level < 3:
 		return
@@ -56,6 +73,24 @@ func _process(delta: float) -> void:
 	if electrified_timer >= electrified_interval:
 		electrified_timer -= electrified_interval
 		_trigger_electrified("auto")
+
+func _on_life_level_up_trigger() -> void:
+	if PC.faze_life_level < 7:
+		return
+	if PC.is_game_over or Global.in_menu or Global.in_town:
+		return
+	# 升级时重置计时器并立即触发一次
+	life_sacred_light_timer = 0.0
+	_trigger_sacred_light()
+
+func _trigger_sacred_light() -> void:
+	if not faze_light_scene:
+		return
+	if not player or not is_instance_valid(player):
+		return
+	# 16阶：触发时间缩短至 4 秒
+	life_sacred_light_interval = 4.0 if PC.faze_life_level >= 16 else 20.0
+	FazeLight.fire_skill(faze_light_scene, player.global_position, get_tree())
 
 func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String) -> void:
 	if PC.is_game_over:
@@ -218,18 +253,20 @@ func _update_summon_bonus() -> void:
 	PC.faze_summon_extra_capacity = 0
 	PC.faze_summon_bullet_size_bonus = 0.0
 	
-	# 3阶：召唤物伤害+15%，触发间隔-10%
-	if level >= 3:
-		PC.faze_summon_damage_bonus += 0.15
+	# 4阶：召唤物伤害与治疗+20%，触发间隔-10%
+	if level >= 4:
+		PC.faze_summon_damage_bonus += 0.20
 		PC.faze_summon_interval_reduction += 0.1
 		
-	# 6阶：最大召唤物容量+1，召唤物弹体大小+20%
-	if level >= 6:
+	# 7阶：最大召唤物容量+1，召唤物弹体大小+20%
+	if level >= 7:
 		PC.faze_summon_extra_capacity += 1
 		PC.faze_summon_bullet_size_bonus += 0.2
+	# 10阶：召唤1个不占容量的双极魔剑，召唤物伤害与治疗+40%
 	if level >= 10:
 		PC.faze_summon_damage_bonus += 0.40
-	if level >= 14:
+	# 16阶：召唤1个不占容量的陨灭剑灵，召唤物伤害与治疗+100%，触发间隔-30%
+	if level >= 16:
 		PC.faze_summon_damage_bonus += 1.0
 		PC.faze_summon_interval_reduction += 0.3
 	_update_summon_bonus_implementation()
@@ -238,6 +275,8 @@ var _last_applied_summon_damage: float = 0.0
 var _last_applied_summon_interval: float = 0.0
 var _last_applied_summon_cap: int = 0
 var _last_applied_summon_size: float = 0.0
+var _last_applied_summon_atk_bonus: int = 0
+var _last_applied_summon_atk_speed_bonus: float = 0.0
 
 func _update_summon_bonus_implementation() -> void:
 	var level = PC.faze_summon_level
@@ -247,15 +286,15 @@ func _update_summon_bonus_implementation() -> void:
 	var extra_cap = 0
 	var size_bonus = 0.0
 	
-	if level >= 3:
-		damage_bonus += 0.15
+	if level >= 4:
+		damage_bonus += 0.20
 		interval_reduction += 0.1
-	if level >= 6:
+	if level >= 7:
 		extra_cap += 1
 		size_bonus += 0.2
 	if level >= 10:
 		damage_bonus += 0.40
-	if level >= 14:
+	if level >= 16:
 		damage_bonus += 1.0
 		interval_reduction += 0.3
 		
@@ -274,15 +313,26 @@ func _update_summon_bonus_implementation() -> void:
 	PC.summon_bullet_size_multiplier = PC.summon_bullet_size_multiplier - _last_applied_summon_size + size_bonus
 	_last_applied_summon_size = size_bonus
 	
-	# Summon special units
+	# Summon special units (法则专属，不占召唤物容量)
+	# 使用 PC 标志位 + 场景检测双重判断：
+	# - 标志位为 false：首次需要生成
+	# - 标志位为 true 但场景中不存在：召唤物被销毁，需要重新生成
 	if level >= 10:
-		if not _has_special_summon(3):
+		if not PC.has_summoned_bipolar_sword or not _has_special_summon(3):
+			if PC.has_summoned_bipolar_sword:
+				# 召唤物丢失，重新生成
+				print("[御灵法则] 双极魔剑丢失，重新召唤")
 			_summon_bipolar_sword()
-		PC.has_summoned_bipolar_sword = true
-	if level >= 14:
-		if not _has_special_summon(10):
+			PC.has_summoned_bipolar_sword = true
+	if level >= 16:
+		if not PC.has_summoned_sword_spirit or not _has_special_summon(10):
+			if PC.has_summoned_sword_spirit:
+				print("[御灵法则] 陨灭剑灵丢失，重新召唤")
 			_summon_sword_spirit()
-		PC.has_summoned_sword_spirit = true
+			PC.has_summoned_sword_spirit = true
+	
+	# 13阶：每个召唤物使角色攻击力+10%，攻速+8%（动态更新）
+	_update_summon_count_bonus()
 
 func _summon_bipolar_sword() -> void:
 	_spawn_special_summon(3) # 3 is GOLD_ENHANCED (based on enum in summon.gd: BLUE_RANDOM=0... GOLD_ENHANCED=3)
@@ -313,6 +363,28 @@ func _has_special_summon(type_int: int) -> bool:
 		if child.get("summon_type") == type_int:
 			return true
 	return false
+
+# 13阶：每个召唤物使角色攻击力+10%，攻速+8%（动态，随召唤物数量变化）
+func _update_summon_count_bonus() -> void:
+	var level = PC.faze_summon_level
+	var count = PC.summon_count
+	
+	var target_atk_bonus = 0
+	var target_atk_speed_bonus = 0.0
+	
+	if level >= 13:
+		target_atk_bonus = int(count * PC.pc_start_atk * 0.10)
+		target_atk_speed_bonus = float(count) * 0.08
+	
+	# 应用攻击力差值
+	var delta_atk = target_atk_bonus - _last_applied_summon_atk_bonus
+	PC.pc_atk += delta_atk
+	_last_applied_summon_atk_bonus = target_atk_bonus
+	
+	# 应用攻速差值
+	var delta_atk_speed = target_atk_speed_bonus - _last_applied_summon_atk_speed_bonus
+	PC.pc_atk_speed += delta_atk_speed
+	_last_applied_summon_atk_speed_bonus = target_atk_speed_bonus
 
 var _last_applied_shield_hp_bonus: float = 0.0
 var _last_applied_shield_gain_bonus: float = 0.0
@@ -345,10 +417,10 @@ func _update_shield_law_bonus() -> void:
 	if level >= 7:
 		hp_bonus += 0.35
 		
-	# 10阶：护盾获取加成再次提升50%，护盾因时间结束消失后，其50%会转为生命回复
+	# 10阶：护盾获取加成再次提升50%，护盾因时间结束消失后，其60%会转为生命回复
 	if level >= 10:
 		gain_bonus += 0.50
-		heal_conversion = 0.50
+		heal_conversion = 0.60
 		
 	if PC.pc_max_hp > 0:
 		var base_hp = float(PC.pc_max_hp) / (1.0 + _last_applied_shield_hp_bonus)
@@ -670,18 +742,60 @@ static func apply_destroy_crit_overflow(base_chance: float, base_crit_multi: flo
 		"crit_multi": final_crit_multi
 	}
 
+# ============ 破坏法则 - 引爆 ============
+
+static func get_destroy_detonation_chance(level: int) -> float:
+	# 7阶：6%概率引爆
+	if level >= 7:
+		return 0.06
+	return 0.0
+
+static func get_destroy_detonation_damage_multiplier(level: int) -> float:
+	# 7阶：75%攻击，10阶：160%攻击，16阶：800%攻击
+	if level >= 16:
+		return 8.0
+	if level >= 10:
+		return 1.6
+	if level >= 7:
+		return 0.75
+	return 0.0
+
+# 破坏类武器击中敌人时调用
+static func on_destroy_weapon_hit(enemy: Node, is_crit: bool, is_kill: bool = false) -> void:
+	if PC.faze_destroy_level < 7:
+		return
+	if not is_instance_valid(enemy):
+		return
+	
+	# 只有暴击或击杀时才可能触发引爆
+	if not is_crit and not is_kill:
+		return
+	
+	var chance = get_destroy_detonation_chance(PC.faze_destroy_level)
+	if randf() >= chance:
+		return
+	
+	_trigger_destory_detonation(enemy.global_position)
+
+static func _trigger_destory_detonation(target_pos: Vector2) -> void:
+	if not manager_instance:
+		return
+	
+	var level = PC.faze_destroy_level
+	var damage = PC.pc_atk * get_destroy_detonation_damage_multiplier(level)
+	
+	var detonation = Global.faze_destory_pool.acquire(manager_instance.get_tree().current_scene)
+	detonation.setup_detonation(target_pos, damage, true, level)
+
 static func get_life_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
-		bonus += 0.25
-	if level >= 7:
-		bonus += 0.35
-	if level >= 10:
-		bonus += 0.50
+		bonus += 0.25 # 4阶：+25%
+	# 7阶、10阶无武器伤害加成
 	if level >= 13:
-		bonus += 0.70
+		bonus += 0.50 # 13阶：再次+50%
 	if level >= 16:
-		bonus += 1.80
+		bonus += 1.20 # 16阶：再次+120%
 	return 1.0 + bonus
 
 static func get_life_range_multiplier(level: int) -> float:
@@ -691,12 +805,11 @@ static func get_life_range_multiplier(level: int) -> float:
 	return 1.0 + bonus
 
 static func get_life_exp_multiplier(level: int) -> float:
-	if level >= 16:
-		return 3.0
+	# 4阶：+20%（10阶：+75%，13阶：+120%，16阶：+120%保持）
+	if level >= 13:
+		return 2.2
 	if level >= 10:
-		return 1.8
-	if level >= 7:
-		return 1.4
+		return 1.75
 	if level >= 4:
 		return 1.2
 	return 1.0
@@ -863,35 +976,35 @@ static func get_sixsense_multiplier(level: int) -> float:
 
 static func get_chaos_final_damage_multiplier(level: int) -> float:
 	var bonus = 0.0
-	if level >= 2:
-		bonus += 0.20
-	if level >= 4:
-		bonus += 0.40
-	if level >= 6:
-		bonus += 0.80
+	if level >= 3:
+		bonus += 0.15
+	if level >= 5:
+		bonus += 0.30
+	if level >= 7:
+		bonus += 0.60
 	if level >= 9:
-		bonus += 1.60
+		bonus += 1.20
 	return 1.0 + bonus
 
 static func get_chaos_exp_multiplier(level: int) -> float:
 	var bonus = 0.0
-	if level >= 2:
-		bonus += 0.20
-	if level >= 4:
-		bonus += 0.40
-	if level >= 6:
-		bonus += 0.80
+	if level >= 3:
+		bonus += 0.15
+	if level >= 5:
+		bonus += 0.30
+	if level >= 7:
+		bonus += 0.60
 	if level >= 9:
-		bonus += 1.60
+		bonus += 1.20
 	return 1.0 + bonus
 
 static func get_chaos_point_multiplier(level: int) -> float:
 	var bonus = 0.0
-	if level >= 2:
-		bonus += 0.10
-	if level >= 4:
-		bonus += 0.20
-	if level >= 6:
+	if level >= 3:
+		bonus += 0.15
+	if level >= 5:
+		bonus += 0.25
+	if level >= 7:
 		bonus += 0.40
 	if level >= 9:
 		bonus += 0.80
@@ -1143,8 +1256,7 @@ func _spawn_barrage_wave(origin: Vector2, damage: float, angle_offset: float) ->
 	for i in range(45):
 		var angle_deg = angle_offset + float(i) * 8.0
 		var dir = Vector2.RIGHT.rotated(deg_to_rad(angle_deg))
-		var bullet = faze_rain_bullet_scene.instantiate()
-		scene.add_child(bullet)
+		var bullet = Global.rain_bullet_pool.acquire(scene)
 		bullet.setup_barrage_bullet(origin, dir, damage)
 
 static func _get_barrage_total_bullets(level: int) -> int:
@@ -1160,10 +1272,10 @@ static func _get_barrage_damage_multiplier(level: int) -> float:
 	if level >= 18:
 		return 5.0
 	if level >= 15:
-		return 1.8
+		return 1.5
 	if level >= 12:
-		return 0.9
-	return 0.5
+		return 0.8
+	return 0.45
 
 static func _sync_barrage_charge_buff() -> void:
 	if PC.faze_bullet_level < 8:
@@ -1217,3 +1329,70 @@ static func get_heal_shield_bonus(level: int) -> float:
 	if level >= 13:
 		bonus += 0.50
 	return bonus
+
+# ============ 鸣雷法则 - 鸣雷劈向目标 ============
+
+static func get_thunder_strike_trigger_chance(level: int) -> float:
+	# 7阶：5%，10阶：15%，13阶：60%
+	if level >= 13:
+		return 0.60
+	if level >= 10:
+		return 0.15
+	if level >= 7:
+		return 0.05
+	return 0.0
+
+static func get_thunder_strike_base_damage(level: int) -> float:
+	# 7阶：70%攻击，10阶：150%攻击，13阶：再提升120%
+	var base = 0.70
+	if level >= 10:
+		base = 1.50
+	if level >= 13:
+		base *= (1.0 + 1.20) # 再提升120%
+	return base
+
+static func get_thunder_strike_elite_bonus(level: int) -> float:
+	# 10阶：100%，13阶：300%
+	if level >= 13:
+		return 3.0
+	if level >= 10:
+		return 1.0
+	return 0.0
+
+# 鸣雷系武器击中敌人时调用
+static func on_thunder_weapon_hit(enemy: Node) -> void:
+	if PC.faze_thunder_level < 7:
+		return
+	if not is_instance_valid(enemy):
+		return
+	
+	var chance = get_thunder_strike_trigger_chance(PC.faze_thunder_level)
+	if randf() >= chance:
+		return
+	
+	_trigger_thunder_strike(enemy.global_position, enemy)
+
+# 感电触发时调用
+static func on_electrified_trigger(enemy: Node) -> void:
+	if PC.faze_thunder_level < 7:
+		return
+	if not is_instance_valid(enemy):
+		return
+	
+	var chance = get_thunder_strike_trigger_chance(PC.faze_thunder_level)
+	if randf() >= chance:
+		return
+	
+	_trigger_thunder_strike(enemy.global_position, enemy)
+
+static func _trigger_thunder_strike(target_pos: Vector2, target_enemy: Node) -> void:
+	if not manager_instance:
+		return
+	
+	var level = PC.faze_thunder_level
+	var base_damage = PC.pc_atk * get_thunder_strike_base_damage(level)
+	var elite_bonus = get_thunder_strike_elite_bonus(level)
+	
+	# 从对象池获取鸣雷实例
+	var thunder = Global.faze_thunder_pool.acquire(manager_instance.get_tree().current_scene)
+	thunder.setup_thunder_strike(target_pos, base_damage, elite_bonus)

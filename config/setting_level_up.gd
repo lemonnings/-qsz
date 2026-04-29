@@ -103,16 +103,23 @@ func _load_rewards_from_csv(file_path: String):
 	print("成功从 ", file_path, " 加载 ", all_rewards_list.size(), " 个奖励")
 
 
-func get_reward_level(rand_num: float, main_skill_name: String = '') -> Reward:
+func get_reward_level(rand_num: float, main_skill_name: String = '', exclude_reward_ids: Array[String] = []) -> Reward:
 	var selected_reward: Reward
+	var selected_rarity: String
 	if rand_num <= PC.now_red_p:
-		selected_reward = select_reward('red', main_skill_name)
+		selected_rarity = 'red'
+		selected_reward = select_reward('red', main_skill_name, exclude_reward_ids)
 	elif rand_num <= PC.now_gold_p + PC.now_red_p:
-		selected_reward = select_reward('gold', main_skill_name)
+		selected_rarity = 'gold'
+		selected_reward = select_reward('gold', main_skill_name, exclude_reward_ids)
 	elif rand_num <= PC.now_darkorchid_p + PC.now_gold_p + PC.now_red_p:
-		selected_reward = select_reward('darkorchid', main_skill_name)
+		selected_rarity = 'darkorchid'
+		selected_reward = select_reward('darkorchid', main_skill_name, exclude_reward_ids)
 	else:
-		selected_reward = select_reward('skyblue', main_skill_name)
+		selected_rarity = 'skyblue'
+		selected_reward = select_reward('skyblue', main_skill_name, exclude_reward_ids)
+	
+	print("[Reward] rand_num=", rand_num, " -> 稀有度=", selected_rarity, " 结果=", selected_reward.reward_name if selected_reward else "null", " | exclude=", exclude_reward_ids)
 
 	if selected_reward != null and selected_reward.id != "NoAdvance":
 		for i in range(all_rewards_list.size()):
@@ -260,7 +267,7 @@ func _select_reward_by_weight(available_rewards: Array[Reward]) -> Reward:
 	return weighted_rewards_list[-1].reward # 回退机制，理想情况下不应执行到此。确保之前的逻辑覆盖所有情况。
 
 # 主要的奖励选择函数：基于稀有度（CSV中的名称）、派系选择和个体权重来获取一个奖励。
-func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Reward:
+func select_reward(csv_rarity_name: String, main_skill_name: String = '', exclude_reward_ids: Array[String] = []) -> Reward:
 	var max_rerolls = 100 # 设置最大重抽次数，防止无限循环。
 	var is_main_skill_advance = false
 	for i in range(max_rerolls):
@@ -287,6 +294,10 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 			if is_emblem_reward and EmblemManager.get_emblem_count() >= PC.emblem_slots_max:
 				print("纹章已达上限，跳过奖励: " + r.id)
 				continue
+			# 排除已锁定的奖励
+			if r.id in exclude_reward_ids:
+				print("奖励 '" + r.id + "' 已被锁定，跳过")
+				continue
 			if main_skill_name != '':
 				# 主技能进阶升级：_get_rewards_by_rarity_str已经筛选了if_advance=true和faction匹配的奖励
 				faction_specific_rewards.append(r)
@@ -294,7 +305,9 @@ func select_reward(csv_rarity_name: String, main_skill_name: String = '') -> Rew
 				# 普通升级：按派系筛选
 				if r.faction == selected_faction:
 					faction_specific_rewards.append(r)
-		#print("select_reward - faction_specific_rewards size after loop: ", faction_specific_rewards.size())
+		
+		if csv_rarity_name in ['gold', 'darkorchid', 'red', 'skyblue']:
+			print("[Reward] select_reward 稀有度=", csv_rarity_name, " 派系=", selected_faction, " 该派系候选=", faction_specific_rewards.size(), " 总候选=", all_rewards_for_rarity.size(), " exclude=", exclude_reward_ids)
 				
 		if faction_specific_rewards != null and faction_specific_rewards.size() != 0:
 			var chosen_reward = _select_reward_by_weight(faction_specific_rewards)
@@ -620,6 +633,9 @@ func check_Bloodwave_condition() -> bool:
 func check_Bloodboardsword_condition() -> bool:
 	return PC.selected_rewards.has("Bloodboardsword")
 
+func check_Riyan_condition() -> bool:
+	return PC.selected_rewards.has("Riyan")
+	
 func check_Thunder1() -> bool:
 	return PC.selected_rewards.has("Thunder1")
 
@@ -2021,6 +2037,18 @@ func reward_UR20():
 		battle_scene.add_summon(3) # 假设3是红色召唤物的类型ID
 	_level_up_action()
 
+# UR20Special: 获得陨灭剑灵 (红色特殊召唤物)
+func reward_UR20Special():
+	PC.summon_count += 1
+	PC.selected_rewards.append("red_special_summon")
+	PC.faze_summon_level += 2
+	PC.new_summon = "red_special" # 记录最新获得的召唤物类型
+	# 通知battle场景添加召唤物 (类型10代表陨灭剑灵 SWORD_SPIRIT)
+	var battle_scene = PC.player_instance
+	if battle_scene and battle_scene.has_method("add_summon"):
+		battle_scene.add_summon(10)
+	_level_up_action()
+
 # 橙色(金色)召唤物最大数量上限增加1
 func reward_SR26():
 	PC.summon_count_max += 1
@@ -2102,6 +2130,14 @@ func reward_UR22():
 	var battle_scene = PC.player_instance
 	if battle_scene and battle_scene.has_method("add_summon"):
 		battle_scene.add_summon(9)
+	_level_up_action()
+
+func reward_SwordQi():
+	PC.selected_rewards.append("Swordqi")
+	PC.current_weapon_num += 1
+	PC.new_weapon_obtained_count += 1
+	PC.faze_sword_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 
 func reward_Branch():
@@ -2493,28 +2529,28 @@ func reward_RingFire33():
 	PC.faze_bagua_level += 1
 	_level_up_action()
 
-func reward_Rriyan():
+func reward_RRiyan():
 	PC.main_skill_riyan += 1
 	PC.pc_atk = int(PC.pc_atk * 1.02)
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.02)
 	PC.main_skill_riyan_damage += 0.06
 	_level_up_action()
 
-func reward_SRriyan():
+func reward_SRRiyan():
 	PC.main_skill_riyan += 1
 	PC.pc_atk = int(PC.pc_atk * 1.022)
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.022)
 	PC.main_skill_riyan_damage += 0.07
 	_level_up_action()
 	
-func reward_SSRriyan():
+func reward_SSRRiyan():
 	PC.main_skill_riyan += 1
 	PC.pc_atk = int(PC.pc_atk * 1.025)
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.025)
 	PC.main_skill_riyan_damage += 0.08
 	_level_up_action()
 
-func reward_URriyan():
+func reward_URRiyan():
 	PC.main_skill_riyan += 1
 	PC.pc_atk = int(PC.pc_atk * 1.03)
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.03)
@@ -3805,7 +3841,7 @@ func _check_tiandao_fusion():
 		# 得道总值：最终伤害+100%，体力+150%，减伤+70%
 		# 追加差值：最终伤害+92%，体力+138%，减伤+65%
 		PC.pc_final_atk += 0.92
-		PC.pc_max_hp = int(PC.pc_max_hp * 2.38)  # 当前基础乘以(1+1.38)，即额外+138%
+		PC.pc_max_hp = int(PC.pc_max_hp * 2.38) # 当前基础乘以(1+1.38)，即额外+138%
 		PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.65, 0.95)
 
 func reward_UR46():

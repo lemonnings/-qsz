@@ -64,8 +64,8 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 				base_direction = Vector2.RIGHT
 			
 	# 发射主冰刺
-	var main_ice = scene.instantiate()
-	tree.current_scene.add_child(main_ice)
+	var current_scene = tree.current_scene
+	var main_ice = Global.ice_flower_pool.acquire(current_scene)
 	main_ice.setup_ice_flower(
 		spawn_position,
 		base_direction,
@@ -83,8 +83,7 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 		var random_angle = randf_range(-half_angle, half_angle)
 		var small_direction = base_direction.rotated(deg_to_rad(random_angle))
 		
-		var small_ice = scene.instantiate()
-		tree.current_scene.add_child(small_ice)
+		var small_ice = Global.ice_flower_pool.acquire(current_scene)
 		
 		var small_damage = data.damage * data.small_damage_ratio
 		var small_scale = data.base_scale * data.small_scale_ratio * Global.get_attack_range_multiplier()
@@ -216,7 +215,7 @@ func _process(delta: float) -> void:
 		modulate.a = 1.0 - fade_t
 	
 	if travel_elapsed >= travel_duration:
-		queue_free()
+		ObjectPool.recycle(self )
 
 func setup_ice_flower(p_start_position: Vector2, p_direction: Vector2, p_range: float, p_damage: float, p_penetration_count: int, p_pierce_decay: float, p_scale: float, p_is_extra_attack: bool = false) -> void:
 	base_node_scale = scale
@@ -238,8 +237,8 @@ func setup_ice_flower(p_start_position: Vector2, p_direction: Vector2, p_range: 
 	_apply_visual()
 
 func _apply_visual() -> void:
-	# 默认sprite朝上，需要顺时针旋转90度(PI/2)以匹配Godot的0度(右向)
-	rotation = ice_direction.angle() + rotation_offset + PI / 2
+	# 动画默认朝右，直接用方向角度即可
+	rotation = ice_direction.angle() + rotation_offset
 	# global_position 已经在 _process 中设置，这里不需要重置，除非是初始化
 	if travel_elapsed == 0.0:
 		global_position = start_position
@@ -270,6 +269,10 @@ func _on_area_entered(area: Area2D) -> void:
 		# 击中粒子崩散特效
 		HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "ice_flower")
 		Faze.on_bullet_hit()
+		# 破坏法则引爆：暴击或击杀
+		if area.is_in_group("enemies"):
+			var was_killed = area.get("is_dead") == true
+			Faze.on_destroy_weapon_hit(area, is_crit, was_killed)
 		
 		if penetration_count > 0:
 			penetration_count -= 1
@@ -278,5 +281,27 @@ func _on_area_entered(area: Area2D) -> void:
 			if pierce_decay > 0:
 				ice_damage *= (1.0 - pierce_decay)
 		else:
-			# 穿透次数用完，销毁
-			queue_free()
+			# 穿透次数用完，回收
+			ObjectPool.recycle(self )
+
+## 对象池重置：清除状态供复用
+func reset_for_pool() -> void:
+	ice_damage = 0.0
+	ice_range = 0.0
+	ice_direction = Vector2.RIGHT
+	penetration_count = 0
+	pierce_decay = 0.0
+	travel_speed = 300.0
+	travel_duration = 0.0
+	travel_elapsed = 0.0
+	start_position = Vector2.ZERO
+	end_position = Vector2.ZERO
+	hit_targets.clear()
+	modulate.a = 1.0
+	rotation = 0.0
+	scale = base_node_scale
+	global_position = Vector2.ZERO
+	if sprite:
+		sprite.play("default")
+	if collision_shape:
+		collision_shape.set_deferred("disabled", false)

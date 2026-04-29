@@ -13,8 +13,10 @@ signal level_up_selection_made
 # 升级界面相关变量
 var now_main_skill_name: String = ""
 var pending_level_ups: int = 0
-# 锁定的奖励数据存储 {button_id: reward_data}
+# 已确认的锁定奖励数据存储 {button_id: reward_data}，跨次升级保留
 var locked_rewards: Dictionary = {}
+# 当前界面临时锁定的奖励数据 {button_id: reward_data}，仅在当前界面有效
+var tentative_locked_rewards: Dictionary = {}
 # 当前显示的奖励数据 {button_id: reward_data}
 var current_rewards: Dictionary = {}
 
@@ -46,13 +48,25 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	# 战败后不再弹出升级界面，防止游戏卡死
 	if PC.is_game_over:
 		return
+	
+	now_main_skill_name = main_skill_name
+	# 只有普通升级的首次打开（refresh_id==0）才消耗 pending_level_ups
+	# 刷新操作（refresh_id!=0）只是重抽奖励，不消耗升级次数
+	# 进化升级也不消耗
+	if main_skill_name == "" and refresh_id == 0:
+		pending_level_ups = max(0, pending_level_ups - 1)
+		print("[LvUp] handle_level_up 普通升级, pending_level_ups → ", pending_level_ups)
+	elif main_skill_name == "" and refresh_id != 0:
+		print("[LvUp] handle_level_up 刷新操作(refresh_id=", refresh_id, "), pending_level_ups = ", pending_level_ups, " (不变)")
+	else:
+		print("[LvUp] handle_level_up 进化升级(", main_skill_name, "), pending_level_ups = ", pending_level_ups, " (不变)")
+	Global.is_level_up = true
+	
 	# 初始展示升级界面时才需要延迟（刷新按键点击时不延迟，由调用方管理过渡）
-	if scene_tree and refresh_id == 0:
+	# 手动模式由玩家主动点击触发，无需延迟
+	if scene_tree and refresh_id == 0 and PC.instant_level_up:
 		await scene_tree.create_timer(0.25, true, false, true).timeout
 	
-	now_main_skill_name = main_skill_name # Always update now_main_skill_name from the parameter
-	pending_level_ups -= 1
-	Global.is_level_up = true
 	lv_up_change.visible = true
 	
 	# 渐入 instant_level_up_button（与升级选项一同出现；刷新时按钮不渐入渐出）
@@ -79,9 +93,25 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	if main_skill_name != "":
 		advance_pool_is_empty = LvUp.is_advance_pool_empty(main_skill_name)
 	
-	# 所有位置都正常抽取（锁定位置也会抽取以消耗奖池，稍后用锁定内容覆盖）
-	if (refresh_id == 0 or refresh_id == 1):
-		reward1 = LvUp.get_reward_level(r1_rand, main_skill_name)
+	# 普通升级时，已确认锁定的位置不抽取（节省奖池）
+	var skip_reward1 = (main_skill_name == "" and locked_rewards.has(1))
+	var skip_reward2 = (main_skill_name == "" and locked_rewards.has(2))
+	var skip_reward3 = (main_skill_name == "" and locked_rewards.has(3))
+	
+	# 收集已确认锁定的奖励ID，排除在抽取之外
+	var exclude_reward_ids: Array[String] = []
+	for btn_id in locked_rewards.keys():
+		var locked_reward = locked_rewards[btn_id]
+		if locked_reward != null:
+			exclude_reward_ids.append(locked_reward.id)
+	if not exclude_reward_ids.is_empty():
+		print("[Lock] 抽取排除已锁定奖励: ", exclude_reward_ids)
+	
+	# 调试：打印当前概率阈值
+	print("[Reward] 概率阈值: red_p=", PC.now_red_p, " gold_p=", PC.now_gold_p, " darkorchid_p=", PC.now_darkorchid_p, " | 累积: red<=", PC.now_red_p, " gold<=", PC.now_gold_p + PC.now_red_p, " darkorchid<=", PC.now_darkorchid_p + PC.now_gold_p + PC.now_red_p)
+	
+	if (refresh_id == 0 or refresh_id == 1) and not skip_reward1:
+		reward1 = LvUp.get_reward_level(r1_rand, main_skill_name, exclude_reward_ids)
 		if reward1 == null:
 			if refresh_id != 0:
 				PC.refresh_num += 1
@@ -96,8 +126,8 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 			if refresh_id != 0:
 				PC.refresh_num += 1
 			print("进阶池不为空，跳过精进选项")
-	if (refresh_id == 0 or refresh_id == 2):
-		reward2 = LvUp.get_reward_level(r2_rand, main_skill_name)
+	if (refresh_id == 0 or refresh_id == 2) and not skip_reward2:
+		reward2 = LvUp.get_reward_level(r2_rand, main_skill_name, exclude_reward_ids)
 		if reward2 == null:
 			if refresh_id != 0:
 				PC.refresh_num += 1
@@ -112,8 +142,8 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 			if refresh_id != 0:
 				PC.refresh_num += 1
 			print("进阶池不为空，跳过精进选项")
-	if (refresh_id == 0 or refresh_id == 3):
-		reward3 = LvUp.get_reward_level(r3_rand, main_skill_name)
+	if (refresh_id == 0 or refresh_id == 3) and not skip_reward3:
+		reward3 = LvUp.get_reward_level(r3_rand, main_skill_name, exclude_reward_ids)
 		if reward3 == null:
 			if refresh_id != 0:
 				PC.refresh_num += 1
@@ -146,7 +176,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 		if lock_b2: lock_b2.visible = false
 		if lock_b3: lock_b3.visible = false
 	else:
-		# 普通升级时显示刷新按钮和锁定按钮
+		# 普通升级时显示刷新按钮和锁定按钮（锁定后不隐藏，以便取消或刷新）
 		if refresh_b1: refresh_b1.visible = true
 		if refresh_b2: refresh_b2.visible = true
 		if refresh_b3: refresh_b3.visible = true
@@ -177,10 +207,10 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	lv_up_change_b2.visible = true
 	lv_up_change_b3.visible = true
 	
-	# 如果是普通升级或刷新，有锁定数据时强制覆盖对应位置（在实际展示前替换）
+	# 如果是普通升级或刷新，有已确认锁定数据时强制覆盖对应位置
 	# 主技能进阶时不消费锁定数据
 	if main_skill_name == "" and not locked_rewards.is_empty():
-		print("[Lock] 覆盖锁定奖励: ", locked_rewards.keys())
+		print("[Lock] 覆盖已确认锁定奖励: ", locked_rewards.keys())
 		if locked_rewards.has(1):
 			reward1 = locked_rewards[1]
 			print("[Lock] 位置1覆盖: ", reward1.reward_name)
@@ -190,23 +220,28 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 		if locked_rewards.has(3):
 			reward3 = locked_rewards[3]
 			print("[Lock] 位置3覆盖: ", reward3.reward_name)
-		# 隐藏被锁定位置的刷新和锁定按钮（已锁定，无需再操作）
-		if locked_rewards.has(1):
-			if refresh_b1: refresh_b1.visible = false
-			if lock_b1: lock_b1.visible = false
-		if locked_rewards.has(2):
-			if refresh_b2: refresh_b2.visible = false
-			if lock_b2: lock_b2.visible = false
-		if locked_rewards.has(3):
-			if refresh_b3: refresh_b3.visible = false
-			if lock_b3: lock_b3.visible = false
-		# 注意：锁定数据不在此处清空，等玩家选择完成后由 _on_level_up_selection_complete 清空
 	
-	# 重置按钮颜色（清除上一次的状态；锁定位置保持灰色0.5，其他位置从透明渐入）
+	# 再用当前界面临时锁定覆盖（临时锁定优先级高于已确认锁定）
+	if main_skill_name == "" and not tentative_locked_rewards.is_empty():
+		print("[Lock] 覆盖临时锁定奖励: ", tentative_locked_rewards.keys())
+		if tentative_locked_rewards.has(1):
+			reward1 = tentative_locked_rewards[1]
+			print("[Lock] 位置1临时覆盖: ", reward1.reward_name)
+		if tentative_locked_rewards.has(2):
+			reward2 = tentative_locked_rewards[2]
+			print("[Lock] 位置2临时覆盖: ", reward2.reward_name)
+		if tentative_locked_rewards.has(3):
+			reward3 = tentative_locked_rewards[3]
+			print("[Lock] 位置3临时覆盖: ", reward3.reward_name)
+	
+	# 重置按钮颜色（锁定位置保持灰色0.5，其他位置从透明渐入）
+	var is_locked_1 = locked_rewards.has(1) or tentative_locked_rewards.has(1)
+	var is_locked_2 = locked_rewards.has(2) or tentative_locked_rewards.has(2)
+	var is_locked_3 = locked_rewards.has(3) or tentative_locked_rewards.has(3)
 	if refresh_id == 0:
-		lv_up_change_b1.modulate = Color(1, 1, 1, 0.0) if not locked_rewards.has(1) else Color(0.5, 0.5, 0.5, 0.0)
-		lv_up_change_b2.modulate = Color(1, 1, 1, 0.0) if not locked_rewards.has(2) else Color(0.5, 0.5, 0.5, 0.0)
-		lv_up_change_b3.modulate = Color(1, 1, 1, 0.0) if not locked_rewards.has(3) else Color(0.5, 0.5, 0.5, 0.0)
+		lv_up_change_b1.modulate = Color(1, 1, 1, 0.0) if not is_locked_1 else Color(0.5, 0.5, 0.5, 0.0)
+		lv_up_change_b2.modulate = Color(1, 1, 1, 0.0) if not is_locked_2 else Color(0.5, 0.5, 0.5, 0.0)
+		lv_up_change_b3.modulate = Color(1, 1, 1, 0.0) if not is_locked_3 else Color(0.5, 0.5, 0.5, 0.0)
 	
 	# 连接升级选择完成信号，用于清理dark_overlay
 	if !Global.is_connected("level_up_selection_complete", _on_level_up_selection_complete):
@@ -230,14 +265,14 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 		
 		# 调整前两个按钮的Y轴位置（在原始 offset_top 基础上加偏移）
 		if reward1 != null:
-			_configure_reward_button(lv_up_change_b1, reward1, rect_ready, rect_off, rect_on, refresh_id)
+			_configure_reward_button(lv_up_change_b1, reward1, rect_ready, rect_off, rect_on, refresh_id, 1)
 			lv_up_change_b1.offset_top = 101.0 + 100.0
 			lv_up_change_b1.offset_bottom = 269.0 + 100.0
 		else:
 			lv_up_change_b1.visible = false
 		
 		if reward2 != null:
-			_configure_reward_button(lv_up_change_b2, reward2, rect_ready, rect_off, rect_on, refresh_id)
+			_configure_reward_button(lv_up_change_b2, reward2, rect_ready, rect_off, rect_on, refresh_id, 2)
 			lv_up_change_b2.offset_top = 101.0 + 350.0
 			lv_up_change_b2.offset_bottom = 269.0 + 350.0
 		else:
@@ -245,34 +280,43 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	else:
 		# 普通升级时，正常配置三个按钮并重置原始位置
 		if reward1 != null:
-			_configure_reward_button(lv_up_change_b1, reward1, rect_ready, rect_off, rect_on, refresh_id)
+			_configure_reward_button(lv_up_change_b1, reward1, rect_ready, rect_off, rect_on, refresh_id, 1)
 			lv_up_change_b1.offset_top = 101.0
 			lv_up_change_b1.offset_bottom = 269.0
 		elif refresh_id == 0:
 			lv_up_change_b1.visible = false
 		
 		if reward2 != null:
-			_configure_reward_button(lv_up_change_b2, reward2, rect_ready, rect_off, rect_on, refresh_id)
+			_configure_reward_button(lv_up_change_b2, reward2, rect_ready, rect_off, rect_on, refresh_id, 2)
 			lv_up_change_b2.offset_top = 293.0
 			lv_up_change_b2.offset_bottom = 461.0
 		elif refresh_id == 0:
 			lv_up_change_b2.visible = false
 		
 		if reward3 != null:
-			_configure_reward_button(lv_up_change_b3, reward3, rect_ready, rect_off, rect_on, refresh_id)
+			_configure_reward_button(lv_up_change_b3, reward3, rect_ready, rect_off, rect_on, refresh_id, 3)
 			lv_up_change_b3.offset_top = 485.0
 			lv_up_change_b3.offset_bottom = 653.0
 		elif refresh_id == 0:
 			lv_up_change_b3.visible = false
 	
 	# 保存当前奖励数据
-	current_rewards.clear()
+	# 普通升级(refresh_id==0)时清空全部；单个刷新时只更新对应位置
+	if refresh_id == 0:
+		current_rewards.clear()
 	if reward1 != null:
 		current_rewards[1] = reward1
+	elif refresh_id == 1:
+		current_rewards.erase(1)
 	if reward2 != null:
 		current_rewards[2] = reward2
+	elif refresh_id == 2:
+		current_rewards.erase(2)
 	if reward3 != null:
 		current_rewards[3] = reward3
+	elif refresh_id == 3:
+		current_rewards.erase(3)
+	print("[Lock] current_rewards 已设置: keys=", current_rewards.keys(), "| reward1=", reward1.reward_name if reward1 else "null", "| reward2=", reward2.reward_name if reward2 else "null", "| reward3=", reward3.reward_name if reward3 else "null")
 	
 	# 创建渐显动画
 	var tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
@@ -308,7 +352,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 
 
 # 配置奖励按钮的私有函数
-func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_off: Rect2, rect_on: Rect2, _refresh_id: int):
+func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_off: Rect2, rect_on: Rect2, _refresh_id: int, button_id: int):
 	# 配置button内部要显示的数据
 	var lvcb: Sprite2D = button.get_node("Pic")
 	var lvTitle: RichTextLabel = button.get_node("Title")
@@ -364,7 +408,11 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 	if !connect_array.is_empty():
 		for conn in connect_array:
 			button.pressed.disconnect(conn.callable)
-	button.pressed.connect(callback)
+	# 包装回调，在选择前处理锁定逻辑
+	var wrapped_callback = func():
+		_on_reward_button_selected(button_id)
+		callback.call()
+	button.pressed.connect(wrapped_callback)
 
 # 检查并处理待升级
 func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport: Viewport = null) -> void:
@@ -447,23 +495,43 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 		# 清理升级选择时创建的背景变暗效果（仅普通升级时）
 		now_main_skill_name = ""
 
+# 玩家点击某个奖励按钮时的处理（在奖励效果应用前调用）
+func _on_reward_button_selected(selected_button_id: int) -> void:
+	# 处理当前界面临时锁定
+	if not tentative_locked_rewards.is_empty():
+		if tentative_locked_rewards.has(selected_button_id):
+			# 玩家选择了被临时锁定的项 → 临时锁定全部不转为已确认，直接清空
+			print("[Lock] 选择了临时锁定项 ", selected_button_id, "，清空所有临时锁定")
+		else:
+			# 玩家选择了其他项 → 临时锁定转为已确认锁定
+			for btn_id in tentative_locked_rewards.keys():
+				locked_rewards[btn_id] = tentative_locked_rewards[btn_id]
+				print("[Lock] 临时锁定转正 位置", btn_id, ": ", tentative_locked_rewards[btn_id].reward_name)
+		tentative_locked_rewards.clear()
+	
+	# 如果玩家选择了已确认锁定的项，消费掉该锁定
+	if locked_rewards.has(selected_button_id):
+		print("[Lock] 消费已确认锁定 位置", selected_button_id, ": ", locked_rewards[selected_button_id].reward_name)
+		locked_rewards.erase(selected_button_id)
+
 # 升级选择完成回调
 func _on_level_up_selection_complete(_viewport: Viewport = null) -> void:
 	# 清理升级选择时创建的背景变暗效果
 	_cleanup_dark_overlay()
-	# 玩家做出选择后清空锁定数据（锁定仅保留一次，选完即失效）
-	if not locked_rewards.is_empty():
-		print("[Lock] 选择完成，清空锁定数据: ", locked_rewards.keys())
-		locked_rewards.clear()
-		# 重置所有按钮颜色，清除锁定时留下的灰色滤镜
-		lv_up_change_b1.modulate = Color(1, 1, 1, 1)
-		lv_up_change_b2.modulate = Color(1, 1, 1, 1)
-		lv_up_change_b3.modulate = Color(1, 1, 1, 1)
-	# 清空当前奖励数据（锁定数据已在上面清除）
+	# 清空当前界面临时锁定数据
+	if not tentative_locked_rewards.is_empty():
+		print("[Lock] 界面关闭，清空临时锁定数据: ", tentative_locked_rewards.keys())
+		tentative_locked_rewards.clear()
+	# 重置所有按钮颜色，清除锁定时留下的灰色滤镜
+	lv_up_change_b1.modulate = Color(1, 1, 1, 1)
+	lv_up_change_b2.modulate = Color(1, 1, 1, 1)
+	lv_up_change_b3.modulate = Color(1, 1, 1, 1)
+	# 清空当前奖励数据（已确认锁定数据保留到下次）
 	current_rewards.clear()
 	
 	# 检查是否还有待升级（包括 advance）
 	var has_more = _has_pending_upgrades()
+	print("[LvUp] _on_level_up_selection_complete: pending=", pending_level_ups, " has_more=", has_more, " advance_pending=", _check_any_advance_pending(), " instant=", PC.instant_level_up)
 	
 	if has_more and PC.instant_level_up:
 		# 即时模式（PC.instant_level_up=true）：渐出当前界面 0.25s，再自动触发下一次（保持游戏暂停）
@@ -475,20 +543,24 @@ func _on_level_up_selection_complete(_viewport: Viewport = null) -> void:
 			Global.emit_signal("level_up_selection_complete")
 		)
 	elif has_more:
-		# 手动模式（PC.instant_level_up=false）：隐藏当前界面，回到等待玩家点击状态
-		# 保持游戏暂停，避免渐出动画期间被打；所有升级完成后再统一取消暂停
-		lv_up_change.visible = false
-		lv_up_change.modulate.a = 1.0
+		# 手动模式（PC.instant_level_up=false）：保持游戏暂停，渐出当前界面 0.25s，再自动触发下一次升级
 		_fade_instant_level_up_button(false)
-		Global.is_level_up = false
-		# 通知 battle_canvas_layer 更新 badge
-		Global.emit_signal("manual_level_up_pending")
+		var tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tween.tween_property(lv_up_change, "modulate:a", 0.0, 0.25)
+		tween.tween_callback(func():
+			lv_up_change.modulate.a = 1.0
+			check_and_process_pending_level_ups(get_tree(), get_viewport())
+		)
 	else:
 		# 所有升级完成，隐藏界面
 		lv_up_change.visible = false
 		# 渐出 instant_level_up_button（与升级选项一同消失）
 		_fade_instant_level_up_button(false)
 		Global.is_level_up = false
+		# 恢复技能节点暂停状态
+		for skill_node in skill_nodes:
+			if skill_node and skill_node.has_method("set_game_paused"):
+				skill_node.set_game_paused(false)
 		if get_tree():
 			get_tree().set_pause(false)
 			# 恢复人物和怪物的动画
@@ -510,6 +582,9 @@ func handle_refresh_button(refresh_id: int, scene_tree: SceneTree = null, viewpo
 # 增加待升级数量
 func add_pending_level_up() -> void:
 	pending_level_ups += 1
+	if not PC.instant_level_up:
+		# 手动模式下通知 UI 显示 level_up_button
+		Global.emit_signal("manual_level_up_pending")
 
 # 获取待升级数量
 func get_pending_level_ups() -> int:
@@ -532,7 +607,7 @@ func get_required_lv_up_value(level: int) -> float:
 	# todo 测试期间/10
 	var value: float = 1200
 	for i in range(level):
-		value = (value + 800 + 4 * (i + 1) * i)
+		value = (value + 1200 + 12.2 * (i + 1) * i)
 	return value
 
 # 清理dark_overlay的私有函数

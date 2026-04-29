@@ -36,28 +36,28 @@ const STAGE_ID_LIST := ["peach_grove", "ruin", "cave", "forest"]
 # 各关卡在不同难度下的属性倍率。
 const STAGE_DIFFICULTY_MULTIPLIERS := {
 	"peach_grove": {
-		STAGE_DIFFICULTY_SHALLOW: 1.0,
-		STAGE_DIFFICULTY_DEEP: 2.25,
-		STAGE_DIFFICULTY_CORE: 2.25 * 1.3821,
-		STAGE_DIFFICULTY_POETRY: 2.25 * 1.3821
+		STAGE_DIFFICULTY_SHALLOW: 1.0, # 30
+		STAGE_DIFFICULTY_DEEP: 1.63, # 55
+		STAGE_DIFFICULTY_CORE: 1.63 * 1.52, # 95
+		STAGE_DIFFICULTY_POETRY: 1.63 * 1.52
 	},
 	"ruin": {
-		STAGE_DIFFICULTY_SHALLOW: 1.0,
-		STAGE_DIFFICULTY_DEEP: 1.85,
-		STAGE_DIFFICULTY_CORE: 1.85 * 1.8524,
-		STAGE_DIFFICULTY_POETRY: 1.85 * 1.8524
+		STAGE_DIFFICULTY_SHALLOW: 1.0, # 45
+		STAGE_DIFFICULTY_DEEP: 1.39, # 65
+		STAGE_DIFFICULTY_CORE: 1.39 * 1.52, # 110
+		STAGE_DIFFICULTY_POETRY: 1.39 * 1.52
 	},
 	"cave": {
-		STAGE_DIFFICULTY_SHALLOW: 1.0,
-		STAGE_DIFFICULTY_DEEP: 1.8417,
-		STAGE_DIFFICULTY_CORE: 1.8417 * 1.5294,
-		STAGE_DIFFICULTY_POETRY: 1.8417 * 1.5294
+		STAGE_DIFFICULTY_SHALLOW: 1.0, # 80
+		STAGE_DIFFICULTY_DEEP: 1.4625, # 125
+		STAGE_DIFFICULTY_CORE: 1.4625 * 1.2416, # 155
+		STAGE_DIFFICULTY_POETRY: 1.4625 * 1.2416
 	},
 	"forest": {
-		STAGE_DIFFICULTY_SHALLOW: 1.0,
-		STAGE_DIFFICULTY_DEEP: 1.6132,
-		STAGE_DIFFICULTY_CORE: 1.6132 * 1.3267,
-		STAGE_DIFFICULTY_POETRY: 1.6132 * 1.3267
+		STAGE_DIFFICULTY_SHALLOW: 1.0, # 140
+		STAGE_DIFFICULTY_DEEP: 1.1843, # 170
+		STAGE_DIFFICULTY_CORE: 1.1843 * 1.069, # 185
+		STAGE_DIFFICULTY_POETRY: 1.1843 * 1.069
 	}
 }
 
@@ -186,10 +186,10 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 
 # lunky概率
 @export var lunky_level: int = 1
-@export var red_p: float = 3
-@export var gold_p: float = 6
-@export var darkorchid_p: float = 18
-@export var blue_p: float = 73
+@export var red_p: float = 0.5
+@export var gold_p: float = 4
+@export var darkorchid_p: float = 25.5
+@export var blue_p: float = 70
 
 # 刷新次数
 @export var refresh_max_num: int = 999
@@ -236,6 +236,9 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 	}
 }
 
+# 天赋树节点等级 { "weapon1-1": 0, "weapon2-2": 1, ... }
+@export var player_study_tree: Dictionary = {}
+
 @export var player_active_skill_data: Dictionary = {
 	"dodge": {
 		"level": 1,
@@ -276,6 +279,11 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 		"level": 1,
 		"learned": [],
 		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png"
+	},
+	"wind_thunder": {
+		"level": 1,
+		"learned": [],
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/fengleipo.png"
 	}
 }
 
@@ -296,10 +304,15 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 @export var is_level_up: bool = false
 @export var main_menu_instance: PackedScene = null
 @export var has_visited_town: bool = false
+@export var is_first_game: bool = true
 
 # 信号定义
 @warning_ignore("unused_signal")
 signal player_hit(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String)
+@warning_ignore("unused_signal")
+signal player_hit_ignore_invincible(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String)
+@warning_ignore("unused_signal")
+signal player_instakill(attacker: Node2D, world_position: Vector2, source_name: String)
 @warning_ignore("unused_signal")
 signal player_lv_up
 @warning_ignore("unused_signal")
@@ -346,6 +359,10 @@ signal boss_hp_bar_take_damage(damage: float)
 signal boss_chant_start(skill_display_name: String, chant_duration: float)
 @warning_ignore("unused_signal")
 signal boss_chant_end
+@warning_ignore("unused_signal")
+signal player_chant_start(skill_display_name: String, chant_duration: float, icon_path: String)
+@warning_ignore("unused_signal")
+signal player_chant_end
 @warning_ignore("unused_signal")
 signal buff_added(buff_id: String, duration: float, stack: int)
 @warning_ignore("unused_signal")
@@ -432,10 +449,21 @@ var dps_timer: Timer
 @export var damage_show_type: int = 2
 @export var damage_show_enabled: bool = true
 @export var particle_enable: bool = true
+@export var screen_shake_enabled: bool = true
 
 const MAX_DAMAGE_LABELS: int = 500
 var _active_damage_label_count: int = 0
 var _damage_label_scene = preload("res://Scenes/global/damage.tscn")
+
+# 对象池 —— 减少高频 instantiate/queue_free 的 GC 开销
+var damage_label_pool: ObjectPool
+var rain_bullet_pool: ObjectPool
+var light_bullet_pool: ObjectPool
+var ice_flower_pool: ObjectPool
+var branch_pool: ObjectPool
+var debuff_burn_pool: ObjectPool
+var faze_thunder_pool: ObjectPool
+var faze_destory_pool: ObjectPool
 
 func _init_dps_counter() -> void:
 	dps_timer = Timer.new()
@@ -473,6 +501,7 @@ func _ready():
 	monster_damage.connect(_on_monster_damage)
 	player_heal.connect(_on_player_heal)
 	player_hit.connect(_on_player_hit)
+	player_hit_ignore_invincible.connect(_on_player_hit_ignore_invincible)
 	add_child(setting_emblem)
 	add_child(audio_manager)
 	add_child(soft_glow_manager)
@@ -485,6 +514,25 @@ func _ready():
 	if dps_timer:
 		dps_timer.start()
 	MouseAnimation.start_mouse_animation()
+	_init_object_pools()
+
+func _init_object_pools() -> void:
+	damage_label_pool = ObjectPool.new(_damage_label_scene, 30)
+	add_child(damage_label_pool)
+	rain_bullet_pool = ObjectPool.new(preload("res://Scenes/player/faze_rain_bullet.tscn"), 50)
+	add_child(rain_bullet_pool)
+	light_bullet_pool = ObjectPool.new(preload("res://Scenes/player/light_bullet.tscn"), 20)
+	add_child(light_bullet_pool)
+	ice_flower_pool = ObjectPool.new(preload("res://Scenes/player/ice_flower.tscn"), 20)
+	add_child(ice_flower_pool)
+	branch_pool = ObjectPool.new(preload("res://Scenes/branch.tscn"), 20)
+	add_child(branch_pool)
+	debuff_burn_pool = ObjectPool.new(preload("res://Scenes/player/debuff_burn.tscn"), 10)
+	add_child(debuff_burn_pool)
+	faze_thunder_pool = ObjectPool.new(preload("res://Scenes/player/faze_thunder.tscn"), 5)
+	add_child(faze_thunder_pool)
+	faze_destory_pool = ObjectPool.new(preload("res://Scenes/player/faze_destory.tscn"), 5)
+	add_child(faze_destory_pool)
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -559,8 +607,13 @@ func _debug_command_f10() -> void:
 func _debug_command_f11() -> void:
 	pass
 
+var _debug_console: CanvasLayer = null
+
 func _debug_command_f12() -> void:
-	pass
+	if _debug_console == null:
+		_debug_console = preload("res://Script/system/debug_console.gd").new()
+		add_child(_debug_console)
+	_debug_console.toggle()
 
 func _refresh_debug_resource_views() -> void:
 	var current_scene := get_tree().current_scene
@@ -954,6 +1007,7 @@ func save_game():
 		"shop_first_entered": shop_first_entered,
 		"shop_saved_items": shop_saved_items,
 		"has_visited_town": has_visited_town,
+		"is_first_game": is_first_game,
 		"stage_difficulty_clear_progress": stage_difficulty_clear_progress,
 		"recipe_unlock_progress": recipe_unlock_progress,
 
@@ -983,6 +1037,7 @@ func save_game():
 		"cultivation_zhuifeng_level_max": cultivation_zhuifeng_level_max,
 		"cultivation_liejin_level_max": cultivation_liejin_level_max,
 		"player_study_data": player_study_data,
+		"player_study_tree": player_study_tree,
 		"player_active_skill_data": player_active_skill_data,
 		"player_now_active_skill": player_now_active_skill,
 		"max_main_skill_num": max_main_skill_num,
@@ -998,6 +1053,7 @@ func save_game():
 		"damage_show_enabled": damage_show_enabled,
 		"damage_show_type": damage_show_type,
 		"particle_enable": particle_enable,
+		"screen_shake_enabled": screen_shake_enabled,
 		"time_slow_enabled": time_slow_enabled,
 		"is_test": is_test,
 		"resolution_index": settings_manager.get_current_resolution_index() if settings_manager else 6,
@@ -1053,6 +1109,7 @@ func load_game():
 	shop_lingshi_unit_price = max(int(config.get_value("save", "shop_lingshi_unit_price", shop_lingshi_unit_price)), 50)
 	shop_first_entered = bool(config.get_value("save", "shop_first_entered", shop_first_entered))
 	has_visited_town = bool(config.get_value("save", "has_visited_town", false))
+	is_first_game = bool(config.get_value("save", "is_first_game", true))
 	var loaded_shop_items = config.get_value("save", "shop_saved_items", [])
 	if typeof(loaded_shop_items) == TYPE_ARRAY:
 		shop_saved_items = (loaded_shop_items as Array).duplicate(true)
@@ -1099,6 +1156,7 @@ func load_game():
 	for p_name in loaded_study_data.keys():
 		if not loaded_study_data[p_name].has("zhenqi_points"): loaded_study_data[p_name]["zhenqi_points"] = 100
 	player_study_data = loaded_study_data
+	player_study_tree = config.get_value("save", "player_study_tree", player_study_tree)
 	player_active_skill_data = config.get_value("save", "player_active_skill_data", player_active_skill_data)
 	# 强制修正技能图标路径，防止存档里的旧路径覆盖代码中更新的图标
 	var _skill_icon_table: Dictionary = {
@@ -1129,6 +1187,7 @@ func load_game():
 	damage_show_enabled = config.get_value("save", "damage_show_enabled", true)
 	damage_show_type = config.get_value("save", "damage_show_type", 2)
 	particle_enable = config.get_value("save", "particle_enable", true)
+	screen_shake_enabled = config.get_value("save", "screen_shake_enabled", true)
 	time_slow_enabled = config.get_value("save", "time_slow_enabled", false)
 	is_test = config.get_value("save", "is_test", is_test)
 	if settings_manager:
@@ -1181,7 +1240,7 @@ func _on_player_heal(heal_value: float, world_position: Vector2):
 		var lbl = _create_damage_label()
 		if lbl: lbl.show_damage_number(9, heal_value, world_position)
 
-func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String = "攻击"):
+func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String = "受击"):
 	if not damage_show_enabled: return
 	if shield_val > 0:
 		emit_signal("player_shield_damaged", shield_val)
@@ -1191,13 +1250,28 @@ func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, worl
 		var lbl = _create_damage_label()
 		if lbl: lbl.show_damage_number(11, damage_val, world_position, source_name)
 
+func _on_player_hit_ignore_invincible(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String = "受击"):
+	# 无视无敌伤害的弹幕显示（同player_hit，但不发射player_shield_damaged信号）
+	if not damage_show_enabled: return
+	if shield_val > 0:
+		var lbl = _create_damage_label()
+		if lbl: lbl.show_damage_number(10, shield_val, world_position, source_name)
+	if damage_val > 0:
+		var lbl = _create_damage_label()
+		if lbl: lbl.show_damage_number(11, damage_val, world_position, source_name)
+
 func _create_damage_label() -> Node2D:
 	if _active_damage_label_count >= MAX_DAMAGE_LABELS: return null
-	var instance = _damage_label_scene.instantiate()
-	add_child(instance)
+	var instance = damage_label_pool.acquire(self )
 	instance.z_index = 100
 	_active_damage_label_count += 1
-	instance.tree_exiting.connect(func(): _active_damage_label_count -= 1)
+	# 回收时递减计数（兼容池化和非池化）
+	if not instance.has_meta("_dmg_label_counted"):
+		instance.set_meta("_dmg_label_counted", true)
+		instance.tree_exiting.connect(func(): _active_damage_label_count = max(_active_damage_label_count - 1, 0))
+	else:
+		# 池化复用的实例，手动递减将在回收时处理
+		pass
 	return instance
 
 func get_current_dps() -> float: return current_dps

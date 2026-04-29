@@ -190,7 +190,13 @@ func _play_explosion_and_die_deferred() -> void:
 			if area.has_signal("debuff_applied"):
 				area.emit_signal("debuff_applied", "burn")
 			print("Damage dealt to: ", area.name)
+			# 破坏法则引爆：暴击或击杀
+			var was_killed = area.get("is_dead") == true
+			Faze.on_destroy_weapon_hit(area, is_crit_hit, was_killed)
 			
+	# 爆炎诀爆炸震屏
+	GU.screen_shake(3.0, 0.1)
+	
 	# 直接销毁子弹
 	queue_free()
 

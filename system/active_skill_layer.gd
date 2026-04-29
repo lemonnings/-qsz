@@ -175,6 +175,8 @@ func _get_default_icon_path(skill_id: String) -> String:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shuiliumu.png"
 		"holy_fire":
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png"
+		"wind_thunder":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/fengleipo.png"
 		_:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanbi.png"
 
@@ -412,6 +414,8 @@ func _get_skill_display_name(skill_id: String) -> String:
 			return "水幕护体"
 		"holy_fire":
 			return "神圣灼烧"
+		"wind_thunder":
+			return "风雷破"
 		_:
 			return skill_id
 
@@ -433,6 +437,8 @@ func _build_skill_detail_text(skill_id: String, level: int) -> String:
 			return _build_water_shield_skill_text(level)
 		"holy_fire":
 			return _build_holy_fire_skill_text(level)
+		"wind_thunder":
+			return _build_wind_thunder_skill_text(level)
 		_:
 			return "暂无描述"
 
@@ -589,6 +595,17 @@ func _build_dodge_skill_text(level: int) -> String:
 	var final_cooldown = cooldown * (1 - PC.cooldown)
 	return _format_skill_text("向移动方向位移并获得无敌", [
 		"无敌时间：" + ("%.1f" % invincible_time) + "秒",
+		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	])
+
+func _build_wind_thunder_skill_text(level: int) -> String:
+	var damage_ratio = 275.0
+	var chant_time = 1.2
+	var cooldown = 15.0
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	return _format_skill_text("咏唱后向鼠标方向发射风雷弹，击中敌人造成范围爆炸", [
+		"伤害倍率：" + ("%.0f" % damage_ratio) + "%攻击力",
+		"咏唱时间：" + ("%.1f" % chant_time) + "秒",
 		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	])
 

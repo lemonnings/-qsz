@@ -331,6 +331,10 @@ func _process(delta: float) -> void:
 			
 		damage *= dot_bonus_multiplier
 		_apply_dot_damage(debuff_id, damage)
+		
+		# 鸣雷法则：感电触发时有概率召唤鸣雷劈向目标
+		if debuff_id == "electrified":
+			Faze.on_electrified_trigger(target_enemy)
 
 func _start_death_fade() -> void:
 	death_fade_started = true
@@ -353,10 +357,10 @@ func _apply_dot_damage(debuff_id: String, damage: float) -> void:
 	var config: DebuffData = debuff_entry["config"]
 	var damage_type_int = _get_dot_damage_type_int(debuff_id)
 	if debuff_id == "burn":
-		var burn_instance = burn_scene.instantiate()
-		get_tree().current_scene.add_child(burn_instance)
+		var burn_instance = Global.debuff_burn_pool.acquire(get_tree().current_scene)
 		burn_instance.global_position = target_enemy.global_position
 		burn_instance.scale = Vector2.ONE * Faze.get_burn_range_multiplier(PC.faze_fire_level)
+		burn_instance.setup()
 		
 		var burn_dmg_val = damage * Faze.get_burn_damage_multiplier(PC.faze_fire_level)
 		var burn_main_multiplier = 1.0

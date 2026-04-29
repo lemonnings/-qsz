@@ -23,7 +23,7 @@ var target_position: Vector2 # 用于存储移动目标位置
 var update_move_timer: Timer # 移动模式计时器
 
 var speed: float = SettingMoster.slime_blue("speed") * 0.75 # Boss移动速度，可以调整
-var hpMax: float = SettingMoster.slime_blue("hp") * 22 # Boss最大生命值，可以调整
+var hpMax: float = SettingMoster.slime_blue("hp") * 20 # Boss最大生命值，可以调整
 #var hpMax : float = SettingMoster.slime("hp") * 0.1 # Boss最大生命值，可以调整
 var hp: float = hpMax # Boss当前生命值
 var atk: float = SettingMoster.slime_blue("atk") * 0.9 # Boss攻击力，可以调整
@@ -95,14 +95,14 @@ func _ready():
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
 	hpMax *= _get_difficulty_hp_multiplier()
 	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 8
+	var dps_multiplier := 6
 	match Global.current_stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 11
+			dps_multiplier = 8
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 14
+			dps_multiplier = 10
 		Global.STAGE_DIFFICULTY_POETRY:
-			dps_multiplier = 14
+			dps_multiplier = 10
 	hpMax += Global.get_current_dps() * dps_multiplier
 	print("[BossA] DPS加成HP: +", Global.get_current_dps() * dps_multiplier, "  最终hpMax: ", hpMax)
 	
@@ -509,7 +509,7 @@ func _attack_straight_line():
 		
 		# 播放射击音效
 		$straight.play()
-		_screen_shake(3.0, 0.15)
+		GU.screen_shake(3.0, 0.15)
 		
 		# 进行伤害判定
 		var player_pos = PC.player_instance.global_position
@@ -527,8 +527,6 @@ func _attack_straight_line():
 			Global.emit_signal("player_hit")
 			var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
 			PC.player_hit(int(actual_damage), self , "荆棘之刺")
-			if PC.pc_hp <= 0:
-				PC.player_instance.game_over()
 			print("Player hit by straight line attack, damage: ", actual_damage)
 				
 		await get_tree().create_timer(0.1).timeout
@@ -663,7 +661,7 @@ func _attack_triple_line():
 		
 		# 播放射击音效
 		$straight.play()
-		_screen_shake(3.0, 0.15)
+		GU.screen_shake(3.0, 0.15)
 		
 		# 进行伤害判定
 		var player_pos = PC.player_instance.global_position
@@ -685,8 +683,6 @@ func _attack_triple_line():
 				Global.emit_signal("player_hit")
 				var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
 				PC.player_hit(int(actual_damage), self , "分裂荆棘")
-				if PC.pc_hp <= 0:
-					PC.player_instance.game_over()
 				_player_damaged_this_round = true
 
 				print("Player hit by triple line attack, damage: ", actual_damage)
@@ -785,8 +781,6 @@ func _attack_eight_directions():
 				Global.emit_signal("player_hit")
 				var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
 				PC.player_hit(int(actual_damage), self , "荆棘遍布")
-				if PC.pc_hp <= 0:
-					PC.player_instance.game_over()
 				_player_damaged_this_attack = true
 
 				print("Player hit by eight-direction line attack, damage: ", actual_damage)
@@ -796,7 +790,7 @@ func _attack_eight_directions():
 	for i in 8:
 		var vine_dir = Vector2.RIGHT.rotated(deg_to_rad(i * 45.0))
 		_spawn_vine_along_line(global_position, vine_dir, 600.0, 3)
-	_screen_shake(4.0, 0.2)
+	GU.screen_shake(4.0, 0.2)
 
 	await get_tree().create_timer(0.5).timeout
 	is_attacking = false
@@ -1069,7 +1063,7 @@ func _on_meteor_warning_finished(spawn_pos: Vector2, warning_circle: Node2D):
 		var offset := Vector2.RIGHT.rotated(angle) * randf_range(12.0, 22.0)
 		_spawn_vine_effect_at(spawn_pos + offset)
 	# 陨石落地震颟
-	_screen_shake(1.75, 0.2)
+	GU.screen_shake(1.75, 0.2)
 
 func _on_meteor_damage_dealt(damage_amount: float):
 	"""陨石造成伤害回调"""
@@ -1119,7 +1113,7 @@ func _on_meteor_persistent_warning_finished(spawn_pos: Vector2, warning_circle: 
 	pc_instance.add_to_group("boss_a_poison_circle")
 	get_tree().current_scene.add_child(pc_instance)
 	# 陨石落地震颟
-	_screen_shake(1.75, 0.2)
+	GU.screen_shake(1.75, 0.2)
 
 
 # ============== 新技能: 扇形AOE ==============
@@ -1396,21 +1390,3 @@ func _start_charge_shake() -> void:
 		await get_tree().process_frame
 	if is_instance_valid(camera):
 		camera.offset = base_offset
-
-
-func _screen_shake(intensity: float = 6.0, duration: float = 0.3, _frequency: float = 30.0):
-	var camera = get_viewport().get_camera_2d()
-	if not camera:
-		return
-	var original_offset = camera.offset
-	var elapsed := 0.0
-	while elapsed < duration:
-		var dt = get_process_delta_time()
-		elapsed += dt
-		var strength = intensity * (1.0 - elapsed / duration)
-		camera.offset = original_offset + Vector2(
-			randf_range(-strength, strength),
-			randf_range(-strength, strength)
-		)
-		await get_tree().process_frame
-	camera.offset = original_offset

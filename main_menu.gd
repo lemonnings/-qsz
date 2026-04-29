@@ -56,8 +56,28 @@ func _ready() -> void:
 
 func _on_start_pressed() -> void:
 	Global.in_menu = false
+	if Global.is_first_game:
+		Global.is_first_game = false
+		Global.save_game()
+		# 白屏渐变过渡到开篇剧情
+		_fade_to_white_then_start_story()
+		return
 	Global.soft_glow_manager.enter_gameplay()
 	SceneChange.change_scene("res://Scenes/main_town.tscn", true)
+
+func _fade_to_white_then_start_story() -> void:
+	# 创建黑色全屏遮罩
+	var overlay = ColorRect.new()
+	overlay.color = Color(0, 0, 0, 0)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = 9999
+	add_child(overlay)
+	var tween = create_tween()
+	tween.tween_property(overlay, "color:a", 1.0, 0.6)
+	tween.tween_callback(func():
+		Global.soft_glow_manager.enter_gameplay()
+		SceneChange.change_scene("res://Scenes/town/start_story.tscn", false, true)
+	)
 
 func _on_change_save_pressed() -> void:
 	_show_tip("该功能暂未制作")

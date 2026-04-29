@@ -23,7 +23,7 @@ extends Node
 
 var items_data = {
 	"item_001": {
-		"item_name": "回复精华",
+		"item_name": "愈灵",
 		"item_stack_max": 10,
 		"item_type": "immediate", # 立即生效
 		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/healths.png",
@@ -43,7 +43,7 @@ var items_data = {
 		"item_source": "击败叶精获取\n神秘货摊中购买",
 		"item_use_condition": "",
 		"item_detail": "叶精死后凝结的胶体，粘合性非常出色",
-		"item_rare": "common", # 稀有
+		"item_rare": "common",
 		"item_anime": "res://assets/animations/item_pickup_rare.tres"
 	},
 	"item_003": {
@@ -474,45 +474,9 @@ var items_data = {
 			"item_price": 300,
 			"item_source": "合成获得",
 			"item_use_condition": "",
-			"item_detail": "果实回复效果提升10%（最多10次）",
+			"item_detail": "愈灵回复效果提升10%（最多10次）",
 			"item_rare": "rare",
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
-		},
-		"item_041": {
-			"item_name": "仙枝",
-			"item_stack_max": 1,
-			"item_type": "special",
-			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/xianzhi.png",
-			"item_price": 1000,
-			"item_source": "合成获得",
-			"item_use_condition": "",
-			"item_detail": "获得后，可在战斗之中解锁武器-仙枝的领悟选项",
-			"item_rare": "epic", # 传说
-				"item_anime": "res://assets/animations/item_pickup_rare.tres"
-		},
-		"item_042": {
-			"item_name": "柔水",
-			"item_stack_max": 1,
-			"item_type": "special",
-			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/roushui.png",
-			"item_price": 1000,
-			"item_source": "合成获得",
-			"item_use_condition": "",
-			"item_detail": "获得后，可在战斗之中解锁武器-柔水的领悟选项",
-			"item_rare": "epic", # 传说
-				"item_anime": "res://assets/animations/item_pickup_rare.tres"
-		},
-		"item_043": {
-			"item_name": "下篇契纸",
-			"item_stack_max": 1,
-			"item_type": "special",
-			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/qizhi.png",
-			"item_price": 1000,
-			"item_source": "合成获得",
-			"item_use_condition": "",
-			"item_detail": "解锁合成篇·下篇",
-			"item_rare": "epic", # 传说
-				"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
 		"item_044": {
 			"item_name": "晶核",

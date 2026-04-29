@@ -224,6 +224,16 @@ class WaterShieldSkill extends ActiveSkill:
 				cd_reduction += 0.5
 		cooldown_time = max(3.0, base_cooldown_time - cd_reduction)
 
+# 风雷破技能数据
+class WindThunderSkill extends ActiveSkill:
+	var base_damage_ratio: float = 2.75 # 275%攻击力
+	var damage_ratio: float = 2.75
+	var chant_time: float = 1.2
+	
+	func _init():
+		super ("wind_thunder", "风雷破", "咏唱后向鼠标方向发射风雷弹，击中敌人造成范围爆炸", 15.0)
+		is_unlocked = true
+
 # 神圣灼烧技能数据
 class HolyFireSkill extends ActiveSkill:
 	var base_duration: float = 5.0
@@ -398,6 +408,9 @@ func init_skills():
 	holy_fire_skill.update_from_level(hf_level)
 	mastered_skills["holy_fire"] = holy_fire_skill
 
+	var wind_thunder_skill = WindThunderSkill.new()
+	mastered_skills["wind_thunder"] = wind_thunder_skill
+
 func refresh_skill_levels():
 	"""刷新技能等级（当技能升级时调用）"""
 	for skill_id in mastered_skills.keys():
@@ -495,6 +508,8 @@ func execute_skill(skill: ActiveSkill):
 			execute_water_shield_skill(skill as WaterShieldSkill)
 		"holy_fire":
 			execute_holy_fire_skill(skill as HolyFireSkill)
+		"wind_thunder":
+			execute_wind_thunder_skill(skill as WindThunderSkill)
 		_:
 			push_error("未知技能: " + skill.id)
 
@@ -528,6 +543,37 @@ func execute_holy_fire_skill(skill: HolyFireSkill):
 		if instance.has_method("start"):
 			instance.start(skill.duration, skill.damage_ratio)
 
+func execute_wind_thunder_skill(skill: WindThunderSkill):
+	"""执行风雷破技能：开始咏唱，咏唱完成后发射风雷弹"""
+	if not player:
+		return
+	# 咏唱期间禁止移动
+	PC.movement_disabled = true
+	# 发送咏唱开始信号，通知战斗UI显示咏唱条
+	var icon_path = Global.player_active_skill_data.get("wind_thunder", {}).get("icon", "")
+	Global.emit_signal("player_chant_start", "风雷破", skill.chant_time, icon_path)
+	# 记录咏唱时鼠标位置计算方向
+	var mouse_world_pos = player.get_global_mouse_position()
+	var fire_direction = (mouse_world_pos - player.global_position).normalized()
+	if fire_direction.length() < 0.01:
+		fire_direction = Vector2.RIGHT
+	# 咏唱等待（process_always=false，暂停时计时器也暂停）
+	await get_tree().create_timer(skill.chant_time, false).timeout
+	# 咏唱结束，恢复移动
+	PC.movement_disabled = false
+	if not is_instance_valid(player):
+		Global.emit_signal("player_chant_end")
+		return
+	Global.emit_signal("player_chant_end")
+	# 发射风雷弹
+	var scene = load("res://Scenes/player/wind_thunder.tscn")
+	if scene:
+		var instance = scene.instantiate()
+		get_tree().current_scene.add_child(instance)
+		instance.global_position = player.global_position
+		if instance.has_method("launch"):
+			instance.launch(fire_direction, skill.damage_ratio)
+
 func execute_dodge_skill(dodge_skill: DodgeSkill):
 	"""执行闪避技能"""
 	if not player:
@@ -541,9 +587,9 @@ func execute_dodge_skill(dodge_skill: DodgeSkill):
 	var target_position = player.global_position + dash_direction * dodge_skill.dash_distance
 	
 	# 闪避手感增强：
-	# 1. 先给一个轻微震屏，强化“蹬地闪开”的瞬间反馈。
+	# 1. 先给一个轻微震屏，强化"蹬地闪开"的瞬间反馈。
 	# 2. 再给 0.5 秒慢动作，时间流速降到 0.2。
-	# 注意这里的慢动作恢复，后面会用“忽略 time_scale 的计时器”处理，
+	# 注意这里的慢动作恢复，后面会用"忽略 time_scale 的计时器"处理，
 	# 否则 0.5 秒会被错误地拖长。
 	_play_dodge_feedback()
 	
@@ -722,31 +768,8 @@ func start_dash(target_position: Vector2, dodge_skill: DodgeSkill):
 	tween.tween_callback(func(): on_dash_complete(dodge_skill))
 
 func _play_dodge_feedback() -> void:
-	_start_dodge_screen_shake(DODGE_SHAKE_INTENSITY, DODGE_SHAKE_DURATION)
+	GU.screen_shake(DODGE_SHAKE_INTENSITY, DODGE_SHAKE_DURATION)
 	_start_dodge_slow_motion(DODGE_SLOW_TIME_SCALE, DODGE_SLOW_DURATION)
-
-func _start_dodge_screen_shake(intensity: float, duration: float) -> void:
-	var camera := get_viewport().get_camera_2d()
-	if camera == null:
-		return
-	# 轻微震屏只做一个很小的偏移抖动，
-	# 让闪避起手更有“蹬地发力”的反馈，但不会影响瞄准和看清画面。
-	var original_offset := camera.offset
-	var start_time_usec := Time.get_ticks_usec()
-	var duration_usec := int(duration * 1000000.0)
-	while is_instance_valid(camera):
-		var elapsed_usec := Time.get_ticks_usec() - start_time_usec
-		if elapsed_usec >= duration_usec:
-			break
-		var progress := float(elapsed_usec) / float(duration_usec)
-		var strength := intensity * (1.0 - progress)
-		camera.offset = original_offset + Vector2(
-			randf_range(-strength, strength),
-			randf_range(-strength, strength)
-		)
-		await get_tree().process_frame
-	if is_instance_valid(camera):
-		camera.offset = original_offset
 
 func _start_dodge_slow_motion(target_time_scale: float, duration: float) -> void:
 	dodge_slow_motion_request_id += 1

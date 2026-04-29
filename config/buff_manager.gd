@@ -168,6 +168,15 @@ static func _init_buff_configs():
 		"眩晕中，无法移动"
 	)
 	
+	buff_configs["slow"] = BuffData.new(
+		"slow",
+		"减速",
+		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		BuffType.TEMPORARY,
+		10,
+		"移动速度大幅降低"
+	)
+	
 	buff_configs["restrained"] = BuffData.new(
 		"restrained",
 		"拘束",

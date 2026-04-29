@@ -1,12 +1,12 @@
 extends "res://Script/battleScene/base_stage.gd"
 
-# ============== stage4 特有的怪物场景 ==============
+# ============== stage4 特有导出变量 ==============
 @export var slime_scene: PackedScene
 @export var bat_scene: PackedScene
 @export var frog_scene: PackedScene
 @export var extra_scene: PackedScene
 
-# ============== 实现基类虚方法：关卡配置 ==============
+# ============== 关卡配置 ==============
 func _setup_stage_config() -> void:
 	STAGE_ID = "forest"
 	SPAWN_INTERVAL_SECONDS = 3.85
@@ -15,11 +15,13 @@ func _setup_stage_config() -> void:
 	DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD = 0.3
 	DYNAMIC_BALANCE_SPAWN_MAX_BONUS = 5.0
 	DYNAMIC_BALANCE_HP_MAX_REDUCTION = 0.3
+	LOW_POPULATION_FORCE_WAVE_MIN_TIME_LEFT = 1.25
+	LATE_GAME_TIME_THRESHOLD = 180.0
+	LATE_GAME_LOW_POPULATION_RATIO = 0.35
 	BASIC_TYPES = ["slime", "bat"]
 	OTHER_TYPE_PER_WAVE_MAX = 2
 	OTHER_TYPE_TOTAL_MAX = 5
 	ELITE_MAX = 3
-
 	# FOREST: slime(6), bat(2), frog(3), extra(3)
 	stage_spawn_pool = [
 		{"type": "slime", "weight": 6, "blocked_early": false},
@@ -28,24 +30,52 @@ func _setup_stage_config() -> void:
 		{"type": "extra", "weight": 3, "blocked_early": false}
 	]
 
-# ============== 覆盖 _ready：stage4 特有初始化 ==============
+# ============== 初始化 ==============
 func _ready() -> void:
-	super ()
+	super () # 调用基类 _ready()（含 _setup_stage_config、计时器、信号连接等）
+
+	# stage4 特有的相机参数
 	$Player.camera.zoom = Vector2(2.7, 2.7)
 	$Player.min_zoom = 2.5
+
 	GU.reset_kill_count()
 
-	# stage4 固定使用31000（不区分难度）
-	map_mechanism_num_max = 31000
+	# stage4 固定使用27000（不区分难度）
+	map_mechanism_num_max = 27000
 
 	# 播放密林BGM
 	Global.emit_signal("stage_bgm", "forest")
 
-# ============== 实现基类虚方法：Boss位置 ==============
+# ============== Boss位置（覆盖基类默认值）==============
 func _get_boss_position() -> Vector2:
 	return Vector2(-370, randf_range(185, 259))
 
-# ============== 实现基类虚方法：生成一波怪物 ==============
+# ============== 覆盖 _on_warning_finished：stage4 Boss为石碑 ==============
+func _on_warning_finished() -> void:
+	if not is_inside_tree():
+		return
+	await get_tree().create_timer(3).timeout
+	if not is_inside_tree():
+		return
+
+	# 实例化石碑Boss
+	var boss_scene = preload("res://Scenes/moster/boss_stele.tscn")
+	var boss_node = boss_scene.instantiate()
+
+	# 逐步缩放相机
+	for i in range(7):
+		Global.emit_signal("zoom_camera", -0.08)
+		if not is_inside_tree():
+			return
+		await get_tree().create_timer(0.2).timeout
+		if not is_inside_tree():
+			return
+
+	boss_node.position = _get_boss_position()
+	get_tree().current_scene.add_child(boss_node)
+	_clear_non_boss_enemies()
+
+# ============== 怪物波生成 ==============
 func _spawn_wave() -> void:
 	if boss_event_triggered:
 		return
@@ -73,6 +103,7 @@ func _spawn_wave() -> void:
 		monster_spawn_timer.start()
 		return
 
+	# 每个怪物单独按权重判断类型
 	var wave_other_type_counts: Dictionary = {}
 	var spawn_list: Array[String] = []
 	for i in range(spawn_target_count):
@@ -84,6 +115,7 @@ func _spawn_wave() -> void:
 			other_type_alive += 1
 		spawn_list.append(chosen_type)
 
+	# 逐个生成，间隔0.1秒
 	for i in range(spawn_list.size()):
 		if current_monster_count >= max_monster_limit:
 			break
@@ -105,7 +137,7 @@ func _spawn_wave() -> void:
 
 	monster_spawn_timer.start()
 
-# ============== 各怪物生成方法 ==============
+# ============== 单体怪物生成 ==============
 func _spawn_single_slime() -> void:
 	if not is_inside_tree() or get_tree().current_scene == null:
 		return
@@ -117,11 +149,11 @@ func _spawn_single_slime() -> void:
 		0: # Top
 			spawn_position = Vector2(randf_range(-310, 305), -15)
 		1: # Bottom
-			spawn_position = Vector2(randf_range(-310, 305), -560)
+			spawn_position = Vector2(randf_range(-310, 305), 560)
 		2: # Left
-			spawn_position = Vector2(-310, randf_range(-15, -560))
+			spawn_position = Vector2(-310, randf_range(-15, 560))
 		3: # Right
-			spawn_position = Vector2(305, randf_range(-15, -560))
+			spawn_position = Vector2(305, randf_range(-15, 560))
 	slime_node.position = spawn_position
 	get_tree().current_scene.add_child(slime_node)
 	_try_make_elite(slime_node)
@@ -142,11 +174,11 @@ func _spawn_single_bat() -> void:
 		0: # Top
 			spawn_position = Vector2(randf_range(-310, 305), -15)
 		1: # Bottom
-			spawn_position = Vector2(randf_range(-310, 305), -560)
+			spawn_position = Vector2(randf_range(-310, 305), 560)
 		2: # Left
-			spawn_position = Vector2(-310, randf_range(-15, -560))
+			spawn_position = Vector2(-310, randf_range(-15, 560))
 		3: # Right
-			spawn_position = Vector2(305, randf_range(-15, -560))
+			spawn_position = Vector2(305, randf_range(-15, 560))
 	bat_node.position = spawn_position
 	get_tree().current_scene.add_child(bat_node)
 	_try_make_elite(bat_node)

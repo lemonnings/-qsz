@@ -118,15 +118,25 @@ func get_level_up_weights(rarity: String) -> Dictionary:
 			new_weapon_total = 60.0
 			weapon_upgrade_total = 5.0
 			other_total = 35.0
+	elif rarity == "red":
+		# red级别：去掉武器强化（权重B），全部权重分配给C类其他升级
+		new_weapon_total = 0.0
+		weapon_upgrade_total = 0.0
+		other_total = 100.0
 	else:
+		new_weapon_total = 0.0
+		# 根据武器数量动态调整武器升级权重
 		if weapon_count <= 1:
-			new_weapon_total = 0.0
-			weapon_upgrade_total = 10.0
-			other_total = 90.0
+			weapon_upgrade_total = 8.0
+		elif weapon_count == 2:
+			weapon_upgrade_total = 12.0
+		elif weapon_count == 3:
+			weapon_upgrade_total = 20.0
+		elif weapon_count == 4:
+			weapon_upgrade_total = 30.0
 		else:
-			new_weapon_total = 0.0
-			weapon_upgrade_total = 10 + 10.0 * weapon_count
-			other_total = 100 - weapon_upgrade_total
+			weapon_upgrade_total = 42.0
+		other_total = 100.0 - weapon_upgrade_total
 
 	# 权重B：已有武器平分武器升级总权重
 	if weapon_count > 0:
@@ -145,12 +155,22 @@ func get_level_up_weights(rarity: String) -> Dictionary:
 			result[faction] = per_unowned
 
 	# 权重C：直接使用动态权重归一化到 other_total
+	# red级别：Normal权重 *2.5，Six权重归零
 	var c_sum: float = 0.0
 	for faction in C_FACTIONS:
-		c_sum += get_faction_weight(rarity, faction)
+		var weight: float = get_faction_weight(rarity, faction)
+		if rarity == "red" and faction == "Normal":
+			weight *= 2.5
+		if rarity == "red" and faction == "Six":
+			weight = 0.0
+		c_sum += weight
 	if c_sum > 0.0:
 		for faction in C_FACTIONS:
 			var weight: float = get_faction_weight(rarity, faction)
+			if rarity == "red" and faction == "Normal":
+				weight *= 2.5
+			if rarity == "red" and faction == "Six":
+				weight = 0.0
 			result[faction] = weight / c_sum * other_total
 
 	return result

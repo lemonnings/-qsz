@@ -33,7 +33,10 @@ const DAMAGE_COLORS = {
 	DamageType.PLAYER_HURT: Color.RED # 红色
 }
 
-var base_font_size: int = 0
+var base_font_size: int = 12
+var base_outline_size: int = 2
+var _current_tween: Tween = null
+var _canvas_layer: CanvasLayer = null
 
 # 伤害层级
 # 层级计算：数值 >= 1000 时，每多一个0层级+1
@@ -43,14 +46,17 @@ func _ready():
 	# 初始化时确保Label节点已设置
 	if not damage_label:
 		printerr("DamageDisplay: Label node not assigned!")
-		# 可以选择禁用节点或进行其他错误处理
-		# set_process(false)
-		# set_physics_process(false)
-		# queue_free()
 		return
 	# 初始时可以隐藏Label
 	damage_label.visible = false
-	base_font_size = damage_label.get_theme_font_size("font_size")
+
+	# 创建 CanvasLayer 用于屏幕空间渲染（不受 Camera2D zoom 影响，避免像素模糊）
+	_canvas_layer = CanvasLayer.new()
+	_canvas_layer.name = "DamageCanvasLayer"
+	_canvas_layer.layer = 100
+	add_child(_canvas_layer)
+	# 将 Label 移至 CanvasLayer 下，使其在屏幕空间渲染
+	damage_label.reparent(_canvas_layer)
 
 # 信号处理函数
 # damage_type: 使用 DamageType 枚举的值
@@ -84,8 +90,13 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	if damage_type_int == 11:
 		damage_type = DamageType.PLAYER_HURT
 		
-	# 设置显示位置
-	global_position = display_position
+	# 将世界坐标转换为屏幕坐标（CanvasLayer 屏幕空间渲染，不受 Camera2D zoom 影响）
+	var cam: Camera2D = get_viewport().get_camera_2d()
+	var cam_zoom: float = 1.0
+	var screen_pos: Vector2 = display_position
+	if cam:
+		screen_pos = cam.get_canvas_transform() * display_position
+		cam_zoom = cam.zoom.x
 
 	# 设置颜色文本
 	var base_color = Color.WHITE
@@ -103,33 +114,36 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	if (damage_type == DamageType.PLAYER_HURT or damage_type == DamageType.SHIELD_ABSORB) and source_name != "":
 		text_to_display = source_name + " " + text_to_display
 	
-	var size_multiplier := 1
-	
-	# 整体字号在现有基础上乘以缩放因子；DOT/护盾类型额外 -2；是万/k时+2，是亿/m时+4
+	# ===== 字体大小规则 =====
+	# 默认12；k/万→14(+2)；m/亿→16(+4)
+	# DOT/召唤物始终11；玩家受伤始终16；暴击额外×1.15
 	var final_font_size: int
-	if damage_type == DamageType.DOT_ELECTRIFIED or damage_type == DamageType.DOT_BURN or damage_type == DamageType.DOT_BLEED or damage_type == DamageType.DOT_POISON or damage_type == DamageType.SHIELD_ABSORB:
-		final_font_size = int(round((base_font_size - 4 + font_bonus) * size_multiplier))
+	if damage_type == DamageType.DOT_ELECTRIFIED or damage_type == DamageType.DOT_BURN or damage_type == DamageType.DOT_BLEED or damage_type == DamageType.DOT_POISON or damage_type == DamageType.SUMMON_DAMAGE:
+		final_font_size = 11
+	elif damage_type == DamageType.PLAYER_HURT:
+		final_font_size = 14
 	else:
-		final_font_size = int(round((base_font_size - 2 + font_bonus) * size_multiplier))
-	damage_label.add_theme_font_size_override("font_size", final_font_size)
+		final_font_size = base_font_size + font_bonus # 12+0=12, 12+2=14(k/万), 12+4=16(m/亿)
+		if damage_type == DamageType.PLAYER_BULLET_CRIT:
+			final_font_size = int(round(final_font_size * 1.15))
+	# 按相机缩放调整字号和描边（保持视觉大小一致，避免像素模糊）
+	damage_label.add_theme_font_size_override("font_size", int(round(final_font_size * cam_zoom)))
+	damage_label.add_theme_constant_override("outline_size", int(round(base_outline_size * cam_zoom)))
 	if damage_type == DamageType.PLAYER_BULLET_CRIT:
 		text_to_display += " !"
-		# 暴击字号更大（原1.15 scale等效）
-		final_font_size = int(round((base_font_size - 2 + font_bonus) * size_multiplier * 1.15))
-		damage_label.add_theme_font_size_override("font_size", final_font_size)
 	
 	if damage_type == DamageType.SHIELD_ABSORB:
-		# 护盾损失：向右偏移25，向上偏移10
-		global_position.x -= 5.0
-		global_position.y -= 25.0
+		# 护盾损失：偏移（世界像素转屏幕像素）
+		screen_pos.x -= 5.0 * cam_zoom
+		screen_pos.y -= 25.0 * cam_zoom
 	elif damage_type == DamageType.PLAYER_HURT or damage_type == DamageType.HEAL:
-		# 玩家受伤：向上偏移10
-		global_position.x -= 25.0
-		global_position.y -= 25.0
-	else:
-		pass
-	global_position.x += randf_range(-3.0, 3.0)
-	global_position.y += randf_range(-3.0, 3.0)
+		# 玩家受伤/治疗：偏移（世界像素转屏幕像素）
+		screen_pos.x -= 25.0 * cam_zoom
+		screen_pos.y -= 25.0 * cam_zoom
+	screen_pos.x += randf_range(-3.0, 3.0) * cam_zoom
+	screen_pos.y += randf_range(-3.0, 3.0) * cam_zoom
+	# 设置 Label 屏幕空间位置
+	damage_label.position = screen_pos
 	
 	damage_label.text = text_to_display
 	# 初始透明度为0，用于渐入
@@ -137,6 +151,8 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	damage_label.visible = true
 
 	# 创建动画
+	if _current_tween and _current_tween.is_valid():
+		_current_tween.kill()
 	var tween = create_tween()
 	tween.set_parallel(false) # 确保动画按顺序播放
 	tween.set_trans(Tween.TRANS_QUINT) # 使用缓动函数使动画更平滑
@@ -156,11 +172,32 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	# 获取当前damage_label的相对位置
 	var current_label_pos = damage_label.position
 	
-	tween.tween_property(damage_label, "position:y", current_label_pos.y - 20.0, 0.5)
+	tween.tween_property(damage_label, "position:y", current_label_pos.y - 20.0 * cam_zoom, 0.5)
 	tween.parallel().tween_property(damage_label, "modulate:a", 0.0, 0.5)
 
-	# 动画完成后自动销毁节点
-	tween.finished.connect(queue_free)
+	# 动画完成后回收到对象池（或 queue_free）
+	tween.finished.connect(_on_display_finished)
+	_current_tween = tween
+
+## 动画播放完毕，回收或销毁
+func _on_display_finished() -> void:
+	ObjectPool.recycle(self )
+
+## 对象池重置：清除状态供复用
+func reset_for_pool() -> void:
+	if _current_tween and _current_tween.is_valid():
+		_current_tween.kill()
+	_current_tween = null
+	if damage_label:
+		damage_label.visible = false
+		damage_label.modulate.a = 0.0
+		damage_label.text = ""
+		damage_label.position = Vector2.ZERO
+		if base_font_size > 0:
+			damage_label.add_theme_font_size_override("font_size", base_font_size)
+		damage_label.add_theme_constant_override("outline_size", base_outline_size)
+	modulate.a = 1.0
+	global_position = Vector2.ZERO
 
 # 根据 Global.damage_show_type 对伤害数字进行格式化
 # 返回字典: {"text": 显示文本, "font_bonus": 字号加成（小单位+2，大单位+4）}
@@ -173,20 +210,20 @@ func _format_damage(damage_value: float) -> Dictionary:
 		# 中式缩写：超过10亿显示xx.xx亿，超过10万显示xx.xx万
 		if damage_value >= 1000000000:
 			text = "%.2f亿" % (damage_value / 100000000.0)
-			font_bonus = 4
+			font_bonus = 2
 		elif damage_value >= 100000:
 			text = "%.2f万" % (damage_value / 10000.0)
-			font_bonus = 2
+			font_bonus = 1
 		else:
 			text = str(raw)
 	elif show_type == 2:
 		# 英式缩写：超过10亿显示xx.xxb，超过1000万显示xx.xxm，超过1万显示xx.xxk
 		if damage_value >= 1000000000:
 			text = "%.2fb" % (damage_value / 1000000000.0)
-			font_bonus = 5
+			font_bonus = 3
 		elif damage_value >= 10000000:
 			text = "%.2fm" % (damage_value / 1000000.0)
-			font_bonus = 3
+			font_bonus = 2
 		elif damage_value >= 10000:
 			text = "%.2fk" % (damage_value / 1000.0)
 			font_bonus = 1

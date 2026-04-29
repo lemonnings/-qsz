@@ -17,7 +17,7 @@ var update_move_timer: Timer
 
 # 属性
 var speed: float = SettingMoster.stone_man("speed") * 1.2
-var hpMax: float = SettingMoster.stone_man("hp") * 12 # 正式版50
+var hpMax: float = SettingMoster.stone_man("hp") * 15 # 正式版50
 var hp: float = hpMax
 var atk: float = SettingMoster.stone_man("atk") * 0.75
 var get_point: int = SettingMoster.stone_man("point") * 50
@@ -30,7 +30,7 @@ var stage_difficulty: String = Global.STAGE_DIFFICULTY_SHALLOW
 const ICE_SCENE = preload("res://Scenes/moster/boss_skill/ice.tscn")
 
 # 难度常量
-const CORE_ICE_SPIKE_ANGLE: float = 270.0
+const CORE_ICE_SPIKE_ANGLE: float = 300.0
 
 func _drop_boss_rewards() -> void:
 	# 15%基础概率掉落1种以太（火风雷水土其一）
@@ -92,14 +92,14 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
 	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 8
+	var dps_multiplier := 6
 	match Global.current_stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 11
+			dps_multiplier = 8
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 14
+			dps_multiplier = 10
 		Global.STAGE_DIFFICULTY_POETRY:
-			dps_multiplier = 14
+			dps_multiplier = 10
 	hpMax += Global.get_current_dps() * dps_multiplier
 	hp = hpMax
 	
@@ -252,6 +252,7 @@ var phase_skills_pool: Array = []
 var chain_chant_count: int = 0 # 连环咏唱计数，用于诗想终极技能轮换
 var _combo_pending: int = 0 # 组合技能待完成计数
 var _combo_mode: bool = false # 组合技能模式：跳过单独咏唱/符号
+var _last_poetry_pair_idx: int = -1 # 上一轮诗想三连咏唱最后使用的组合索引，用于避免连续重复
 
 func _choose_attack():
 	if is_dead: return
@@ -348,8 +349,8 @@ func _execute_combo_pair(pair: Array):
 	symbol_node.add_child(icon2)
 	
 	# 组合咏唱
-	Global.emit_signal("boss_chant_start", "组合咏唱", 1.0)
-	await get_tree().create_timer(1.0).timeout
+	Global.emit_signal("boss_chant_start", "组合咏唱", 0.3)
+	await get_tree().create_timer(0.1).timeout
 	if not is_instance_valid(self ) or is_dead:
 		_combo_mode = false
 		return
@@ -544,7 +545,7 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, _direction: Vector2):
 					Global.emit_signal("player_heal", float(heal_amount), player_pos)
 					consumed = true
 				else:
-					# 否则：扣除当前生命30% + 叠加燃烧
+					# 否则：扣除当前生命30% + 叠加燃烧（正常触发受击无敌）
 					Global.emit_signal("player_hit", self )
 					var actual_damage = int(PC.pc_hp * 0.3)
 					PC.pc_hp -= actual_damage
@@ -567,7 +568,7 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, _direction: Vector2):
 					Global.emit_signal("player_heal", float(heal_amount), player_pos)
 					consumed = true
 				else:
-					# 否则：扣除当前生命30% + 叠加冰冻
+					# 否则：扣除当前生命30% + 叠加冰冻（正常触发受击无敌）
 					var actual_damage = int(PC.pc_hp * 0.3)
 					PC.pc_hp -= actual_damage
 					Global.emit_signal("player_hit", float(actual_damage), 0.0, self , player_pos, "星冰碎片")
@@ -637,14 +638,20 @@ class _SparkDrawer extends Node2D:
 		var inner_col = Color(1.0, 1.0, 0.5) if is_fire else Color(0.5, 1.0, 1.0)
 		for f in inner_funcs: f.call(Vector2.ZERO, inner_col)
 
+# 多色粒子辅助：传入 Color 或 Color 数组，随机选取一个颜色
+func _pick_color(color) -> Color:
+	if color is Array:
+		return color[randi() % color.size()]
+	return color
+
 # 十字形（上下左右四方向）粒子喷射
-func _spawn_cross_particles(pos: Vector2, color: Color, amount: int, radius: float):
+func _spawn_cross_particles(pos: Vector2, color, amount: int, radius: float):
 	var axes = [Vector2.RIGHT, Vector2.LEFT, Vector2.DOWN, Vector2.UP]
 	var per_axis = int(amount / 4)
 	for axis in axes:
 		for i in range(per_axis):
 			var p = _ParticleDot.new()
-			p.color = color
+			p.color = _pick_color(color)
 			p.global_position = pos + Vector2(randf_range(-6, 6), randf_range(-6, 6))
 			get_tree().current_scene.add_child(p)
 			var spread = randf_range(-0.3, 0.3) # ±约17度扩散
@@ -658,7 +665,7 @@ func _spawn_cross_particles(pos: Vector2, color: Color, amount: int, radius: flo
 			tw.finished.connect(p.queue_free)
 
 # X形（四条对角线方向）粒子喷射
-func _spawn_x_particles(pos: Vector2, color: Color, amount: int, radius: float):
+func _spawn_x_particles(pos: Vector2, color, amount: int, radius: float):
 	var diagonals = [
 		Vector2(1, 1).normalized(),
 		Vector2(-1, -1).normalized(),
@@ -669,7 +676,7 @@ func _spawn_x_particles(pos: Vector2, color: Color, amount: int, radius: float):
 	for diag in diagonals:
 		for i in range(per_diag):
 			var p = _ParticleDot.new()
-			p.color = color
+			p.color = _pick_color(color)
 			p.global_position = pos + Vector2(randf_range(-6, 6), randf_range(-6, 6))
 			get_tree().current_scene.add_child(p)
 			var spread = randf_range(-0.3, 0.3)
@@ -682,10 +689,10 @@ func _spawn_x_particles(pos: Vector2, color: Color, amount: int, radius: float):
 			tw.tween_property(p, "modulate:a", 0.0, fly_time)
 			tw.finished.connect(p.queue_free)
 
-func _spawn_particles(pos: Vector2, color: Color, amount: int, radius: float):
+func _spawn_particles(pos: Vector2, color, amount: int, radius: float):
 	for i in range(amount):
 		var p = _ParticleDot.new()
-		p.color = color
+		p.color = _pick_color(color)
 		p.global_position = pos + Vector2(randf_range(-10, 10), randf_range(-10, 10))
 		get_tree().current_scene.add_child(p)
 		var angle = randf() * TAU
@@ -697,10 +704,10 @@ func _spawn_particles(pos: Vector2, color: Color, amount: int, radius: float):
 		tw.tween_property(p, "modulate:a", 0.0, fly_time)
 		tw.finished.connect(p.queue_free)
 
-func _spawn_ring_particles(pos: Vector2, color: Color, amount: int, inner_rx: float, inner_ry: float, radius: float):
+func _spawn_ring_particles(pos: Vector2, color, amount: int, inner_rx: float, inner_ry: float, radius: float):
 	for i in range(amount):
 		var p = _ParticleDot.new()
-		p.color = color
+		p.color = _pick_color(color)
 		var angle = randf() * TAU
 		var edge_pos = pos + Vector2(cos(angle) * inner_rx, sin(angle) * inner_ry)
 		p.global_position = edge_pos + Vector2(randf_range(-10, 10), randf_range(-10, 10))
@@ -732,17 +739,36 @@ func _attack_blazing_fire():
 	warn.attacker = self
 	get_tree().current_scene.add_child(warn)
 	var fire_radius = 144.0 * 0.9
+	if _is_poetry():
+		fire_radius *= 0.8
+	var warn_dur = 2.0 if is_chain_chanting else chant_time
+
+	if _combo_mode:
+		# combo模式下：爆炸效果异步执行，但combo进度不等待爆炎延迟
+		warn.warning_finished.connect(func():
+			if is_instance_valid(warn): warn.cleanup()
+			_spawn_particles(player_pos, [Color(0.76, 0.6, 0.22), Color(0.55, 0.0, 0.0), Color(1.0, 0.5, 0.0)], 160, fire_radius)
+			GU.screen_shake(8.0, 0.3)
+			var base_angle = randf() * TAU
+			for i in range(6):
+				var dir = Vector2.RIGHT.rotated(base_angle + i * (TAU / 6.0))
+				_create_spark_bullet(true, player_pos, dir)
+		)
+		warn.start_warning(player_pos, 1.0, fire_radius, warn_dur, atk * 1.2, "爆炎", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
+		_hide_symbol()
+		_finish_skill()
+		return
+
 	warn.warning_finished.connect(func():
 		if is_instance_valid(warn): warn.cleanup()
-		_spawn_particles(player_pos, Color(1.0, 0.2, 0.0), 160, fire_radius)
-		_screen_shake(8.0, 0.3)
+		_spawn_particles(player_pos, [Color(0.76, 0.6, 0.22), Color(0.55, 0.0, 0.0), Color(1.0, 0.5, 0.0)], 160, fire_radius)
+		GU.screen_shake(8.0, 0.3)
 		
 		var base_angle = randf() * TAU
 		for i in range(6):
 			var dir = Vector2.RIGHT.rotated(base_angle + i * (TAU / 6.0))
 			_create_spark_bullet(true, player_pos, dir)
 	)
-	var warn_dur = 2.0 if is_chain_chanting else chant_time
 	warn.start_warning(player_pos, 1.0, fire_radius, warn_dur, atk * 1.2, "爆炎", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
 	
 	_hide_symbol()
@@ -759,10 +785,12 @@ func _attack_extreme_ice():
 	warn.attacker = self
 	get_tree().current_scene.add_child(warn)
 	var ice_radius = 200.0 * 0.85
+	if _is_poetry():
+		ice_radius *= 0.9
 	warn.warning_finished.connect(func():
 		if is_instance_valid(warn): warn.cleanup()
-		_spawn_particles(boss_pos, Color(0.0, 0.8, 1.0), 160, ice_radius)
-		_screen_shake(8.0, 0.3)
+		_spawn_particles(boss_pos, [Color(0.0, 0.15, 0.55), Color(0.4, 0.7, 1.0), Color(0.53, 0.81, 0.98)], 160, ice_radius)
+		GU.screen_shake(8.0, 0.3)
 		
 		var base_angle = randf() * TAU
 		for i in range(6):
@@ -787,26 +815,40 @@ func _attack_ring_thunder():
 	var ring_warn = _RingWarn.new()
 	ring_warn.center = boss_pos
 	ring_warn.inner_r = 94
-	ring_warn.duration = chant_time if not _combo_mode else 0.5
+	ring_warn.duration = chant_time if not _combo_mode else 1
 	get_tree().current_scene.add_child(ring_warn)
 	
-	if not _combo_mode:
-		await get_tree().create_timer(chant_time).timeout
-	else:
-		await get_tree().create_timer(0.5).timeout
+	var delay = chant_time if not _combo_mode else 1
+	
+	if _combo_mode:
+		# 组合模式：使用回调代替await，确保与另一个技能同时启动不被阻塞
+		var _timer = get_tree().create_timer(delay)
+		_timer.timeout.connect(_apply_ring_thunder_effect.bind(boss_pos, ring_warn))
+		return
+	
+	await get_tree().create_timer(delay).timeout
+	_apply_ring_thunder_effect(boss_pos, ring_warn)
+
+func _apply_ring_thunder_effect(boss_pos: Vector2, ring_warn: Node2D):
+	if not is_instance_valid(self ) or is_dead: return
 	if is_instance_valid(ring_warn): ring_warn.queue_free()
 	
-	_spawn_particles(boss_pos, Color(0.6, 0.0, 1.0), 160, 400.0)
-	_screen_shake(6.0, 0.3)
+	_spawn_particles(boss_pos, [Color(0.8, 0.6, 1.0), Color(0.6, 0.0, 1.0), Color(0.3, 0.0, 0.5)], 160, 400.0)
+	GU.screen_shake(6.0, 0.3)
 	
 	if is_instance_valid(PC.player_instance) and not PC.invincible:
-		var diff = PC.player_instance.global_position - boss_pos
-		var norm_x = diff.x / 82.5
-		var norm_y = diff.y / 55.0
-		if (norm_x * norm_x + norm_y * norm_y) > 1.0:
+		var hitbox_info = PC.get_player_hitbox_info()
+		var player_pos = hitbox_info.get("position", PC.player_instance.global_position) if not hitbox_info.is_empty() else PC.player_instance.global_position
+		var player_radius = hitbox_info.get("radius", 0.0) if not hitbox_info.is_empty() else 0.0
+		
+		var diff = player_pos - boss_pos
+		var norm_x = diff.x / 95
+		var norm_y = diff.y / 65.0
+		# 椭圆坐标系中扩展玩家碰撞半径（使用短半轴作为保守估计）
+		var effective_threshold = 1.0 + player_radius / 65.0
+		if (norm_x * norm_x + norm_y * norm_y) > effective_threshold * effective_threshold:
 			PC.player_hit(int(atk * 1.5 * (1.0 - PC.damage_reduction_rate)), self , "环雷")
 			Global.emit_signal("player_hit", self )
-			if PC.pc_hp <= 0: PC.player_instance.game_over()
 	
 	_hide_symbol()
 	_finish_skill()
@@ -941,7 +983,7 @@ class _DirectionArrowIndicator extends Node2D:
 		draw_rect(Rect2(center + Vector2(0, -P), Vector2(P, P)), highlight)
 
 func _attack_ground_fire():
-	Global.emit_signal("boss_chant_start", "耀星", 1.0)
+	Global.emit_signal("boss_chant_start", "耀星", 1.5)
 	await get_tree().create_timer(1.5).timeout
 	if not is_instance_valid(self ) or is_dead: return
 	Global.emit_signal("boss_chant_end")
@@ -961,8 +1003,12 @@ func _run_ground_fire_rounds():
 	if _ground_fire_running: return # 防止重叠
 	_ground_fire_running = true
 	var directions = [Vector2.DOWN, Vector2.UP, Vector2.RIGHT, Vector2.LEFT]
-	var size_scale = 1.3
-	var total_rounds = 8 if _is_deep_or_harder() else 4
+	var size_scale = 1.34
+	var total_rounds = 4
+	if _is_deep_or_harder():
+		total_rounds = 6
+	if _is_poetry:
+		total_rounds = 10
 	var cached_atk = atk
 	var cached_boundaries = {
 		"top": top_boundary - 150, "bottom": bottom_boundary + 150,
@@ -1032,7 +1078,7 @@ func _run_ground_fire_rounds():
 		_spawn_ground_fire_line(start_pos1, dir, step_dist, int(count), size_scale, cached_atk)
 		_spawn_ground_fire_line(start_pos2, dir, step_dist, int(count), size_scale, cached_atk)
 		
-		await get_tree().create_timer(0.75).timeout
+		await get_tree().create_timer(1.3).timeout
 	
 	_ground_fire_running = false
 
@@ -1040,8 +1086,8 @@ func _spawn_ground_fire_line(start_pos: Vector2, direction: Vector2, step_dist: 
 	var current_pos = start_pos
 	var actual_atk = atk if cached_atk < 0.0 else cached_atk
 	var warning_radius = 20.7 * size_scale
-	var particle_amount = int(ceil(40.0 * size_scale))
-	var particle_radius = 120.0 * size_scale
+	var particle_amount = int(ceil(30.0 * size_scale))
+	var particle_radius = 90.0 * size_scale
 	var warn_aspect = 1.6
 	var warn_duration = 2.0
 	
@@ -1055,7 +1101,7 @@ func _spawn_ground_fire_line(start_pos: Vector2, direction: Vector2, step_dist: 
 		warn.warning_finished.connect(func():
 			if is_instance_valid(warn): warn.cleanup()
 			if is_instance_valid(self ):
-				_spawn_particles(pos_to_damage, Color(1.0, 0.18, 0.08), particle_amount, particle_radius)
+				_spawn_particles(pos_to_damage, [Color(1.0, 0.35, 0.0), Color(0.55, 0.0, 0.0)], particle_amount, particle_radius)
 		)
 		warn.start_warning(current_pos, warn_aspect, warning_radius, warn_duration, actual_atk * 1.5, "耀星", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
 		
@@ -1067,7 +1113,7 @@ func _spawn_ground_fire_line(start_pos: Vector2, direction: Vector2, step_dist: 
 		arrow.warn_duration = warn_duration
 		warn.add_child(arrow)
 		
-		await get_tree().create_timer(0.75).timeout
+		await get_tree().create_timer(1.25).timeout
 		current_pos += direction * step_dist
 
 func _attack_cross_fire():
@@ -1082,21 +1128,31 @@ func _attack_cross_fire():
 	if _is_core_or_harder():
 		cross_width *= 1.25
 	if _is_poetry():
-		cross_width *= 0.8
+		cross_width *= 0.6
 	
 	var warn1 = WarnRectUtil.new(); add_child(warn1)
 	var warn2 = WarnRectUtil.new(); add_child(warn2)
 	warn1.attacker = self ; warn2.attacker = self
 	
-	var warn_dur = chant_time if not _combo_mode else 1.0
+	var warn_dur = chant_time if not _combo_mode else 0.8
 	warn1.start_warning(boss_pos + Vector2(-600, 0), boss_pos + Vector2(600, 0), cross_width, warn_dur, atk * 2.0, "炽焰十字")
 	warn2.start_warning(boss_pos + Vector2(0, -600), boss_pos + Vector2(0, 600), cross_width, warn_dur, atk * 2.0, "炽焰十字")
 	
-	if not _combo_mode:
-		await get_tree().create_timer(chant_time).timeout
+	if _combo_mode:
+		var _timer = get_tree().create_timer(warn_dur)
+		_timer.timeout.connect(func():
+			if not is_instance_valid(self ) or is_dead: return
+			_hide_symbol()
+			_spawn_cross_particles(boss_pos, [Color(0.76, 0.6, 0.22), Color(0.55, 0.0, 0.0), Color(1.0, 0.5, 0.0)], 160, 600.0)
+			GU.screen_shake(4.0, 0.2)
+			_finish_skill()
+		)
+		return
+	
+	await get_tree().create_timer(chant_time).timeout
 	_hide_symbol()
-	_spawn_cross_particles(boss_pos, Color(1.0, 0.5, 0.0), 160, 600.0)
-	_screen_shake(4.0, 0.2)
+	_spawn_cross_particles(boss_pos, [Color(0.76, 0.6, 0.22), Color(0.55, 0.0, 0.0), Color(1.0, 0.5, 0.0)], 160, 600.0)
+	GU.screen_shake(4.0, 0.2)
 	
 	_finish_skill()
 
@@ -1112,19 +1168,32 @@ func _attack_x_ice():
 	if _is_core_or_harder():
 		x_width *= 1.25
 	
+	if _is_poetry():
+		x_width *= 0.6
+	
 	var warn1 = WarnRectUtil.new(); add_child(warn1)
 	var warn2 = WarnRectUtil.new(); add_child(warn2)
 	warn1.attacker = self ; warn2.attacker = self
 	
-	var warn_dur = chant_time if not _combo_mode else 1.0
+	var warn_dur = chant_time if not _combo_mode else 0.8
 	warn1.start_warning(boss_pos + Vector2(-500, -500), boss_pos + Vector2(500, 500), x_width, warn_dur, atk * 2.0, "霜牙交错")
 	warn2.start_warning(boss_pos + Vector2(-500, 500), boss_pos + Vector2(500, -500), x_width, warn_dur, atk * 2.0, "霜牙交错")
 	
-	if not _combo_mode:
-		await get_tree().create_timer(chant_time).timeout
+	if _combo_mode:
+		var _timer = get_tree().create_timer(warn_dur)
+		_timer.timeout.connect(func():
+			if not is_instance_valid(self ) or is_dead: return
+			_hide_symbol()
+			_spawn_x_particles(boss_pos, [Color(0.0, 0.15, 0.55), Color(0.4, 0.7, 1.0), Color(0.53, 0.81, 0.98)], 160, 600.0)
+			GU.screen_shake(4.0, 0.2)
+			_finish_skill()
+		)
+		return
+	
+	await get_tree().create_timer(chant_time).timeout
 	_hide_symbol()
-	_spawn_x_particles(boss_pos, Color(0.0, 0.5, 1.0), 160, 600.0)
-	_screen_shake(4.0, 0.2)
+	_spawn_x_particles(boss_pos, [Color(0.0, 0.15, 0.55), Color(0.4, 0.7, 1.0), Color(0.53, 0.81, 0.98)], 160, 600.0)
+	GU.screen_shake(4.0, 0.2)
 	
 	_finish_skill()
 
@@ -1132,21 +1201,28 @@ func _attack_x_ice():
 func _attack_ice_spike():
 	var ice_fan_angle = CORE_ICE_SPIKE_ANGLE if _is_core_or_harder() else 210.0
 	var spike_angle_step = 15
+	if _is_poetry():
+		spike_angle_step = 10.5
 	var spike_count = int(ice_fan_angle / spike_angle_step) + 1
-	var hover_distance = 25.0
+	var hover_distance = 30.0
 	var fly_speed = 350.0
+	if _is_poetry():
+		fly_speed = 450.0
 	var spike_fly_range = 2000.0
 	var spike_width = 17.0 # 与ice.tscn碰撞体一致
+	
+	var total_rounds = 5
+	var round_delay = 1.0
 	
 	var rounds: Array = [] # 每轮冰刺数据 [{"node": spike, "direction": dir}, ...]
 	var round_warns: Array = [] # 每轮预警节点
 	
-	for round_idx in range(4):
+	for round_idx in range(total_rounds):
 		if is_dead: break
 		
-		Global.emit_signal("boss_chant_start", "冰刺术" + str(round_idx + 1), 1.2)
+		Global.emit_signal("boss_chant_start", "冰刺术" + str(round_idx + 1), round_delay)
 		
-		await get_tree().create_timer(1.2).timeout
+		await get_tree().create_timer(round_delay).timeout
 		if not is_instance_valid(self ) or is_dead: return
 		Global.emit_signal("boss_chant_end")
 		
@@ -1160,15 +1236,21 @@ func _attack_ice_spike():
 		# 获取玩家方向
 		var player_pos = PC.player_instance.global_position if is_instance_valid(PC.player_instance) else global_position
 		var base_angle = global_position.direction_to(player_pos).angle()
-		var offset = deg_to_rad(randf_range(3.0, 15.0)) # 每轮随机偏移3~15度
-		
+		# 偏角策略：难度越高，偏移范围越宽、上限越大，避免玩家站定不动就能躲
+		var offset = deg_to_rad(randf_range(8.0, 12.0)) # 浅层默认
+		if _is_poetry():
+			offset = deg_to_rad(randf_range(12.0, 26.0)) # 诗想：最宽偏移，安全区完全打乱
+		elif _is_core_or_harder():
+			offset = deg_to_rad(randf_range(10.0, 20.0)) # 核心：较大偏移，高随机性
+		elif _is_deep_or_harder():
+			offset = deg_to_rad(randf_range(8.0, 16.0)) # 深层：中等偏移
 		var current_spikes = []
 		var current_warns = []
 		for i in range(spike_count):
 			var angle = base_angle - deg_to_rad(ice_fan_angle / 2.0) + deg_to_rad(i * spike_angle_step) + offset
 			var spike = ICE_SCENE.instantiate()
 			spike.global_position = global_position
-			spike.rotation = angle + PI / 2.0 # 默认图标上下朝向，补偿90度
+			spike.rotation = angle + PI / 2 # 精灵默认朝上(7x21纵向)，+PI/2使尖头朝外
 			spike.add_to_group("boss_projectile")
 			get_tree().current_scene.add_child(spike)
 			
@@ -1194,16 +1276,16 @@ func _attack_ice_spike():
 		
 		rounds.append(current_spikes)
 		round_warns.append(current_warns)
-		_screen_shake(3.0, 0.15)
+		GU.screen_shake(3.0, 0.3)
 	
 	# 最后一轮冰刺延迟后射出
 	await get_tree().create_timer(1.0).timeout
 	if not is_instance_valid(self ) or is_dead: return
-	if rounds.size() >= 4:
-		_launch_ice_spikes(rounds[3], fly_speed)
+	if rounds.size() >= total_rounds:
+		_launch_ice_spikes(rounds[total_rounds - 1], fly_speed)
 	# 清除最后一轮预警
-	if round_warns.size() >= 4:
-		for w in round_warns[3]:
+	if round_warns.size() >= total_rounds:
+		for w in round_warns[total_rounds - 1]:
 			if is_instance_valid(w): w.queue_free()
 	
 	_finish_skill()
@@ -1212,8 +1294,6 @@ func _on_ice_spike_hit(body: Node2D, spike: Node2D):
 	if body is CharacterBody2D and body.is_in_group("player"):
 		PC.player_hit(int(atk * 1.5), self , "冰刺术")
 		Global.emit_signal("player_hit", self )
-		if PC.pc_hp <= 0:
-			PC.player_instance.game_over()
 		if is_instance_valid(spike):
 			spike.queue_free()
 
@@ -1228,6 +1308,34 @@ func _launch_ice_spikes(spike_list: Array, p_speed: float):
 		tw.tween_property(spike, "global_position", target, dist / p_speed)
 		tw.tween_callback(spike.queue_free)
 
+# 全屏滤镜辅助：创建覆盖层并淡入
+func _create_screen_overlay(color: Color) -> CanvasLayer:
+	var canvas = CanvasLayer.new()
+	canvas.layer = 100
+	get_tree().current_scene.add_child(canvas)
+	var overlay = ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.color = color
+	overlay.modulate.a = 0.0
+	canvas.add_child(overlay)
+	return canvas
+
+func _fade_in_overlay(canvas: CanvasLayer, duration: float):
+	if not is_instance_valid(canvas): return
+	var overlay = canvas.get_child(0)
+	if overlay:
+		var tw = overlay.create_tween()
+		tw.tween_property(overlay, "modulate:a", 0.3, duration)
+
+func _clear_overlay(canvas: CanvasLayer):
+	if not is_instance_valid(canvas): return
+	var overlay = canvas.get_child(0)
+	if overlay:
+		var tw = overlay.create_tween()
+		tw.tween_property(overlay, "modulate:a", 0.0, 0.2)
+		tw.finished.connect(func(): if is_instance_valid(canvas): canvas.queue_free())
+
 # ================= 诗想终极技能 =================
 func _attack_poetry_ultimate():
 	var is_fire_ultimate = randi() % 2 == 0
@@ -1235,43 +1343,45 @@ func _attack_poetry_ultimate():
 	# 蓄力I → 释放 II or III, 蓄力II → 释放 III or IV
 	var release_level = charge_level + 1 + (randi() % 2)
 	var release_time = 3.0
+	var overlay: CanvasLayer = null
 	
 	if is_fire_ultimate:
 		var charge_name = "星火蓄力I" if charge_level == 1 else "星火蓄力II"
 		var release_names = ["", "", "核爆II", "核爆III", "核爆IV"]
 		var release_name = release_names[release_level]
 		
-		# 阶段1：蓄力读条 2秒
+		# 阶段1：蓄力读条 2.5秒（无滤镜）
 		_show_symbol("fire")
 		Global.emit_signal("boss_chant_start", charge_name, 2.5)
 		await get_tree().create_timer(2.5).timeout
 		if not is_instance_valid(self ) or is_dead: return
 		Global.emit_signal("boss_chant_end")
 		
-		# 阶段2：释放读条 2秒
+		# 阶段2：释放读条 3.0秒，同时启动红色滤镜淡入
+		overlay = _create_screen_overlay(Color(1.0, 0.0, 0.0))
+		_fade_in_overlay(overlay, release_time)
 		Global.emit_signal("boss_chant_start", release_name, release_time)
 		await get_tree().create_timer(release_time).timeout
-		if not is_instance_valid(self ) or is_dead: return
+		if not is_instance_valid(self ) or is_dead:
+			_clear_overlay(overlay)
+			return
 		Global.emit_signal("boss_chant_end")
 		
-		# 判定：全屏特效 + 伤害
-		_screen_shake(15.0, 0.5)
+		# 判定：全屏特效 + 伤害 + 额外粒子
+		GU.screen_shake(15.0, 0.5)
+		# 核爆原有红色粒子 + 爆炎类型三色粒子（数量+50% = 240）
 		_spawn_particles(global_position, Color(1.0, 0.3, 0.0), 180, 600.0)
+		_spawn_particles(global_position, [Color(0.76, 0.6, 0.22), Color(0.55, 0.0, 0.0), Color(1.0, 0.5, 0.0)], 240, 600.0)
+		_clear_overlay(overlay)
 		
-		if is_instance_valid(PC.player_instance) and not PC.invincible:
+		if is_instance_valid(PC.player_instance):
 			var frozen_stacks = BuffManager.get_buff_stack("frozen") if BuffManager.has_buff("frozen") else 0
-			if frozen_stacks < release_level:
-				# 冰冻层数不足，秒杀
-				PC.pc_hp = 0
-				Global.emit_signal("player_take_damage", float(PC.pc_max_hp), 0.0, PC.player_instance.global_position)
-				PC.player_instance.game_over()
+			if frozen_stacks != release_level:
+				# 冰冻层数不精确匹配，无视无敌秒杀
+				PC.player_instakill(self , "核爆" + str(release_level))
 			else:
-				# 冰冻层数足够：消耗层数，每层回复30%最大生命
-				var remaining = frozen_stacks - release_level
-				if remaining > 0:
-					Global.emit_signal("buff_added", "frozen", 12.0, remaining)
-				else:
-					BuffManager.remove_buff("frozen")
+				# 冰冻层数精确匹配：完全消耗，回复生命
+				BuffManager.remove_buff("frozen")
 				for _s in range(release_level):
 					var heal_amount = int(PC.pc_max_hp * 0.2)
 					PC.pc_hp = min(PC.pc_hp + heal_amount, PC.pc_max_hp)
@@ -1281,37 +1391,38 @@ func _attack_poetry_ultimate():
 		var release_names = ["", "", "玄冰II", "玄冰III", "玄冰IV"]
 		var release_name = release_names[release_level]
 		
-		# 阶段1：蓄力读条 2秒
+		# 阶段1：蓄力读条 2.5秒（无滤镜）
 		_show_symbol("ice")
 		Global.emit_signal("boss_chant_start", charge_name, 2.5)
 		await get_tree().create_timer(2.5).timeout
 		if not is_instance_valid(self ) or is_dead: return
 		Global.emit_signal("boss_chant_end")
 		
-		# 阶段2：释放读条 2秒
+		# 阶段2：释放读条 3.0秒，同时启动蓝色滤镜淡入
+		overlay = _create_screen_overlay(Color(0.0, 0.3, 1.0))
+		_fade_in_overlay(overlay, release_time)
 		Global.emit_signal("boss_chant_start", release_name, release_time)
 		await get_tree().create_timer(release_time).timeout
-		if not is_instance_valid(self ) or is_dead: return
+		if not is_instance_valid(self ) or is_dead:
+			_clear_overlay(overlay)
+			return
 		Global.emit_signal("boss_chant_end")
 		
-		# 判定：全屏特效 + 伤害
-		_screen_shake(15.0, 0.5)
+		# 判定：全屏特效 + 伤害 + 额外粒子
+		GU.screen_shake(15.0, 0.5)
+		# 玄冰原有蓝色粒子 + 冰封类型三色粒子（数量+50% = 240）
 		_spawn_particles(global_position, Color(0.0, 0.5, 1.0), 180, 600.0)
+		_spawn_particles(global_position, [Color(0.0, 0.15, 0.55), Color(0.4, 0.7, 1.0), Color(0.53, 0.81, 0.98)], 240, 600.0)
+		_clear_overlay(overlay)
 		
-		if is_instance_valid(PC.player_instance) and not PC.invincible:
+		if is_instance_valid(PC.player_instance):
 			var fire_stacks = BuffManager.get_buff_stack("burning_fire") if BuffManager.has_buff("burning_fire") else 0
-			if fire_stacks < release_level:
-				# 燃烧层数不足，秒杀
-				PC.pc_hp = 0
-				Global.emit_signal("player_take_damage", float(PC.pc_max_hp), 0.0, PC.player_instance.global_position)
-				PC.player_instance.game_over()
+			if fire_stacks != release_level:
+				# 燃烧层数不精确匹配，无视无敌秒杀
+				PC.player_instakill(self , "玄冰" + str(release_level))
 			else:
-				# 燃烧层数足够：消耗层数，每层回复30%最大生命
-				var remaining = fire_stacks - release_level
-				if remaining > 0:
-					Global.emit_signal("buff_added", "burning_fire", 12.0, remaining)
-				else:
-					BuffManager.remove_buff("burning_fire")
+				# 燃烧层数精确匹配：完全消耗，回复生命
+				BuffManager.remove_buff("burning_fire")
 				for _s in range(release_level):
 					var heal_amount = int(PC.pc_max_hp * 0.2)
 					PC.pc_hp = min(PC.pc_hp + heal_amount, PC.pc_max_hp)
@@ -1327,25 +1438,35 @@ func _attack_chain_chant():
 	var map_str = {1: "fire", 2: "ice", 3: "thunder", 5: "cross", 6: "x", 8: "ice"}
 	
 	if _is_poetry():
-		# 诗想：3组技能对，每组同时释放两种，相邻组不重复技能
+		# 诗想：3组技能对，每组同时释放两种，相邻组不重复技能，且同一组合不会连续出现
 		var selected_pairs: Array = []
 		var used_skills: Array = [] # 已用技能ID
+		var last_pair_idx: int = _last_poetry_pair_idx # 继承上一轮最后使用的组合索引
 		for i in range(3):
 			var available = []
 			for pair_idx in range(POETRY_CHAIN_CHANT_PAIRS.size()):
 				var pair = POETRY_CHAIN_CHANT_PAIRS[pair_idx]
-				# 检查当前pair是否与已用技能有交集
+				# 排除与已用技能有交集的组合
 				var has_overlap = false
 				for s in pair:
 					if s in used_skills:
 						has_overlap = true
 						break
+				# 排除上一轮（包括上一轮三连咏唱最后一组）使用过的组合
+				if pair_idx == last_pair_idx:
+					continue
 				if not has_overlap:
 					available.append(pair_idx)
-			# 如果没有可用的（极端情况），放宽限制
+			# 如果没有可用的（极端情况），放宽技能限制，但仍排除上一轮的组合
 			if available.size() == 0:
 				available = range(POETRY_CHAIN_CHANT_PAIRS.size())
+				if last_pair_idx in available:
+					available.erase(last_pair_idx)
+				# 如果排除后仍为空，则完全放宽
+				if available.size() == 0:
+					available = range(POETRY_CHAIN_CHANT_PAIRS.size())
 			var chosen_idx = available[randi() % available.size()]
+			last_pair_idx = chosen_idx
 			var chosen_pair = POETRY_CHAIN_CHANT_PAIRS[chosen_idx].duplicate()
 			selected_pairs.append(chosen_pair)
 			# 记录这组用到的技能，供下一组检查
@@ -1353,6 +1474,7 @@ func _attack_chain_chant():
 				if not (s in used_skills):
 					used_skills.append(s)
 		chain_skills_queue = selected_pairs
+		_last_poetry_pair_idx = last_pair_idx # 记录本轮最后使用的组合索引，供下一轮排除
 		
 		var symbol_interval = 1.3
 		for i in range(3):
@@ -1462,16 +1584,3 @@ func _die():
 	var shadow = get_node_or_null("Shadow")
 	if shadow: shadow.visible = false
 	queue_free()
-
-func _screen_shake(intensity: float = 6.0, duration: float = 0.3):
-	var camera = get_viewport().get_camera_2d()
-	if not camera: return
-	var original_offset = camera.offset
-	var elapsed := 0.0
-	while elapsed < duration:
-		var dt = get_process_delta_time()
-		elapsed += dt
-		var strength = intensity * (1.0 - elapsed / duration)
-		camera.offset = original_offset + Vector2(randf_range(-strength, strength), randf_range(-strength, strength))
-		await get_tree().process_frame
-	camera.offset = original_offset

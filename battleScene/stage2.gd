@@ -39,7 +39,7 @@ func _ready() -> void:
 	GU.reset_kill_count()
 	# stage2 特有：BGM 和 map_mechanism_num_max 覆盖
 	Global.emit_signal("stage_bgm", "ruin")
-	map_mechanism_num_max = 27000
+	map_mechanism_num_max = 5
 
 # ============== Boss位置 ==============
 func _get_boss_position() -> Vector2:

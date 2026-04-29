@@ -101,14 +101,14 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
 	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 8
+	var dps_multiplier := 6
 	match Global.current_stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 11
+			dps_multiplier = 8
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 14
+			dps_multiplier = 10
 		Global.STAGE_DIFFICULTY_POETRY:
-			dps_multiplier = 14
+			dps_multiplier = 10
 	hpMax += Global.get_current_dps() * dps_multiplier
 	hp = hpMax
 	
@@ -337,9 +337,7 @@ func _spawn_rolling_stone(start_pos: Vector2, end_pos: Vector2, warn_node: Node)
 	stone.body_entered.connect(func(body: Node2D):
 		if body is CharacterBody2D and not PC.invincible:
 			var actual_damage = int(atk * 1.2 * (1.0 - PC.damage_reduction_rate))
-			PC.player_hit(int(actual_damage), self , "攻击")
-			if PC.pc_hp <= 0:
-				PC.player_instance.game_over()
+			PC.player_hit(int(actual_damage), self , "受击")
 	)
 
 # ========================================================
@@ -403,9 +401,7 @@ func _attack_consecutive_charge():
 			if PC.player_instance and not PC.invincible:
 				if global_position.distance_to(PC.player_instance.global_position) < 25.0:
 					var dmg = int(atk * 1.5 * (1.0 - PC.damage_reduction_rate))
-					PC.player_hit(int(dmg), self , "攻击")
-					if PC.pc_hp <= 0:
-						PC.player_instance.game_over()
+					PC.player_hit(int(dmg), self , "受击")
 			await get_tree().process_frame
 
 		if hit_stone:
@@ -507,7 +503,7 @@ func _attack_falling_stones():
 		if is_instance_valid(warn_boss):
 			warn_boss.cleanup()
 		_spawn_stone_impact_effect(boss_pos)
-		_screen_shake(5.0, 0.2)
+		GU.screen_shake(5.0, 0.2)
 	)
 	warn_boss.start_warning(
 		boss_pos, 1.2, FALLING_STONE_RADIUS,
@@ -526,7 +522,7 @@ func _attack_falling_stones():
 			warn_player.cleanup()
 		_spawn_stone_impact_effect(player_target)
 		_spawn_stone_block(player_target)
-		_screen_shake(6.0, 0.25)
+		GU.screen_shake(6.0, 0.25)
 	)
 	warn_player.damage_dealt.connect(func(_d):
 		_knockback_player_from(player_target, 50.0)
@@ -606,7 +602,7 @@ func _attack_slap():
 		warn.warning_finished.connect(func():
 			if is_instance_valid(warn):
 				_spawn_slap_effect(global_position, dir_to_player)
-				_screen_shake(6.0, 0.2)
+				GU.screen_shake(6.0, 0.2)
 				warn.cleanup()
 		)
 		warn.damage_dealt.connect(func(d): print("拍击伤害: ", d))
@@ -640,7 +636,7 @@ func _attack_ground_flip():
 			warn.cleanup()
 		# 生成泥潭 + 屏幕震颤
 		_spawn_mud_pool(global_position, sector_center_dir, FLIP_RADIUS, FLIP_SECTOR_ANGLE)
-		_screen_shake(3.0, 0.25)
+		GU.screen_shake(3.0, 0.25)
 	)
 	warn.damage_dealt.connect(func(d): print("掀地伤害: ", d))
 	warn.start_warning(
@@ -692,13 +688,11 @@ func _attack_quake():
 			var dist = origin.distance_to(PC.player_instance.global_position)
 			if dist <= cur_radius:
 				var dmg = max(1, int(atk * 1.5))
-				PC.player_hit(int(dmg), self , "攻击")
-				if PC.pc_hp <= 0:
-					PC.player_instance.game_over()
+				PC.player_hit(int(dmg), self , "受击")
 
 		# 崩散粒子特效 + 屏幕震颤
 		_spawn_quake_particles(origin, cur_radius, round_i)
-		_screen_shake(8.0 + round_i * 3.0, 0.25)
+		GU.screen_shake(8.0 + round_i * 3.0, 0.25)
 
 		# 间隔
 		if round_i < QUAKE_ROUNDS - 1:
@@ -826,9 +820,7 @@ func _start_mud_pool_process(pool: Node, origin: Vector2, center_angle: float, h
 			if tick[0] >= MUD_POOL_DAMAGE_TICK:
 				tick[0] -= MUD_POOL_DAMAGE_TICK
 				var dmg = max(1, int(atk * 0.3))
-				PC.player_hit(int(dmg), self , "攻击")
-				if PC.pc_hp <= 0:
-					PC.player_instance.game_over()
+				PC.player_hit(int(dmg), self , "受击")
 		else:
 			tick[0] = 0.0
 		if life[0] >= MUD_POOL_DURATION - 0.8:
@@ -987,24 +979,6 @@ func _die():
 
 func apply_knockback(_direction: Vector2, _force: float):
 	pass # Boss免疫击退
-
-# 屏幕震颤效果
-func _screen_shake(intensity: float = 6.0, duration: float = 0.3):
-	var camera = get_viewport().get_camera_2d()
-	if not camera:
-		return
-	var original_offset = camera.offset
-	var elapsed := 0.0
-	while elapsed < duration:
-		var dt = get_process_delta_time()
-		elapsed += dt
-		var strength = intensity * (1.0 - elapsed / duration)
-		camera.offset = original_offset + Vector2(
-			randf_range(-strength, strength),
-			randf_range(-strength, strength)
-		)
-		await get_tree().process_frame
-	camera.offset = original_offset
 
 # ========================================================
 # 像素风格资源构建

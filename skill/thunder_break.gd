@@ -240,6 +240,11 @@ func _deal_damage(enemy: Area2D) -> void:
 		enemy.take_damage(int(final_damage), is_crit, false, "thunder_break")
 		# 击中粒子崩散特效
 		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "thunder_break")
+		# 天雷破震屏
+		GU.screen_shake(2.0, 0.1)
+		# 破坏法则引爆：暴击或击杀
+		var was_killed = enemy.get("is_dead") == true
+		Faze.on_destroy_weapon_hit(enemy, is_crit, was_killed)
 		
 	# 应用状态效果
 	if apply_electrified:
@@ -253,3 +258,6 @@ func _deal_damage(enemy: Area2D) -> void:
 			enemy.apply_debuff_effect("vulnerable")
 		elif enemy.get("debuff_manager") and enemy.debuff_manager.has_method("add_debuff"):
 			enemy.debuff_manager.add_debuff("vulnerable")
+	
+	# 鸣雷法则：鸣雷击中敌人时有概率召唤鸣雷劈向目标
+	Faze.on_thunder_weapon_hit(enemy)

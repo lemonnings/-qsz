@@ -121,6 +121,8 @@ func _ready() -> void:
 	maxHP = PC.pc_max_hp
 	PC.player_instance = self
 	Global.connect("player_hit", Callable(self , "_on_player_hit"))
+	Global.connect("player_hit_ignore_invincible", Callable(self , "_on_player_hit_ignore_invincible"))
+	Global.connect("player_instakill", Callable(self , "_on_player_instakill"))
 
 	Global.connect("player_healed", Callable(self , "_on_player_healed"))
 	Global.connect("zoom_camera", Callable(self , "_zoom_camera"))
@@ -443,7 +445,7 @@ func _physics_process(_delta: float) -> void:
 			if stacks > 0:
 				var dmg = int(PC.pc_max_hp * 0.01 * stacks)
 				if dmg < 1: dmg = 1
-				PC.player_hit(dmg, self , "燃烧")
+				PC.player_hit_ignore_invincible(dmg, self , "燃烧")
 				if PC.pc_hp <= 0:
 					game_over()
 	else:
@@ -464,8 +466,13 @@ func _physics_process(_delta: float) -> void:
 		if BuffManager.has_buff("frozen"):
 			frozen_stack = BuffManager.get_buff_stack("frozen")
 		var frozen_reduction = max(0.1, 1.0 - (0.1 * frozen_stack))
+		# slow buff：每层10%减速
+		var slow_stack = 0
+		if BuffManager.has_buff("slow"):
+			slow_stack = BuffManager.get_buff_stack("slow")
+		var slow_reduction = max(0.1, 1.0 - (0.1 * slow_stack))
 		
-		velocity = input_vector * move_speed * frozen_reduction
+		velocity = input_vector * move_speed * frozen_reduction * slow_reduction
 		
 		if velocity.x < -0.01:
 			sprite.flip_h = true
@@ -484,6 +491,12 @@ func _physics_process(_delta: float) -> void:
 		update_chenjing_visual()
 		
 		move_and_slide()
+	elif PC.movement_disabled and Global.in_town:
+		# 城镇中打开菜单时暂停玩家动画
+		velocity = Vector2.ZERO
+		move_and_slide()
+		if animator and animator.is_playing():
+			animator.pause()
 
 
 func game_over():
@@ -697,8 +710,7 @@ func _on_fire_detail_light_bullet() -> void:
 			_fire_light_bullet_ring(data)
 			
 	for i in range(offsets.size()):
-		var instance = light_bullet_scene.instantiate()
-		get_tree().current_scene.add_child(instance)
+		var instance = Global.light_bullet_pool.acquire(get_tree().current_scene)
 		
 		var pos = spawn_position + offsets[i]
 		var dir = shot_directions[i]
@@ -776,8 +788,7 @@ func _fire_light_bullet_ring(data: Dictionary) -> void:
 				
 				var spawn_position = global_position
 				
-				var instance = light_bullet_scene.instantiate()
-				get_tree().current_scene.add_child(instance)
+				var instance = Global.light_bullet_pool.acquire(get_tree().current_scene)
 				
 				var options = {
 			"apply_light_accumulation": data.apply_light_accumulation,
@@ -1077,8 +1088,7 @@ func _fire_extra_light_bullet_attack(damage_multiplier: float) -> void:
 	if not light_bullet_scene:
 		return
 	var data = _build_light_bullet_data()
-	var instance = light_bullet_scene.instantiate()
-	get_tree().current_scene.add_child(instance)
+	var instance = Global.light_bullet_pool.acquire(get_tree().current_scene)
 	$FireSound.play()
 	instance.setup_light_bullet(
 		global_position,
@@ -1097,8 +1107,7 @@ func _fire_extra_ice_attack(damage_multiplier: float) -> void:
 	if not ice_flower_scene:
 		return
 	var data = IceFlower._build_data()
-	var instance = ice_flower_scene.instantiate()
-	get_tree().current_scene.add_child(instance)
+	var instance = Global.ice_flower_pool.acquire(get_tree().current_scene)
 	$FireSound.play()
 	instance.setup_ice_flower(
 		global_position,
@@ -1234,8 +1243,8 @@ func _start_mizongbu_visual() -> void:
 	modulate = Color(1, 1, 1, 1)
 	mizongbu_visual_tween = create_tween()
 	mizongbu_visual_tween.set_loops()
-	mizongbu_visual_tween.tween_property(self , "modulate", Color(1, 1, 1, 0.45), 0.15)
-	mizongbu_visual_tween.tween_property(self , "modulate", Color(1, 1, 1, 0.9), 0.15)
+	mizongbu_visual_tween.tween_property(self , "modulate", Color(1, 1, 1, 0.4), 0.15)
+	mizongbu_visual_tween.tween_property(self , "modulate", Color(1, 1, 1, 0.75), 0.15)
 
 func _stop_mizongbu_visual() -> void:
 	if mizongbu_visual_tween:
@@ -1265,6 +1274,9 @@ func _beast_claw_attack() -> void:
 	var inst = beastify_effect_scene.instantiate()
 	get_tree().current_scene.add_child(inst)
 	inst.rotation = angle
+	
+	# 兽化爪击震屏
+	GU.screen_shake(2.0, 0.1)
 	inst.global_position = global_position + Vector2.RIGHT.rotated(angle) * beastify_forward_offset
 
 func _get_beast_best_attack_angle() -> float:
@@ -1338,11 +1350,11 @@ func _on_fire_detail_branch() -> void:
 	# Play sound
 	#$FireSound.play()
 
-	var main_bullet = branch_scene.instantiate()
+	var main_bullet = Global.branch_pool.acquire(get_tree().current_scene)
+	main_bullet.position = spawn_position
 	main_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
 	main_bullet.set_direction(base_direction)
-	main_bullet.position = spawn_position
-	get_tree().current_scene.add_child(main_bullet)
+	main_bullet.activate_bullet()
 
 
 func _on_fire_detail_moyan() -> void:
@@ -1455,10 +1467,8 @@ func _on_fire_holylight(_skill_id: int = 18) -> void:
 func _on_fire_detail_holylight() -> void:
 	if not holy_light_scene:
 		return
-		
-	var script = load("res://Script/skill/holy_light.gd")
-	if script:
-		script.fire_skill(holy_light_scene, global_position, get_tree())
+
+	FazeLight.fire_skill(holy_light_scene, global_position, get_tree())
 
 
 func _on_fire_detail_thunder_break() -> void:
@@ -1717,6 +1727,19 @@ func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, _wor
 		$HitSound.play()
 		sprite.modulate = Color(1, 0.5, 0.5)
 
+func _on_player_hit_ignore_invincible(damage_val: float, shield_val: float, attacker: Node2D, _world_position: Vector2, _source_name: String) -> void:
+	if PC.is_game_over:
+		return
+	# 播放受击音效和闪烁，但不触发无敌
+	if PC.pc_hp > 0:
+		$HitSound.play()
+		sprite.modulate = Color(1, 0.5, 0.5)
+
+func _on_player_instakill(attacker: Node2D, _world_position: Vector2, _source_name: String) -> void:
+	if PC.is_game_over:
+		return
+	# 秒杀不触发无敌，可以在这里添加特殊死亡特效
+	pass
 
 # 添加新召唤物（当获得召唤物奖励时调用）
 func add_summon(summon_type: int) -> void:

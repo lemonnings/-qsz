@@ -210,10 +210,6 @@ func deal_damage_to_player():
 	
 	print("扇形AOE对玩家造成伤害: ", actual_damage)
 	
-	# 检查死亡
-	if PC.pc_hp <= 0:
-		PC.player_instance.game_over()
-	
 	damage_dealt.emit(float(actual_damage))
 
 func play_animation():

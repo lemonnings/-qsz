@@ -31,6 +31,9 @@ var grow_time: float = 0.0
 func _ready():
 	# 获取玩家引用
 	player_ref = get_tree().get_first_node_in_group("player")
+	# 备选：如果组中未找到，尝试使用 PC.player_instance
+	if not player_ref and is_instance_valid(PC.player_instance):
+		player_ref = PC.player_instance
 	
 	# 创建预警形状
 	create_warning_shape()
@@ -136,6 +139,10 @@ func finish_warning():
 	"""结束预警，检查伤害"""
 	is_warning_active = false
 	
+	# 确保玩家引用有效（备选：延迟初始化时可能为 null）
+	if not player_ref and is_instance_valid(PC.player_instance):
+		player_ref = PC.player_instance
+	
 	# 检查玩家是否在范围内
 	if player_ref and is_player_in_range():
 		# 对玩家造成伤害
@@ -153,18 +160,34 @@ func finish_warning():
 	warning_finished.emit()
 
 func is_player_in_range() -> bool:
-	"""检查玩家是否在矩形AOE范围内"""
+	"""检查玩家是否在矩形AOE范围内（以CollisionShape2D为准）"""
 	if not player_ref:
 		return false
 	
-	var player_pos = player_ref.global_position
+	var hitbox_info = PC.get_player_hitbox_info()
+	var player_pos: Vector2
+	var player_radius: float = 0.0
+	
+	if hitbox_info.is_empty() or hitbox_info.get("type") != "circle":
+		# fallback：使用玩家节点中心位置
+		player_pos = player_ref.global_position
+	else:
+		player_pos = hitbox_info.get("position", player_ref.global_position)
+		player_radius = hitbox_info.get("radius", 0.0)
+	
 	var relative_pos = player_pos - start_position
-	
 	var rotated_pos = relative_pos.rotated(-rect_angle)
-	
 	var half_width = width / 2.0
 	
-	return rotated_pos.x >= 0.0 and rotated_pos.x <= rect_length and abs(rotated_pos.y) <= half_width
+	if player_radius <= 0.0:
+		return rotated_pos.x >= 0.0 and rotated_pos.x <= rect_length and abs(rotated_pos.y) <= half_width
+	
+	# 矩形与圆的相交检测：计算矩形上离圆心最近的点
+	var closest_x = clampf(rotated_pos.x, 0.0, rect_length)
+	var closest_y = clampf(rotated_pos.y, -half_width, half_width)
+	var dx = rotated_pos.x - closest_x
+	var dy = rotated_pos.y - closest_y
+	return dx * dx + dy * dy <= player_radius * player_radius
 
 func deal_damage_to_player():
 	"""对玩家造成伤害"""
@@ -177,8 +200,6 @@ func deal_damage_to_player():
 	var hit_source_name := source_name if not source_name.is_empty() else "范围伤害"
 	var final_attacker: Node2D = attacker if is_instance_valid(attacker) else self
 	PC.player_hit(actual_damage, final_attacker, hit_source_name)
-	if PC.pc_hp <= 0:
-		PC.player_instance.game_over()
 	
 	damage_dealt.emit(float(actual_damage))
 
