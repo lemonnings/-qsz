@@ -144,7 +144,7 @@ func finish_warning():
 		player_ref = PC.player_instance
 	
 	# 检查玩家是否在范围内
-	if player_ref and is_player_in_range():
+	if player_ref and is_player_in_range() and damage > 0:
 		# 对玩家造成伤害
 		deal_damage_to_player()
 	

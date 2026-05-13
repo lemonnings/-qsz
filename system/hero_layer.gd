@@ -28,10 +28,10 @@ func _ready() -> void:
 		"kansel": hero4
 	}
 	hero_texts = {
-		"moning": "初始武器 气功波\n特殊技能 元气弹，迷踪步\n身份背景 天衍宗的少年天才",
-		"yiqiu": "初始武器 剑气诀\n特殊技能 魔化，剑气乱击\n身份背景 魔教小少主",
-		"noam": "初始武器 光弹\n特殊技能 苦难，天赐\n身份背景 误入异界的白魔法师",
-		"kansel": "初始武器 冰刺术\n特殊技能 魔纹阵，以太变移\n身份背景 误入异界的黑魔法师"
+		"moning": "初始武器 气功波\n特殊技能 迷踪步\n身份背景 天衍宗乾长老的得意门生，精通风系法术与轻功。",
+		"yiqiu": "初始武器 剑气诀\n特殊技能 兽化\n身份背景 魔教的小少主，擅使枪剑，体内有着神秘的力量。",
+		"noam": "初始武器 光弹\n特殊技能 神圣灼烧\n身份背景 误入异界的白魔法师，是帝国最年轻的皇家白魔法师。",
+		"kansel": "初始武器 冰刺术\n特殊技能 魔纹阵\n身份背景 误入异界的黑魔法师，是帝国黑魔法研究院首席。"
 	}
 	hero_display_names = {
 		"moning": "墨宁",
@@ -101,7 +101,7 @@ func _on_hero_gui_input(event: InputEvent, hero_key: String) -> void:
 				tips.start_animation("已切换为 " + hero_display_names[hero_key], 0.5)
 				Global.save_game()
 			else:
-				tips.start_animation("角色未开放！", 0.5)
+				tips.start_animation("角色暂未解锁，可通过后续剧情解锁！", 0.5)
 	
 
 func _select_hero(hero_key: String) -> void:
@@ -113,8 +113,14 @@ func _select_hero(hero_key: String) -> void:
 	bag_layer.refresh_character_display()
 
 func _update_now_hero(hero_key: String) -> void:
-	now_hero.scale = Vector2(8, 8)
-	now_hero.play(hero_key)
+	now_hero.scale = Vector2(3.4, 3.4)
+	# 从玩家身上获取对应角色的精灵帧并播放run动画
+	var player = get_tree().current_scene.get_node_or_null("Player")
+	if player:
+		var character_sprite = player.get_node(hero_key) as AnimatedSprite2D
+		if character_sprite:
+			now_hero.sprite_frames = character_sprite.sprite_frames
+	now_hero.play("run")
 	now_hero_name.text = "当前出战\n" + hero_display_names[hero_key]
 	hero_detail.text = hero_texts[hero_key]
 

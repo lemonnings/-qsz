@@ -130,6 +130,7 @@ func play_explosion_and_die():
 	call_deferred("_play_explosion_and_die_deferred")
 
 func _play_explosion_and_die_deferred() -> void:
+	SEManager.play("22")
 	# 创建爆炸动画
 	var explosion = preload("res://Scenes/player/big_fire_bullet.tscn").instantiate()
 	get_tree().current_scene.add_child(explosion)

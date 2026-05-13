@@ -185,7 +185,7 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	const P: int = 2
+	const P: int = 4
 	# 填充进度 0→1，对应从空到满
 	var fill_progress: float = clamp(elapsed_time / max(duration, 0.01), 0.0, 1.0)
 
@@ -269,7 +269,8 @@ func _on_burst() -> void:
 func _on_burst_finished() -> void:
 	_apply_end_damage_and_heal()
 	queue_free()
-
+# 1 +12 3 +3 5 blue 3 purple 2 gold
+#
 func _apply_end_damage_and_heal() -> void:
 	var areas = get_overlapping_areas()
 	for area in areas:

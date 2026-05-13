@@ -15,7 +15,7 @@ var get_mechanism: int = SettingMoster.armor_stone("mechanism")
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 const CHARGE_TRIGGER_DISTANCE: float = 100.0
-const CHARGE_DISTANCE: float = 110.0
+const CHARGE_DISTANCE: float = 150.0
 const CHARGE_SPEED_MULTIPLIER: float = 5.0
 const CHARGE_WARNING_TIME: float = 1.2
 const CHARGE_WARNING_WIDTH: float = 16.0
@@ -176,7 +176,7 @@ func _on_area_entered(area: Area2D) -> void:
 			area.call_deferred("create_rebound")
 			
 		if hp <= 0:
-			# 如果已经死亡，则不重复播放死亡动画，也不播放受击动画
+			# 如果已经死亡，则不重复播放死亡动画，也不播放动画
 			if not is_dead:
 				$AnimatedSprite2D.play("death")
 		else:
@@ -240,6 +240,3 @@ func clear_charge_warning():
 
 func _exit_tree():
 	clear_charge_warning()
-
-
-

@@ -25,6 +25,10 @@ const OFFSCREEN_SPEED_MULTIPLIER_MAX: float = 5.0
 const RANDOM_SPEED_VARIATION_MIN: float = 0.85
 const RANDOM_SPEED_VARIATION_MAX: float = 1.15
 
+# 离屏优化：缓存每帧的离屏状态，避免重复计算
+const OFFSCREEN_OPTIMIZATION_MARGIN: float = 40.0
+var _is_offscreen: bool = false
+
 var movement_speed_variation_multiplier: float = 1.0
 var _hit_flash_tween: Tween = null
 var _hit_flash_frame: int = -1
@@ -72,7 +76,8 @@ func _randomize_base_speed_if_available() -> void:
 func _is_beyond_camera_margin(margin_pixels: float = OFFSCREEN_SPEED_MARGIN_PIXELS) -> bool:
 	if is_in_group("boss"):
 		return false
-	var camera := get_viewport().get_camera_2d()
+	var _vp := get_viewport()
+	var camera := _vp.get_camera_2d() if _vp else null
 	if camera == null:
 		return false
 	# 将怪物的全局坐标转换为相对于相机的偏移
@@ -91,11 +96,18 @@ func _is_beyond_camera_margin(margin_pixels: float = OFFSCREEN_SPEED_MARGIN_PIXE
 		or screen_offset.y > half_screen.y + margin_pixels
 	)
 
+## 更新离屏缓存（每帧调用一次，供子类判断是否跳过非必要逻辑）
+func update_offscreen_status() -> void:
+	_is_offscreen = _is_beyond_camera_margin(OFFSCREEN_OPTIMIZATION_MARGIN)
+
 func get_effective_move_speed(base_speed_value: float, extra_multiplier: float = 1.0, apply_offscreen_boost: bool = true) -> float:
 	var speed_multiplier := extra_multiplier
+	# 应用关卡内敌人移速倍率
+	speed_multiplier *= PC.enemy_move_speed_multiplier
 	if debuff_manager != null and is_instance_valid(debuff_manager):
 		speed_multiplier *= debuff_manager.get_speed_multiplier()
-	if apply_offscreen_boost and _is_beyond_camera_margin():
+	# 只在已确认离屏（>40px）时才进一步检测50px阈值
+	if apply_offscreen_boost and _is_offscreen and _is_beyond_camera_margin():
 		speed_multiplier *= randf_range(OFFSCREEN_SPEED_MULTIPLIER_MIN, OFFSCREEN_SPEED_MULTIPLIER_MAX)
 	return base_speed_value * speed_multiplier
 
@@ -146,7 +158,7 @@ func handle_common_body_entered(body: Node2D) -> void:
 		var actual_damage = float(get("atk")) * (1.0 - PC.damage_reduction_rate)
 		if use_debuff_take_damage_multiplier and debuff_manager != null and is_instance_valid(debuff_manager):
 			actual_damage *= debuff_manager.get_take_damage_multiplier()
-		PC.player_hit(int(actual_damage), self , "受击")
+		PC.player_hit(int(actual_damage), self , "")
 
 func _on_body_entered(body: Node2D) -> void:
 	handle_common_body_entered(body)
@@ -242,7 +254,10 @@ func apply_common_take_damage(damage: int, is_crit: bool, is_summon: bool, damag
 		return result
 
 	var use_debuff_multiplier = options.get("use_debuff_multiplier", true)
-	var final_damage = get_non_bullet_damage_value(damage, use_debuff_multiplier)
+	# 修习树武器篇伤害加成（根据 damage_type 对应的武器分类动态获取）
+	var study_weapon_bonus = SettingStudyTreeUp.get_total_damage_bonus(damage_type)
+	var adjusted_damage = float(damage) * (1.0 + study_weapon_bonus)
+	var final_damage = get_non_bullet_damage_value(adjusted_damage, use_debuff_multiplier)
 	result["applied"] = true
 	result["final_damage"] = final_damage
 

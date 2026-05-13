@@ -155,11 +155,8 @@ func _on_area_entered(area: Area2D) -> void:
 			
 		hp -= int(final_damage_val)
 		if hp <= 0:
-			# 如果已经死亡，则不重复播放死亡动画，也不播放受击动画
+			# 如果已经死亡，则不重复播放死亡动画，也不播放动画
 			if not is_dead:
 				$AnimatedSprite2D.play("death")
 		else:
 			Global.play_hit_anime(position, is_crit)
-
-
-

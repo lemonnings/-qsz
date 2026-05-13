@@ -3,6 +3,9 @@ extends Node
 # 全局奖励列表，从CSV加载
 var all_rewards_list: Array[Reward] = []
 
+# 记录最近一次升级选择的奖励派系（用于Summon权重衰减判断）
+var _last_applied_reward_faction: String = ""
+
 # 定义奖励数据结构
 class Reward: # Reward 类定义了单个奖励所包含的所有属性。
 	var id: String
@@ -150,6 +153,12 @@ func _get_rewards_by_rarity_str(rarity_str: String, main_skill_name: String) -> 
 	
 
 func _level_up_action():
+	# 升级后Summon派系权重衰减处理
+	if _last_applied_reward_faction == "Summon":
+		PlayerRewardWeights.on_faction_selected("Summon")
+	PlayerRewardWeights.apply_summon_level_up_decay()
+	_last_applied_reward_faction = ""
+	
 	all_rewards_list = []
 	_load_rewards_from_csv("res://Config/reward.csv")
 	global_level_up()
@@ -444,6 +453,13 @@ func _get_no_advance_reward() -> Reward:
 			return reward
 	return null
 
+# 根据ID查找奖励数据（供外部查询，如提示框等）
+func get_reward_by_id(reward_id: String) -> Reward:
+	for reward in all_rewards_list:
+		if reward.id == reward_id:
+			return reward
+	return null
+
 # 检查当前是否没有其他可进阶的技能（NoAdvance的前置条件）
 func check_no_other_advance() -> bool:
 	# 遍历所有奖励，检查是否还有可用的进阶技能
@@ -536,6 +552,8 @@ func check_not_have_Branch() -> bool:
 func check_not_have_Moyan() -> bool:
 	if not _can_add_weapon():
 		return false
+	if not Global.study_unlock_baoyan:
+		return false
 	return not PC.selected_rewards.has("Moyan")
 
 func check_not_have_Riyan() -> bool:
@@ -556,6 +574,8 @@ func check_not_have_Thunder() -> bool:
 func check_not_have_Bloodwave() -> bool:
 	if not _can_add_weapon():
 		return false
+	if not Global.study_unlock_bloodwave:
+		return false
 	return not PC.selected_rewards.has("Bloodwave")
 
 func check_not_have_Bloodboardsword() -> bool:
@@ -570,6 +590,8 @@ func check_not_have_Ice() -> bool:
 
 func check_not_have_Thunderbreak() -> bool:
 	if not _can_add_weapon():
+		return false
+	if not Global.study_unlock_thunder_break:
 		return false
 	return not PC.selected_rewards.has("Thunderbreak")
 
@@ -586,20 +608,28 @@ func check_not_have_Qigong() -> bool:
 func check_not_have_Dragonwind() -> bool:
 	if not _can_add_weapon():
 		return false
+	if not Global.study_unlock_dragonwind:
+		return false
 	return not PC.selected_rewards.has("Dragonwind")
 
 func check_not_have_Water() -> bool:
 	if not _can_add_weapon():
+		return false
+	if not Global.study_unlock_water:
 		return false
 	return not PC.selected_rewards.has("Water")
 
 func check_not_have_Qiankun() -> bool:
 	if not _can_add_weapon():
 		return false
+	if not Global.study_unlock_qiankun:
+		return false
 	return not PC.selected_rewards.has("Qiankun")
 
 func check_not_have_Xuanwu() -> bool:
 	if not _can_add_weapon():
+		return false
+	if not Global.study_unlock_xuanwu:
 		return false
 	return not PC.selected_rewards.has("Xuanwu")
 
@@ -611,6 +641,8 @@ func check_not_have_Xunfeng() -> bool:
 func check_not_have_Genshan() -> bool:
 	if not _can_add_weapon():
 		return false
+	if not Global.study_unlock_genshan:
+		return false
 	return not PC.selected_rewards.has("Genshan")
 
 func check_not_have_Duize() -> bool:
@@ -620,6 +652,8 @@ func check_not_have_Duize() -> bool:
 
 func check_not_have_Holylight() -> bool:
 	if not _can_add_weapon():
+		return false
+	if not Global.study_unlock_holylight:
 		return false
 	return not PC.selected_rewards.has("Holylight")
 
@@ -636,14 +670,23 @@ func check_Bloodboardsword_condition() -> bool:
 func check_Riyan_condition() -> bool:
 	return PC.selected_rewards.has("Riyan")
 	
+func check_Riyan13() -> bool:
+	return PC.selected_rewards.has("Riyan1") and PC.selected_rewards.has("Riyan3")
+
+func check_Riyan14() -> bool:
+	return PC.selected_rewards.has("Riyan1") and PC.selected_rewards.has("Riyan4")
+
+func check_Riyan24() -> bool:
+	return PC.selected_rewards.has("Riyan2") and PC.selected_rewards.has("Riyan4")
+
 func check_Thunder1() -> bool:
-	return PC.selected_rewards.has("Thunder1")
+	return PC.selected_rewards.has("Thunder1") and PC.selected_rewards.has("Thunder3")
 
 func check_Thunder2() -> bool:
-	return PC.selected_rewards.has("Thunder2")
+	return PC.selected_rewards.has("Thunder2") and PC.selected_rewards.has("Thunder4")
 
 func check_Thunder3() -> bool:
-	return PC.selected_rewards.has("Thunder3")
+	return PC.selected_rewards.has("Thunder1") and PC.selected_rewards.has("Thunder2")
 
 func check_Branch1() -> bool:
 	return PC.selected_rewards.has("Branch3") and PC.selected_rewards.has("Branch4")
@@ -658,41 +701,41 @@ func check_Branch2() -> bool:
 	return PC.selected_rewards.has("Branch2") and PC.selected_rewards.has("Branch3")
 
 func check_Bloodwave1() -> bool:
-	return PC.selected_rewards.has("Bloodwave1")
+	return PC.selected_rewards.has("Bloodwave3") and PC.selected_rewards.has("Bloodwave4")
 
 func check_Bloodwave2() -> bool:
-	return PC.selected_rewards.has("Bloodwave2")
+	return PC.selected_rewards.has("Bloodwave3") and PC.selected_rewards.has("Bloodwave2")
 
 func check_Bloodwave3() -> bool:
-	return PC.selected_rewards.has("Bloodwave3")
+	return PC.selected_rewards.has("Bloodwave1") and PC.selected_rewards.has("Bloodwave4")
 
 func check_Bloodboardsword1() -> bool:
-	return PC.selected_rewards.has("BloodBoardSword1")
+	return PC.selected_rewards.has("BloodBoardSword1") and PC.selected_rewards.has("BloodBoardSword2")
 
 func check_Bloodboardsword2() -> bool:
-	return PC.selected_rewards.has("BloodBoardSword2")
+	return PC.selected_rewards.has("BloodBoardSword1") and PC.selected_rewards.has("BloodBoardSword4")
 
 func check_Bloodboardsword3() -> bool:
-	return PC.selected_rewards.has("BloodBoardSword3")
+	return PC.selected_rewards.has("BloodBoardSword2") and PC.selected_rewards.has("BloodBoardSword3")
 
 
 func check_Ice_condition() -> bool:
 	return PC.selected_rewards.has("Ice")
 
 func check_Ice_condition1() -> bool:
-	return PC.selected_rewards.has("Ice1")
+	return PC.selected_rewards.has("Ice1") and PC.selected_rewards.has("Ice3")
 
 func check_Ice_condition2() -> bool:
-	return PC.selected_rewards.has("Ice2")
+	return PC.selected_rewards.has("Ice2") and PC.selected_rewards.has("Ice3")
 
 func check_Ice_condition3() -> bool:
-	return PC.selected_rewards.has("Ice3")
+	return PC.selected_rewards.has("Ice4") and PC.selected_rewards.has("Ice2")
 
 func check_Ice_condition4() -> bool:
-	return PC.selected_rewards.has("Ice4")
+	return PC.selected_rewards.has("Ice5") and PC.selected_rewards.has("Ice1")
 
 func check_Ice_condition5() -> bool:
-	return PC.selected_rewards.has("Ice5")
+	return PC.selected_rewards.has("Ice5") and PC.selected_rewards.has("Ice4")
 
 func check_Thunderbreak_condition() -> bool:
 	return PC.selected_rewards.has("Thunderbreak")
@@ -749,62 +792,62 @@ func reward_URQigong():
 
 
 func reward_Qigong1():
-	PC.faze_wind_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_wind_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Qigong1")
 	_level_up_action()
 
 func reward_Qigong2():
-	PC.faze_wind_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_wind_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Qigong2")
 	_level_up_action()
 
 func reward_Qigong3():
-	PC.faze_wind_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_wind_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Qigong3")
 	_level_up_action()
 
 func reward_Qigong4():
-	PC.faze_wind_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_wind_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Qigong4")
 	_level_up_action()
 
 func reward_Qigong5():
-	PC.faze_wind_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_wind_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Qigong5")
 	_level_up_action()
 
 func reward_Qigong11():
-	PC.faze_wind_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_wind_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Qigong11")
 	_level_up_action()
 
 func reward_Qigong22():
-	PC.faze_wind_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_wind_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Qigong22")
 	_level_up_action()
 
 func reward_Qigong33():
-	PC.faze_wind_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_wind_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Qigong33")
 	_level_up_action()
 
 func reward_Qigong44():
-	PC.faze_wind_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_wind_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Qigong44")
 	_level_up_action()
 
 func reward_Qigong55():
-	PC.faze_wind_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_wind_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Qigong55")
 	_level_up_action()
 
@@ -911,61 +954,61 @@ func check_Moyan23() -> bool:
 # --- 以下为具体的奖励效果实现函数 --- 
 
 func reward_R01():
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.1)
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.05)
 	EmblemManager.add_emblem("xueqi", 1)
 	_level_up_action()
 
 func reward_SR01():
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.11)
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.10)
 	EmblemManager.add_emblem("xueqi", 1)
 	_level_up_action()
 
 func reward_SSR01():
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.12)
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.18)
 	EmblemManager.add_emblem("xueqi", 1)
 	_level_up_action()
 
 func reward_UR01():
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.14)
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.20)
 	EmblemManager.add_emblem("xueqi", 2)
 	_level_up_action()
 
 func reward_R02():
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
-	PC.pc_atk_speed += 0.015
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.03)
+	PC.pc_atk_speed += 0.01
 	EmblemManager.add_emblem("pozhen", 1)
 	_level_up_action()
 
 func reward_SR02():
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.04)
 	PC.pc_atk_speed += 0.02
 	EmblemManager.add_emblem("pozhen", 1)
 	_level_up_action()
 
 func reward_SSR02():
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
-	PC.pc_atk_speed += 0.025
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.05)
+	PC.pc_atk_speed += 0.03
 	EmblemManager.add_emblem("pozhen", 1)
 	_level_up_action()
 
 func reward_UR02():
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.05)
-	PC.pc_atk_speed += 0.05
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.06)
+	PC.pc_atk_speed += 0.03
 	EmblemManager.add_emblem("pozhen", 2)
 	_level_up_action()
 
 func reward_R03():
-	PC.pc_atk_speed += 0.02
-	EmblemManager.add_emblem("jinghong", 1)
-	_level_up_action()
-
-func reward_SR03():
 	PC.pc_atk_speed += 0.04
 	EmblemManager.add_emblem("jinghong", 1)
 	_level_up_action()
 
-func reward_SSR03():
+func reward_SR03():
 	PC.pc_atk_speed += 0.07
+	EmblemManager.add_emblem("jinghong", 1)
+	_level_up_action()
+
+func reward_SSR03():
+	PC.pc_atk_speed += 0.11
 	EmblemManager.add_emblem("jinghong", 1)
 	_level_up_action()
 
@@ -993,7 +1036,7 @@ func reward_SSR04():
 	_level_up_action()
 
 func reward_UR04():
-	PC.pc_speed += 0.22
+	PC.pc_speed += 0.18
 	PC.crit_chance += 0.03
 	EmblemManager.add_emblem("tafeng", 2)
 	_level_up_action()
@@ -1017,7 +1060,7 @@ func reward_SSR05():
 	_level_up_action()
 
 func reward_UR05():
-	PC.pc_atk_speed += 0.17
+	PC.pc_atk_speed += 0.16
 	PC.pc_speed -= 0.05
 	EmblemManager.add_emblem("chenjing", 2)
 	_level_up_action()
@@ -1025,75 +1068,67 @@ func reward_UR05():
 func reward_R06():
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.05)
 	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.01, 0.7)
-	PC.pc_speed -= 0.03
 	EmblemManager.add_emblem("lianti", 1)
 	_level_up_action()
 
 func reward_SR06():
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.07)
 	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.015, 0.7)
-	PC.pc_speed -= 0.04
 	EmblemManager.add_emblem("lianti", 1)
 	_level_up_action()
 
 func reward_SSR06():
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.10)
 	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.02, 0.7)
-	PC.pc_speed -= 0.06
 	EmblemManager.add_emblem("lianti", 1)
 	_level_up_action()
 
 func reward_UR06():
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.14)
-	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.04, 0.7)
-	PC.pc_speed -= 0.06
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.15)
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.03, 0.7)
 	EmblemManager.add_emblem("lianti", 2)
 	_level_up_action()
 
 func reward_R07():
 	PC.pc_speed += 0.12
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.02)
 	EmblemManager.add_emblem("jianbu", 1)
 	_level_up_action()
 
 func reward_SR07():
 	PC.pc_speed += 0.15
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.025)
 	EmblemManager.add_emblem("jianbu", 1)
 	_level_up_action()
 
 func reward_SSR07():
 	PC.pc_speed += 0.19
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.03)
 	EmblemManager.add_emblem("jianbu", 1)
 	_level_up_action()
 
 func reward_UR07():
-	PC.pc_speed += 0.27
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.04)
+	PC.pc_speed += 0.25
 	EmblemManager.add_emblem("jianbu", 2)
 	_level_up_action()
 
 func reward_R08():
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.06)
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.06)
 	PC.pc_speed -= 0.06
 	EmblemManager.add_emblem("manli", 1)
 	_level_up_action()
 
 func reward_SR08():
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.07)
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.07)
 	PC.pc_speed -= 0.07
 	EmblemManager.add_emblem("manli", 1)
 	_level_up_action()
 
 func reward_SSR08():
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.08)
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.08)
 	PC.pc_speed -= 0.08
 	EmblemManager.add_emblem("manli", 1)
 	_level_up_action()
 
 func reward_UR08():
-	PC.pc_atk = int(PC.pc_atk - PC.pc_start_atk * 0.08)
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.10)
 	PC.pc_speed -= 0.1
 	EmblemManager.add_emblem("manli", 2)
 	_level_up_action()
@@ -1140,7 +1175,7 @@ func reward_UR10():
 
 
 func reward_R12():
-	PC.now_lunky_level += 2
+	PC.now_lunky_level += 3
 	Global.emit_signal("lucky_level_up", 2)
 	EmblemManager.add_emblem("jiahu", 1)
 	_level_up_action()
@@ -1198,29 +1233,22 @@ func reward_SSR14():
 	PC.pc_atk_speed += 0.06
 	_level_up_action()
 
-func reward_UR14():
-	PC.crit_chance += 0.08
-	PC.pc_atk_speed += 0.08
-	_level_up_action()
-
 func reward_R15():
 	PC.crit_damage_multi += 0.08
 	PC.pc_atk_speed += 0.04
+	PC.faze_destroy_level += 1
 	_level_up_action()
 
 func reward_SR15():
 	PC.crit_damage_multi += 0.10
 	PC.pc_atk_speed += 0.05
+	PC.faze_destroy_level += 1
 	_level_up_action()
 
 func reward_SSR15():
 	PC.crit_damage_multi += 0.12
 	PC.pc_atk_speed += 0.06
-	_level_up_action()
-
-func reward_UR15():
-	PC.crit_damage_multi += 0.16
-	PC.pc_atk_speed += 0.08
+	PC.faze_destroy_level += 1
 	_level_up_action()
 
 func reward_R16():
@@ -1236,31 +1264,6 @@ func reward_SR16():
 func reward_SSR16():
 	PC.crit_chance += 0.08
 	PC.crit_damage_multi += 0.14
-	_level_up_action()
-
-func reward_UR16():
-	PC.crit_chance += 0.011
-	PC.crit_damage_multi += 0.2
-	_level_up_action()
-
-func reward_R17():
-	PC.add_attack_range(0.1)
-	PC.pc_atk_speed += 0.08
-	_level_up_action()
-
-func reward_SR17():
-	PC.add_attack_range(0.1)
-	PC.pc_atk_speed += 0.11
-	_level_up_action()
-
-func reward_SSR17():
-	PC.add_attack_range(0.15)
-	PC.pc_atk_speed += 0.12
-	_level_up_action()
-
-func reward_UR17():
-	PC.add_attack_range(0.15)
-	PC.pc_atk_speed += 0.16
 	_level_up_action()
 
 func reward_R18():
@@ -1304,20 +1307,13 @@ func reward_SSR19():
 	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
 	_level_up_action()
 
-func reward_UR19():
-	PC.pc_max_hp = int(PC.pc_max_hp * 1.14)
-	PC.damage_reduction_rate += 0.025
-	var extra_hp_bonus = min(0.10, PC.damage_reduction_rate * 0.004)
-	PC.pc_max_hp = int(PC.pc_max_hp * (1 + extra_hp_bonus))
-	_level_up_action()
-
 func reward_Ice():
 	IceFlower.reset_data()
 	PC.selected_rewards.append("Ice")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_destroy_level += 2
-	PC.faze_bullet_level += 2
+	PC.faze_destroy_level += 3
+	PC.faze_bullet_level += 3
 	# 初始化冷却时间
 	var player = get_tree().get_first_node_in_group("player")
 	if player and player.ice_flower_fire_speed:
@@ -1349,62 +1345,62 @@ func reward_URIce():
 	_level_up_action()
 
 func reward_Ice1():
-	PC.faze_destroy_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_destroy_level += 2
+	PC.faze_bullet_level += 2
 	PC.selected_rewards.append("Ice1")
 	_level_up_action()
 
 func reward_Ice2():
-	PC.faze_destroy_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_destroy_level += 2
+	PC.faze_bullet_level += 2
 	PC.selected_rewards.append("Ice2")
 	_level_up_action()
 
 func reward_Ice3():
-	PC.faze_destroy_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_destroy_level += 2
+	PC.faze_bullet_level += 2
 	PC.selected_rewards.append("Ice3")
 	_level_up_action()
 
 func reward_Ice4():
-	PC.faze_destroy_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_destroy_level += 2
+	PC.faze_bullet_level += 2
 	PC.selected_rewards.append("Ice4")
 	_level_up_action()
 
 func reward_Ice5():
-	PC.faze_destroy_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_destroy_level += 2
+	PC.faze_bullet_level += 2
 	PC.selected_rewards.append("Ice5")
 	_level_up_action()
 
 func reward_Ice11():
-	PC.faze_destroy_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_destroy_level += 2
+	PC.faze_bullet_level += 2
 	PC.selected_rewards.append("Ice11")
 	_level_up_action()
 
 func reward_Ice22():
-	PC.faze_destroy_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_destroy_level += 2
+	PC.faze_bullet_level += 2
 	PC.selected_rewards.append("Ice22")
 	_level_up_action()
 
 func reward_Ice33():
-	PC.faze_destroy_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_destroy_level += 2
+	PC.faze_bullet_level += 2
 	PC.selected_rewards.append("Ice33")
 	_level_up_action()
 
 func reward_Ice44():
-	PC.faze_destroy_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_destroy_level += 2
+	PC.faze_bullet_level += 2
 	PC.selected_rewards.append("Ice44")
 	_level_up_action()
 
 func reward_Ice55():
-	PC.faze_destroy_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_destroy_level += 2
+	PC.faze_bullet_level += 2
 	PC.selected_rewards.append("Ice55")
 	_level_up_action()
 
@@ -1413,8 +1409,8 @@ func reward_ThunderBreak():
 	PC.selected_rewards.append("Thunderbreak")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_thunder_level += 2
-	PC.faze_destroy_level += 2
+	PC.faze_thunder_level += 3
+	PC.faze_destroy_level += 3
 	_level_up_action()
 
 func reward_RThunderBreak():
@@ -1442,51 +1438,49 @@ func reward_URThunderBreak():
 	_level_up_action()
 
 func reward_ThunderBreak1():
-	PC.thunder_break_final_damage_multi += 0.4
-	PC.faze_thunder_level += 1
-	PC.faze_destroy_level += 1
+	PC.thunder_break_final_damage_multi += 0.1
+	PC.faze_thunder_level += 2
+	PC.faze_destroy_level += 2
 	PC.selected_rewards.append("ThunderBreak1")
 	_level_up_action()
 
 func reward_ThunderBreak2():
-	PC.thunder_break_final_damage_multi += 0.3
-	PC.faze_thunder_level += 1
-	PC.faze_destroy_level += 1
+	PC.thunder_break_final_damage_multi += 0.15
+	PC.faze_thunder_level += 2
+	PC.faze_destroy_level += 2
 	PC.selected_rewards.append("ThunderBreak2")
 	_level_up_action()
 
 func reward_ThunderBreak3():
-	PC.thunder_break_final_damage_multi += 0.2
-	PC.faze_thunder_level += 1
-	PC.faze_destroy_level += 1
+	PC.faze_thunder_level += 2
+	PC.faze_destroy_level += 2
 	PC.selected_rewards.append("ThunderBreak3")
 	_level_up_action()
 
 func reward_ThunderBreak4():
-	PC.thunder_break_final_damage_multi += 0.2
-	PC.faze_thunder_level += 1
-	PC.faze_destroy_level += 1
+	PC.faze_thunder_level += 2
+	PC.faze_destroy_level += 2
 	PC.selected_rewards.append("ThunderBreak4")
 	_level_up_action()
 
 func reward_ThunderBreak11():
-	PC.thunder_break_final_damage_multi += 0.3
-	PC.faze_thunder_level += 1
-	PC.faze_destroy_level += 1
+	PC.thunder_break_final_damage_multi += 0.1
+	PC.faze_thunder_level += 2
+	PC.faze_destroy_level += 2
 	PC.selected_rewards.append("ThunderBreak11")
 	_level_up_action()
 
 func reward_ThunderBreak22():
-	PC.thunder_break_final_damage_multi += 0.4
-	PC.faze_thunder_level += 1
-	PC.faze_destroy_level += 1
+	PC.thunder_break_final_damage_multi += 0.1
+	PC.faze_thunder_level += 2
+	PC.faze_destroy_level += 2
 	PC.selected_rewards.append("ThunderBreak22")
 	_level_up_action()
 
 func reward_ThunderBreak33():
-	PC.thunder_break_final_damage_multi += 0.8
-	PC.faze_thunder_level += 1
-	PC.faze_destroy_level += 1
+	PC.thunder_break_final_damage_multi += 0.1
+	PC.faze_thunder_level += 2
+	PC.faze_destroy_level += 2
 	PC.selected_rewards.append("ThunderBreak33")
 	_level_up_action()
 
@@ -1496,8 +1490,8 @@ func reward_LightBullet():
 	PC.selected_rewards.append("Lightbullet")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_bullet_level += 2
-	PC.faze_life_level += 2
+	PC.faze_bullet_level += 3
+	PC.faze_life_level += 3
 	_level_up_action()
 
 func reward_RLightBullet():
@@ -1509,76 +1503,76 @@ func reward_RLightBullet():
 func reward_SRLightBullet():
 	PC.main_skill_light_bullet += 1
 	PC.pc_atk_speed += 0.045
-	PC.light_bullet_final_damage_multi += 0.045
+	PC.light_bullet_final_damage_multi += 0.05
 	_level_up_action()
 
 func reward_SSRLightBullet():
 	PC.main_skill_light_bullet += 1
 	PC.pc_atk_speed += 0.05
-	PC.light_bullet_final_damage_multi += 0.05
+	PC.light_bullet_final_damage_multi += 0.06
 	_level_up_action()
 
 func reward_URLightBullet():
 	PC.main_skill_light_bullet += 1
 	PC.pc_atk_speed += 0.06
-	PC.light_bullet_final_damage_multi += 0.06
+	PC.light_bullet_final_damage_multi += 0.08
 	_level_up_action()
 
 func reward_LightBullet1():
 	PC.selected_rewards.append("LightBullet1")
-	PC.faze_bullet_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bullet_level += 2
+	PC.faze_life_level += 2
 	_level_up_action()
 
 func reward_LightBullet2():
 	PC.selected_rewards.append("LightBullet2")
-	PC.faze_bullet_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bullet_level += 2
+	PC.faze_life_level += 2
 	_level_up_action()
 
 func reward_LightBullet3():
 	PC.selected_rewards.append("LightBullet3")
-	PC.faze_bullet_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bullet_level += 2
+	PC.faze_life_level += 2
 	PC.main_skill_light_bullet_damage += 0.1
 	_level_up_action()
 
 func reward_LightBullet4():
 	PC.selected_rewards.append("LightBullet4")
-	PC.faze_bullet_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bullet_level += 2
+	PC.faze_life_level += 2
 	_level_up_action()
 
 func reward_LightBullet5():
 	PC.selected_rewards.append("LightBullet5")
-	PC.faze_bullet_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bullet_level += 2
+	PC.faze_life_level += 2
 	PC.main_skill_light_bullet_damage += 0.1
 	_level_up_action()
 
 func reward_LightBullet11():
 	PC.selected_rewards.append("LightBullet11")
-	PC.faze_bullet_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bullet_level += 2
+	PC.faze_life_level += 2
 	PC.main_skill_light_bullet_damage += 0.1
 	_level_up_action()
 
 func reward_LightBullet22():
 	PC.selected_rewards.append("LightBullet22")
-	PC.faze_bullet_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bullet_level += 2
+	PC.faze_life_level += 2
 	_level_up_action()
 
 func reward_LightBullet33():
 	PC.selected_rewards.append("LightBullet33")
-	PC.faze_bullet_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bullet_level += 2
+	PC.faze_life_level += 2
 	_level_up_action()
 
 func reward_LightBullet44():
 	PC.selected_rewards.append("LightBullet44")
-	PC.faze_bullet_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bullet_level += 2
+	PC.faze_life_level += 2
 	_level_up_action()
 
 # --- 坎水诀相关奖励函数 ---
@@ -1586,84 +1580,86 @@ func reward_Water():
 	PC.selected_rewards.append("Water")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_heal_level += 2
-	PC.faze_life_level += 2
+	PC.faze_bagua_level += 3
+	PC.faze_heal_level += 3
 	_level_up_action()
 
 func reward_RWater():
 	PC.main_skill_water += 1
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.024)
 	PC.heal_multi += 0.024
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.024)
 	PC.water_final_damage_multi += 0.06
 	_level_up_action()
 
 func reward_SRWater():
 	PC.main_skill_water += 1
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.028)
 	PC.heal_multi += 0.028
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.028)
 	PC.water_final_damage_multi += 0.07
 	_level_up_action()
 
 func reward_SSRWater():
 	PC.main_skill_water += 1
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.032)
 	PC.heal_multi += 0.032
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.032)
 	PC.water_final_damage_multi += 0.08
 	_level_up_action()
 
 func reward_URWater():
 	PC.main_skill_water += 1
+	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.04)
 	PC.heal_multi += 0.04
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.04)
 	PC.water_final_damage_multi += 0.1
 	_level_up_action()
 
 func reward_Water1():
 	PC.selected_rewards.append("Water1")
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_heal_level += 2
 	_level_up_action()
 
 func reward_Water2():
 	PC.selected_rewards.append("Water2")
 	PC.main_skill_water_damage += 0.15
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_heal_level += 2
 	_level_up_action()
 
 func reward_Water3():
 	PC.selected_rewards.append("Water3")
 	PC.main_skill_water_damage += 0.15
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_heal_level += 2
+	PC.faze_shield_level += 2
 	_level_up_action()
 
 func reward_Water4():
 	PC.selected_rewards.append("Water4")
 	PC.main_skill_water_damage += 0.15
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_heal_level += 2
 	_level_up_action()
 
 func reward_Water11():
 	PC.selected_rewards.append("Water11")
 	PC.main_skill_water_damage += 0.1
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_heal_level += 2
 	_level_up_action()
 
 func reward_Water22():
 	PC.selected_rewards.append("Water22")
 	PC.main_skill_water_damage += 0.1
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_heal_level += 2
+	PC.faze_shield_level += 2
 	_level_up_action()
 
 func reward_Water33():
 	PC.selected_rewards.append("Water33")
 	PC.main_skill_water_damage += 0.15
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_heal_level += 2
 	_level_up_action()
 
 # --- 乾坤双剑相关奖励函数 ---
@@ -1672,8 +1668,8 @@ func reward_Qiankun():
 	PC.selected_rewards.append("Qiankun")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_sword_level += 2
-	PC.faze_bagua_level += 2
+	PC.faze_sword_level += 3
+	PC.faze_bagua_level += 3
 	# 初始化冷却时间
 	var player = get_tree().get_first_node_in_group("player")
 	if player:
@@ -1712,32 +1708,32 @@ func reward_Qiankun1():
 	PC.selected_rewards.append("Qiankun1")
 	Qiankun.main_skill_qiankun_damage += 0.1
 	Qiankun.qiankun_speed *= 1.25
-	PC.faze_sword_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_Qiankun2():
 	PC.selected_rewards.append("Qiankun2")
 	Qiankun.main_skill_qiankun_damage += 0.1
 	Qiankun.qiankun_range *= 1.5
-	PC.faze_sword_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_Qiankun3():
 	PC.selected_rewards.append("Qiankun3")
 	Qiankun.main_skill_qiankun_damage += 0.1
 	Qiankun.qiankun_speed_per_enemy = 0.02
-	PC.faze_sword_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_Qiankun4():
 	PC.selected_rewards.append("Qiankun4")
 	Qiankun.main_skill_qiankun_damage += 0.1
 	Qiankun.qiankun_damage_per_debuff = 0.3
-	PC.faze_sword_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_Qiankun11():
@@ -1745,135 +1741,28 @@ func reward_Qiankun11():
 	Qiankun.main_skill_qiankun_damage += 0.1
 	Qiankun.qiankun_speed *= 1.1
 	Qiankun.qiankun_speed_per_enemy = 0.03
-	PC.faze_sword_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_Qiankun22():
 	PC.selected_rewards.append("Qiankun22")
 	Qiankun.qiankun_range *= 1.2
 	Qiankun.qiankun_damage_per_enemy = 0.03
-	PC.faze_sword_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_Qiankun33():
 	PC.selected_rewards.append("Qiankun33")
 	Qiankun.main_skill_qiankun_damage += 0.1
 	Qiankun.qiankun_crit_on_3_debuffs = true
-	PC.faze_sword_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 # --- 环形子弹相关奖励函数 ---
 # 获得环形子弹能力
-func reward_SR27():
-	PC.selected_rewards.append("ring_bullet")
-	_level_up_action()
-
-func reward_R28():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.03)
-	PC.ring_bullet_damage_multiplier *= 1.2
-	PC.ring_bullet_interval *= 0.95
-	_level_up_action()
-	
-func reward_SR28():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.045)
-	PC.ring_bullet_damage_multiplier *= 1.26
-	PC.ring_bullet_interval *= 0.94
-	_level_up_action()
-	
-func reward_SSR28():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.06)
-	PC.ring_bullet_damage_multiplier *= 1.34
-	PC.ring_bullet_interval *= 0.93
-	_level_up_action()
-	
-func reward_UR28():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.09)
-	PC.ring_bullet_damage_multiplier *= 1.48
-	PC.ring_bullet_interval *= 0.91
-	_level_up_action()
-	
-func reward_R29():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.03)
-	PC.ring_bullet_count += 2
-	PC.ring_bullet_interval *= 0.95
-	_level_up_action()
-	
-func reward_SR29():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.05)
-	PC.ring_bullet_count += 3
-	PC.ring_bullet_interval *= 0.92
-	_level_up_action()
-	
-func reward_SSR29():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.08)
-	PC.ring_bullet_count += 3
-	PC.ring_bullet_interval *= 0.89
-	_level_up_action()
-	
-func reward_UR29():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.09)
-	PC.ring_bullet_count += 3
-	PC.ring_bullet_interval *= 0.88
-	_level_up_action()
-	
-func reward_SR30():
-	PC.selected_rewards.append("wave_bullet")
-	_level_up_action()
-
-func reward_R31():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.03)
-	PC.wave_bullet_damage_multiplier *= 1.2
-	PC.wave_bullet_interval *= 0.95
-	_level_up_action()
-	
-
-func reward_SR31():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.045)
-	PC.wave_bullet_damage_multiplier *= 1.26
-	PC.wave_bullet_interval *= 0.94
-	_level_up_action()
-	
-func reward_SSR31():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.06)
-	PC.wave_bullet_damage_multiplier *= 1.34
-	PC.wave_bullet_interval *= 0.93
-	_level_up_action()
-	
-func reward_UR31():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.09)
-	PC.wave_bullet_damage_multiplier *= 1.48
-	PC.wave_bullet_interval *= 0.91
-	_level_up_action()
-	
-func reward_R32():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.03)
-	PC.wave_bullet_count += 3
-	PC.wave_bullet_interval *= 0.95
-	_level_up_action()
-	
-func reward_SR32():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.05)
-	PC.wave_bullet_count += 3
-	PC.wave_bullet_interval *= 0.92
-	_level_up_action()
-	
-func reward_SSR32():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.08)
-	PC.wave_bullet_count += 3
-	PC.wave_bullet_interval *= 0.89
-	_level_up_action()
-	
-func reward_UR32():
-	PC.pc_atk = int(PC.pc_atk + PC.pc_start_atk * 0.09)
-	PC.wave_bullet_count += 4
-	PC.wave_bullet_interval *= 0.88
-	_level_up_action()
-	
-# --- 蓝色召唤物相关奖励函数 ---
-# 获得一个蓝色召唤物
 func reward_R20():
 	PC.summon_count += 1
 	PC.faze_summon_level += 2
@@ -1915,18 +1804,6 @@ func reward_SSR23():
 		battle_scene.update_summons_properties()
 	_level_up_action()
 
-func reward_UR23():
-	PC.summon_damage_multiplier += 0.19
-	PC.summon_bullet_size_multiplier += 0.14
-	PC.summon_interval_multiplier *= 0.93
-	# 更新当前所有召唤物的属性
-	var battle_scene = get_tree().get_first_node_in_group("player")
-	if battle_scene and battle_scene.has_method("update_summons_properties"):
-		battle_scene.update_summons_properties()
-	_level_up_action()
-	
-# --- 紫色召唤物相关奖励函数 ---
-# 获得一个紫色召唤物
 func reward_SR20():
 	PC.summon_count += 1
 	PC.selected_rewards.append("darkorchid_summon")
@@ -1966,15 +1843,6 @@ func reward_SSR24():
 		battle_scene.update_summons_properties()
 	_level_up_action()
 	
-func reward_UR24():
-	PC.summon_damage_multiplier += 0.2
-	PC.summon_bullet_size_multiplier += 0.1
-	# 更新当前所有召唤物的属性
-	var battle_scene = get_tree().get_first_node_in_group("player")
-	if battle_scene and battle_scene.has_method("update_summons_properties"):
-		battle_scene.update_summons_properties()
-	_level_up_action()
-	
 func reward_R25():
 	PC.summon_damage_multiplier += 0.10
 	PC.summon_interval_multiplier *= 0.95
@@ -2002,17 +1870,6 @@ func reward_SSR25():
 		battle_scene.update_summons_properties()
 	_level_up_action()
 	
-func reward_UR25():
-	PC.summon_damage_multiplier += 0.23
-	PC.summon_interval_multiplier *= 0.87
-	# 更新当前所有召唤物的属性
-	var battle_scene = get_tree().get_first_node_in_group("player")
-	if battle_scene and battle_scene.has_method("update_summons_properties"):
-		battle_scene.update_summons_properties()
-	_level_up_action()
-	
-# --- 橙色(金色)召唤物相关奖励函数 ---
-# 获得一个橙色(金色)召唤物
 func reward_SSR20():
 	PC.summon_count += 1
 	PC.selected_rewards.append("gold_summon")
@@ -2029,7 +1886,7 @@ func reward_SSR20():
 func reward_UR20():
 	PC.summon_count += 1
 	PC.selected_rewards.append("red_summon")
-	PC.faze_summon_level += 2
+	PC.faze_summon_level += 3
 	PC.new_summon = "red" # 记录最新获得的召唤物类型
 	# 通知battle场景添加召唤物 (类型3代表红色召唤物)
 	var battle_scene = PC.player_instance
@@ -2041,7 +1898,7 @@ func reward_UR20():
 func reward_UR20Special():
 	PC.summon_count += 1
 	PC.selected_rewards.append("red_special_summon")
-	PC.faze_summon_level += 2
+	PC.faze_summon_level += 3
 	PC.new_summon = "red_special" # 记录最新获得的召唤物类型
 	# 通知battle场景添加召唤物 (类型10代表陨灭剑灵 SWORD_SPIRIT)
 	var battle_scene = PC.player_instance
@@ -2067,7 +1924,6 @@ func reward_SSR26():
 func reward_UR26():
 	PC.summon_count_max += 2
 	PC.faze_summon_level += 1
-	PC.summon_damage_multiplier -= 0.15
 	_level_up_action()
 
 
@@ -2094,7 +1950,7 @@ func reward_SSR21():
 func reward_UR21():
 	PC.summon_count += 1
 	PC.selected_rewards.append("red_heal_summon")
-	PC.faze_summon_level += 2
+	PC.faze_summon_level += 3
 	# 通知battle场景添加召唤物
 	var battle_scene = PC.player_instance
 	if battle_scene and battle_scene.has_method("add_summon"):
@@ -2125,7 +1981,7 @@ func reward_SSR22():
 func reward_UR22():
 	PC.summon_count += 1
 	PC.selected_rewards.append("red_aux_summon")
-	PC.faze_summon_level += 2
+	PC.faze_summon_level += 3
 	# 通知battle场景添加召唤物
 	var battle_scene = PC.player_instance
 	if battle_scene and battle_scene.has_method("add_summon"):
@@ -2136,30 +1992,30 @@ func reward_SwordQi():
 	PC.selected_rewards.append("Swordqi")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_sword_level += 2
-	PC.faze_bullet_level += 2
+	PC.faze_sword_level += 3
+	PC.faze_bullet_level += 3
 	_level_up_action()
 
 func reward_Branch():
 	PC.selected_rewards.append("Branch")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_treasure_level += 2
-	PC.faze_bullet_level += 2
+	PC.faze_treasure_level += 3
+	PC.faze_bullet_level += 3
 	_level_up_action()
 
 func reward_Moyan():
 	PC.selected_rewards.append("Moyan")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_fire_level += 2
-	PC.faze_destroy_level += 2
+	PC.faze_fire_level += 3
+	PC.faze_destroy_level += 3
 	_level_up_action()
 
 func reward_RingFire():
 	PC.selected_rewards.append("Ringfire")
-	PC.faze_fire_level += 2
-	PC.faze_bagua_level += 2
+	PC.faze_fire_level += 3
+	PC.faze_bagua_level += 3
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
 	_level_up_action()
@@ -2168,16 +2024,16 @@ func reward_Riyan():
 	PC.selected_rewards.append("Riyan")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_fire_level += 2
-	PC.faze_wide_level += 2
+	PC.faze_fire_level += 3
+	PC.faze_wide_level += 3
 	_level_up_action()
 
 func reward_Thunder():
 	PC.selected_rewards.append("Thunder")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_thunder_level += 2
-	PC.faze_bagua_level += 2
+	PC.faze_thunder_level += 3
+	PC.faze_bagua_level += 3
 	_level_up_action()
 
 func reward_Bloodwave():
@@ -2185,16 +2041,16 @@ func reward_Bloodwave():
 	PC.selected_rewards.append("Bloodwave")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_wide_level += 2
-	PC.faze_blood_level += 2
+	PC.faze_wide_level += 3
+	PC.faze_blood_level += 3
 	_level_up_action()
 
 func reward_BloodBoardSword():
 	PC.selected_rewards.append("Bloodboardsword")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_sword_level += 2
-	PC.faze_blood_level += 2
+	PC.faze_sword_level += 3
+	PC.faze_blood_level += 3
 	_level_up_action()
 
 func reward_RSwordQi():
@@ -2215,99 +2071,74 @@ func reward_SSRSwordQi():
 	PC.main_skill_swordQi_damage += 0.06
 	_level_up_action()
 
-func reward_URSwordQi():
-	PC.main_skill_swordQi += 1
-	PC.pc_atk_speed += 0.06
-	PC.main_skill_swordQi_damage += 0.08
-	_level_up_action()
-
-	
 func reward_SplitSwordQi1():
 	PC.selected_rewards.append("SplitSwordQi1")
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 	
 func reward_SplitSwordQi2():
 	PC.selected_rewards.append("SplitSwordQi2")
 	PC.main_skill_swordQi_damage += 0.1
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 	
 func reward_SplitSwordQi3():
 	PC.selected_rewards.append("SplitSwordQi3")
 	PC.main_skill_swordQi_damage -= 0.05
 	PC.swordQi_penetration_count += 1 # 原来是1次，现在变成3次
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 
 func reward_SplitSwordQi4():
 	PC.selected_rewards.append("SplitSwordQi4")
 	PC.main_skill_swordQi_damage += 0.15
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 	
 func reward_SplitSwordQi11():
 	PC.selected_rewards.append("SplitSwordQi11")
 	PC.main_skill_swordQi_damage += 0.05
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 	
 func reward_SplitSwordQi12():
 	PC.selected_rewards.append("SplitSwordQi12")
 	PC.main_skill_swordQi_damage += 0.05
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 	
 func reward_SplitSwordQi13():
 	PC.selected_rewards.append("SplitSwordQi13")
 	PC.main_skill_swordQi_damage += 0.1
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 	
 func reward_SplitSwordQi21():
 	PC.selected_rewards.append("SplitSwordQi21")
 	PC.main_skill_swordQi_damage += 0.1
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
-	_level_up_action()
-	
-func reward_SplitSwordQi22():
-	PC.selected_rewards.append("SplitSwordQi22")
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
-	_level_up_action()
-	
-func reward_SplitSwordQi23():
-	PC.selected_rewards.append("SplitSwordQi23")
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 	
 func reward_SplitSwordQi31():
 	PC.selected_rewards.append("SplitSwordQi31")
 	PC.main_skill_swordQi_damage -= 0.05
 	PC.swordQi_penetration_count += 1 # 使穿透次数达到5次
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
-	_level_up_action()
-	
-func reward_SplitSwordQi32():
-	PC.selected_rewards.append("SplitSwordQi32")
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 	
 func reward_SplitSwordQi33():
 	PC.selected_rewards.append("SplitSwordQi33")
-	PC.faze_sword_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_sword_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 	
 
@@ -2332,69 +2163,62 @@ func reward_SSRBranch():
 	PC.main_skill_branch_damage += 0.08
 	_level_up_action()
 
-func reward_URBranch():
-	PC.main_skill_branch += 1
-	PC.pc_atk = int(PC.pc_atk * 1.04)
-	PC.exp_multi += 0.04
-	PC.main_skill_branch_damage += 0.1
-	_level_up_action()
-
 func reward_Branch1():
 	PC.selected_rewards.append("Branch1")
 	PC.main_skill_branch_damage -= 0.25
-	PC.faze_treasure_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 
 func reward_Branch2():
 	PC.selected_rewards.append("Branch2")
-	PC.faze_treasure_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 
 func reward_Branch3():
 	PC.selected_rewards.append("Branch3")
-	PC.faze_treasure_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 
 func reward_Branch4():
 	PC.selected_rewards.append("Branch4")
-	PC.faze_treasure_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 
 func reward_Branch11():
 	PC.selected_rewards.append("Branch11")
 	PC.main_skill_branch_damage -= 0.3
-	PC.faze_treasure_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 
 func reward_Branch21():
 	PC.selected_rewards.append("Branch21")
-	PC.faze_treasure_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 
 func reward_Branch12():
 	PC.selected_rewards.append("Branch12")
-	PC.faze_treasure_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 
 func reward_Branch31():
 	PC.selected_rewards.append("Branch31")
 	PC.main_skill_branch_damage -= 0.1
-	PC.faze_treasure_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 
 func reward_Branch22():
 	PC.selected_rewards.append("Branch22")
 	PC.main_skill_branch_damage += 0.1
-	PC.faze_treasure_level += 1
-	PC.faze_bullet_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_bullet_level += 2
 	_level_up_action()
 
 func reward_RMoyan():
@@ -2415,49 +2239,43 @@ func reward_SSRMoyan():
 	PC.main_skill_moyan_damage += 0.08
 	_level_up_action()
 
-func reward_URMoyan():
-	PC.main_skill_moyan += 1
-	PC.crit_damage_multi += 0.06
-	PC.main_skill_moyan_damage += 0.1
-	_level_up_action()
-
 func reward_Moyan1():
 	PC.selected_rewards.append("Moyan1")
 	PC.main_skill_moyan_damage += 0.1
-	PC.faze_fire_level += 1
-	PC.faze_destroy_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_destroy_level += 2
 	_level_up_action()
 
 func reward_Moyan2():
 	PC.selected_rewards.append("Moyan2")
 	PC.main_skill_moyan_damage += 0.1
-	PC.faze_fire_level += 1
-	PC.faze_destroy_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_destroy_level += 2
 	_level_up_action()
 
 func reward_Moyan3():
 	PC.selected_rewards.append("Moyan3")
-	PC.faze_fire_level += 1
-	PC.faze_destroy_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_destroy_level += 2
 	_level_up_action()
 
 func reward_Moyan12():
 	PC.selected_rewards.append("Moyan12")
-	PC.faze_fire_level += 1
-	PC.faze_destroy_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_destroy_level += 2
 	_level_up_action()
 
 func reward_Moyan13():
 	PC.selected_rewards.append("Moyan13")
 	PC.main_skill_moyan_damage += 0.1
-	PC.faze_fire_level += 1
-	PC.faze_destroy_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_destroy_level += 2
 	_level_up_action()
 
 func reward_Moyan23():
 	PC.selected_rewards.append("Moyan23")
-	PC.faze_fire_level += 1
-	PC.faze_destroy_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_destroy_level += 2
 	_level_up_action()
 
 
@@ -2479,155 +2297,142 @@ func reward_SSRRingFire():
 	PC.main_skill_ringFire_damage += 0.08
 	_level_up_action()
 
-func reward_URRingFire():
-	PC.main_skill_ringFire += 1
-	PC.crit_chance += 0.03
-	PC.main_skill_ringFire_damage += 0.1
-	_level_up_action()
-
 func reward_RingFire1():
 	PC.selected_rewards.append("RingFire1")
-	PC.faze_fire_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_RingFire2():
 	PC.selected_rewards.append("RingFire2")
-	PC.faze_fire_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_RingFire3():
 	PC.selected_rewards.append("RingFire3")
 	PC.main_skill_ringFire_damage += 0.2
-	PC.faze_fire_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_RingFire11():
 	PC.selected_rewards.append("RingFire11")
-	PC.faze_fire_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_RingFire4():
 	PC.selected_rewards.append("RingFire4")
 	PC.main_skill_ringFire_damage += 0.1
-	PC.faze_fire_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_RingFire22():
 	PC.selected_rewards.append("RingFire22")
-	PC.faze_fire_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_RingFire33():
 	PC.selected_rewards.append("RingFire33")
-	PC.faze_fire_level += 1
-	PC.faze_bagua_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_bagua_level += 2
 	_level_up_action()
 
 func reward_RRiyan():
 	PC.main_skill_riyan += 1
-	PC.pc_atk = int(PC.pc_atk * 1.02)
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.02)
+	PC.pc_atk = int(PC.pc_atk * 1.024)
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.024)
 	PC.main_skill_riyan_damage += 0.06
 	_level_up_action()
 
 func reward_SRRiyan():
 	PC.main_skill_riyan += 1
-	PC.pc_atk = int(PC.pc_atk * 1.022)
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.022)
+	PC.pc_atk = int(PC.pc_atk * 1.028)
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.028)
 	PC.main_skill_riyan_damage += 0.07
 	_level_up_action()
 	
 func reward_SSRRiyan():
 	PC.main_skill_riyan += 1
-	PC.pc_atk = int(PC.pc_atk * 1.025)
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.025)
+	PC.pc_atk = int(PC.pc_atk * 1.032)
+	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.032)
 	PC.main_skill_riyan_damage += 0.08
-	_level_up_action()
-
-func reward_URRiyan():
-	PC.main_skill_riyan += 1
-	PC.pc_atk = int(PC.pc_atk * 1.03)
-	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.03)
-	PC.main_skill_riyan_damage += 0.1
 	_level_up_action()
 
 func reward_Riyan1():
 	PC.selected_rewards.append("Riyan1")
 	PC.main_skill_riyan_damage += 0.1
-	PC.faze_fire_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_wide_level += 2
 	_level_up_action()
 
 func reward_Riyan2():
 	PC.selected_rewards.append("Riyan2")
 	PC.main_skill_riyan_damage += 0.1
-	PC.faze_fire_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_wide_level += 2
 	_level_up_action()
 
 func reward_Riyan3():
 	PC.selected_rewards.append("Riyan3")
 	PC.main_skill_riyan_damage += 0.1
-	PC.faze_fire_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_wide_level += 2
 	_level_up_action()
 
 func reward_Riyan4():
 	PC.selected_rewards.append("Riyan4")
 	PC.main_skill_riyan_damage += 0.1
-	PC.faze_fire_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_wide_level += 2
 	_level_up_action()
 
 func reward_Riyan11():
 	PC.selected_rewards.append("Riyan11")
 	PC.main_skill_riyan_damage += 0.1
-	PC.faze_fire_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_wide_level += 2
 	_level_up_action()
 
 func reward_Riyan22():
 	PC.selected_rewards.append("Riyan22")
 	PC.main_skill_riyan_damage += 0.15
-	PC.faze_fire_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_wide_level += 2
 	_level_up_action()
 
 func reward_Riyan33():
 	PC.selected_rewards.append("Riyan33")
 	PC.main_skill_riyan_damage += 0.1
-	PC.faze_fire_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_fire_level += 2
+	PC.faze_wide_level += 2
 	_level_up_action()
 
 func reward_RBloodwave():
 	PC.main_skill_bloodwave += 1
 	PC.pc_final_atk += 0.02
-	BloodWave.main_skill_bloodwave_damage += 0.2
+	BloodWave.main_skill_bloodwave_damage += 0.06
 	_level_up_action()
 
 func reward_SRBloodwave():
 	PC.main_skill_bloodwave += 1
 	PC.pc_final_atk += 0.022
-	BloodWave.main_skill_bloodwave_damage += 0.22
+	BloodWave.main_skill_bloodwave_damage += 0.07
 	_level_up_action()
 
 func reward_SSRBloodwave():
 	PC.main_skill_bloodwave += 1
 	PC.pc_final_atk += 0.025
-	BloodWave.main_skill_bloodwave_damage += 0.24
+	BloodWave.main_skill_bloodwave_damage += 0.08
 	_level_up_action()
 
 func reward_URBloodwave():
 	PC.main_skill_bloodwave += 1
 	PC.pc_final_atk += 0.03
-	BloodWave.main_skill_bloodwave_damage += 0.28
+	BloodWave.main_skill_bloodwave_damage += 0.10
 	_level_up_action()
 
 func reward_RBloodBoardSword():
@@ -2655,123 +2460,122 @@ func reward_URBloodBoardSword():
 	_level_up_action()
 
 func reward_BloodBoardSword1():
-	PC.faze_blood_level += 1
-	PC.faze_sword_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_sword_level += 2
 	PC.selected_rewards.append("BloodBoardSword1")
+	PC.main_skill_bloodboardsword_damage += 0.1
 	_level_up_action()
 
 func reward_BloodBoardSword2():
-	PC.faze_blood_level += 1
-	PC.faze_sword_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_sword_level += 2
 	PC.selected_rewards.append("BloodBoardSword2")
+	PC.main_skill_bloodboardsword_damage += 0.1
 	_level_up_action()
 
 func reward_BloodBoardSword3():
-	PC.faze_blood_level += 1
-	PC.faze_sword_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_sword_level += 2
 	PC.selected_rewards.append("BloodBoardSword3")
 	_level_up_action()
 
 func reward_BloodBoardSword4():
-	PC.faze_blood_level += 1
-	PC.faze_sword_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_sword_level += 2
 	PC.selected_rewards.append("BloodBoardSword4")
 	_level_up_action()
 
 func reward_BloodBoardSword11():
-	PC.faze_blood_level += 1
-	PC.faze_sword_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_sword_level += 2
 	PC.selected_rewards.append("BloodBoardSword11")
+	PC.main_skill_bloodboardsword_damage += 0.1
 	_level_up_action()
 
 func reward_BloodBoardSword22():
-	PC.faze_blood_level += 1
-	PC.faze_sword_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_sword_level += 2
 	PC.selected_rewards.append("BloodBoardSword22")
+	PC.main_skill_bloodboardsword_damage += 0.2
 	_level_up_action()
 
 func reward_BloodBoardSword33():
-	PC.faze_blood_level += 1
-	PC.faze_sword_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_sword_level += 2
 	PC.selected_rewards.append("BloodBoardSword33")
 	_level_up_action()
 
 func reward_RThunder():
 	PC.main_skill_thunder += 1
 	PC.pc_final_atk += 0.02
-	PC.main_skill_thunder_damage += 0.2
+	PC.main_skill_thunder_damage += 0.06
 	_level_up_action()
 
 func reward_SRThunder():
 	PC.main_skill_thunder += 1
 	PC.pc_final_atk += 0.022
-	PC.main_skill_thunder_damage += 0.22
+	PC.main_skill_thunder_damage += 0.07
 	_level_up_action()
 
 func reward_SSRThunder():
 	PC.main_skill_thunder += 1
 	PC.pc_final_atk += 0.025
-	PC.main_skill_thunder_damage += 0.24
-	_level_up_action()
-
-func reward_URThunder():
-	PC.main_skill_thunder += 1
-	PC.pc_final_atk += 0.03
-	PC.main_skill_thunder_damage += 0.28
+	PC.main_skill_thunder_damage += 0.08
 	_level_up_action()
 
 func reward_Thunder1():
-	PC.faze_bagua_level += 1
-	PC.faze_thunder_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_thunder_level += 2
 	PC.selected_rewards.append("Thunder1")
 	_level_up_action()
 
 func reward_Thunder2():
-	PC.faze_bagua_level += 1
-	PC.faze_thunder_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_thunder_level += 2
 	PC.selected_rewards.append("Thunder2")
 	_level_up_action()
 
 func reward_Thunder3():
-	PC.faze_bagua_level += 1
-	PC.faze_thunder_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_thunder_level += 2
 	PC.selected_rewards.append("Thunder3")
 	_level_up_action()
 
 func reward_Thunder4():
-	PC.faze_bagua_level += 1
-	PC.faze_thunder_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_thunder_level += 2
 	PC.selected_rewards.append("Thunder4")
 	_level_up_action()
 
 func reward_Thunder11():
-	PC.faze_bagua_level += 1
-	PC.faze_thunder_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_thunder_level += 2
 	PC.selected_rewards.append("Thunder11")
 	_level_up_action()
 
 func reward_Thunder22():
-	PC.faze_bagua_level += 1
-	PC.faze_thunder_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_thunder_level += 2
 	PC.selected_rewards.append("Thunder22")
+	PC.main_skill_thunder_damage += 0.15
 	_level_up_action()
 
 func reward_Thunder33():
-	PC.faze_bagua_level += 1
-	PC.faze_thunder_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_thunder_level += 2
 	PC.selected_rewards.append("Thunder33")
 	_level_up_action()
 
 func reward_Bloodwave1():
-	PC.faze_blood_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Bloodwave1")
 	BloodWave.bloodwave_apply_bleed = true
 	_level_up_action()
 
 func reward_Bloodwave2():
-	PC.faze_blood_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Bloodwave2")
 	BloodWave.bloodwave_hp_cost_multi = 2.0
 	BloodWave.bloodwave_extra_crit_chance += 0.3
@@ -2779,32 +2583,32 @@ func reward_Bloodwave2():
 	_level_up_action()
 
 func reward_Bloodwave3():
-	PC.faze_blood_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Bloodwave3")
 	BloodWave.bloodwave_missing_hp_damage_bonus = 0.01
 	BloodWave.bloodwave_missing_hp_range_bonus = 0.02
 	_level_up_action()
 
 func reward_Bloodwave4():
-	PC.faze_blood_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Bloodwave4")
 	BloodWave.main_skill_bloodwave_damage += 0.1
 	BloodWave.bloodwave_missing_hp_heal_bonus = 0.01
 	_level_up_action()
 
 func reward_Bloodwave11():
-	PC.faze_blood_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Bloodwave11")
 	BloodWave.bloodwave_missing_hp_damage_bonus = 0.015
 	BloodWave.bloodwave_missing_hp_heal_bonus = 0.015
 	_level_up_action()
 
 func reward_Bloodwave22():
-	PC.faze_blood_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Bloodwave22")
 	BloodWave.main_skill_bloodwave_damage += 0.1
 	BloodWave.bloodwave_low_hp_damage_bonus = 0.4
@@ -2812,8 +2616,8 @@ func reward_Bloodwave22():
 	_level_up_action()
 
 func reward_Bloodwave33():
-	PC.faze_blood_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_blood_level += 2
+	PC.faze_wide_level += 2
 	PC.selected_rewards.append("Bloodwave33")
 	BloodWave.main_skill_bloodwave_damage += 0.1
 	BloodWave.bloodwave_bleed_move_speed_bonus = 0.01
@@ -2836,8 +2640,8 @@ func reward_Xuanwu():
 	PC.selected_rewards.append("Xuanwu")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_shield_level += 2
-	PC.faze_treasure_level += 2
+	PC.faze_shield_level += 3
+	PC.faze_treasure_level += 3
 	_level_up_action()
 
 func reward_RXuanwu():
@@ -2870,8 +2674,8 @@ func reward_URXuanwu():
 
 func reward_Xuanwu1():
 	PC.selected_rewards.append("Xuanwu1")
-	PC.faze_shield_level += 1
-	PC.faze_treasure_level += 1
+	PC.faze_shield_level += 2
+	PC.faze_treasure_level += 2
 	Xuanwu.xuanwu_final_damage_multi += 0.15
 	Xuanwu.xuanwu_shield_base += 15
 	Xuanwu.xuanwu_shield_hp_ratio = 0.07
@@ -2879,16 +2683,16 @@ func reward_Xuanwu1():
 
 func reward_Xuanwu2():
 	PC.selected_rewards.append("Xuanwu2")
-	PC.faze_shield_level += 1
-	PC.faze_treasure_level += 1
+	PC.faze_shield_level += 2
+	PC.faze_treasure_level += 2
 	Xuanwu.xuanwu_final_damage_multi += 0.05
 	Xuanwu.xuanwu_shield_bonus_damage = 3.0
 	_level_up_action()
 
 func reward_Xuanwu3():
 	PC.selected_rewards.append("Xuanwu3")
-	PC.faze_shield_level += 1
-	PC.faze_treasure_level += 1
+	PC.faze_shield_level += 2
+	PC.faze_treasure_level += 2
 	Xuanwu.xuanwu_final_damage_multi += 0.15
 	Xuanwu.xuanwu_shield_base += 30
 	Xuanwu.xuanwu_slow_duration = 5.0
@@ -2896,16 +2700,16 @@ func reward_Xuanwu3():
 
 func reward_Xuanwu4():
 	PC.selected_rewards.append("Xuanwu4")
-	PC.faze_shield_level += 1
-	PC.faze_treasure_level += 1
+	PC.faze_shield_level += 2
+	PC.faze_treasure_level += 2
 	Xuanwu.xuanwu_width_scale = 1.2
 	Xuanwu.xuanwu_vulnerable_duration = 5.0
 	_level_up_action()
 
 func reward_Xuanwu11():
 	PC.selected_rewards.append("Xuanwu11")
-	PC.faze_shield_level += 1
-	PC.faze_treasure_level += 1
+	PC.faze_shield_level += 2
+	PC.faze_treasure_level += 2
 	Xuanwu.xuanwu_final_damage_multi += 0.1
 	Xuanwu.xuanwu_shield_base += 30
 	Xuanwu.xuanwu_shield_bonus_damage = 5.0
@@ -2913,16 +2717,16 @@ func reward_Xuanwu11():
 
 func reward_Xuanwu22():
 	PC.selected_rewards.append("Xuanwu22")
-	PC.faze_shield_level += 1
-	PC.faze_treasure_level += 1
+	PC.faze_shield_level += 2
+	PC.faze_treasure_level += 2
 	Xuanwu.xuanwu_final_damage_multi += 0.15
 	Xuanwu.xuanwu_return_shield_bonus = 0.3
 	_level_up_action()
 
 func reward_Xuanwu33():
 	PC.selected_rewards.append("Xuanwu33")
-	PC.faze_shield_level += 1
-	PC.faze_treasure_level += 1
+	PC.faze_shield_level += 2
+	PC.faze_treasure_level += 2
 	Xuanwu.xuanwu_final_damage_multi += 0.2
 	Xuanwu.xuanwu_shield_base += 30
 	Xuanwu.xuanwu_width_scale += 0.3
@@ -2958,8 +2762,8 @@ func reward_Xunfeng():
 	PC.selected_rewards.append("Xunfeng")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_bagua_level += 2
-	PC.faze_wind_level += 2
+	PC.faze_bagua_level += 3
+	PC.faze_wind_level += 3
 	_level_up_action()
 
 func reward_RXunfeng():
@@ -2995,8 +2799,8 @@ func reward_Xunfeng1():
 	Xunfeng.xunfeng_final_damage_multi += 0.1
 	Xunfeng.xunfeng_size_scale *= 1.35
 	Xunfeng.xunfeng_range *= 1.20
-	PC.faze_bagua_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wind_level += 2
 	_level_up_action()
 
 func reward_Xunfeng2():
@@ -3004,14 +2808,14 @@ func reward_Xunfeng2():
 	Xunfeng.xunfeng_final_damage_multi += 0.1
 	Xunfeng.xunfeng_speed *= 1.20
 	Xunfeng.xunfeng_cooldown *= 0.90
-	PC.faze_bagua_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wind_level += 2
 	_level_up_action()
 
 func reward_Xunfeng3():
 	PC.selected_rewards.append("Xunfeng3")
-	PC.faze_bagua_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wind_level += 2
 	# logic handled in player_action.gd
 	_level_up_action()
 
@@ -3019,8 +2823,8 @@ func reward_Xunfeng4():
 	PC.selected_rewards.append("Xunfeng4")
 	Xunfeng.xunfeng_penetration_count = 999
 	Xunfeng.xunfeng_pierce_decay = 0.50
-	PC.faze_bagua_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wind_level += 2
 	_level_up_action()
 
 func reward_Xunfeng11():
@@ -3028,24 +2832,23 @@ func reward_Xunfeng11():
 	Xunfeng.xunfeng_final_damage_multi += 0.1
 	Xunfeng.xunfeng_size_scale *= 1.35
 	Xunfeng.xunfeng_pierce_decay = 0.40
-	PC.faze_bagua_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wind_level += 2
 	_level_up_action()
 
 func reward_Xunfeng22():
 	PC.selected_rewards.append("Xunfeng22")
 	Xunfeng.xunfeng_final_damage_multi += 0.1
 	Xunfeng.xunfeng_extra_blade_count_threshold = 2
-	PC.faze_bagua_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wind_level += 2
 	_level_up_action()
 
 func reward_Xunfeng33():
 	PC.selected_rewards.append("Xunfeng33")
-	PC.faze_bagua_level += 1
-	PC.faze_wind_level += 1
-	Xunfeng.xunfeng_extra_blade_damage_ratio = 0.9 # 60% * 1.5 = 90%? Or +50% additive? Assuming multiplicative boost to base ratio or additive. Description says "extra wind blade damage +50%". Base is 60%. If it means ratio becomes 60%+50%=110% or 60%*1.5=90%. Let's assume 60%*1.5=90%.
-	# logic for left/right handled in player_action.gd
+	PC.faze_bagua_level += 2
+	PC.faze_wind_level += 2
+	# logic for diagonal extra blades handled in player_action.gd
 	_level_up_action()
 
 func reward_DragonWind():
@@ -3053,8 +2856,8 @@ func reward_DragonWind():
 	PC.selected_rewards.append("Dragonwind")
 	PC.current_weapon_num += 1
 	PC.new_weapon_obtained_count += 1
-	PC.faze_treasure_level += 2
-	PC.faze_wind_level += 2
+	PC.faze_treasure_level += 3
+	PC.faze_wind_level += 3
 	_level_up_action()
 
 func reward_RDragonWind():
@@ -3094,8 +2897,8 @@ func reward_DragonWind1():
 	DragonWind.dragonwind_final_damage_multi += 0.1
 	DragonWind.dragonwind_pull_force *= 1.50
 	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
-	PC.faze_treasure_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_wind_level += 2
 	_level_up_action()
 
 func reward_DragonWind2():
@@ -3103,17 +2906,15 @@ func reward_DragonWind2():
 	DragonWind.dragonwind_final_damage_multi += 0.1
 	DragonWind.dragonwind_range_scale *= 1.4
 	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
-	PC.faze_treasure_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_wind_level += 2
 	_level_up_action()
 
 func reward_DragonWind3():
 	PC.selected_rewards.append("DragonWind3")
-	DragonWind.dragonwind_final_damage_multi += 0.1
 	DragonWind.dragonwind_center_bonus_ratio = 1.0
-	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
-	PC.faze_treasure_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_wind_level += 2
 	_level_up_action()
 
 func reward_DragonWind4():
@@ -3121,8 +2922,8 @@ func reward_DragonWind4():
 	DragonWind.dragonwind_final_damage_multi += 0.15
 	DragonWind.dragonwind_slow_duration = 5.0
 	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
-	PC.faze_treasure_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_wind_level += 2
 	_level_up_action()
 
 func reward_DragonWind11():
@@ -3131,8 +2932,8 @@ func reward_DragonWind11():
 	DragonWind.dragonwind_pull_force *= 1.20
 	DragonWind.dragonwind_range_scale *= 1.3
 	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
-	PC.faze_treasure_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_wind_level += 2
 	_level_up_action()
 
 func reward_DragonWind22():
@@ -3140,16 +2941,16 @@ func reward_DragonWind22():
 	DragonWind.dragonwind_final_damage_multi += 0.1
 	DragonWind.dragonwind_slow_damage_bonus = 0.50
 	PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
-	PC.faze_treasure_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_wind_level += 2
 	_level_up_action()
 
 func reward_DragonWind33():
 	PC.selected_rewards.append("DragonWind33")
 	DragonWind.dragonwind_center_bonus_ratio = 1.50
 	DragonWind.dragonwind_boss_bonus_ratio = 1.0
-	PC.faze_treasure_level += 1
-	PC.faze_wind_level += 1
+	PC.faze_treasure_level += 2
+	PC.faze_wind_level += 2
 	_level_up_action()
 
 func check_genshan_condition() -> bool:
@@ -3168,89 +2969,90 @@ func reward_Genshan():
 	Genshan.reset_data()
 	PC.selected_rewards.append("Genshan")
 	PC.current_weapon_num += 1
-	PC.faze_bagua_level += 2
-	PC.faze_shield_level += 2
+	PC.new_weapon_obtained_count += 1
+	PC.faze_bagua_level += 3
+	PC.faze_shield_level += 3
 	_level_up_action()
 
 func reward_RGenshan():
 	PC.main_skill_genshan += 1
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.024)
 	PC.pc_final_atk += 0.01
-	Genshan.genshan_final_damage_multi += 0.20
+	Genshan.genshan_final_damage_multi += 0.06
 	_level_up_action()
 
 func reward_SRGenshan():
 	PC.main_skill_genshan += 1
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.028)
 	PC.pc_final_atk += 0.011
-	Genshan.genshan_final_damage_multi += 0.22
+	Genshan.genshan_final_damage_multi += 0.07
 	_level_up_action()
 
 func reward_SSRGenshan():
 	PC.main_skill_genshan += 1
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.032)
 	PC.pc_final_atk += 0.013
-	Genshan.genshan_final_damage_multi += 0.24
+	Genshan.genshan_final_damage_multi += 0.08
 	_level_up_action()
 
 func reward_URGenshan():
 	PC.main_skill_genshan += 1
 	PC.pc_max_hp = int(PC.pc_max_hp + PC.pc_start_max_hp * 0.04)
 	PC.pc_final_atk += 0.015
-	Genshan.genshan_final_damage_multi += 0.28
+	Genshan.genshan_final_damage_multi += 0.10
 	_level_up_action()
 
 func reward_Genshan1():
 	PC.selected_rewards.append("Genshan1")
-	PC.faze_bagua_level += 1
-	PC.faze_shield_level += 1
-	# Logic handled in genshan.gd: Up/Down direction, total damage -30%
+	PC.faze_bagua_level += 2
+	PC.faze_shield_level += 2
+	# Logic handled in genshan.gd: Up/Down direction, total damage -25%
 	_level_up_action()
 
 func reward_Genshan2():
 	PC.selected_rewards.append("Genshan2")
 	Genshan.genshan_final_damage_multi += 0.10
-	PC.faze_bagua_level += 1
-	PC.faze_shield_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_shield_level += 2
 	# Logic handled in genshan.gd: Vulnerable debuff
 	_level_up_action()
 
 func reward_Genshan3():
 	PC.selected_rewards.append("Genshan3")
 	Genshan.genshan_final_damage_multi += 0.10
-	PC.faze_bagua_level += 1
-	PC.faze_shield_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_shield_level += 2
 	# Logic handled in genshan.gd: Extra damage to Elite/Boss/<30% HP
 	_level_up_action()
 
 func reward_Genshan4():
 	PC.selected_rewards.append("Genshan4")
 	Genshan.genshan_final_damage_multi += 0.15
-	PC.faze_bagua_level += 1
-	PC.faze_shield_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_shield_level += 2
 	# Logic handled in genshan.gd: Shield on hit
 	_level_up_action()
 
 func reward_Genshan11():
 	PC.selected_rewards.append("Genshan11")
 	Genshan.genshan_final_damage_multi += 0.15
-	PC.faze_bagua_level += 1
-	PC.faze_shield_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_shield_level += 2
 	# Logic handled in genshan.gd: Enhanced shield
 	_level_up_action()
 
 func reward_Genshan22():
 	PC.selected_rewards.append("Genshan22")
-	PC.faze_bagua_level += 1
-	PC.faze_shield_level += 1
-	# Logic handled in genshan.gd: Diagonal directions, total damage -30%
+	PC.faze_bagua_level += 2
+	PC.faze_shield_level += 2
+	# Logic handled in genshan.gd: Diagonal directions, total damage -25%
 	_level_up_action()
 
 func reward_Genshan33():
 	PC.selected_rewards.append("Genshan33")
 	Genshan.genshan_final_damage_multi += 0.1
-	PC.faze_bagua_level += 1
-	PC.faze_shield_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_shield_level += 2
 	# Logic handled in genshan.gd: Extra damage to Vulnerable
 	_level_up_action()
 
@@ -3271,8 +3073,8 @@ func reward_Duize():
 	Duize.reset_data()
 	PC.selected_rewards.append("Duize")
 	PC.current_weapon_num += 1
-	PC.faze_bagua_level += 2
-	PC.faze_wide_level += 2
+	PC.faze_bagua_level += 3
+	PC.faze_wide_level += 3
 	_level_up_action()
 
 func reward_RDuize():
@@ -3301,56 +3103,56 @@ func reward_URDuize():
 
 func reward_Duize1():
 	PC.selected_rewards.append("Duize1")
-	PC.faze_bagua_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wide_level += 2
 	Duize.duize_final_damage_multi += 0.15
 	Duize.duize_slow_ratio = 0.30
 	_level_up_action()
 
 func reward_Duize2():
 	PC.selected_rewards.append("Duize2")
-	PC.faze_bagua_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wide_level += 2
 	Duize.duize_final_damage_multi += 0.1
 	# Logic handled in duize.gd: Damage per debuff +30%
 	_level_up_action()
 
 func reward_Duize3():
 	PC.selected_rewards.append("Duize3")
-	PC.faze_bagua_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wide_level += 2
 	Duize.duize_final_damage_multi += 0.15
 	Duize.duize_range *= 1.35
 	_level_up_action()
 
 func reward_Duize4():
 	PC.selected_rewards.append("Duize4")
-	PC.faze_bagua_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wide_level += 2
 	Duize.duize_final_damage_multi += 0.1
 	# Logic handled in duize.gd: Apply Corrosion
 	_level_up_action()
 
 func reward_Duize11():
 	PC.selected_rewards.append("Duize11")
-	PC.faze_bagua_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wide_level += 2
 	Duize.duize_final_damage_multi += 0.1
-	Duize.duize_slow_ratio = 0.35
+	# Logic handled in duize.gd: Corrosion damage bonus from 20% to 30%
 	_level_up_action()
 
 func reward_Duize22():
 	PC.selected_rewards.append("Duize22")
-	PC.faze_bagua_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wide_level += 2
 	Duize.duize_final_damage_multi += 0.15
 	Duize.duize_range *= 1.35 # Extra +35%
 	_level_up_action()
 
 func reward_Duize33():
 	PC.selected_rewards.append("Duize33")
-	PC.faze_bagua_level += 1
-	PC.faze_wide_level += 1
+	PC.faze_bagua_level += 2
+	PC.faze_wide_level += 2
 	Duize.duize_final_damage_multi += 0.1
 	# Logic handled in duize.gd: Damage per debuff +70%
 	_level_up_action()
@@ -3370,8 +3172,8 @@ func check_Holylight_condition3() -> bool:
 func reward_HolyLight():
 	HolyLight.reset_data()
 	PC.selected_rewards.append("Holylight")
-	PC.faze_heal_level += 2
-	PC.faze_life_level += 2
+	PC.faze_heal_level += 3
+	PC.faze_life_level += 3
 	PC.current_weapon_num += 1
 	# 初始化冷却时间
 	var player = get_tree().get_first_node_in_group("player")
@@ -3409,16 +3211,16 @@ func reward_URHolyLight():
 
 func reward_HolyLight1():
 	PC.selected_rewards.append("HolyLight1")
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_heal_level += 2
+	PC.faze_life_level += 2
 	HolyLight.main_skill_holylight_damage += 0.1
 	HolyLight.holylight_range_scale *= 1.35
 	_level_up_action()
 
 func reward_HolyLight2():
 	PC.selected_rewards.append("HolyLight2")
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_heal_level += 2
+	PC.faze_life_level += 2
 	HolyLight.main_skill_holylight_damage += 0.1
 	HolyLight.holylight_range_scale *= 1.15
 	HolyLight.holylight_center_extra_damage += 1.0
@@ -3426,17 +3228,17 @@ func reward_HolyLight2():
 
 func reward_HolyLight3():
 	PC.selected_rewards.append("HolyLight3")
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_heal_level += 2
+	PC.faze_life_level += 2
 	HolyLight.main_skill_holylight_damage += 0.15
-	HolyLight.holylight_heal_base = 5
+	HolyLight.holylight_heal_base = 50
 	HolyLight.holylight_heal_ratio = 0.045
 	_level_up_action()
 
 func reward_HolyLight4():
 	PC.selected_rewards.append("HolyLight4")
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_heal_level += 2
+	PC.faze_life_level += 2
 	HolyLight.main_skill_holylight_damage += 0.1
 	HolyLight.holylight_range_scale *= 1.05
 	HolyLight.holylight_vulnerable_damage_bonus = 1.0
@@ -3444,8 +3246,8 @@ func reward_HolyLight4():
 
 func reward_HolyLight11():
 	PC.selected_rewards.append("HolyLight11")
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_heal_level += 2
+	PC.faze_life_level += 2
 	HolyLight.main_skill_holylight_damage += 0.1
 	HolyLight.holylight_range_scale *= 1.25
 	HolyLight.holylight_center_extra_damage = 2.0
@@ -3453,16 +3255,16 @@ func reward_HolyLight11():
 
 func reward_HolyLight22():
 	PC.selected_rewards.append("HolyLight22")
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_heal_level += 2
+	PC.faze_life_level += 2
 	HolyLight.main_skill_holylight_damage += 0.1
 	HolyLight.holylight_heal_ratio = 0.06
 	_level_up_action()
 
 func reward_HolyLight33():
 	PC.selected_rewards.append("HolyLight33")
-	PC.faze_heal_level += 1
-	PC.faze_life_level += 1
+	PC.faze_heal_level += 2
+	PC.faze_life_level += 2
 	HolyLight.main_skill_holylight_damage += 0.1
 	HolyLight.holylight_range_scale *= 1.1
 	HolyLight.holylight_vulnerable_crit = true
@@ -3472,25 +3274,25 @@ func reward_HolyLight33():
 # Qigong Functions
 
 func check_Qigong_condition1() -> bool:
-	return PC.selected_rewards.has("Qigong1")
+	return PC.selected_rewards.has("Qigong3") and PC.selected_rewards.has("Qigong5")
 
 func check_Qigong_condition2() -> bool:
-	return PC.selected_rewards.has("Qigong2")
+	return PC.selected_rewards.has("Qigong4") and PC.selected_rewards.has("Qigong1")
 
 func check_Qigong_condition3() -> bool:
-	return PC.selected_rewards.has("Qigong3")
+	return PC.selected_rewards.has("Qigong2") and PC.selected_rewards.has("Qigong4")
 
 func check_Qigong_condition4() -> bool:
-	return PC.selected_rewards.has("Qigong4")
+	return PC.selected_rewards.has("Qigong1") and PC.selected_rewards.has("Qigong3")
 
 func check_Qigong_condition5() -> bool:
-	return PC.selected_rewards.has("Qigong5")
+	return PC.selected_rewards.has("Qigong5") and PC.selected_rewards.has("Qigong2")
 
 func reward_Qigong():
 	PC.selected_rewards.append("Qigong")
 	PC.current_weapon_num += 1
-	PC.faze_wind_level += 2
-	PC.faze_wide_level += 2
+	PC.faze_wind_level += 3
+	PC.faze_wide_level += 3
 	var player = get_tree().get_first_node_in_group("player")
 	if player and player.get("Qigong_fire_speed"):
 		player.qigong_fire_speed.start()
@@ -3512,6 +3314,11 @@ func global_level_up():
 	PC.pc_max_hp += lv_hp_bonus
 	PC.pc_start_max_hp += lv_hp_bonus
 
+	# 蓄积(UR53)效果：每次升级额外+5%攻击
+	if PC.xuji_remaining > 0:
+		PC.pc_atk = int(PC.pc_atk * 1.05)
+		PC.xuji_remaining -= 1
+
 	# 更新上次属性记录，用于下次比较变化
 	PC.last_lunky_level = PC.now_lunky_level
 	PC.last_speed = PC.pc_speed
@@ -3520,10 +3327,21 @@ func global_level_up():
 	# 处理生命恢复效果 (基于 "hpRecover" 标记的数量)
 	var recoverUp = PC.selected_rewards.count("hpRecover") # 获取 "hpRecover" 标记的数量
 	var recoverNum = (0.1 + recoverUp * 0.05) * PC.pc_max_hp # 基础恢复10%HP，每多一个标记额外恢复5%HP
+	# 修习树特殊篇：升级回复体力量提升
+	recoverNum *= (1.0 + Global.study_levelup_heal_bonus)
 	if PC.pc_hp + recoverNum > PC.pc_max_hp: # 如果恢复后超过HP上限
 		PC.pc_hp = PC.pc_max_hp # 则设置为HP上限
 	else:
 		PC.pc_hp += int(recoverNum) # 否则直接增加恢复量
+
+	# 修习树特殊篇：升级后额外提升攻击和HP
+	if Global.study_levelup_atk_bonus > 0:
+		PC.pc_atk += Global.study_levelup_atk_bonus
+		PC.pc_start_atk += Global.study_levelup_atk_bonus
+	if Global.study_levelup_hp_bonus > 0:
+		PC.pc_max_hp += Global.study_levelup_hp_bonus
+		PC.pc_start_max_hp += Global.study_levelup_hp_bonus
+		PC.pc_hp += Global.study_levelup_hp_bonus
 
 func reward_Six1():
 	PC.selected_rewards.append("Six1")
@@ -3625,10 +3443,6 @@ func reward_SSR33():
 	PC.selected_rewards.append("SSR33")
 	_level_up_action()
 
-func reward_UR33():
-	PC.selected_rewards.append("UR33")
-	_level_up_action()
-
 func reward_R34():
 	PC.selected_rewards.append("R34")
 	_level_up_action()
@@ -3639,10 +3453,6 @@ func reward_SR34():
 
 func reward_SSR34():
 	PC.selected_rewards.append("SSR34")
-	_level_up_action()
-
-func reward_UR34():
-	PC.selected_rewards.append("UR34")
 	_level_up_action()
 
 func reward_R35():
@@ -3657,56 +3467,64 @@ func reward_SSR35():
 	PC.selected_rewards.append("SSR35")
 	_level_up_action()
 
-func reward_UR35():
-	PC.selected_rewards.append("UR35")
-	_level_up_action()
-
 func reward_R36():
 	PC.selected_rewards.append("R36")
+	PC.faze_sword_level += 1
 	_level_up_action()
 
 func reward_SR36():
 	PC.selected_rewards.append("SR36")
+	PC.faze_sword_level += 1
 	_level_up_action()
 
 func reward_SSR36():
 	PC.selected_rewards.append("SSR36")
-	_level_up_action()
-
-func reward_UR36():
-	PC.selected_rewards.append("UR36")
+	PC.faze_sword_level += 1
 	_level_up_action()
 
 func reward_R37():
 	PC.selected_rewards.append("R37")
+	PC.faze_blood_level += 1
 	_level_up_action()
 
 func reward_SR37():
 	PC.selected_rewards.append("SR37")
+	PC.faze_blood_level += 1
 	_level_up_action()
 
 func reward_SSR37():
 	PC.selected_rewards.append("SSR37")
-	_level_up_action()
-
-func reward_UR37():
-	PC.selected_rewards.append("UR37")
+	PC.faze_blood_level += 1
 	_level_up_action()
 
 func reward_R38():
 	PC.selected_rewards.append("R38")
+	PC.faze_thunder_level += 1
 	_level_up_action()
 
 func reward_SR38():
 	PC.selected_rewards.append("SR38")
+	PC.faze_thunder_level += 1
 	_level_up_action()
 
 func reward_SSR38():
 	PC.selected_rewards.append("SSR38")
+	PC.faze_thunder_level += 1
 	_level_up_action()
 
-func reward_UR38():
-	PC.selected_rewards.append("UR38")
+func reward_R38a():
+	PC.selected_rewards.append("R38a")
+	PC.faze_fire_level += 1
+	_level_up_action()
+
+func reward_SR38a():
+	PC.selected_rewards.append("SR38a")
+	PC.faze_fire_level += 1
+	_level_up_action()
+
+func reward_SSR38a():
+	PC.selected_rewards.append("SSR38a")
+	PC.faze_fire_level += 1
 	_level_up_action()
 
 func reward_R39():
@@ -3725,11 +3543,6 @@ func reward_SSR39():
 	PC.pc_final_atk += 0.09
 	_level_up_action()
 
-func reward_UR39():
-	PC.selected_rewards.append("UR39")
-	PC.pc_final_atk += 0.11
-	_level_up_action()
-
 func reward_R40():
 	PC.selected_rewards.append("R40")
 	_level_up_action()
@@ -3742,24 +3555,19 @@ func reward_SSR40():
 	PC.selected_rewards.append("SSR40")
 	_level_up_action()
 
-func reward_UR40():
-	PC.selected_rewards.append("UR40")
-	_level_up_action()
-
 func reward_R41():
 	PC.exp_multi += 0.20
+	PC.faze_life_level += 1
 	_level_up_action()
 
 func reward_SR41():
 	PC.exp_multi += 0.22
+	PC.faze_life_level += 1
 	_level_up_action()
 
 func reward_SSR41():
 	PC.exp_multi += 0.24
-	_level_up_action()
-
-func reward_UR41():
-	PC.exp_multi += 0.28
+	PC.faze_life_level += 1
 	_level_up_action()
 
 func reward_UR42():
@@ -3801,16 +3609,21 @@ func reward_NoAdvance():
 	_level_up_action()
 
 func reward_R42():
-	PC.pc_atk = int(PC.pc_atk * 1.08)
-	PC.pc_start_atk = int(PC.pc_start_atk * 1.08)
+	PC.pc_atk = int(PC.pc_atk * 1.09)
+	PC.pc_start_atk = int(PC.pc_start_atk * 1.09)
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.96)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.96)
 	_level_up_action()
 
 func reward_R43():
-	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.025, 0.7)
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.03, 0.7)
+	PC.damage_deal_multiplier -= 0.01
 	_level_up_action()
 
 func reward_R44():
-	PC.pc_speed += 0.10
+	PC.pc_speed += 0.15
+	PC.damage_reduction_rate = max(PC.damage_reduction_rate - 0.01, 0.0)
+	PC.faze_wind_level += 1
 	_level_up_action()
 
 func reward_R45():
@@ -3818,11 +3631,368 @@ func reward_R45():
 	_level_up_action()
 
 func reward_R46():
+	# 疗愈：治疗提升+12%，额外+1级愈疗法则
 	PC.heal_multi += 0.12
+	PC.faze_heal_level += 1
 	_level_up_action()
 
 func reward_R47():
 	PC.damage_deal_multiplier += 0.05
+	PC.enemy_move_speed_multiplier += 0.05
+	_level_up_action()
+
+# ================= R42-R47 SR/SSR 升级 =================
+
+func reward_SR42():
+	PC.pc_atk = int(PC.pc_atk * 1.13)
+	PC.pc_start_atk = int(PC.pc_start_atk * 1.13)
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.97)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.97)
+	_level_up_action()
+
+func reward_SSR42():
+	PC.pc_atk = int(PC.pc_atk * 1.19)
+	PC.pc_start_atk = int(PC.pc_start_atk * 1.19)
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.96)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.96)
+	_level_up_action()
+
+func reward_SR43():
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.03, 0.7)
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.99)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.99)
+	_level_up_action()
+
+func reward_SSR43():
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.05, 0.7)
+	PC.damage_deal_multiplier -= 0.02
+	_level_up_action()
+
+func reward_SR44():
+	PC.pc_speed += 0.15
+	PC.damage_reduction_rate = max(PC.damage_reduction_rate - 0.01, 0.0)
+	PC.faze_wind_level += 1
+	_level_up_action()
+
+func reward_SSR44():
+	PC.pc_speed += 0.24
+	PC.damage_reduction_rate = max(PC.damage_reduction_rate - 0.02, 0.0)
+	PC.faze_wind_level += 1
+	_level_up_action()
+
+func reward_SR45():
+	# 保佑：护盾获取率+12%，额外+1级护佑法则
+	PC.sheild_multi += 0.12
+	PC.faze_shield_level += 1
+	_level_up_action()
+
+func reward_SSR45():
+	# 保佑：护盾获取率+18%，额外+1级护佑法则
+	PC.sheild_multi += 0.18
+	PC.faze_shield_level += 1
+	_level_up_action()
+
+func reward_SR46():
+	# 疗愈：治疗提升+12%，额外+1级护佑法则和治愈法则
+	PC.heal_multi += 0.12
+	PC.faze_shield_level += 1
+	PC.faze_heal_level += 1
+	_level_up_action()
+
+func reward_SSR46():
+	# 疗愈：治疗提升+18%，额外+1级护佑法则和治愈法则
+	PC.heal_multi += 0.18
+	PC.faze_shield_level += 1
+	PC.faze_heal_level += 1
+	_level_up_action()
+
+func reward_SR47():
+	PC.damage_deal_multiplier += 0.07
+	PC.enemy_move_speed_multiplier += 0.04
+	_level_up_action()
+
+func reward_SSR47():
+	PC.damage_deal_multiplier += 0.09
+	PC.enemy_move_speed_multiplier += 0.05
+	_level_up_action()
+
+# ================= R48-SSR58 新系列 =================
+
+func reward_R48():
+	PC.selected_rewards.append("R48")
+	PC.enemy_hp_multiplier += 0.05
+	_level_up_action()
+
+func reward_SR48():
+	PC.selected_rewards.append("SR48")
+	PC.enemy_hp_multiplier += 0.04
+	_level_up_action()
+
+func reward_SSR48():
+	PC.selected_rewards.append("SSR48")
+	PC.enemy_hp_multiplier += 0.03
+	_level_up_action()
+
+func reward_R49():
+	PC.selected_rewards.append("R49")
+	PC.enemy_move_speed_multiplier += 0.06
+	_level_up_action()
+
+func reward_SR49():
+	PC.selected_rewards.append("SR49")
+	PC.enemy_move_speed_multiplier += 0.07
+	_level_up_action()
+
+func reward_SSR49():
+	PC.selected_rewards.append("SSR49")
+	PC.enemy_move_speed_multiplier += 0.08
+	_level_up_action()
+
+func reward_R50():
+	PC.selected_rewards.append("R50")
+	PC.enemy_damage_multiplier += 0.05
+	_level_up_action()
+
+func reward_SR50():
+	PC.selected_rewards.append("SR50")
+	PC.enemy_damage_multiplier += 0.04
+	_level_up_action()
+
+func reward_SSR50():
+	PC.selected_rewards.append("SSR50")
+	PC.enemy_damage_multiplier += 0.03
+	_level_up_action()
+
+func reward_R51():
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.025, 0.7)
+	PC.enemy_damage_multiplier += 0.05
+	_level_up_action()
+
+func reward_SR51():
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.03, 0.7)
+	PC.enemy_damage_multiplier += 0.06
+	_level_up_action()
+
+func reward_SSR51():
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.04, 0.7)
+	PC.enemy_damage_multiplier += 0.06
+	_level_up_action()
+
+func reward_R52():
+	PC.damage_deal_multiplier += 0.05
+	PC.enemy_move_speed_multiplier += 0.05
+	_level_up_action()
+
+func reward_SR52():
+	PC.damage_deal_multiplier += 0.07
+	PC.enemy_move_speed_multiplier += 0.04
+	_level_up_action()
+
+func reward_SSR52():
+	PC.damage_deal_multiplier += 0.09
+	PC.enemy_move_speed_multiplier += 0.06
+	_level_up_action()
+
+func reward_R53():
+	PC.selected_rewards.append("R53")
+	PC.pc_atk = int(PC.pc_atk * 1.07)
+	PC.pc_start_atk = int(PC.pc_start_atk * 1.07)
+	_level_up_action()
+
+func reward_SR53():
+	PC.selected_rewards.append("SR53")
+	PC.pc_atk = int(PC.pc_atk * 1.09)
+	PC.pc_start_atk = int(PC.pc_start_atk * 1.09)
+	_level_up_action()
+
+func reward_SSR53():
+	PC.selected_rewards.append("SSR53")
+	PC.pc_atk = int(PC.pc_atk * 1.12)
+	PC.pc_start_atk = int(PC.pc_start_atk * 1.12)
+	_level_up_action()
+
+func reward_R54():
+	PC.selected_rewards.append("R54")
+	PC.enemy_hp_multiplier += 0.05
+	PC.lucky += 6
+	_level_up_action()
+
+func reward_SR54():
+	PC.selected_rewards.append("SR54")
+	PC.enemy_hp_multiplier += 0.04
+	PC.lucky += 7
+	_level_up_action()
+
+func reward_SSR54():
+	PC.selected_rewards.append("SSR54")
+	PC.enemy_hp_multiplier += 0.03
+	PC.lucky += 8
+	_level_up_action()
+
+func reward_R55():
+	PC.pc_speed += 0.20
+	PC.pc_atk = int(PC.pc_atk * 0.94)
+	PC.pc_start_atk = int(PC.pc_start_atk * 0.94)
+	_level_up_action()
+
+func reward_SR55():
+	PC.pc_speed += 0.30
+	PC.pc_atk = int(PC.pc_atk * 0.92)
+	PC.pc_start_atk = int(PC.pc_start_atk * 0.92)
+	_level_up_action()
+
+func reward_SSR55():
+	PC.pc_speed += 0.42
+	PC.pc_atk = int(PC.pc_atk * 0.88)
+	PC.pc_start_atk = int(PC.pc_start_atk * 0.88)
+	_level_up_action()
+
+func reward_R56():
+	PC.pc_atk = int(PC.pc_atk * 1.11)
+	PC.pc_start_atk = int(PC.pc_start_atk * 1.11)
+	PC.pc_atk_speed += 0.05
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.95)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.95)
+	_level_up_action()
+
+func reward_SR56():
+	PC.pc_atk = int(PC.pc_atk * 1.13)
+	PC.pc_start_atk = int(PC.pc_start_atk * 1.13)
+	PC.pc_atk_speed += 0.06
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.94)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.94)
+	_level_up_action()
+
+func reward_SSR56():
+	PC.pc_atk = int(PC.pc_atk * 1.16)
+	PC.pc_start_atk = int(PC.pc_start_atk * 1.16)
+	PC.pc_atk_speed += 0.09
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.92)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.92)
+	_level_up_action()
+
+func reward_R57():
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.03, 0.7)
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.98)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.98)
+	_level_up_action()
+
+func reward_SR57():
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.045, 0.7)
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.96)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.96)
+	_level_up_action()
+
+func reward_SSR57():
+	PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.06, 0.7)
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.94)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.94)
+	_level_up_action()
+
+func reward_R58():
+	PC.pc_atk_speed += 0.09
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.95)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.95)
+	PC.faze_bullet_level += 1
+	_level_up_action()
+
+func reward_SR58():
+	PC.pc_atk_speed += 0.13
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.93)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.93)
+	PC.faze_bullet_level += 1
+	_level_up_action()
+
+func reward_SSR58():
+	PC.pc_atk_speed += 0.18
+	PC.pc_max_hp = int(PC.pc_max_hp * 0.91)
+	PC.pc_start_max_hp = int(PC.pc_start_max_hp * 0.91)
+	PC.faze_bullet_level += 1
+	_level_up_action()
+
+# ================= 行修系列（金色buff型） =================
+
+func reward_SSR59():
+	# 行修·悟：每移动200米，经验获取率+1%
+	PC.selected_rewards.append("SSR59")
+	# 实际效果由 player_action._check_distance_buffs() 处理
+	_level_up_action()
+
+func reward_SSR60():
+	# 行修·缘：每移动200米，治愈精华掉落率+1%
+	PC.selected_rewards.append("SSR60")
+	# 实际效果由 player_action._check_distance_buffs() 处理
+	_level_up_action()
+
+# ================= 仙气凝聚系列 =================
+
+func reward_R61():
+	# 仙气凝聚：汇聚12点仙气，满100触发仙力护体
+	PC.selected_rewards.append("R61")
+	PC.xianqi_points += 12
+	var stack = PC.xianqi_points
+	if BuffManager.has_buff("xianqi"):
+		Global.emit_signal("buff_stack_changed", "xianqi", stack)
+	else:
+		Global.emit_signal("buff_added", "xianqi", 0.0, stack)
+	_check_xianli_activation_reward()
+	_level_up_action()
+
+func reward_SR61():
+	# 仙气凝聚：汇聚18点仙气，满100触发仙力护体
+	PC.selected_rewards.append("SR61")
+	PC.xianqi_points += 18
+	var stack = PC.xianqi_points
+	if BuffManager.has_buff("xianqi"):
+		Global.emit_signal("buff_stack_changed", "xianqi", stack)
+	else:
+		Global.emit_signal("buff_added", "xianqi", 0.0, stack)
+	_check_xianli_activation_reward()
+	_level_up_action()
+
+func reward_SSR61():
+	# 仙气凝聚：汇聚28点仙气，满100触发仙力护体
+	PC.selected_rewards.append("SSR61")
+	PC.xianqi_points += 28
+	var stack = PC.xianqi_points
+	if BuffManager.has_buff("xianqi"):
+		Global.emit_signal("buff_stack_changed", "xianqi", stack)
+	else:
+		Global.emit_signal("buff_added", "xianqi", 0.0, stack)
+	_check_xianli_activation_reward()
+	_level_up_action()
+
+func _check_xianli_activation_reward():
+	# 检查仙气凝聚是否达到100点，触发仙力护体
+	if PC.xianqi_points >= 100 and not PC.xianli_active:
+		PC.xianli_active = true
+		PC.pc_final_atk += 0.25
+		PC.damage_reduction_rate = min(PC.damage_reduction_rate + 0.10, 0.7)
+		PC.pc_atk_speed += 0.20
+		PC.pc_speed += 0.30
+		Global.emit_signal("buff_added", "xianli", 0.0, 1)
+
+# ================= 延域系列（射程提升） =================
+
+func reward_R62():
+	PC.add_attack_range(0.05)
+	PC.pc_atk_speed += 0.02
+	PC.pc_speed -= 0.04
+	PC.faze_wide_level += 1
+	_level_up_action()
+
+func reward_SR62():
+	PC.add_attack_range(0.07)
+	PC.pc_atk_speed += 0.03
+	PC.pc_speed -= 0.05
+	PC.faze_wide_level += 1
+	_level_up_action()
+
+func reward_SSR62():
+	PC.add_attack_range(0.10)
+	PC.pc_atk_speed += 0.04
+	PC.pc_speed -= 0.06
+	PC.faze_wide_level += 1
 	_level_up_action()
 
 # ================= 天道碎片 =================
@@ -3876,3 +4046,105 @@ func check_not_have_UR47() -> bool:
 
 func check_not_have_UR48() -> bool:
 	return not PC.selected_rewards.has("UR48")
+
+# ================= UR49-UR54 =================
+
+func check_chaos_level_above_3() -> bool:
+	return PC.faze_chaos_level > 3
+
+func reward_UR49():
+	# 混沌干预：层数最高的两个法则（不含混沌）各减3层，将8层随机分配给其他法则（不含混沌）
+	PC.selected_rewards.append("UR49")
+	var faze_vars = [
+		["faze_blood_level", PC.faze_blood_level],
+		["faze_sword_level", PC.faze_sword_level],
+		["faze_thunder_level", PC.faze_thunder_level],
+		["faze_heal_level", PC.faze_heal_level],
+		["faze_summon_level", PC.faze_summon_level],
+		["faze_shield_level", PC.faze_shield_level],
+		["faze_fire_level", PC.faze_fire_level],
+		["faze_destroy_level", PC.faze_destroy_level],
+		["faze_life_level", PC.faze_life_level],
+		["faze_bullet_level", PC.faze_bullet_level],
+		["faze_wide_level", PC.faze_wide_level],
+		["faze_bagua_level", PC.faze_bagua_level],
+		["faze_treasure_level", PC.faze_treasure_level],
+		["faze_skill_level", PC.faze_skill_level],
+		["faze_sixsense_level", PC.faze_sixsense_level],
+		["faze_wind_level", PC.faze_wind_level],
+	]
+	# 按层数降序排列
+	faze_vars.sort_custom(func(a, b): return a[1] > b[1])
+	# 最高的两个法则各减3层
+	for i in range(min(2, faze_vars.size())):
+		var var_name = faze_vars[i][0]
+		var current_val = PC.get(var_name)
+		var reduction = min(3, current_val)
+		PC.set(var_name, current_val - reduction)
+	# 将8层随机分配给其他法则（不含混沌），排除最高的两个
+	var other_vars = faze_vars.slice(2)
+	for _j in range(8):
+		if other_vars.is_empty():
+			break
+		var idx = randi() % other_vars.size()
+		var var_name = other_vars[idx][0]
+		PC.set(var_name, PC.get(var_name) + 1)
+		other_vars[idx][1] = PC.get(var_name) # 更新缓存值
+	_level_up_action()
+
+func reward_UR50():
+	# 法则干预：层数最高的三个法则额外获得1层法则层数
+	PC.selected_rewards.append("UR50")
+	var faze_vars = [
+		["faze_blood_level", PC.faze_blood_level],
+		["faze_sword_level", PC.faze_sword_level],
+		["faze_thunder_level", PC.faze_thunder_level],
+		["faze_heal_level", PC.faze_heal_level],
+		["faze_summon_level", PC.faze_summon_level],
+		["faze_shield_level", PC.faze_shield_level],
+		["faze_fire_level", PC.faze_fire_level],
+		["faze_destroy_level", PC.faze_destroy_level],
+		["faze_life_level", PC.faze_life_level],
+		["faze_bullet_level", PC.faze_bullet_level],
+		["faze_wide_level", PC.faze_wide_level],
+		["faze_bagua_level", PC.faze_bagua_level],
+		["faze_treasure_level", PC.faze_treasure_level],
+		["faze_skill_level", PC.faze_skill_level],
+		["faze_sixsense_level", PC.faze_sixsense_level],
+		["faze_wind_level", PC.faze_wind_level],
+	]
+	faze_vars.sort_custom(func(a, b): return a[1] > b[1])
+	for i in range(min(3, faze_vars.size())):
+		var var_name = faze_vars[i][0]
+		PC.set(var_name, PC.get(var_name) + 1)
+	_level_up_action()
+
+func reward_UR51():
+	# 十八层：流血/感电/灼烧伤害+100%；有其中一种异常时，受到其他两异常伤害+100%（加算）
+	PC.selected_rewards.append("UR51")
+	PC.bleed_damage_multi += 1.0
+	PC.electrification_damage_multi += 1.0
+	PC.fire_damage_multi += 1.0
+	PC.debuff_cross_damage_multi += 1.0
+	_level_up_action()
+
+func reward_UR52():
+	# 怒意：暴击率+40%，暴击伤害-40%
+	PC.selected_rewards.append("UR52")
+	PC.crit_chance += 0.40
+	PC.crit_damage_multi -= 0.40
+	_level_up_action()
+
+func reward_UR53():
+	# 蓄积：攻击-12%，接下来5次升级每次额外+5%攻击
+	PC.selected_rewards.append("UR53")
+	PC.pc_atk = int(PC.pc_atk * 0.88)
+	PC.xuji_remaining += 5
+	_level_up_action()
+
+func reward_UR54():
+	# 弃甲狂攻：减伤率-15%，最终伤害+35%
+	PC.selected_rewards.append("UR54")
+	PC.damage_reduction_rate = max(PC.damage_reduction_rate - 0.15, 0.0)
+	PC.pc_final_atk += 0.35
+	_level_up_action()

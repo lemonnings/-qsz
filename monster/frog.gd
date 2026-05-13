@@ -160,14 +160,17 @@ func _physics_process(delta: float) -> void:
 	if is_dead:
 		return
 	
+	# 更新离屏缓存
+	update_offscreen_status()
+	
 	if debuff_manager.is_action_disabled():
 		action_timer.paused = true
 		return
 	if action_timer.paused:
 		action_timer.paused = false
 
-	# 处理推挤效果（攻击和发射状态不推挤，避免打断攻击动作）
-	if current_state != State.ATTACKING and current_state != State.FIRING:
+	# 处理推挤效果（攻击和发射状态不推挤，离屏时跳过）
+	if not _is_offscreen and current_state != State.ATTACKING and current_state != State.FIRING:
 		CharacterEffects.apply_separation(self , 13.0, 13.0)
 
 	if hp <= 0:
@@ -210,7 +213,7 @@ func _physics_process(delta: float) -> void:
 			await get_tree().create_timer(0.36).timeout
 			queue_free()
 
-	if not is_direction_locked and current_state != State.FLEEING and PC.player_instance: # 未锁定方向且非逃跑状态下，朝向玩家
+	if not _is_offscreen and not is_direction_locked and current_state != State.FLEEING and PC.player_instance: # 未锁定方向且非逃跑状态下，朝向玩家
 		var player_pos = PC.player_instance.global_position
 		if global_position.x > player_pos.x: # 青蛙在玩家右侧
 			sprite.flip_h = true # 面向左 (朝向玩家)
@@ -233,7 +236,7 @@ func _physics_process(delta: float) -> void:
 		State.FLEEING:
 			_move_pattern(delta)
 
-	if hp < hpMax and hp > 0:
+	if not _is_offscreen and hp < hpMax and hp > 0:
 		show_health_bar()
 	
 
@@ -265,11 +268,8 @@ func _on_area_entered(area: Area2D) -> void:
 			
 		
 		if hp <= 0:
-			# 如果已经死亡，则不重复播放死亡动画，也不播放受击动画
+			# 如果已经死亡，则不重复播放死亡动画，也不播放动画
 			if not is_dead:
 				$AnimatedSprite2D.play("death")
 		else:
 			Global.play_hit_anime(position, is_crit)
-
-
-

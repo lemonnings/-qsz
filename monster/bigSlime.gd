@@ -61,8 +61,11 @@ func _physics_process(delta: float) -> void:
 		
 			await get_tree().create_timer(0.35).timeout
 			queue_free()
-		
-	if hp < hpMax and hp > 0:
+	
+	# 更新离屏缓存
+	update_offscreen_status()
+	
+	if not _is_offscreen and hp < hpMax and hp > 0:
 		show_health_bar()
 	
 	if debuff_manager.is_action_disabled():
@@ -71,10 +74,12 @@ func _physics_process(delta: float) -> void:
 	if not is_dead:
 		if move_direction == 0:
 			position += Vector2(speed, 0) * delta
-			sprite.flip_h = true;
+			if not _is_offscreen:
+				sprite.flip_h = true
 		if move_direction == 1:
 			position -= Vector2(speed, 0) * delta
-			sprite.flip_h = false;
+			if not _is_offscreen:
+				sprite.flip_h = false
 		if move_direction >= 2:
 			# 靠近角色的移动方式
 			if PC.player_instance != null:
@@ -83,13 +88,11 @@ func _physics_process(delta: float) -> void:
 				speed = get_effective_move_speed(base_speed)
 				position += direction_to_player * speed * delta
 				# 根据移动方向设置精灵翻转
-				if direction_to_player.x > 0:
-					sprite.flip_h = true
-				else:
-					sprite.flip_h = false
+				if not _is_offscreen:
+					sprite.flip_h = direction_to_player.x > 0
 	
-	# 处理推挤效果（防止怪物重叠）
-	if not is_dead:
+	# 处理推挤效果（防止怪物重叠，离屏时跳过）
+	if not is_dead and not _is_offscreen:
 		CharacterEffects.apply_separation(self , 15.0, 15.0)
 	
 	# 确保史莱姆不会因为推动而移出边界太快
@@ -128,11 +131,8 @@ func _on_area_entered(area: Area2D) -> void:
 			area.call_deferred("create_rebound")
 			
 		if hp <= 0:
-			# 如果已经死亡，则不重复播放死亡动画，也不播放受击动画
+			# 如果已经死亡，则不重复播放死亡动画，也不播放动画
 			if not is_dead:
 				$AnimatedSprite2D.play("death")
 		else:
 			Global.play_hit_anime(position, is_crit)
-
-
-

@@ -51,6 +51,14 @@ func _to_parent_local(global_pos: Vector2) -> Vector2:
 	return global_pos
 
 
+func center_view() -> void:
+	var parent_ctrl = get_parent() as Control
+	if parent_ctrl:
+		_clip_rect = Rect2(Vector2.ZERO, parent_ctrl.size)
+		var centered = (parent_ctrl.size - size) / 2.0
+		position = _clamp_position(centered)
+
+
 func _clamp_position(pos: Vector2) -> Vector2:
 	if _clip_rect.size == Vector2.ZERO:
 		return pos

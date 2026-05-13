@@ -28,22 +28,24 @@ func setup_detonation(pos: Vector2, p_damage: float, p_can_crit: bool, p_destroy
 	scale = _base_scale
 	modulate.a = 1.0
 	
-	# 16阶: 在原有scale基础上 *2.25
-	if destroy_level >= 16:
+	# 25阶: 在原有scale基础上大幅增加范围
+	if destroy_level >= 25:
 		scale *= 2.25
 	
 	# 播放动画
 	if sprite:
 		sprite.play("default")
 	
-	# 0.3秒后进行伤害判定（适配动画节奏）
-	get_tree().create_timer(0.3, false).timeout.connect(_deal_damage_to_overlapping)
+	# 伤害判定由 _process 中 _elapsed >= 0.3 时触发（避免 call_deferred 入树前 get_tree() 为 null）
 	
 	# 引爆震屏
 	GU.screen_shake(4.0, 0.2)
 
 func _process(delta: float) -> void:
 	_elapsed += delta
+	# 0.3秒后进行伤害判定（适配动画节奏）
+	if not damage_dealt and _elapsed >= 0.3:
+		_deal_damage_to_overlapping()
 	# 动画14帧12fps ≈ 1.17秒，加缓冲
 	if _elapsed > 1.3:
 		ObjectPool.recycle(self )

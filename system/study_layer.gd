@@ -1,5 +1,7 @@
 extends CanvasLayer
 
+signal exit_requested
+
 @export var detail: RichTextLabel
 
 @export var rui: Button
@@ -34,12 +36,16 @@ const BUTTON_DETAIL_TEMPLATES = {
 
 const STUDY_LAYER_PATH = "tree_control/study_layer"
 const STUDY_TREE_PATH = "tree_control/study_layer/ClipPolygon/ClipRect/DragContainer/StudyTreeWeapon"
+const STUDY_TREE_SKILL_PATH = "tree_control/study_layer/ClipPolygon/ClipRect/DragContainer/StudyTreeSkill"
+const STUDY_TREE_LEARN_PATH = "tree_control/study_layer/ClipPolygon/ClipRect/DragContainer/StudyTreeLearn"
+const STUDY_TREE_TEAM_PATH = "tree_control/study_layer/ClipPolygon/ClipRect/DragContainer/StudyTreeTeam"
+const STUDY_TREE_SPECIAL_PATH = "tree_control/study_layer/ClipPolygon/ClipRect/DragContainer/StudyTreeSpecial"
 
 const TYPE_CORE_NAMES = {
 	"weapon": "锐之魔核",
 	"skill": "启之魔核",
 	"learn": "砺之魔核",
-	"team": "蔟之魔核",
+	"team": "簇之魔核",
 	"special": "衍之魔核"
 }
 
@@ -57,7 +63,7 @@ const HOLD_DURATION := 1.0
 var _tooltip_canvas: CanvasLayer
 var _tooltip_panel: Panel
 var _tooltip_vbox: VBoxContainer
-var _tooltip_name_label: Label
+var _tooltip_name_label: RichTextLabel
 var _tooltip_current_label: Label
 var _tooltip_next_label: Label
 var _tooltip_cost_label: Label
@@ -69,6 +75,7 @@ var _tooltip_sep_precondition: HSeparator
 var _tooltip_font: Font
 var _hovered_study_btn: Button = null
 var _tooltip_request_id: int = 0
+var _tooltip_tween: Tween = null # 当前提示框动画，防止淡入淡出互相打断
 
 var _holding_btn: Button = null
 var _hold_timer: float = 0.0
@@ -76,6 +83,10 @@ var _ring: Control = null
 var _upgrade_done: bool = false
 
 var _study_btns_connected: bool = false
+var _study_skill_btns_connected: bool = false
+var _study_learn_btns_connected: bool = false
+var _study_team_btns_connected: bool = false
+var _study_special_btns_connected: bool = false
 var _btn_level_labels: Dictionary = {}
 
 
@@ -236,6 +247,19 @@ func _ready():
 	var study_area = get_node_or_null(STUDY_LAYER_PATH)
 	if study_area:
 		study_area.visible = false
+	# 初始隐藏技能树和领悟树，只保留武器树可见
+	var skill_tree = get_node_or_null(STUDY_TREE_SKILL_PATH)
+	if skill_tree:
+		skill_tree.visible = false
+	var learn_tree = get_node_or_null(STUDY_TREE_LEARN_PATH)
+	if learn_tree:
+		learn_tree.visible = false
+	var team_tree = get_node_or_null(STUDY_TREE_TEAM_PATH)
+	if team_tree:
+		team_tree.visible = false
+	var special_tree = get_node_or_null(STUDY_TREE_SPECIAL_PATH)
+	if special_tree:
+		special_tree.visible = false
 	if back:
 		back.visible = false
 
@@ -249,11 +273,22 @@ func _ready():
 		exit.pressed.connect(_on_exit_pressed)
 	if rui:
 		rui.pressed.connect(_on_rui_pressed)
+	if qi:
+		qi.pressed.connect(_on_qi_pressed)
+	if li:
+		li.pressed.connect(_on_li_pressed)
+	if cu:
+		cu.pressed.connect(_on_cu_pressed)
+	if yan:
+		yan.pressed.connect(_on_yan_pressed)
 	if back:
 		back.pressed.connect(_on_back_pressed)
+		
+	var panel = get_node_or_null("Control/Panel")
+	if panel:
+		panel.play("default")
 
 	_create_study_tooltip()
-
 
 func _process(delta: float) -> void:
 	if _holding_btn and not _upgrade_done:
@@ -284,6 +319,10 @@ func _on_button_mouse_entered(name_str: String):
 	var item_id = CORE_ITEM_IDS[name_str]
 	var count = Global.player_inventory.get(item_id, 0)
 	detail.text = BUTTON_DETAIL_TEMPLATES[name_str] + str(count) + "[/color][/font_size]"
+	# 显示 study_detail Panel
+	var study_detail_panel = get_node_or_null("study_detail")
+	if study_detail_panel:
+		study_detail_panel.visible = true
 
 
 func _on_button_mouse_exited(name_str: String):
@@ -291,11 +330,15 @@ func _on_button_mouse_exited(name_str: String):
 	if btn and btn.is_inside_tree():
 		var tween = create_tween()
 		tween.tween_property(btn, "modulate:a", 0.0, 0.2)
+	# 隐藏 study_detail Panel
+	var study_detail_panel = get_node_or_null("study_detail")
+	if study_detail_panel:
+		study_detail_panel.visible = false
 
 
 # ===== 页面切换 =====
 
-func _on_rui_pressed():
+func _open_study_tree(tree_type: String) -> void:
 	tree_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var panel = get_node_or_null("Control/Panel")
 	if panel:
@@ -308,6 +351,23 @@ func _on_rui_pressed():
 	var study_detail_panel = get_node_or_null("study_detail")
 	if study_detail_panel:
 		study_detail_panel.visible = false
+
+	# 切换树可见性
+	var weapon_tree = get_node_or_null(STUDY_TREE_PATH)
+	var skill_tree = get_node_or_null(STUDY_TREE_SKILL_PATH)
+	var learn_tree = get_node_or_null(STUDY_TREE_LEARN_PATH)
+	var team_tree = get_node_or_null(STUDY_TREE_TEAM_PATH)
+	var special_tree = get_node_or_null(STUDY_TREE_SPECIAL_PATH)
+	if weapon_tree:
+		weapon_tree.visible = (tree_type == "weapon")
+	if skill_tree:
+		skill_tree.visible = (tree_type == "skill")
+	if learn_tree:
+		learn_tree.visible = (tree_type == "learn")
+	if team_tree:
+		team_tree.visible = (tree_type == "team")
+	if special_tree:
+		special_tree.visible = (tree_type == "special")
 
 	var study_area = get_node_or_null(STUDY_LAYER_PATH)
 	if study_area:
@@ -322,20 +382,52 @@ func _on_rui_pressed():
 		var tw = create_tween()
 		tw.tween_property(back, "modulate:a", 1.0, 0.3)
 
-	if not _study_btns_connected:
+	# 重置 DragContainer 位置，使当前树居中显示
+	var drag_container = get_node_or_null("tree_control/study_layer/ClipPolygon/ClipRect/DragContainer")
+	if drag_container and drag_container.has_method("center_view"):
+		drag_container.center_view()
+
+	# 连接对应树的按钮信号
+	if tree_type == "weapon" and not _study_btns_connected:
 		_connect_study_tree_buttons()
+	elif tree_type == "skill" and not _study_skill_btns_connected:
+		_connect_study_tree_skill_buttons()
+	elif tree_type == "learn" and not _study_learn_btns_connected:
+		_connect_study_tree_learn_buttons()
+	elif tree_type == "team" and not _study_team_btns_connected:
+		_connect_study_tree_team_buttons()
+	elif tree_type == "special" and not _study_special_btns_connected:
+		_connect_study_tree_special_buttons()
+
+
+func _on_rui_pressed():
+	_open_study_tree("weapon")
+
+
+func _on_qi_pressed():
+	_open_study_tree("skill")
+
+
+func _on_li_pressed():
+	_open_study_tree("learn")
+
+
+func _on_cu_pressed():
+	_open_study_tree("team")
+
+
+func _on_yan_pressed():
+	_open_study_tree("special")
 
 
 func _on_back_pressed():
 	_hide_study_tooltip()
 	_cancel_hold()
 
-	tree_control.mouse_filter = Control.MOUSE_FILTER_STOP
+	tree_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var panel = get_node_or_null("Control/Panel")
 	if panel:
-		panel.stop()
-		panel.animation = &"default"
-		panel.frame = panel.sprite_frames.get_frame_count(&"default") - 1
+		panel.play("default")
 
 	var study_area = get_node_or_null(STUDY_LAYER_PATH)
 	if study_area:
@@ -352,18 +444,7 @@ func _on_back_pressed():
 func _on_exit_pressed():
 	_hide_study_tooltip()
 	_cancel_hold()
-
-	var tw = create_tween()
-	tw.set_parallel(true)
-	for child in get_children():
-		if child.has_method("set_modulate"):
-			tw.tween_property(child, "modulate:a", 0.0, 0.2)
-	tw.tween_callback(func():
-		visible = false
-		for child in get_children():
-			if child.has_method("set_modulate"):
-				child.modulate.a = 1.0
-	).set_delay(0.2)
+	exit_requested.emit()
 
 
 # ===== 天赋树提示框创建 =====
@@ -398,8 +479,11 @@ func _create_study_tooltip() -> void:
 	_tooltip_vbox.position = Vector2(10, 8)
 	_tooltip_panel.add_child(_tooltip_vbox)
 
-	_tooltip_name_label = Label.new()
-	_setup_label_style(_tooltip_name_label)
+	_tooltip_name_label = RichTextLabel.new()
+	_tooltip_name_label.bbcode_enabled = true
+	_tooltip_name_label.fit_content = true
+	_tooltip_name_label.scroll_active = false
+	_setup_richtext_style(_tooltip_name_label)
 	_tooltip_vbox.add_child(_tooltip_name_label)
 
 	_tooltip_sep_current = HSeparator.new()
@@ -451,11 +535,20 @@ func _setup_label_style(label: Label, font_color: Color = Color.WHITE) -> void:
 	label.add_theme_constant_override("outline_size", 3)
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
+func _setup_richtext_style(rtl: RichTextLabel, font_color: Color = Color.WHITE) -> void:
+	if _tooltip_font:
+		rtl.add_theme_font_override("default_font", _tooltip_font)
+	rtl.add_theme_font_size_override("default_font_size", TOOLTIP_FONT_SIZE)
+	rtl.add_theme_color_override("default_color", font_color)
+	rtl.add_theme_color_override("font_outline_color", Color.BLACK)
+	rtl.add_theme_constant_override("outline_size", 3)
+	rtl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
 
 # ===== 天赋树按钮信号 =====
 
-func _connect_study_tree_buttons() -> void:
-	var study_tree = get_node_or_null(STUDY_TREE_PATH)
+func _connect_tree_buttons_at_path(path: String) -> void:
+	var study_tree = get_node_or_null(path)
 	if not study_tree:
 		return
 	for child in study_tree.get_children():
@@ -465,7 +558,31 @@ func _connect_study_tree_buttons() -> void:
 			child.button_down.connect(_on_study_btn_down.bind(child))
 			child.button_up.connect(_on_study_btn_up.bind(child))
 			_create_level_label(child)
+
+
+func _connect_study_tree_buttons() -> void:
+	_connect_tree_buttons_at_path(STUDY_TREE_PATH)
 	_study_btns_connected = true
+
+
+func _connect_study_tree_skill_buttons() -> void:
+	_connect_tree_buttons_at_path(STUDY_TREE_SKILL_PATH)
+	_study_skill_btns_connected = true
+
+
+func _connect_study_tree_learn_buttons() -> void:
+	_connect_tree_buttons_at_path(STUDY_TREE_LEARN_PATH)
+	_study_learn_btns_connected = true
+
+
+func _connect_study_tree_team_buttons() -> void:
+	_connect_tree_buttons_at_path(STUDY_TREE_TEAM_PATH)
+	_study_team_btns_connected = true
+
+
+func _connect_study_tree_special_buttons() -> void:
+	_connect_tree_buttons_at_path(STUDY_TREE_SPECIAL_PATH)
+	_study_special_btns_connected = true
 
 
 func _create_level_label(btn: Button) -> void:
@@ -662,10 +779,12 @@ func _show_study_tooltip(btn: Button) -> void:
 	_tooltip_panel.custom_minimum_size = panel_size
 	_tooltip_panel.size = panel_size
 	_position_tooltip(btn)
-	# 渐入动画 0.2秒
+	# 渐入动画 0.2秒 — 先杀掉旧动画防止冲突
+	if _tooltip_tween and _tooltip_tween.is_valid():
+		_tooltip_tween.kill()
 	_tooltip_panel.modulate.a = 0.0
-	var fade_in_tween = create_tween()
-	fade_in_tween.tween_property(_tooltip_panel, "modulate:a", 1.0, 0.2)
+	_tooltip_tween = create_tween()
+	_tooltip_tween.tween_property(_tooltip_panel, "modulate:a", 1.0, 0.2)
 
 
 func _position_tooltip(btn: Button) -> void:
@@ -683,17 +802,33 @@ func _position_tooltip(btn: Button) -> void:
 
 func _hide_study_tooltip() -> void:
 	_tooltip_request_id += 1
+	var hide_id = _tooltip_request_id
+	# 先杀掉旧动画防止淡入淡出互相打架
+	if _tooltip_tween and _tooltip_tween.is_valid():
+		_tooltip_tween.kill()
 	if _tooltip_panel and _tooltip_panel.visible:
-		var fade_out_tween = create_tween()
-		fade_out_tween.tween_property(_tooltip_panel, "modulate:a", 0.0, 0.2)
-		fade_out_tween.tween_callback(func(): _tooltip_panel.visible = false)
+		_tooltip_tween = create_tween()
+		_tooltip_tween.tween_property(_tooltip_panel, "modulate:a", 0.0, 0.2)
+		# 回调中检查 request_id：若已有新的 show 请求则不隐藏
+		_tooltip_tween.tween_callback(func():
+			if _tooltip_request_id == hide_id:
+				_tooltip_panel.visible = false
+		)
 
+
+func _format_value(v: String, level: int) -> String:
+	if v == "":
+		return "0"
+	var val = snapped(float(v) * level, 0.1)
+	if is_equal_approx(val, round(val)):
+		return str(int(round(val)))
+	return "%.1f" % val
 
 func _replace_placeholders(text: String, v1: String, v2: String, v3: String, level: int) -> String:
 	var result = text
-	result = result.replace("$$", str(int(v1) * level) if v1 != "" else "0")
-	result = result.replace("##", str(int(v2) * level) if v2 != "" else "0")
-	result = result.replace("@@", str(int(v3) * level) if v3 != "" else "0")
+	result = result.replace("$$", _format_value(v1, level))
+	result = result.replace("##", _format_value(v2, level))
+	result = result.replace("@@", _format_value(v3, level))
 	return result
 
 
@@ -724,6 +859,11 @@ func _try_upgrade(btn: Button) -> void:
 
 	Global.player_inventory[core_item_id] = core_count - cast
 	Global.player_study_tree[id] = current_level + 1
+	SettingStudyTreeUp.apply_all()
+	SettingStudyTreeSkill.apply_all()
+	SettingStudyTreeLearn.apply_all()
+	SettingStudyTreeTeam.apply_all()
+	SettingStudyTreeSpecial.apply_all()
 	Global.save_game()
 
 	_cancel_hold()

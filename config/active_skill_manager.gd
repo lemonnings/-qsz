@@ -2,7 +2,7 @@ extends Node
 
 # 主动技能管理器
 # 负责管理所有主动技能的使用、冷却和效果
-# 使用 Global.player_now_active_skill 配置技能槽位
+# 使用 Global.get_current_active_skills() 配置技能槽位
 # 使用 Global.player_active_skill_data 存储技能数据
 
 class_name ActiveSkillManager
@@ -50,14 +50,16 @@ class DodgeSkill extends ActiveSkill:
 		for lv in [2, 4, 6, 8, 10, 12, 14]:
 			if level >= lv:
 				invincible_bonus += 0.1
-		invincible_duration = base_invincible_duration + invincible_bonus
+		# 修习树技能篇：闪避无敌时间加成
+		invincible_duration = base_invincible_duration + invincible_bonus + Global.study_shanbi_invincible_bonus
 		
 		# 等级3，5，7，9，11，13，15，冷却时间-0.5秒
 		var cd_reduction = 0.0
 		for lv in [3, 5, 7, 9, 11, 13, 15]:
 			if level >= lv:
 				cd_reduction += 0.5
-		cooldown_time = max(1.0, base_cooldown_time - cd_reduction)
+		# 修习树技能篇：闪避冷却减少
+		cooldown_time = max(1.0, base_cooldown_time - cd_reduction - Global.study_shanbi_cd_reduction)
 
 # 乱击技能数据
 class RandomStrikeSkill extends ActiveSkill:
@@ -78,14 +80,16 @@ class RandomStrikeSkill extends ActiveSkill:
 		for lv in [2, 5, 8, 11, 14]:
 			if level >= lv:
 				damage_bonus += 0.05
-		damage_ratio = base_damage_ratio + damage_bonus
+		# 修习树技能篇：乱击伤害加成
+		damage_ratio = (base_damage_ratio + damage_bonus) * (1.0 + Global.study_luanji_damage_bonus)
 		
 		# 等级3，6，9，12，15，射出子弹+2
 		var bullet_bonus = 0
 		for lv in [3, 6, 9, 12, 15]:
 			if level >= lv:
 				bullet_bonus += 2
-		bullet_count = base_bullet_count + bullet_bonus
+		# 修习树技能篇：乱击剑气数量加成
+		bullet_count = base_bullet_count + bullet_bonus + Global.study_luanji_count_bonus
 		
 		# 等级4，7，10，13，冷却时间-1秒
 		var cd_reduction = 0.0
@@ -111,7 +115,8 @@ class MizongbuSkill extends ActiveSkill:
 		for lv in [2, 5, 8, 11, 14]:
 			if level >= lv:
 				dr_bonus += 0.04
-		damage_reduction_ratio = base_damage_reduction_ratio + dr_bonus
+		# 修习树技能篇：迷踪步减伤率加成
+		damage_reduction_ratio = base_damage_reduction_ratio + dr_bonus + Global.study_mizongbu_dmgreduction_bonus
 		
 		var cd_reduction = 0.0
 		for lv in [3, 6, 9, 12, 15]:
@@ -123,36 +128,8 @@ class MizongbuSkill extends ActiveSkill:
 		for lv in [4, 7, 10, 13]:
 			if level >= lv:
 				duration_bonus += 0.3
-		duration = base_duration + duration_bonus
-
-class HuanlingSkill extends ActiveSkill:
-	var base_duration: float = 10.0
-	var duration: float = 10.0
-	var base_attr_ratio: float = 0.8
-	var attr_ratio: float = 0.8
-	
-	func _init():
-		super ("huanling", "唤灵", "召唤陨灭剑灵协助作战", 20.0)
-		is_unlocked = true
-	
-	func update_from_level(level: int):
-		var attr_bonus = 0.0
-		for lv in [2, 5, 8, 11, 14]:
-			if level >= lv:
-				attr_bonus += 0.04
-		attr_ratio = base_attr_ratio + attr_bonus
-		
-		var extra_duration = 0.0
-		for lv in [3, 6, 9, 12, 15]:
-			if level >= lv:
-				extra_duration += 1.0
-		duration = base_duration + extra_duration
-		
-		var cd_reduction = 0.0
-		for lv in [4, 7, 10, 13]:
-			if level >= lv:
-				cd_reduction += 1.0
-		cooldown_time = max(4.0, base_cooldown_time - cd_reduction)
+		# 修习树技能篇：迷踪步持续时间加成
+		duration = base_duration + duration_bonus + Global.study_mizongbu_duration_bonus
 
 # 疗愈技能数据
 class HealHotSkill extends ActiveSkill:
@@ -180,7 +157,8 @@ class HealHotSkill extends ActiveSkill:
 		for lv in [3, 6, 9, 12, 15]:
 			if level >= lv:
 				cd_reduction += 1.0
-		cooldown_time = max(5.0, base_cooldown_time - cd_reduction)
+		# 修习树技能篇：疗愈冷却减少
+		cooldown_time = max(5.0, base_cooldown_time - cd_reduction - Global.study_liaoyu_cd_reduction)
 		
 		# 等级4，7，10，13，持续时间+1秒
 		var duration_bonus = 0.0
@@ -222,7 +200,8 @@ class WaterShieldSkill extends ActiveSkill:
 		for lv in [4, 7, 10, 13]:
 			if level >= lv:
 				cd_reduction += 0.5
-		cooldown_time = max(3.0, base_cooldown_time - cd_reduction)
+		# 修习树技能篇：水幕护体冷却减少
+		cooldown_time = max(3.0, base_cooldown_time - cd_reduction - Global.study_shuimu_cd_reduction)
 
 # 风雷破技能数据
 class WindThunderSkill extends ActiveSkill:
@@ -231,8 +210,69 @@ class WindThunderSkill extends ActiveSkill:
 	var chant_time: float = 1.2
 	
 	func _init():
-		super ("wind_thunder", "风雷破", "咏唱后向鼠标方向发射风雷弹，击中敌人造成范围爆炸", 15.0)
+		super ("wind_thunder", "风雷破", "咏唱后向鼠标方向发射风雷弹，击中敌人造成范围爆炸", 12.0)
 		is_unlocked = true
+	
+	func update_from_level(_level: int):
+		# 修习树技能篇：风雷破伤害加成
+		damage_ratio = base_damage_ratio * (1.0 + Global.study_fengleipo_damage_bonus)
+
+# 玄冰技能数据
+class MagicalIceSkill extends ActiveSkill:
+	var base_damage_ratio: float = 3.6 # 360%攻击力
+	var damage_ratio: float = 3.6
+	var chant_time: float = 1.5
+	var indicator_size: Vector2 = Vector2(90, 65) # 咏唱圆圈提示范围
+	
+	func _init():
+		super ("magical_ice", "玄冰", "咏唱后对鼠标位置释放玄冰阵，造成范围伤害并减速敌人", 15.0)
+		is_unlocked = true
+	
+	func update_from_level(_level: int):
+		# 修习树技能篇：玄冰伤害加成
+		damage_ratio = base_damage_ratio * (1.0 + Global.study_xuanbing_damage_bonus)
+
+# 炽炎技能数据
+class MagicalFireSkill extends ActiveSkill:
+	var base_damage_ratio: float = 2.2 # 220%攻击力
+	var damage_ratio: float = 2.2
+	var chant_time: float = 1.2
+	var indicator_size: Vector2 = Vector2(90, 65) # 咏唱圆圈提示范围（与玄冰一致）
+	
+	func _init():
+		super ("magical_fire", "炽炎", "咏唱后对鼠标位置释放炽炎，造成范围伤害", 2.5)
+		is_unlocked = true
+	
+	func update_from_level(_level: int):
+		# 修习树技能篇：炽炎伤害加成
+		damage_ratio = base_damage_ratio * (1.0 + Global.study_chiyan_enhance_damage_bonus)
+
+# 魔纹阵技能数据
+class MagicSkill extends ActiveSkill:
+	var duration: float = 15.0
+	var atk_speed_bonus: float = 0.25 # 攻速提升25%
+	var chant_cd_acceleration: float = 1.0 # 咏唱技能冷却加速100%
+	var chant_time_reduction: float = 0.5 # 咏唱时间缩短50%
+	
+	func _init():
+		super ("magic", "魔纹阵", "在脚下展开魔纹阵，刷新其他技能冷却，范围内提升攻速并加速咏唱技能冷却", 40.0)
+		is_unlocked = true
+	
+	func update_from_level(_level: int):
+		# 修习树技能篇：魔纹阵冷却减少
+		cooldown_time = max(8.0, base_cooldown_time - Global.study_mowenzhen_cd_reduction)
+
+# 冒想技能数据
+class MeditationSkill extends ActiveSkill:
+	var chant_time: float = 3.0
+	
+	func _init():
+		super ("meditation", "冒想", "咏唱后提升1级", 60.0)
+		is_unlocked = true
+	
+	func update_from_level(_level: int):
+		# 修习树技能篇：冥想冷却减少
+		cooldown_time = max(12.0, base_cooldown_time - Global.study_mingxiang_cd_reduction)
 
 # 神圣灼烧技能数据
 class HolyFireSkill extends ActiveSkill:
@@ -251,14 +291,16 @@ class HolyFireSkill extends ActiveSkill:
 		for lv in [2, 5, 8, 11, 14]:
 			if level >= lv:
 				damage_bonus += 0.04
-		damage_ratio = base_damage_ratio + damage_bonus
+		# 修习树技能篇：神圣灼烧伤害加成
+		damage_ratio = (base_damage_ratio + damage_bonus) * (1.0 + Global.study_shensheng_damage_bonus)
 		
 		# 等级3，6，9，12，15，持续时间+0.5秒
 		var duration_bonus = 0.0
 		for lv in [3, 6, 9, 12, 15]:
 			if level >= lv:
 				duration_bonus += 0.5
-		duration = base_duration + duration_bonus
+		# 修习树技能篇：神圣灼烧持续时间加成
+		duration = base_duration + duration_bonus + Global.study_shensheng_duration_bonus
 		
 		# 等级4，7，10，13，冷却时间-1秒
 		var cd_reduction = 0.0
@@ -294,14 +336,16 @@ class BeastifySkill extends ActiveSkill:
 			if level >= lv:
 				attr_bonus += 0.03
 		atk_bonus_ratio = base_buff_ratio + attr_bonus
-		atk_speed_bonus_ratio = base_buff_ratio + attr_bonus
+		# 修习树技能篇：兽化攻速加成
+		atk_speed_bonus_ratio = base_buff_ratio + attr_bonus + Global.study_shouhua_atkspeed_bonus
 		move_bonus_ratio = base_buff_ratio + attr_bonus
 		
 		var extra_duration = 0.0
 		for lv in [4, 7, 10, 13]:
 			if level >= lv:
 				extra_duration += 1.0
-		duration = base_duration + extra_duration
+		# 修习树技能篇：兽化持续时间加成
+		duration = base_duration + extra_duration + Global.study_shouhua_duration_bonus
 
 # 已掌握的技能列表
 var mastered_skills: Dictionary = {}
@@ -343,6 +387,8 @@ signal skill_cooldown_finished(skill_id: String)
 func _ready():
 	# 初始化技能
 	init_skills()
+	# 连接升级信号，播放升级动画
+	Global.connect("player_lv_up", Callable(self , "_on_player_level_up"))
 
 func _process(delta):
 	# 游戏暂停时不处理
@@ -355,8 +401,8 @@ func _process(delta):
 	# 更新技能冷却
 	update_skill_cooldowns(delta)
 	
-	# 检查输入（只在非城镇、非菜单、非升级选择环境下）
-	if not Global.in_town and not Global.in_menu and not Global.is_level_up:
+	# 检查输入（只在非城镇、非菜单、非升级选择、非game over环境下）
+	if not Global.in_town and not Global.in_menu and not Global.is_level_up and not PC.is_game_over:
 		check_skill_inputs()
 
 func init_skills():
@@ -371,13 +417,6 @@ func init_skills():
 	var mz_level = Global.player_active_skill_data.get("mizongbu", {}).get("level", 1)
 	mizongbu_skill.update_from_level(mz_level)
 	mastered_skills["mizongbu"] = mizongbu_skill
-	# Global.player_now_active_skill["space"] = {"name": "mizongbu"}
-	
-	var huanling_skill = HuanlingSkill.new()
-	var hl_level = Global.player_active_skill_data.get("huanling", {}).get("level", 1)
-	huanling_skill.update_from_level(hl_level)
-	mastered_skills["huanling"] = huanling_skill
-	# Global.player_now_active_skill["q"] = {"name": "huanling"}
 	
 	# 初始化乱击技能
 	var random_strike_skill = RandomStrikeSkill.new()
@@ -390,7 +429,6 @@ func init_skills():
 	var b_level = Global.player_active_skill_data.get("beastify", {}).get("level", 1)
 	beast_skill.update_from_level(b_level)
 	mastered_skills["beastify"] = beast_skill
-	# Global.player_now_active_skill["e"] = {"name": "beastify"}
 	
 	# 初始化新技能
 	var heal_hot_skill = HealHotSkill.new()
@@ -409,7 +447,29 @@ func init_skills():
 	mastered_skills["holy_fire"] = holy_fire_skill
 
 	var wind_thunder_skill = WindThunderSkill.new()
+	var wt_level = Global.player_active_skill_data.get("wind_thunder", {}).get("level", 1)
+	wind_thunder_skill.update_from_level(wt_level)
 	mastered_skills["wind_thunder"] = wind_thunder_skill
+
+	var magical_ice_skill = MagicalIceSkill.new()
+	var mi_level = Global.player_active_skill_data.get("magical_ice", {}).get("level", 1)
+	magical_ice_skill.update_from_level(mi_level)
+	mastered_skills["magical_ice"] = magical_ice_skill
+
+	var magical_fire_skill = MagicalFireSkill.new()
+	var mf_level = Global.player_active_skill_data.get("magical_fire", {}).get("level", 1)
+	magical_fire_skill.update_from_level(mf_level)
+	mastered_skills["magical_fire"] = magical_fire_skill
+
+	var magic_skill = MagicSkill.new()
+	var mg_level = Global.player_active_skill_data.get("magic", {}).get("level", 1)
+	magic_skill.update_from_level(mg_level)
+	mastered_skills["magic"] = magic_skill
+
+	var meditation_skill = MeditationSkill.new()
+	var md_level = Global.player_active_skill_data.get("meditation", {}).get("level", 1)
+	meditation_skill.update_from_level(md_level)
+	mastered_skills["meditation"] = meditation_skill
 
 func refresh_skill_levels():
 	"""刷新技能等级（当技能升级时调用）"""
@@ -424,18 +484,23 @@ func update_skill_cooldowns(delta: float):
 	"""更新所有技能的冷却时间"""
 	for skill in mastered_skills.values():
 		if skill.state == SkillState.COOLDOWN:
-			skill.current_cooldown -= delta
+			var cd_delta = delta
+			# 咏唱技能冷却加速：拥有chant_time属性的技能受益
+			if PC.chant_cooldown_acceleration > 0 and "chant_time" in skill:
+				cd_delta = delta * (1.0 + PC.chant_cooldown_acceleration)
+			skill.current_cooldown -= cd_delta
 			if skill.current_cooldown <= 0:
 				skill.current_cooldown = 0
 				skill.state = SkillState.READY
 				skill_cooldown_finished.emit(skill.id)
 
 func check_skill_inputs():
-	"""检查技能输入 - 使用Global.player_now_active_skill配置"""
+	"""检查技能输入 - 使用Global.get_current_active_skills()配置"""
+	var current_skills := Global.get_current_active_skills()
 	# 空格键
 	if Input.is_key_pressed(KEY_SPACE):
 		if is_key_just_pressed("space"):
-			var skill_name = Global.player_now_active_skill.get("space", {}).get("name", "")
+			var skill_name = current_skills.get("space", {}).get("name", "")
 			if skill_name != "":
 				use_skill(skill_name)
 			set_key_pressed("space")
@@ -443,7 +508,7 @@ func check_skill_inputs():
 	# Q键
 	if Input.is_key_pressed(KEY_Q):
 		if is_key_just_pressed("q"):
-			var skill_name = Global.player_now_active_skill.get("q", {}).get("name", "")
+			var skill_name = current_skills.get("q", {}).get("name", "")
 			if skill_name != "":
 				use_skill(skill_name)
 			set_key_pressed("q")
@@ -451,7 +516,7 @@ func check_skill_inputs():
 	# E键
 	if Input.is_key_pressed(KEY_E):
 		if is_key_just_pressed("e"):
-			var skill_name = Global.player_now_active_skill.get("e", {}).get("name", "")
+			var skill_name = current_skills.get("e", {}).get("name", "")
 			if skill_name != "":
 				use_skill(skill_name)
 			set_key_pressed("e")
@@ -461,7 +526,7 @@ func use_skill(skill_id: String):
 	if not skill_id:
 		push_error("技能ID不能为空")
 		return
-	if Global.in_town or Global.in_menu or Global.is_level_up:
+	if Global.in_town or Global.in_menu or Global.is_level_up or PC.is_game_over:
 		return
 	
 	if not mastered_skills.has(skill_id):
@@ -496,8 +561,6 @@ func execute_skill(skill: ActiveSkill):
 			execute_dodge_skill(skill as DodgeSkill)
 		"mizongbu":
 			execute_mizongbu_skill(skill as MizongbuSkill)
-		"huanling":
-			execute_huanling_skill(skill as HuanlingSkill)
 		"random_strike":
 			execute_random_strike_skill(skill as RandomStrikeSkill)
 		"beastify":
@@ -510,6 +573,14 @@ func execute_skill(skill: ActiveSkill):
 			execute_holy_fire_skill(skill as HolyFireSkill)
 		"wind_thunder":
 			execute_wind_thunder_skill(skill as WindThunderSkill)
+		"magical_ice":
+			execute_magical_ice_skill(skill as MagicalIceSkill)
+		"magical_fire":
+			execute_magical_fire_skill(skill as MagicalFireSkill)
+		"magic":
+			execute_magic_skill(skill as MagicSkill)
+		"meditation":
+			execute_meditation_skill(skill as MeditationSkill)
 		_:
 			push_error("未知技能: " + skill.id)
 
@@ -525,6 +596,7 @@ func execute_heal_hot_skill(skill: HealHotSkill):
 
 func execute_water_shield_skill(skill: WaterShieldSkill):
 	"""执行水幕护体技能"""
+	SEManager.play("21")
 	var scene = load("res://Scenes/player/water_sheild.tscn")
 	if scene:
 		var instance = scene.instantiate()
@@ -535,6 +607,7 @@ func execute_water_shield_skill(skill: WaterShieldSkill):
 
 func execute_holy_fire_skill(skill: HolyFireSkill):
 	"""执行神圣灼烧技能"""
+	SEManager.play("19")
 	var scene = load("res://Scenes/player/holy_fire.tscn")
 	if scene:
 		var instance = scene.instantiate()
@@ -544,27 +617,38 @@ func execute_holy_fire_skill(skill: HolyFireSkill):
 			instance.start(skill.duration, skill.damage_ratio)
 
 func execute_wind_thunder_skill(skill: WindThunderSkill):
-	"""执行风雷破技能：开始咏唱，咏唱完成后发射风雷弹"""
+	"""执行风雷破技能：开始咏唱（可减速移动），咏唱完成后沿提示线方向发射风雷弹"""
 	if not player:
 		return
-	# 咏唱期间禁止移动
-	PC.movement_disabled = true
+	# 咏唱期间允许移动但减速70%
+	PC.is_chanting = true
+	PC.chant_speed_reduction = 0.7
 	# 发送咏唱开始信号，通知战斗UI显示咏唱条
 	var icon_path = Global.player_active_skill_data.get("wind_thunder", {}).get("icon", "")
-	Global.emit_signal("player_chant_start", "风雷破", skill.chant_time, icon_path)
-	# 记录咏唱时鼠标位置计算方向
-	var mouse_world_pos = player.get_global_mouse_position()
-	var fire_direction = (mouse_world_pos - player.global_position).normalized()
-	if fire_direction.length() < 0.01:
-		fire_direction = Vector2.RIGHT
-	# 咏唱等待（process_always=false，暂停时计时器也暂停）
-	await get_tree().create_timer(skill.chant_time, false).timeout
-	# 咏唱结束，恢复移动
-	PC.movement_disabled = false
+	var effective_chant = skill.chant_time * (1.0 - PC.chant_time_reduction) / max(Global.game_speed, 1.0)
+	Global.emit_signal("player_chant_start", "风雷破", effective_chant, icon_path)
+	# 创建直线型技能提示线
+	var SkillIndicator = preload("res://Script/skill/skill_indicator.gd")
+	var indicator = SkillIndicator.new()
+	get_tree().current_scene.add_child(indicator)
+	indicator.setup_line(player)
+	# 哏唱等待（加速时哏唱时间缩短）
+	await get_tree().create_timer(effective_chant, false).timeout
+	# 咏唱结束，恢复正常移动
+	PC.is_chanting = false
+	PC.chant_speed_reduction = 0.0
 	if not is_instance_valid(player):
 		Global.emit_signal("player_chant_end")
+		if is_instance_valid(indicator):
+			indicator.queue_free()
 		return
 	Global.emit_signal("player_chant_end")
+	# 获取提示线最终方向作为发射方向
+	var fire_direction = Vector2.RIGHT
+	if is_instance_valid(indicator):
+		fire_direction = indicator.get_direction()
+		# 冻结提示线并渐变消失
+		indicator.freeze_and_fade(0.3)
 	# 发射风雷弹
 	var scene = load("res://Scenes/player/wind_thunder.tscn")
 	if scene:
@@ -573,6 +657,171 @@ func execute_wind_thunder_skill(skill: WindThunderSkill):
 		instance.global_position = player.global_position
 		if instance.has_method("launch"):
 			instance.launch(fire_direction, skill.damage_ratio)
+
+func execute_magical_ice_skill(skill: MagicalIceSkill):
+	"""执行玄冰技能：咏唱后对鼠标位置释放玄冰阵，造成范围伤害并减速敌人"""
+	if not player:
+		return
+	# 咏唱期间允许移动但减速70%
+	PC.is_chanting = true
+	PC.chant_speed_reduction = 0.7
+	# 发送哏唱开始信号，通知战斗UI显示哏唱条
+	var icon_path = Global.player_active_skill_data.get("magical_ice", {}).get("icon", "")
+	var effective_chant = skill.chant_time * (1.0 - PC.chant_time_reduction) / max(Global.game_speed, 1.0)
+	Global.emit_signal("player_chant_start", "玄冰", effective_chant, icon_path)
+	# 创建圆圈型技能提示（跟随鼠标位置）
+	var SkillIndicator = preload("res://Script/skill/skill_indicator.gd")
+	var indicator = SkillIndicator.new()
+	get_tree().current_scene.add_child(indicator)
+	indicator.setup_circle(player, skill.indicator_size, true)
+	# 哏唱等待（加速时哏唱时间缩短）
+	await get_tree().create_timer(effective_chant, false).timeout
+	# 咏唱结束，恢复正常移动
+	PC.is_chanting = false
+	PC.chant_speed_reduction = 0.0
+	if not is_instance_valid(player):
+		Global.emit_signal("player_chant_end")
+		if is_instance_valid(indicator):
+			indicator.queue_free()
+		return
+	Global.emit_signal("player_chant_end")
+	# 获取提示圈最终位置作为释放目标点
+	var target_pos = player.get_global_mouse_position()
+	if is_instance_valid(indicator):
+		target_pos = indicator.get_target_position()
+		indicator.freeze_and_fade(0.3)
+	# 在目标位置释放玄冰阵
+	var scene = load("res://Scenes/player/magical_ice.tscn")
+	if scene:
+		var instance = scene.instantiate()
+		get_tree().current_scene.add_child(instance)
+		instance.global_position = target_pos
+		if instance.has_method("activate"):
+			instance.activate(skill.damage_ratio)
+
+func execute_magical_fire_skill(skill: MagicalFireSkill):
+	"""执行炽炎技能：咏唱后对鼠标位置释放炽炎，造成范围伤害"""
+	if not player:
+		return
+	# 咏唱期间允许移动但减速70%
+	PC.is_chanting = true
+	PC.chant_speed_reduction = 0.7
+	# 发送咏唱开始信号，通知战斗UI显示咏唱条
+	var icon_path = Global.player_active_skill_data.get("magical_fire", {}).get("icon", "")
+	var effective_chant = skill.chant_time * (1.0 - PC.chant_time_reduction) / max(Global.game_speed, 1.0)
+	Global.emit_signal("player_chant_start", "炽炎", effective_chant, icon_path)
+	# 创建圆圈型技能提示（跟随鼠标位置）
+	var SkillIndicator = preload("res://Script/skill/skill_indicator.gd")
+	var indicator = SkillIndicator.new()
+	get_tree().current_scene.add_child(indicator)
+	indicator.setup_circle(player, skill.indicator_size, true)
+	# 咏唱等待（加速时咏唱时间缩短）
+	await get_tree().create_timer(effective_chant, false).timeout
+	# 咏唱结束，恢复正常移动
+	PC.is_chanting = false
+	PC.chant_speed_reduction = 0.0
+	if not is_instance_valid(player):
+		Global.emit_signal("player_chant_end")
+		if is_instance_valid(indicator):
+			indicator.queue_free()
+		return
+	Global.emit_signal("player_chant_end")
+	# 获取提示圈最终位置作为释放目标点
+	var target_pos = player.get_global_mouse_position()
+	if is_instance_valid(indicator):
+		target_pos = indicator.get_target_position()
+		indicator.freeze_and_fade(0.3)
+	# 在目标位置释放炽炎
+	var scene = load("res://Scenes/player/magical_fire.tscn")
+	if scene:
+		var instance = scene.instantiate()
+		get_tree().current_scene.add_child(instance)
+		instance.global_position = target_pos
+		if instance.has_method("activate"):
+			instance.activate(skill.damage_ratio)
+
+func execute_magic_skill(skill: MagicSkill):
+	"""执行魔纹阵技能：立即在脚下展开魔纹阵，刷新其他技能冷却"""
+	if not player:
+		return
+	# 立即刷新所有其他主动技能的冷却
+	for sid in mastered_skills.keys():
+		if sid == "magic":
+			continue
+		var s = mastered_skills[sid]
+		if s.state == SkillState.COOLDOWN:
+			s.current_cooldown = 0
+			s.state = SkillState.READY
+			skill_cooldown_finished.emit(s.id)
+	# 在玩家当前位置放置魔纹阵（静止不跟随玩家）
+	var scene = load("res://Scenes/player/magic.tscn")
+	if scene:
+		var instance = scene.instantiate()
+		get_tree().current_scene.add_child(instance)
+		instance.global_position = player.global_position
+		# 修习树技能篇：魔纹阵大小加成
+		if Global.study_mowenzhen_size_bonus > 0:
+			var size_scale = 1.0 + Global.study_mowenzhen_size_bonus
+			instance.scale *= size_scale
+		if instance.has_method("start"):
+			instance.start(skill.duration, skill.atk_speed_bonus, skill.chant_cd_acceleration, skill.chant_time_reduction)
+
+func execute_meditation_skill(skill: MeditationSkill):
+	"""执行冒想技能：咏唱后提升1级"""
+	if not player:
+		return
+	# 咏唱期间允许移动但减速70%
+	PC.is_chanting = true
+	PC.chant_speed_reduction = 0.7
+	# 发送咏唱开始信号，通知战斗UI显示咏唱条
+	var icon_path = Global.player_active_skill_data.get("meditation", {}).get("icon", "")
+	var effective_chant = skill.chant_time * (1.0 - PC.chant_time_reduction) / max(Global.game_speed, 1.0)
+	Global.emit_signal("player_chant_start", "冒想", effective_chant, icon_path)
+	# 在玩家身上显示冒想动画（图层比角色低）
+	var med_instance: Node = null
+	var med_scene = load("res://Scenes/player/meditation.tscn")
+	if med_scene and is_instance_valid(player):
+		med_instance = med_scene.instantiate()
+		player.add_child(med_instance)
+		med_instance.position = Vector2.ZERO
+		if med_instance.has_method("start"):
+			med_instance.start()
+	# 咏唱等待（加速时咏唱时间缩短）
+	await get_tree().create_timer(effective_chant, false).timeout
+	# 咏唱结束，移除冒想动画
+	if is_instance_valid(med_instance):
+		med_instance.queue_free()
+	# 恢复正常移动
+	PC.is_chanting = false
+	PC.chant_speed_reduction = 0.0
+	if not is_instance_valid(player):
+		Global.emit_signal("player_chant_end")
+		return
+	Global.emit_signal("player_chant_end")
+	# 咏唱完成，提升1级
+	_trigger_meditation_level_up()
+
+func _trigger_meditation_level_up():
+	"""冒想技能触发升级"""
+	# 找到 BattleCanvasLayer 并添加待处理升级
+	for child in get_tree().current_scene.get_children():
+		if child.has_method("add_pending_level_up"):
+			child.add_pending_level_up()
+			break
+	PC.pc_lv += 1
+	Global.emit_signal("player_lv_up")
+
+func _on_player_level_up():
+	"""玩家升级时播放升级动画"""
+	if not player:
+		player = get_tree().get_first_node_in_group("player")
+	if not player or not is_instance_valid(player):
+		return
+	var scene = load("res://Scenes/player/level_up.tscn")
+	if scene:
+		var instance = scene.instantiate()
+		player.add_child(instance)
+		instance.position = Vector2.ZERO
 
 func execute_dodge_skill(dodge_skill: DodgeSkill):
 	"""执行闪避技能"""
@@ -603,6 +852,7 @@ func execute_random_strike_skill(rs_skill: RandomStrikeSkill):
 		return # 已经在执行中
 	
 	# 开始乱击协程
+	SEManager.play("61")
 	random_strike_active = true
 	_execute_random_strike_bullets(rs_skill)
 
@@ -644,7 +894,8 @@ func _spawn_random_strike_bullet(direction: Vector2, damage_ratio: float):
 	bullet.global_position = player.global_position
 	
 	# 计算伤害（基于伤害比率）
-	var base_damage = PC.pc_atk * damage_ratio
+	# 修习树技能篇：应用技能总伤害加成
+	var base_damage = PC.pc_atk * damage_ratio * (1.0 + Global.study_skill_damage_bonus)
 	bullet.bullet_damage = base_damage
 	
 	# 标记为乱击子弹，不触发额外效果
@@ -675,41 +926,14 @@ func execute_beastify_skill(skill: BeastifySkill) -> void:
 		t.tween_property(scene, "modulate", Color(1, 1, 1, 1), 0.1)
 	await get_tree().create_timer(0.05).timeout
 	if is_instance_valid(player) and player.has_method("start_beastify"):
-		player.start_beastify(skill.duration, skill.atk_bonus_ratio, skill.atk_speed_bonus_ratio, skill.move_bonus_ratio, skill.claw_damage_ratio)
+		# 修习树技能篇：兽化爪击应用技能总伤害加成
+		var final_claw_ratio = skill.claw_damage_ratio * (1.0 + Global.study_skill_damage_bonus)
+		player.start_beastify(skill.duration, skill.atk_bonus_ratio, skill.atk_speed_bonus_ratio, skill.move_bonus_ratio, final_claw_ratio)
 		Global.emit_signal("buff_added", "beastify", skill.duration, 1)
 
 func execute_mizongbu_skill(skill: MizongbuSkill) -> void:
 	if is_instance_valid(player) and player.has_method("start_mizongbu"):
 		player.start_mizongbu(skill.duration, skill.move_speed_bonus_ratio, skill.damage_reduction_ratio, skill.outgoing_damage_reduction_ratio)
-
-func execute_huanling_skill(skill: HuanlingSkill) -> void:
-	var summon_scene = preload("res://Scenes/summon.tscn")
-	var summon = summon_scene.instantiate()
-	summon.summon_type = 10
-	player.get_parent().add_child(summon)
-	summon.global_position = player.global_position + Vector2(randf_range(-40, 40), randf_range(-40, 40))
-	summon.set_summon_type(10)
-	summon.damage_multiplier = summon.damage_multiplier * skill.attr_ratio
-	summon.fire_interval = summon.fire_interval / max(skill.attr_ratio, 0.1)
-	if summon.fire_timer:
-		summon.fire_timer.wait_time = summon.fire_interval * PC.summon_interval_multiplier
-	call_deferred("_handle_huanling_lifecycle", summon, skill.duration)
-
-func _handle_huanling_lifecycle(summon: Node, duration: float) -> void:
-	if not is_instance_valid(summon):
-		return
-	var stable_time = max(0.0, duration - 4.0)
-	if stable_time > 0.0:
-		await get_tree().create_timer(stable_time).timeout
-	if not is_instance_valid(summon):
-		return
-	var tw = create_tween()
-	for i in range(5):
-		tw.tween_property(summon, "modulate:a", 0.2, 0.12)
-		tw.tween_property(summon, "modulate:a", 1.0, 0.12)
-	await tw.finished
-	if is_instance_valid(summon):
-		summon.queue_free()
 
 func get_dash_direction() -> Vector2:
 	"""获取冲刺方向"""
@@ -744,6 +968,7 @@ func get_dash_direction() -> Vector2:
 
 func start_dash(target_position: Vector2, dodge_skill: DodgeSkill):
 	"""开始冲刺"""
+	SEManager.play("60")
 	# 设置无敌状态
 	PC.invincible = true
 	
@@ -832,17 +1057,23 @@ func _create_afterimage(source_sprite: AnimatedSprite2D):
 	# 创建残影精灵
 	var afterimage = Sprite2D.new()
 	afterimage.texture = source_sprite.sprite_frames.get_frame_texture(source_sprite.animation, source_sprite.frame)
-	afterimage.global_position = player.global_position
-	afterimage.scale = source_sprite.scale
+	
 	# 保持与原精灵相同的翻转方向
 	afterimage.flip_h = source_sprite.flip_h
-	afterimage.z_index = player.z_index - 1
+	afterimage.z_index = player.z_index # 去掉 - 1 避免被背景层遮挡
 	
 	# 设置残影颜色（淡红色半透明）
 	afterimage.modulate = Color(1.0, 0.5, 0.5, 0.4)
 	
-	# 添加到场景
-	get_tree().current_scene.add_child(afterimage)
+	# 优先添加到 player 同级节点以保证排序（如 YSort），否则回退到 current_scene
+	if player.get_parent():
+		player.get_parent().add_child(afterimage)
+	else:
+		get_tree().current_scene.add_child(afterimage)
+		
+	# 添加到场景后再设置绝对的坐标和缩放，防止偏移
+	afterimage.global_position = source_sprite.global_position
+	afterimage.global_scale = source_sprite.global_scale
 	
 	# 渐隐并消失
 	var tween = create_tween()

@@ -1,6 +1,6 @@
 extends Area2D
 
-@export var sprite : AnimatedSprite2D
+@export var sprite: AnimatedSprite2D
 
 var duration: float
 var shield_percent: float
@@ -14,7 +14,8 @@ func start(duration_time: float, shield_pct: float, dr_bonus: float):
 	active = true
 	
 	# 添加护盾
-	var shield_base = PC.pc_max_hp * shield_percent + 1
+	# 修习树技能篇：水幕护体护盾量加成
+	var shield_base = PC.pc_max_hp * shield_percent * (1.0 + Global.study_shuimu_shield_bonus) + 1
 	if PC.has_method("add_shield"):
 		PC.add_shield(int(shield_base), duration)
 	else:

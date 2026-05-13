@@ -34,6 +34,9 @@ var _is_panel_active: bool = false
 ## 暂存 init() 传入的发言人名称，dialog_panel 就绪后应用
 var _pending_name: String = ""
 
+## 当前 speak 传入的自定义偏移（_process 持续更新位置时复用）
+var _current_offset_px: Vector2 = Vector2.INF
+
 
 func _ready():
 	# 默认隐藏所有角色精灵（除 emote 外）
@@ -61,12 +64,19 @@ func _ready():
 		_pending_name = ""
 
 
+## 每帧跟随角色位置更新气泡面板（角色移动 / 相机移动时保持跟随）
+func _process(_delta: float) -> void:
+	if _is_panel_active and dialog_panel and dialog_panel.visible:
+		_update_panel_position(_current_offset_px)
+
+
 ## 更新气泡对话框在屏幕上的位置，使其跟随角色
 ## custom_offset_px: 可选，世界空间像素偏移，不传则自动居中在 sprite 上方 20px
 func _update_panel_position(custom_offset_px := Vector2.INF):
 	if not dialog_panel:
 		return
-	var cam: Camera2D = get_viewport().get_camera_2d()
+	var _vp = get_viewport()
+	var cam: Camera2D = _vp.get_camera_2d() if _vp else null
 	var z: float = bubble_scale_mult
 	var screen_pos: Vector2 = global_position
 
@@ -120,9 +130,17 @@ func init(sprite: AnimatedSprite2D, name_text: String):
 ## 点击行为：打字中 → 显示全文 | 文本显示完毕 → 渐出面板
 ## offset_px: 可选，世界空间像素偏移；不传则自动居中在 sprite 上方 20px
 func speak(dialog_text: String, offset_px := Vector2.INF):
+	# 如果已有气泡正在显示，先渐出再显示新的
+	if _is_panel_active and dialog_panel and dialog_panel.visible:
+		var tw = create_tween()
+		tw.tween_property(dialog_panel, "modulate:a", 0.0, 0.1)
+		await tw.finished
+
 	_reset_state()
 	_is_panel_active = true
 
+	# 记录偏移，_process 持续跟随时复用
+	_current_offset_px = offset_px
 	# 更新屏幕显示位置
 	_update_panel_position(offset_px)
 
@@ -139,6 +157,9 @@ func speak(dialog_text: String, offset_px := Vector2.INF):
 	# ② 打字机效果
 	_start_typewriter(dialog_text)
 
+	# ③ 等待打字完成 → 等待 text.length * 0.2 秒 → 自动渐隐
+	_start_auto_dismiss(dialog_text)
+
 
 ## ── 弹出表情气泡 ──────────────────────────────
 ## emote_type : 动画名称（angry / doubt / happy / idea / sleep / slient / speechless / surprise）
@@ -148,6 +169,9 @@ func show_emote(emote_type: String, duration: float):
 		emote.visible = false
 		emote.modulate.a = 1.0
 	emote.stop()
+
+	# 动态计算 emote 位置：基于角色精灵的视觉顶部
+	_update_emote_position()
 
 	emote.visible = true
 	emote.modulate.a = 0.0
@@ -167,6 +191,36 @@ func show_emote(emote_type: String, duration: float):
 	emote.visible = false
 	emote.stop()
 	emote.modulate.a = 1.0
+
+
+## 根据角色精灵的当前帧尺寸动态计算 emote 的位置和缩放────────────
+## 将 emote 放置在角色精灵视觉顶部以上，避免被角色遮挡
+## emote 缩放以角色 scale=2.5 为基准，等比补偿保持视觉大小一致
+const _EMOTE_BASE_SCALE := 0.55
+const _EMOTE_REF_CHAR_SCALE := 2.5
+
+func _update_emote_position() -> void:
+	if not character or not character.sprite_frames:
+		return
+	var anim_name = character.animation
+	if not character.sprite_frames.has_animation(anim_name):
+		return
+	var frame_idx = character.frame
+	var tex = character.sprite_frames.get_frame_texture(anim_name, frame_idx)
+	if not tex:
+		return
+
+	var tex_h = tex.get_size().y
+	# 居中精灵的视觉顶部 y = position.y + offset.y - (tex_h / 2) * |scale.y|
+	var top_y = character.position.y + character.offset.y - (tex_h / 2.0) * abs(character.scale.y)
+	# emote 放置在精灵顶部再向上偏移
+	emote.position = Vector2(character.position.x, top_y + 20)
+
+	# emote 缩放补偿：以 2.2 倍角色缩放为基准，保持 emote 视觉大小一致
+	var char_scale_abs = abs(scale.y) # DialogCharacter 节点的缩放
+	if char_scale_abs > 0:
+		var compensation = _EMOTE_REF_CHAR_SCALE / char_scale_abs
+		emote.scale = Vector2(_EMOTE_BASE_SCALE * compensation, _EMOTE_BASE_SCALE * compensation)
 
 
 ## ── 内部方法 ──────────────────────────────────
@@ -216,11 +270,26 @@ func _fade_out_panel():
 	speech_completed.emit()
 
 
+## 打字完成后等待 text.length * 0.2 秒，自动渐隐气泡对话框
+func _start_auto_dismiss(text: String) -> void:
+	# 等待打字完成（跳过打字、或自然打完均可）
+	while not _is_text_complete:
+		await get_tree().process_frame
+
+	# 等待阅读时间（每字 0.2 秒）
+	await get_tree().create_timer(text.length() * 0.2).timeout
+
+	# 如果面板仍处于活动状态且没有被新的 speak 中断，则自动渐隐
+	if _is_panel_active and _is_text_complete and dialog_panel and dialog_panel.visible:
+		_fade_out_panel()
+
+
 ## 重置所有内部状态（准备下一次 speak）
 func _reset_state():
 	_is_typing = false
 	_is_text_complete = false
 	_is_panel_active = false
+	_current_offset_px = Vector2.INF
 
 	if _current_text_tween and _current_text_tween.is_valid():
 		_current_text_tween.kill()

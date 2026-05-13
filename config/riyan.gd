@@ -27,9 +27,9 @@ func _on_damage_timer_timeout() -> void:
 		
 		# 基础系数 0.08 (riyan_hp_max_damage)
 		var hp_damage_ratio = PC.riyan_hp_max_damage
-		# Riyan22: 20% (0.20)
+		# Riyan22: 16% (0.16)
 		if PC.selected_rewards.has("Riyan22"):
-			hp_damage_ratio = 0.20
+			hp_damage_ratio = 0.16
 		# Riyan2: 15% (0.15)
 		elif PC.selected_rewards.has("Riyan2"):
 			hp_damage_ratio = 0.15
@@ -38,13 +38,20 @@ func _on_damage_timer_timeout() -> void:
 		# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
 		damage_amount = damage_amount * (PC.main_skill_riyan_damage + (Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level) - 1.0))
 		
+		# 广域法则伤害加成（base_range_bonus = 非法则的范围加成，用于"范围转伤害"）
+		var base_range_bonus = 0.0
+		if PC.selected_rewards.has("Riyan3"):
+			base_range_bonus += 0.2
+		base_range_bonus += Global.get_attack_range_multiplier() - 1.0
+		damage_amount *= Faze.get_wide_damage_multiplier(base_range_bonus)
+		
 		# Riyan1 / Riyan11: 减伤转化伤害
 		var dr_bonus = 0.0
 		var dr_rate = PC.damage_reduction_rate
 		if PC.selected_rewards.has("Riyan11"):
-			dr_bonus = min(dr_rate * 1.5, 0.6)
+			dr_bonus = min(dr_rate * 3.0, 1.8)
 		elif PC.selected_rewards.has("Riyan1"):
-			dr_bonus = min(dr_rate, 0.3)
+			dr_bonus = min(dr_rate * 2.0, 0.9)
 		damage_amount *= (1.0 + dr_bonus)
 		
 		for area in get_overlapping_areas():
@@ -125,7 +132,7 @@ func _on_get_riyan():
 	add_child(draw_node)
 	draw_node.draw.connect(func():
 		var radius: float = PC.riyan_range * current_range_multiplier
-		const P: int = 2
+		const P: int = 4
 
 		# 外圈：双红交替小方块，统一为烧灸红视觉
 		var col_ring_dark = Color(0.82, 0.10, 0.01, 1.00) # 深烧红

@@ -102,15 +102,20 @@ func _trigger_explosion() -> void:
 
 func _apply_explosion_damage() -> void:
 	"""基于exploreShape半径，对范围内敌人造成伤害"""
-	var base_damage = PC.pc_atk * damage_ratio
+	# 修习树技能篇：应用技能总伤害加成
+	var base_damage = PC.pc_atk * damage_ratio * (1.0 + Global.study_skill_damage_bonus)
 	var explosion_center = global_position
 	
 	# 从exploreShape获取爆炸半径
 	var explosion_radius: float = 105.0
 	if exploreShape and exploreShape.shape is CircleShape2D:
 		explosion_radius = (exploreShape.shape as CircleShape2D).radius
+	# 修习树技能篇：风雷破爆炸范围加成
+	explosion_radius *= (1.0 + Global.study_fengleipo_range_bonus)
 	
 	# 遍历敌人，距离判定
+	# 注意：不再手动调用 apply_enemy_damage_bonus，因为 take_damage →
+	# apply_common_take_damage → get_non_bullet_damage_value 内部已经会调一次
 	var enemies = get_tree().get_nodes_in_group("enemies")
 	for enemy in enemies:
 		if not is_instance_valid(enemy) or not enemy.has_method("take_damage"):
@@ -121,9 +126,7 @@ func _apply_explosion_damage() -> void:
 			if _hit_targets.has(target_id):
 				continue
 			_hit_targets[target_id] = true
-			var final_damage = Global.apply_enemy_damage_bonus(base_damage, enemy)
-			enemy.take_damage(int(final_damage), false, false, "wind_thunder")
-			Global.emit_signal("monster_damage", 1, final_damage, enemy.global_position - Vector2(16, 6), "wind_thunder")
+			enemy.take_damage(int(base_damage), false, false, "wind_thunder")
 	
 	var bosses = get_tree().get_nodes_in_group("boss")
 	for boss in bosses:
@@ -135,6 +138,4 @@ func _apply_explosion_damage() -> void:
 			if _hit_targets.has(target_id):
 				continue
 			_hit_targets[target_id] = true
-			var final_damage = Global.apply_enemy_damage_bonus(base_damage, boss)
-			boss.take_damage(int(final_damage), false, false, "wind_thunder")
-			Global.emit_signal("monster_damage", 1, final_damage, boss.global_position - Vector2(16, 6), "wind_thunder")
+			boss.take_damage(int(base_damage), false, false, "wind_thunder")

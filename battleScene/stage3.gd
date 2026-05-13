@@ -11,20 +11,19 @@ func _setup_stage_config() -> void:
 	STAGE_ID = "cave"
 	SPAWN_INTERVAL_SECONDS = 4.65
 	INITIAL_MONSTER_LIMIT = 50
-	MAX_MONSTER_CAP = 100
 	DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD = 0.3
 	DYNAMIC_BALANCE_SPAWN_MAX_BONUS = 1.0
 	DYNAMIC_BALANCE_HP_MAX_REDUCTION = 0.4
-	BASIC_TYPES = ["slime", "bat"]
+	BASIC_TYPES = ["bat", "extra"]
 	OTHER_TYPE_PER_WAVE_MAX = 2
 	OTHER_TYPE_TOTAL_MAX = 5
 	ELITE_MAX = 3
-	# CAVE: slime(4), bat(4), frog(1), extra(1)
+	# CAVE: armor_stone(8), slime(4), ghost(2), stone_man(2)
 	stage_spawn_pool = [
-		{"type": "slime", "weight": 4, "blocked_early": false},
-		{"type": "bat", "weight": 4, "blocked_early": false},
-		{"type": "frog", "weight": 1, "blocked_early": false},
-		{"type": "extra", "weight": 1, "blocked_early": false}
+		{"type": "bat", "weight": 8, "blocked_early": false},
+		{"type": "extra", "weight": 4, "blocked_early": false},
+		{"type": "slime", "weight": 2, "blocked_early": false},
+		{"type": "frog", "weight": 2, "blocked_early": false}
 	]
 
 # ============== 初始化 ==============
@@ -34,7 +33,7 @@ func _ready() -> void:
 	$Player.min_zoom = 2.4
 	GU.reset_kill_count()
 	# stage3 的 map_mechanism_num_max = 5（特殊值，快速触发Boss）
-	map_mechanism_num_max = 5
+	# map_mechanism_num_max = 5
 	# 播放深窟BGM和环境音
 	Global.emit_signal("stage_bgm", "cave")
 
@@ -123,6 +122,7 @@ func _spawn_single_slime() -> void:
 	get_tree().current_scene.add_child(slime_node)
 	_try_make_elite(slime_node)
 	_apply_dynamic_hp_reduction(slime_node)
+	_apply_late_game_speed_bonus(slime_node)
 	slime_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(slime_node, "modulate:a", 1.0, 0.7)
@@ -133,6 +133,7 @@ func _spawn_single_bat() -> void:
 	if not is_inside_tree() or get_tree().current_scene == null:
 		return
 	var bat_node = bat_scene.instantiate()
+	bat_node.move_direction = 2 # armor_stone: 靠近角色移动
 	var spawn_edge = randi_range(0, 3)
 	var spawn_position = Vector2.ZERO
 	match spawn_edge:
@@ -148,6 +149,7 @@ func _spawn_single_bat() -> void:
 	get_tree().current_scene.add_child(bat_node)
 	_try_make_elite(bat_node)
 	_apply_dynamic_hp_reduction(bat_node)
+	_apply_late_game_speed_bonus(bat_node)
 	bat_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(bat_node, "modulate:a", 1.0, 0.7)
@@ -174,6 +176,7 @@ func _spawn_single_frog() -> void:
 	get_tree().current_scene.add_child(frog_node)
 	_try_make_elite(frog_node)
 	_apply_dynamic_hp_reduction(frog_node)
+	_apply_late_game_speed_bonus(frog_node)
 	frog_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(frog_node, "modulate:a", 1.0, 0.7)
@@ -201,6 +204,7 @@ func _spawn_single_extra() -> void:
 	get_tree().current_scene.add_child(extra_node)
 	_try_make_elite(extra_node)
 	_apply_dynamic_hp_reduction(extra_node)
+	_apply_late_game_speed_bonus(extra_node)
 	extra_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(extra_node, "modulate:a", 1.0, 0.7)

@@ -15,7 +15,6 @@ func _setup_stage_config() -> void:
 	STAGE_ID = "ruin"
 	SPAWN_INTERVAL_SECONDS = 4.75
 	INITIAL_MONSTER_LIMIT = 50
-	MAX_MONSTER_CAP = 100
 	DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD = 0.3
 	DYNAMIC_BALANCE_SPAWN_MAX_BONUS = 1.0
 	DYNAMIC_BALANCE_HP_MAX_REDUCTION = 0.4
@@ -34,18 +33,18 @@ func _setup_stage_config() -> void:
 # ============== 初始化 ==============
 func _ready() -> void:
 	super ()
-	$Player.camera.zoom = Vector2(3, 3)
-	$Player.min_zoom = 2.9
+	$Player.camera.zoom = Vector2(3.3, 3.3)
+	$Player.min_zoom = 3.1
 	GU.reset_kill_count()
 	# stage2 特有：BGM 和 map_mechanism_num_max 覆盖
 	Global.emit_signal("stage_bgm", "ruin")
-	map_mechanism_num_max = 5
+	# map_mechanism_num_max = 5
 
 # ============== Boss位置 ==============
 func _get_boss_position() -> Vector2:
 	return Vector2(0, 100)
 
-# ============== 覆盖 _on_warning_finished（boss_stele特殊逻辑）==============
+# ============== 覆盖 _on_warning_finished（boss_stone）==============
 func _on_warning_finished() -> void:
 	if not is_inside_tree():
 		return
@@ -53,8 +52,8 @@ func _on_warning_finished() -> void:
 	if not is_inside_tree():
 		return
 
-	# 实例化新的石碑Boss
-	var boss_scene = preload("res://Scenes/moster/boss_stele.tscn")
+	# 实例化新的石头人Boss
+	var boss_scene = preload("res://Scenes/moster/boss_stone.tscn")
 	var boss_node = boss_scene.instantiate()
 
 	# 逐步缩放相机
@@ -159,6 +158,7 @@ func _spawn_single_lantern() -> void:
 	get_tree().current_scene.add_child(slime_node)
 	_try_make_elite(slime_node)
 	_apply_dynamic_hp_reduction(slime_node)
+	_apply_late_game_speed_bonus(slime_node)
 	slime_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(slime_node, "modulate:a", 1.0, 0.7)
@@ -195,6 +195,7 @@ func _spawn_single_yao() -> void:
 	get_tree().current_scene.add_child(frog_node)
 	_try_make_elite(frog_node)
 	_apply_dynamic_hp_reduction(frog_node)
+	_apply_late_game_speed_bonus(frog_node)
 	frog_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(frog_node, "modulate:a", 1.0, 0.7)
@@ -230,6 +231,7 @@ func _spawn_single_paper() -> void:
 	get_tree().current_scene.add_child(bat_node)
 	_try_make_elite(bat_node)
 	_apply_dynamic_hp_reduction(bat_node)
+	_apply_late_game_speed_bonus(bat_node)
 	bat_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(bat_node, "modulate:a", 1.0, 0.7)
@@ -256,6 +258,7 @@ func _spawn_single_grey_slime() -> void:
 	get_tree().current_scene.add_child(extra_node)
 	_try_make_elite(extra_node)
 	_apply_dynamic_hp_reduction(extra_node)
+	_apply_late_game_speed_bonus(extra_node)
 	extra_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(extra_node, "modulate:a", 1.0, 0.7)

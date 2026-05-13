@@ -35,5 +35,5 @@ func _on_body_entered(body: Node2D) -> void:
 	# 检查碰撞对象是否为玩家角色且玩家非无敌状态
 	if body is CharacterBody2D and not PC.invincible:
 		var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate)) # 计算实际伤害，考虑减伤
-		PC.player_hit(int(actual_damage), self , "受击") # 扣除玩家血量
+		PC.player_hit(int(actual_damage), self , "") # 扣除玩家血量
 		queue_free() # 火球击中目标后消失

@@ -34,6 +34,22 @@ var slot_keys: Array[String] = ["space", "q", "e"]
 var panel_icons: Dictionary = {}
 var panel_skill_map: Dictionary = {}
 
+# 专属技能映射：技能ID → 专属角色key
+const EXCLUSIVE_SKILLS: Dictionary = {
+	"mizongbu": "moning",
+	"beastify": "yiqiu",
+	"holy_fire": "noam",
+	"magic": "kansel"
+}
+
+# 角色显示名（用于专属技能提示）
+const HERO_DISPLAY_NAMES: Dictionary = {
+	"moning": "墨宁",
+	"yiqiu": "言秋",
+	"noam": "诺姆",
+	"kansel": "坎塞尔"
+}
+
 var tooltip_panel: Panel
 var tooltip_visible: bool = false
 
@@ -120,13 +136,19 @@ func _update_character_info() -> void:
 	var player = get_tree().get_first_node_in_group("player")
 	var character_sprite = player.get_node(current_character) as AnimatedSprite2D
 	now_character_anime.sprite_frames = character_sprite.sprite_frames
-	now_character_anime.animation = character_sprite.animation
-	now_character_anime.play()
+	now_character_anime.play("run")
 
 func _refresh_learned_skill_panels() -> void:
 	panel_skill_map.clear()
 	var learned_skill_ids: Array[String] = []
+	var current_hero := PC.player_name
 	for skill_id in Global.player_active_skill_data.keys():
+		# 修习树技能篇：未解锁的技能不出现在可选列表中
+		if not _is_skill_unlocked(skill_id):
+			continue
+		# 专属技能过滤：不属于当前角色的专属技能不显示
+		if EXCLUSIVE_SKILLS.has(skill_id) and EXCLUSIVE_SKILLS[skill_id] != current_hero:
+			continue
 		learned_skill_ids.append(skill_id)
 	for i in range(learned_skill_panels.size()):
 		var panel = learned_skill_panels[i]
@@ -142,11 +164,12 @@ func _refresh_learned_skill_panels() -> void:
 			panel.visible = true
 
 func _refresh_active_skill_panels() -> void:
+	var current_skills := Global.get_current_active_skills()
 	for i in range(active_slot_panels.size()):
 		var panel = active_slot_panels[i]
 		var slot_key = slot_keys[i]
 		var icon = panel_icons[panel] as TextureRect
-		var skill_name = Global.player_now_active_skill[slot_key].get("name", "")
+		var skill_name = current_skills.get(slot_key, {}).get("name", "")
 		if skill_name == "":
 			icon.texture = null
 		else:
@@ -163,8 +186,6 @@ func _get_default_icon_path(skill_id: String) -> String:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanbi.png"
 		"mizongbu":
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mizongbu.png"
-		"huanling":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mingxiang.png"
 		"random_strike":
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/luanji.png"
 		"beastify":
@@ -177,6 +198,14 @@ func _get_default_icon_path(skill_id: String) -> String:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png"
 		"wind_thunder":
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/fengleipo.png"
+		"magical_ice":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/binghua.png"
+		"magical_fire":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/RingFire.png"
+		"magic":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mowenzhen.png"
+		"meditation":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/meditation.png"
 		_:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanbi.png"
 
@@ -220,10 +249,16 @@ func _can_panel_drop_data(_at_position: Vector2, data: Variant, panel: Panel) ->
 func _drop_panel_data(_at_position: Vector2, data: Variant, panel: Panel) -> void:
 	var skill_id = data["skill_id"] as String
 	var slot_key = slot_keys[active_slot_panels.find(panel)]
+	# 专属技能检查
+	if EXCLUSIVE_SKILLS.has(skill_id) and EXCLUSIVE_SKILLS[skill_id] != PC.player_name:
+		var owner_name = HERO_DISPLAY_NAMES.get(EXCLUSIVE_SKILLS[skill_id], "")
+		_show_tip("配置失败：该技能为" + owner_name + "专属技能")
+		return
 	if _is_skill_already_equipped(skill_id, slot_key):
 		_show_tip("配置失败：不能放置两个相同的技能")
 		return
-	Global.player_now_active_skill[slot_key] = {
+	var current_skills := Global.get_current_active_skills()
+	current_skills[slot_key] = {
 		"name": skill_id
 	}
 	_refresh_active_skill_panels()
@@ -231,10 +266,11 @@ func _drop_panel_data(_at_position: Vector2, data: Variant, panel: Panel) -> voi
 	_show_tip("配置成功：" + _get_slot_display_name(slot_key) + " 装备了 " + _get_skill_display_name(skill_id))
 
 func _is_skill_already_equipped(skill_id: String, exclude_slot_key: String) -> bool:
+	var current_skills := Global.get_current_active_skills()
 	for slot_key in slot_keys:
 		if slot_key == exclude_slot_key:
 			continue
-		var equipped_skill_id = Global.player_now_active_skill[slot_key].get("name", "")
+		var equipped_skill_id = current_skills.get(slot_key, {}).get("name", "")
 		if equipped_skill_id == skill_id:
 			return true
 	return false
@@ -280,7 +316,7 @@ func _get_skill_id_by_panel(panel: Panel) -> String:
 	if panel_index == -1:
 		return ""
 	var slot_key = slot_keys[panel_index]
-	return Global.player_now_active_skill[slot_key].get("name", "")
+	return Global.get_current_active_skills().get(slot_key, {}).get("name", "")
 
 func _create_tooltip() -> void:
 	tooltip_panel = Panel.new()
@@ -402,8 +438,6 @@ func _get_skill_display_name(skill_id: String) -> String:
 			return "闪避"
 		"mizongbu":
 			return "迷踪步"
-		"huanling":
-			return "唤灵"
 		"random_strike":
 			return "乱击"
 		"beastify":
@@ -416,6 +450,14 @@ func _get_skill_display_name(skill_id: String) -> String:
 			return "神圣灼烧"
 		"wind_thunder":
 			return "风雷破"
+		"magical_ice":
+			return "玄冰"
+		"magical_fire":
+			return "炽炎"
+		"magic":
+			return "魔纹阵"
+		"meditation":
+			return "冥想"
 		_:
 			return skill_id
 
@@ -427,8 +469,6 @@ func _build_skill_detail_text(skill_id: String, level: int) -> String:
 			return _build_random_strike_skill_text(level)
 		"mizongbu":
 			return _build_mizongbu_skill_text(level)
-		"huanling":
-			return _build_huanling_skill_text(level)
 		"beastify":
 			return _build_beastify_skill_text(level)
 		"heal_hot":
@@ -439,6 +479,14 @@ func _build_skill_detail_text(skill_id: String, level: int) -> String:
 			return _build_holy_fire_skill_text(level)
 		"wind_thunder":
 			return _build_wind_thunder_skill_text(level)
+		"magical_ice":
+			return _build_magical_ice_skill_text(level)
+		"magical_fire":
+			return _build_magical_fire_skill_text(level)
+		"magic":
+			return _build_magic_skill_text(level)
+		"meditation":
+			return _build_meditation_skill_text(level)
 		_:
 			return "暂无描述"
 
@@ -541,26 +589,6 @@ func _build_mizongbu_skill_text(level: int) -> String:
 		"冷却时间：" + ("%.1f" % cooldown) + "秒"
 	])
 
-func _build_huanling_skill_text(level: int) -> String:
-	var attr_bonus = 80.0
-	for lv in [2, 5, 8, 11, 14]:
-		if level >= lv:
-			attr_bonus += 4.0
-	var duration = 10.0
-	for lv in [3, 6, 9, 12, 15]:
-		if level >= lv:
-			duration += 1.0
-	var cooldown = 20.0
-	for lv in [4, 7, 10, 13]:
-		if level >= lv:
-			cooldown -= 1.0
-	cooldown = max(4.0, cooldown)
-	return _format_skill_text("召唤陨灭剑灵协助作战", [
-		"剑灵属性继承：" + ("%.0f" % attr_bonus) + "%",
-		"持续时间：" + ("%.1f" % duration) + "秒",
-		"冷却时间：" + ("%.1f" % cooldown) + "秒"
-	])
-
 func _build_beastify_skill_text(level: int) -> String:
 	var claw_damage_ratio = 55.0
 	for lv in [2, 5, 8, 11, 14]:
@@ -609,6 +637,48 @@ func _build_wind_thunder_skill_text(level: int) -> String:
 		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	])
 
+func _build_magical_ice_skill_text(level: int) -> String:
+	var damage_ratio = 360.0
+	var chant_time = 1.5
+	var cooldown = 15.0
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	return _format_skill_text("咏唱后对鼠标位置释放玄冰阵，对范围内敌人造成伤害并减速", [
+		"伤害倍率：" + ("%.0f" % damage_ratio) + "%攻击力",
+		"咏唱时间：" + ("%.1f" % chant_time) + "秒",
+		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	])
+
+func _build_magical_fire_skill_text(level: int) -> String:
+	var damage_ratio = 220.0
+	var chant_time = 1.2
+	var cooldown = 2.5
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	return _format_skill_text("咏唱后对鼠标位置释放炽炎，对范围内敌人造成伤害", [
+		"伤害倍率：" + ("%.0f" % damage_ratio) + "%攻击力",
+		"咏唱时间：" + ("%.1f" % chant_time) + "秒",
+		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	])
+
+func _build_magic_skill_text(level: int) -> String:
+	var duration = 15.0
+	var cooldown = 40.0
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	return _format_skill_text("立即在脚下展开魔纹阵，刷新其他技能冷却，范围内提升攻速并加速咏唱技能冷却", [
+		"攻速提升25%，咏唱技能冷却加速100%",
+		"咏唱时间缩短50%",
+		"持续时间：" + ("%.0f" % duration) + "秒",
+		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	])
+
+func _build_meditation_skill_text(level: int) -> String:
+	var cooldown = 60.0
+	var chant_time = 3.0
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	return _format_skill_text("咏唱后提升1级", [
+		"咏唱时间：" + ("%.1f" % chant_time) + "秒",
+		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	])
+
 func _build_random_strike_skill_text(level: int) -> String:
 	var damage_multi = 50
 	for lv in [2, 5, 8, 11, 14]:
@@ -631,3 +701,30 @@ func _build_random_strike_skill_text(level: int) -> String:
 		"剑气数量：" + str(bullet_count) + "发",
 		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	])
+
+# ---- 修习树技能篇：技能解锁检查 ----
+func _is_skill_unlocked(skill_id: String) -> bool:
+	"""检查技能是否已解锁（兽化默认解锁，专属技能随角色解锁）"""
+	match skill_id:
+		"beastify":
+			return true # 兽化默认解锁
+		"holy_fire":
+			return Global.study_unlock_shensheng
+		"magic":
+			return Global.study_unlock_mowenzhen
+		"magical_ice":
+			return Global.study_unlock_xuanbing
+		"random_strike":
+			return Global.study_unlock_luanji
+		"heal_hot":
+			return Global.unlock_noam # 随诺姆解锁
+		"mizongbu":
+			return Global.study_unlock_mizongbu
+		"water_sheild":
+			return Global.study_unlock_shuimu
+		"meditation":
+			return Global.study_unlock_mingxiang
+		"magical_fire":
+			return Global.unlock_kansel # 随坎塞尔解锁
+		_:
+			return true # dodge、wind_thunder 等默认解锁

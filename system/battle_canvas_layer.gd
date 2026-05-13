@@ -17,13 +17,17 @@ class_name BattleCanvasLayer
 @export var victory_total_label: RichTextLabel
 @export var attr_label: RichTextLabel
 
+@export var stop_layer: CanvasLayer
+@export var setting_layer: Panel
 @export var warning_node: Control
 @export var buff_box: HBoxContainer
 var warning_active: bool = false
 
 @export var now_time: Label
 @export var now_lv: Label
-@export var exit_button: Button
+@export var stop_button: Button
+
+@export var dialogue_container: VBoxContainer
 
 # 技能图标
 @export var skill1: TextureButton
@@ -62,6 +66,18 @@ var warning_active: bool = false
 @export var instant_level_up_button_label: Label
 @export var instant_level_up_button: CheckButton
 
+@export var speed_change_button: Button
+
+# 速度切换配置
+const SPEED_VALUES: Array = [1.0, 1.2, 1.4]
+const SPEED_NAMES: Array = ["正常", "快速", "高速"]
+const SPEED_ICON_PATHS: Array = [
+	"res://AssetBundle/Sprites/Sprite sheets/Icons/speed_change1.png",
+	"res://AssetBundle/Sprites/Sprite sheets/Icons/speed_change2.png",
+	"res://AssetBundle/Sprites/Sprite sheets/Icons/speed_change3.png"
+]
+var _current_speed_index: int = 0
+
 # 战斗内Tips节点（用于显示刷新次数不足等提示）
 @export var lv_up_tip: Panel
 @export var spell: Control
@@ -71,7 +87,7 @@ var warning_active: bool = false
 const REFRESH_LEVEL_STEP: int = 2
 const REFRESH_BONUS_PER_STEP: int = 1
 # 锁定次数配置（每达LOCK_LEVEL_STEP级，额外获得LOCK_BONUS_PER_STEP次锁定）
-const LOCK_LEVEL_STEP: int = 3
+const LOCK_LEVEL_STEP: int = 5
 const LOCK_BONUS_PER_STEP: int = 1
 
 # 纹章相关
@@ -165,7 +181,12 @@ const LOCK_BONUS_PER_STEP: int = 1
 @export var skill_label1: RichTextLabel
 @export var active_skill_label: RichTextLabel
 
-# ============== 管理器引用 ==============
+# ---- 提示框动画 tween 追踪（防快速切换闪烁） ----
+var _skill_label_tween: Tween = null
+var _active_skill_tween: Tween = null
+var _emblem_tweens: Dictionary = {} # key = emblem_index
+
+# ============== 管理器引用 ==
 var level_up_manager: LevelUpManager
 var emblem_manager: EmblemManager
 var buff_manager: BuffManager
@@ -195,6 +216,7 @@ signal skill_icon_hovered(skill_id: int, is_hovered: bool)
 signal victory_evaluation_finished
 
 # ============== 初始化 ==============
+var teammate_dialogue_mgr: TeammateDialogueManager = null
 func _ready() -> void:
 	_init_managers()
 	_connect_signals()
@@ -202,9 +224,11 @@ func _ready() -> void:
 	_init_faze_ui()
 	_refresh_faze_ui()
 	_init_lv_up_start_button()
+	_init_speed_change_button()
 	victory_summary_container.visible = false
 	_raise_tooltip_z_index()
 	_init_spell_ui()
+	_init_stop_layer()
 
 func _init_managers() -> void:
 	# 初始化升级管理器
@@ -240,6 +264,11 @@ func _init_managers() -> void:
 	
 	# 连接主动技能图标鼠标事件信号
 	_connect_active_skill_signals()
+
+	# 初始化队友对话管理器
+	teammate_dialogue_mgr = TeammateDialogueManager.new()
+	add_child(teammate_dialogue_mgr)
+	teammate_dialogue_mgr.initialize(dialogue_container)
 
 func _init_faze_ui() -> void:
 	faze_icons = [faze1, faze2, faze3, faze4, faze5, faze6, faze7, faze8, faze9, faze10]
@@ -440,7 +469,7 @@ func _build_sixsense_faze_detail(level: int) -> String:
 	return text
 
 func _build_fire_faze_detail(level: int) -> String:
-	var tiers = [4, 8, 12, 16]
+	var tiers = [4, 9, 15, 20, 25]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -449,9 +478,10 @@ func _build_fire_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("炽焰法则"))
 	lines.append(_color_owned_weapons("炽焰系武器：赤曜，离火诀，爆炎诀"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：炽焰系武器伤害提升 30%，燃烧伤害提升 50%"))
-	lines.append(_format_faze_line(level, current_tier, 8, "8阶：炽焰系武器伤害、燃烧伤害与范围再次提升 40%，燃烧持续时间 +1 秒"))
-	lines.append(_format_faze_line(level, current_tier, 12, "12阶：炽焰系武器伤害、燃烧伤害与范围再次提升 60%，对精英、首领造成3倍伤害"))
-	lines.append(_format_faze_line(level, current_tier, 16, "16阶：炽焰系武器伤害、燃烧伤害与范围再次提升 100%，对精英、首领造成15倍伤害"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：燃烧伤害与范围再次提升 50%，燃烧持续时间 +1 秒"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：炽焰系武器伤害再次提升 60%，燃烧效果对精英、首领造成 3 倍伤害"))
+	lines.append(_format_faze_line(level, current_tier, 20, "20阶：燃烧伤害与范围再次提升 80%，燃烧效果对精英、首领造成 6 倍伤害"))
+	lines.append(_format_faze_line(level, current_tier, 25, "25阶：炽焰系武器伤害、燃烧伤害再次提升 120%，燃烧效果对精英、首领造成 15 倍伤害"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -514,7 +544,7 @@ func _color_owned_weapons(weapon_line: String) -> String:
 	return result
 
 func _build_bath_blood_detail(level: int) -> String:
-	var tiers = [3, 7, 10, 14]
+	var tiers = [4, 9, 16, 22]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -522,10 +552,10 @@ func _build_bath_blood_detail(level: int) -> String:
 	var lines: Array = []
 	lines.append(_build_law_title("浴血法则"))
 	lines.append(_color_owned_weapons("浴血系武器：饮血刀，血气波"))
-	lines.append(_format_faze_line(level, current_tier, 3, "3阶：每 3 秒或受伤后（内置 1.5 秒冷却），对周围敌人发出一次震击，被击中的敌人有 50% 流血，并受到 100% 攻击的伤害，自身获得 5% 最大体力的护盾，持续 7 秒"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：震击伤害提升至 200% 攻击，震击对精英，首领造成的伤害提升 100%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：震击范围 大幅 提升，并且必定附加 流血，流血 对精英，首领的伤害提升 100%"))
-	lines.append(_format_faze_line(level, current_tier, 14, "14阶：震击范围 极大幅 提升，伤害提升至 500% 攻击，获得护盾量提升至 7% 最大体力"))
+	lines.append(_format_faze_line(level, current_tier, 4, "4阶：每 3 秒或受伤后（内置 1.5 秒冷却），对周围敌人发出一次震击，被击中的敌人有 50% 流血，并受到 100% 攻击的伤害，自身获得 5% 最大体力的护盾，持续 7 秒"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：震击伤害提升至 200% 攻击，震击对精英，首领造成的伤害提升 100%"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：震击范围 大幅 提升，并且必定附加 流血，流血 对精英，首领的伤害提升 100%"))
+	lines.append(_format_faze_line(level, current_tier, 22, "22阶：震击范围 极大幅 提升，伤害提升至 500% 攻击，获得护盾量提升至 7% 最大体力"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -544,7 +574,7 @@ func _format_faze_line(level: int, current_tier: int, tier: int, content: String
 	return line
 
 func _build_sword_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13, 16]
+	var tiers = [4, 9, 15, 20, 25]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -553,10 +583,10 @@ func _build_sword_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("刀剑法则"))
 	lines.append(_color_owned_weapons("刀剑系武器：剑气诀，饮血刀，乾坤双剑"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：刀剑系武器攻击速度提升 20%，暴击伤害提升 10%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：刀剑系武器击中目标后会给其叠加一层寒光，寒光叠加到5层后会被引爆，对目标造成 240% 攻击的伤害"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：刀剑系武器攻击速度再次提升 30%，暴击伤害再次提升 30%"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：寒光可以暴击，并且暴击伤害提升 30%，寒光的伤害对精英、首领提升 50%"))
-	lines.append(_format_faze_line(level, current_tier, 16, "16阶：刀剑系的武器攻击速度再次提升 60%，寒光的伤害提高至 500% 攻击"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：刀剑系武器击中目标后会给其叠加一层寒光，寒光叠加到5层后会被引爆，对目标造成 240% 攻击的伤害"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：刀剑系武器攻击速度再次提升 30%，暴击伤害再次提升 30%"))
+	lines.append(_format_faze_line(level, current_tier, 20, "20阶：寒光可以暴击，并且暴击伤害提升 30%，寒光的伤害对精英、首领提升 50%"))
+	lines.append(_format_faze_line(level, current_tier, 25, "25阶：刀剑系的武器攻击速度再次提升 60%，寒光的伤害提高至 500% 攻击"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -565,7 +595,7 @@ func _build_sword_faze_detail(level: int) -> String:
 	return text
 
 func _build_wide_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13, 16]
+	var tiers = [4, 9, 15, 20, 25]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -574,10 +604,10 @@ func _build_wide_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("广域法则"))
 	lines.append(_color_owned_weapons("广域类武器：血气波，赤曜，兑泽诀"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：广域类武器伤害及范围提升 20%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：广域类武器范围提升10%，并且广域类武器的范围加成每提高 1%，伤害提高 1%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：广域类武器的伤害提升 45% ，范围提升 25%"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：广域类武器的范围提升 1%，伤害提升值提升到 3%"))
-	lines.append(_format_faze_line(level, current_tier, 16, "16阶：广域类武器伤害及范围再次提升 80%"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：广域类武器范围提升10%，并且广域类武器的范围加成每提高 1%，伤害提高 1%"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：广域类武器的伤害提升 45% ，范围提升 25%"))
+	lines.append(_format_faze_line(level, current_tier, 20, "20阶：广域类武器的范围提升 1%，伤害提升值提升到 3%"))
+	lines.append(_format_faze_line(level, current_tier, 25, "25阶：广域类武器伤害及范围再次提升 80%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -586,7 +616,7 @@ func _build_wide_faze_detail(level: int) -> String:
 	return text
 
 func _build_bagua_faze_detail(level: int) -> String:
-	var tiers = [4, 8, 12, 15, 18]
+	var tiers = [4, 10, 16, 22, 28]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -595,10 +625,10 @@ func _build_bagua_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("八卦法则"))
 	lines.append(_color_owned_weapons("八卦类武器：乾坤双剑，离火诀，兑泽诀，坎水诀，震雷诀，巽风诀，艮山诀"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：八卦类武器击中目标 + 1 推衍度，击杀目标 + 5 推衍度，对精英及首领翻倍，满 100 点后，获得 1 层【推衍完成】，每层提升 4% 的八卦类武器伤害加成与经验值加成，每层【推衍完成】会使下一层【推衍完成】的获取所需的推衍值 +10"))
-	lines.append(_format_faze_line(level, current_tier, 8, "8阶：推衍度获得翻倍，八卦类武器伤害提升 25%"))
-	lines.append(_format_faze_line(level, current_tier, 12, "12阶：推衍度获得提升至 3 倍，八卦类武器伤害再次提升 35%"))
-	lines.append(_format_faze_line(level, current_tier, 15, "15阶：推衍度获得提升至 5 倍，八卦类武器伤害再次提升 50%"))
-	lines.append(_format_faze_line(level, current_tier, 18, "18阶：推衍度获得提升至 10 倍，八卦类武器伤害再次提升 120%"))
+	lines.append(_format_faze_line(level, current_tier, 10, "10阶：推衍度获得翻倍，八卦类武器伤害提升 25%"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：推衍度获得提升至 3 倍，八卦类武器伤害再次提升 35%"))
+	lines.append(_format_faze_line(level, current_tier, 22, "22阶：推衍度获得提升至 5 倍，八卦类武器伤害再次提升 50%"))
+	lines.append(_format_faze_line(level, current_tier, 28, "28阶：推衍度获得提升至 10 倍，八卦类武器伤害再次提升 120%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -607,7 +637,7 @@ func _build_bagua_faze_detail(level: int) -> String:
 	return text
 
 func _build_destroy_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13, 16]
+	var tiers = [4, 9, 15, 20, 25]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -616,10 +646,10 @@ func _build_destroy_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("破坏法则"))
 	lines.append(_color_owned_weapons("破坏系武器：冰刺术，爆炎诀，天雷破"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：破坏系武器暴击率提升 15%，溢出的暴击率会等量转换为暴击伤害"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：破坏系武器造成暴击或击杀敌人后，有 6% 的概率引爆目标，对大范围造成 75% 攻击的可暴击伤害"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：破坏系武器造成的暴击伤害会从 -30% ~ +90% 之间波动，引爆的伤害提升至 160% 攻击"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：破坏系武器暴击率再次提升 25%，破坏系武器造成的暴击伤害会从 -40% ~ +120% 之间波动"))
-	lines.append(_format_faze_line(level, current_tier, 16, "16阶：破坏系武器伤害再次提升 100%，引爆的范围大幅增加，引爆的伤害提升至 800% 攻击"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：破坏系武器造成暴击或击杀敌人后，有 6% 的概率引爆目标，对大范围造成 75% 攻击的可暴击伤害"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：破坏系武器造成的暴击伤害会从 -30% ~ +90% 之间波动，引爆的伤害提升至 160% 攻击"))
+	lines.append(_format_faze_line(level, current_tier, 20, "20阶：破坏系武器暴击率再次提升 25%，破坏系武器造成的暴击伤害会从 -40% ~ +120% 之间波动"))
+	lines.append(_format_faze_line(level, current_tier, 25, "25阶：破坏系武器伤害再次提升 100%，引爆的范围大幅增加，引爆的伤害提升至 800% 攻击"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -628,7 +658,7 @@ func _build_destroy_faze_detail(level: int) -> String:
 	return text
 
 func _build_life_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13, 16]
+	var tiers = [4, 9, 15, 20, 25]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -637,10 +667,10 @@ func _build_life_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("生灵法则"))
 	lines.append(_color_owned_weapons("生灵系武器：光弹，坎水诀，圣光术"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：生灵系武器伤害提升 25%，经验获取提升 20%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：每 20 秒或升级时，会降下神圣光辉，对大范围的敌人造成 300% 攻击的伤害"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：神圣光辉的伤害提升至 500% ，范围提升，经验获取加成提升至 75%"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：生灵系武器伤害再次提升 50%，神圣光辉范围大幅提升 ，经验获取加成提升至 120%"))
-	lines.append(_format_faze_line(level, current_tier, 16, "16阶：生灵系武器伤害再次提升 120%，神圣光辉触发时间缩短至 4 秒，伤害提升至 1800%"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：每 20 秒或升级时，会降下神圣光辉，对大范围的敌人造成 300% 攻击的伤害"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：神圣光辉的伤害提升至 500% ，范围提升，经验获取加成提升至 75%"))
+	lines.append(_format_faze_line(level, current_tier, 20, "20阶：生灵系武器伤害再次提升 50%，神圣光辉范围大幅提升 ，经验获取加成提升至 120%"))
+	lines.append(_format_faze_line(level, current_tier, 25, "25阶：生灵系武器伤害再次提升 120%，神圣光辉触发时间缩短至 4 秒，伤害提升至 1800%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -649,7 +679,7 @@ func _build_life_faze_detail(level: int) -> String:
 	return text
 
 func _build_bullet_faze_detail(level: int) -> String:
-	var tiers = [4, 8, 12, 15, 18]
+	var tiers = [4, 10, 16, 22, 28]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -658,10 +688,10 @@ func _build_bullet_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("弹雨法则"))
 	lines.append(_color_owned_weapons("弹雨类武器：剑气诀，光弹，巽风诀，仙枝，冰刺术"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：弹雨类武器伤害提升 15%，射程提升 20%"))
-	lines.append(_format_faze_line(level, current_tier, 8, "8阶：弹雨类武器累计命中 100 次后，会以自身为中心连续发射 90 发弹幕，每发造成 45% 攻击的伤害"))
-	lines.append(_format_faze_line(level, current_tier, 12, "12阶：弹雨类武器伤害再次提升 35%，范围提升 30%，弹幕弹体数提升至 135 发，伤害提升至 80% 攻击"))
-	lines.append(_format_faze_line(level, current_tier, 15, "15阶：弹雨类武器伤害再次提升 50%，弹幕弹体数提升至 180 发，伤害提升至 150% 攻击"))
-	lines.append(_format_faze_line(level, current_tier, 18, "18阶：弹雨类武器伤害再次提升 120%，弹幕弹体数提升至 270 发，伤害提升至 500% 攻击"))
+	lines.append(_format_faze_line(level, current_tier, 10, "10阶：弹雨类武器累计命中 100 次后，会以自身为中心连续发射 90 发弹幕，每发造成 45% 攻击的伤害"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：弹雨类武器伤害再次提升 35%，范围提升 30%，弹幕弹体数提升至 135 发，伤害提升至 80% 攻击"))
+	lines.append(_format_faze_line(level, current_tier, 22, "22阶：弹雨类武器伤害再次提升 50%，弹幕弹体数提升至 180 发，伤害提升至 150% 攻击"))
+	lines.append(_format_faze_line(level, current_tier, 28, "28阶：弹雨类武器伤害再次提升 120%，弹幕弹体数提升至 270 发，伤害提升至 500% 攻击"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -670,7 +700,7 @@ func _build_bullet_faze_detail(level: int) -> String:
 	return text
 
 func _build_wind_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13, 16]
+	var tiers = [4, 9, 15, 20, 25]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -679,10 +709,10 @@ func _build_wind_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("啸风法则"))
 	lines.append(_color_owned_weapons("啸风类武器：气功波，巽风诀，风龙杖"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：啸风类武器伤害提升 25%，移动速度提升 10%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：啸风类攻击速度提升 25%，啸风类武器击中敌人后，为自身添加 1 层【唤风】，每层唤风可以提升自身 0.1% 的攻击速度与移动速度，最多可以叠加 200 层，持续 12 秒"))
-	lines.append(_format_faze_line(level, current_tier, 10, "0阶：啸风类武器伤害再次提升 25，啸风类攻击速度再次提升 25%，移动速度再次提升 25%"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：啸风类武器伤害再次提升 40%，【唤风】最多叠加层数提升至 300 层"))
-	lines.append(_format_faze_line(level, current_tier, 16, "16阶：啸风类武器伤害再次提升 90%，拥有的每层【唤风】会提升啸风类武器对精英，首领 0.5% 的伤害"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：啸风类攻击速度提升 25%，啸风类武器击中敌人后，为自身添加 1 层【唤风】，每层唤风可以提升自身 0.1% 的攻击速度与移动速度，最多可以叠加 200 层，持续 12 秒"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：啸风类武器伤害再次提升 25，啸风类攻击速度再次提升 25%，移动速度再次提升 25%"))
+	lines.append(_format_faze_line(level, current_tier, 20, "20阶：啸风类武器伤害再次提升 40%，【唤风】最多叠加层数提升至 300 层"))
+	lines.append(_format_faze_line(level, current_tier, 25, "25阶：啸风类武器伤害再次提升 90%，拥有的每层【唤风】会提升啸风类武器对精英，首领 0.5% 的伤害"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -691,7 +721,7 @@ func _build_wind_faze_detail(level: int) -> String:
 	return text
 
 func _build_thunder_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13]
+	var tiers = [4, 9, 15, 20]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -700,9 +730,9 @@ func _build_thunder_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("鸣雷法则"))
 	lines.append(_color_owned_weapons("鸣雷系武器：天雷破，震雷诀"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：鸣雷系武器伤害提升 20% ，感电伤害提升 40%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：鸣雷系武器击中敌人或感电触发，有 5% 概率召唤鸣雷劈向目标，造成 70 % 攻击的范围伤害"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：鸣雷的伤害提升到 150% 攻击，鸣雷触发概率提升至 15% ，鸣雷对精英、首领的伤害额外提升 100%"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：鸣雷系武器伤害再次提升 120% ，鸣雷触发概率提升至 60% ，鸣雷对精英、首领的额外伤害增加到 300%"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：鸣雷系武器击中敌人或感电触发，有 5% 概率召唤鸣雷劈向目标，造成 70 % 攻击的范围伤害"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：鸣雷的伤害提升到 150% 攻击，鸣雷触发概率提升至 15% ，鸣雷对精英、首领的伤害额外提升 100%"))
+	lines.append(_format_faze_line(level, current_tier, 20, "20阶：鸣雷系武器伤害再次提升 120% ，鸣雷触发概率提升至 60% ，鸣雷对精英、首领的额外伤害增加到 300%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -711,7 +741,7 @@ func _build_thunder_faze_detail(level: int) -> String:
 	return text
 
 func _build_heal_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13]
+	var tiers = [4, 9, 16, 22]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -720,9 +750,9 @@ func _build_heal_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("愈疗法则"))
 	lines.append(_color_owned_weapons("愈疗系武器：坎水诀，圣光术"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：治疗与护盾获取加成提升 30%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：治疗自身或护盾受损后，会向最近的敌人发射弹体，造成 60% 攻击 + 治疗量 2400% /护盾损失 1600% 的伤害，随等级上升，每级提升 10%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：治疗与护盾加成再次提升 35%，弹体伤害* 150% "))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：治疗与护盾加成再次提升 50%，弹体伤害* 600% ，并允许暴击"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：治疗自身或护盾受损后，会向最近的敌人发射弹体，造成 60% 攻击 + 治疗量 2400% /护盾损失 1600% 的伤害，随等级上升，每级提升 10%"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：治疗与护盾加成再次提升 35%，弹体伤害* 150% "))
+	lines.append(_format_faze_line(level, current_tier, 22, "22阶：治疗与护盾加成再次提升 50%，弹体伤害* 600% ，并允许暴击"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -731,7 +761,7 @@ func _build_heal_faze_detail(level: int) -> String:
 	return text
 
 func _build_summon_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13, 16]
+	var tiers = [4, 9, 15, 20, 25]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -739,10 +769,10 @@ func _build_summon_faze_detail(level: int) -> String:
 	var lines: Array = []
 	lines.append(_build_law_title("御灵法则"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：召唤物伤害与治疗 + 20% ，触发间隔 - 10% "))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：最大召唤物容量 + 1 ，召唤物弹体大小 + 20%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：召唤 1 个不占容量的双极魔剑，召唤物伤害与治疗 + 40%"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：每个召唤物可以使角色的攻击力提升 10%，攻击速度提升 8%"))
-	lines.append(_format_faze_line(level, current_tier, 16, "16阶：召唤 1 个不占容量的陨灭剑灵，召唤物伤害与治疗 + 100%，触发间隔 - 30%"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：最大召唤物容量 + 1 ，召唤物弹体大小 + 20%"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：召唤 1 个不占容量的双极魔剑，召唤物伤害与治疗 + 40%"))
+	lines.append(_format_faze_line(level, current_tier, 20, "20阶：每个召唤物可以使角色的攻击力提升 10%，攻击速度提升 8%"))
+	lines.append(_format_faze_line(level, current_tier, 25, "25阶：召唤 1 个不占容量的陨灭剑灵，召唤物伤害与治疗 + 100%，触发间隔 - 30%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -751,7 +781,7 @@ func _build_summon_faze_detail(level: int) -> String:
 	return text
 
 func _build_shield_faze_detail(level: int) -> String:
-	var tiers = [3, 5, 7, 10]
+	var tiers = [4, 7, 11, 15]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -759,10 +789,10 @@ func _build_shield_faze_detail(level: int) -> String:
 	var lines: Array = []
 	lines.append(_build_law_title("护佑法则"))
 	lines.append(_color_owned_weapons("护佑系武器：玄武盾，艮山诀，饮血刀（进化），坎水诀（进化）"))
-	lines.append(_format_faze_line(level, current_tier, 3, "3阶：护盾获取加成提升 20% ，最大体力提升 10%"))
-	lines.append(_format_faze_line(level, current_tier, 5, "5阶：最大体力再次提升 25% ，护盾因时间结束消失后，其 30% 会转为生命回复"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：最大体力再次提升 35% ，每存在相当于最大体力 3% 的护盾，获得额外 1% 的减伤率，最高 20%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：护盾获取加成再次提升 50%，护盾因时间结束消失后，其 60% 会转为生命回复"))
+	lines.append(_format_faze_line(level, current_tier, 4, "4阶：护盾获取加成提升 20% ，最大体力提升 10%"))
+	lines.append(_format_faze_line(level, current_tier, 7, "7阶：最大体力再次提升 25% ，护盾因时间结束消失后，其 30% 会转为生命回复"))
+	lines.append(_format_faze_line(level, current_tier, 11, "11阶：最大体力再次提升 35% ，每存在相当于最大体力 3% 的护盾，获得额外 1% 的减伤率，最高 20%"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：护盾获取加成再次提升 50%，护盾因时间结束消失后，其 60% 会转为生命回复"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -1022,7 +1052,7 @@ func _on_active_skill_mouse_exited() -> void:
 ## 显示主动技能详情
 func show_active_skill_label(slot_key: String) -> void:
 	# 获取槽位绑定的技能
-	var skill_config = Global.player_now_active_skill.get(slot_key, {})
+	var skill_config = Global.get_current_active_skills().get(slot_key, {})
 	var skill_name = skill_config.get("name", "")
 	if skill_name == "":
 		return
@@ -1040,8 +1070,6 @@ func show_active_skill_label(slot_key: String) -> void:
 			text = _build_random_strike_skill_text(level)
 		"mizongbu":
 			text = _build_mizongbu_skill_text(level)
-		"huanling":
-			text = _build_huanling_skill_text(level)
 		"beastify":
 			text = _build_beastify_skill_text(level)
 		"heal_hot":
@@ -1052,15 +1080,37 @@ func show_active_skill_label(slot_key: String) -> void:
 			text = _build_holy_fire_skill_text(level)
 		"wind_thunder":
 			text = _build_wind_thunder_skill_text(level)
+		"magical_ice":
+			text = _build_magical_ice_skill_text(level)
+		"magical_fire":
+			text = _build_magical_fire_skill_text(level)
+		"magic":
+			text = _build_magic_skill_text(level)
+		"meditation":
+			text = _build_meditation_skill_text(level)
 		_:
 			text = "[未知技能]"
 	
 	active_skill_label.text = text
 	active_skill_label.visible = true
+	if _active_skill_tween and _active_skill_tween.is_valid():
+		_active_skill_tween.kill()
+	active_skill_label.modulate.a = 0.0
+	_active_skill_tween = create_tween()
+	_active_skill_tween.tween_property(active_skill_label, "modulate:a", 1.0, 0.2)
 
 ## 隐藏主动技能详情
 func hide_active_skill_label() -> void:
-	active_skill_label.visible = false
+	if _active_skill_tween and _active_skill_tween.is_valid():
+		_active_skill_tween.kill()
+	if not active_skill_label.visible:
+		return
+	_active_skill_tween = create_tween()
+	_active_skill_tween.tween_property(active_skill_label, "modulate:a", 0.0, 0.2)
+	_active_skill_tween.tween_callback(func():
+		active_skill_label.visible = false
+		active_skill_label.modulate.a = 1.0
+	)
 
 ## 构建疗愈技能详情文本
 func _build_heal_hot_skill_text(level: int) -> String:
@@ -1155,18 +1205,66 @@ func _build_wind_thunder_skill_text(level: int) -> String:
 	text += "咏唱后向鼠标方向发射风雷弹\n击中敌人造成大范围爆炸\n\n"
 	text += "咏唱时间：1.2秒\n"
 	text += "伤害：275%攻击力\n"
+	var cooldown = 12.0
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	text += "冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	return text
+
+## 构建玄冰技能详情文本
+func _build_magical_ice_skill_text(level: int) -> String:
+	var damage_ratio = 360.0
+	var chant_time = 1.5
 	var cooldown = 15.0
 	var final_cooldown = cooldown * (1 - PC.cooldown)
+	var text = "[font_size=24]玄冰  LV. " + str(level) + "[/font_size]\n"
+	text += "咏唱后对鼠标位置释放玄冰阵\n对范围内敌人造成伤害并减速\n\n"
+	text += "咏唱时间：" + ("%.1f" % chant_time) + "秒\n"
+	text += "伤害：" + ("%.0f" % damage_ratio) + "%攻击力\n"
+	text += "冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	return text
+
+## 构建炽炎技能详情文本
+func _build_magical_fire_skill_text(level: int) -> String:
+	var damage_ratio = 220.0
+	var chant_time = 1.2
+	var cooldown = 2.5
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	var text = "[font_size=24]炽炎  LV. " + str(level) + "[/font_size]\n"
+	text += "咏唱后对鼠标位置释放炽炎\n对范围内敌人造成伤害\n\n"
+	text += "咏唱时间：" + ("%.1f" % chant_time) + "秒\n"
+	text += "伤害：" + ("%.0f" % damage_ratio) + "%攻击力\n"
+	text += "冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	return text
+
+## 构建魔纹阵技能详情文本
+func _build_magic_skill_text(level: int) -> String:
+	var duration = 15.0
+	var cooldown = 40.0
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	var text = "[font_size=24]魔纹阵  LV. " + str(level) + "[/font_size]\n"
+	text += "立即在脚下展开魔纹阵\n刷新其他技能冷却\n\n"
+	text += "范围内效果：\n"
+	text += "· 攻击速度提升25%\n"
+	text += "· 咏唱技能冷却加速100%\n"
+	text += "· 咏唱时间缩短50%\n\n"
+	text += "持续时间：" + ("%.0f" % duration) + "秒\n"
+	text += "冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	return text
+
+## 构建冒想技能详情文本
+func _build_meditation_skill_text(level: int) -> String:
+	var chant_time = 3.0
+	var cooldown = 60.0
+	var final_cooldown = cooldown * (1 - PC.cooldown)
+	var text = "[font_size=24]冒想  LV. " + str(level) + "[/font_size]\n"
+	text += "咏唱后提升1级\n\n"
+	text += "咏唱时间：" + ("%.1f" % chant_time) + "秒\n"
 	text += "冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	return text
 
 ## 构建迷踪步技能详情文本
 func _build_mizongbu_skill_text(level: int) -> String:
 	return "[font_size=24]迷踪步  LV. " + str(level) + "[/font_size]\n短时间提升移速并减伤，期间伤害降低"
-
-## 构建唤灵技能详情文本
-func _build_huanling_skill_text(level: int) -> String:
-	return "[font_size=24]唤灵  LV. " + str(level) + "[/font_size]\n召唤陨灭剑灵协助作战"
 
 ## 构建魔化技能详情文本
 func _build_beastify_skill_text(level: int) -> String:
@@ -1265,7 +1363,7 @@ func _init_active_skills() -> void:
 
 func _has_skill_in_slot(slot: String) -> bool:
 	"""检查槽位是否有技能"""
-	var skill_config = Global.player_now_active_skill.get(slot, {})
+	var skill_config = Global.get_current_active_skills().get(slot, {})
 	return skill_config.get("name", "") != ""
 
 
@@ -1339,7 +1437,7 @@ func update_score_display(point: int) -> void:
 	elif point >= 100000:
 		formatted_point = "%.2fk 真气" % (point / 1000.0)
 	else:
-		formatted_point = str(point)
+		formatted_point = str(point) + " 真气"
 	score_label.text = formatted_point
 
 ## 更新DPS显示
@@ -1569,7 +1667,8 @@ func show_attr_label() -> void:
 	text += "攻击：" + str(PC.pc_atk) + "    "
 	text += "HP：" + str(PC.pc_hp) + "/" + str(PC.pc_max_hp) + "\n"
 	text += "攻击速度：+" + str(int(PC.pc_atk_speed * 100)) + "%    "
-	text += "移动速度：+" + str(int(PC.pc_speed * 100)) + "%\n"
+	var total_move_speed = PC.pc_speed + Global.cultivation_zhuifeng_level * 0.01 + Global.study_move_speed_bonus
+	text += "移动速度：+" + str(int(total_move_speed * 100)) + "%\n"
 	text += "暴击率：" + str(int(PC.crit_chance * 100)) + "%    "
 	text += "暴击伤害：" + str(int(PC.crit_damage_multi * 100)) + "%\n"
 	text += "减伤率：" + str(int(PC.damage_reduction_rate * 100)) + "%    "
@@ -1601,22 +1700,22 @@ func show_attr_label() -> void:
 	text += "[color=#FFD700]臻境[/color]：" + "%.1f" % _gold_p + "%    "
 	text += "[color=#FF4444]逆天[/color]：" + "%.1f" % _red_p + "%\n"
 	
-	# ===== 技艺 =====
-	if PC.ring_bullet_enabled or PC.wave_bullet_enabled:
-		text += "[font_size=21][color=#DDA0DD]═══ 技艺 ═══[/color][/font_size]\n"
-		# 技艺·环
-		if PC.ring_bullet_enabled:
-			text += "[color=#FFB6C1]【环】[/color] "
-			text += "伤害：" + str(int(PC.ring_bullet_damage_multiplier * 100)) + "%  "
-			text += "数量：" + str(PC.ring_bullet_count) + "  "
-			text += "大小：" + str(int(PC.ring_bullet_size_multiplier * 100)) + "%  "
-			text += "间隔：" + ("%.2f" % PC.ring_bullet_interval) + "秒\n"
-		# 技艺·浪
-		if PC.wave_bullet_enabled:
-			text += "[color=#87CEFA]【浪】[/color] "
-			text += "伤害：" + str(int(PC.wave_bullet_damage_multiplier * 100)) + "%  "
-			text += "数量：" + str(PC.wave_bullet_count) + "  "
-			text += "间隔：" + ("%.2f" % PC.wave_bullet_interval) + "秒\n"
+	# # ===== 技艺 =====
+	# if PC.ring_bullet_enabled or PC.wave_bullet_enabled:
+	# 	text += "[font_size=21][color=#DDA0DD]═══ 技艺 ═══[/color][/font_size]\n"
+	# 	# 技艺·环
+	# 	if PC.ring_bullet_enabled:
+	# 		text += "[color=#FFB6C1]【环】[/color] "
+	# 		text += "伤害：" + str(int(PC.ring_bullet_damage_multiplier * 100)) + "%  "
+	# 		text += "数量：" + str(PC.ring_bullet_count) + "  "
+	# 		text += "大小：" + str(int(PC.ring_bullet_size_multiplier * 100)) + "%  "
+	# 		text += "间隔：" + ("%.2f" % PC.ring_bullet_interval) + "秒\n"
+	# 	# 技艺·浪
+	# 	if PC.wave_bullet_enabled:
+	# 		text += "[color=#87CEFA]【浪】[/color] "
+	# 		text += "伤害：" + str(int(PC.wave_bullet_damage_multiplier * 100)) + "%  "
+	# 		text += "数量：" + str(PC.wave_bullet_count) + "  "
+	# 		text += "间隔：" + ("%.2f" % PC.wave_bullet_interval) + "秒\n"
 	
 	# ===== 召唤物 =====
 	if PC.summon_count > 0 or PC.summon_count_max > 0:
@@ -1717,9 +1816,23 @@ func show_skill_label(skill_index: int, player_node: Node) -> void:
 		
 	skill_label1.text = text
 	skill_label1.visible = true
+	if _skill_label_tween and _skill_label_tween.is_valid():
+		_skill_label_tween.kill()
+	skill_label1.modulate.a = 0.0
+	_skill_label_tween = create_tween()
+	_skill_label_tween.tween_property(skill_label1, "modulate:a", 1.0, 0.2)
 
 func hide_skill_label() -> void:
-	skill_label1.visible = false
+	if _skill_label_tween and _skill_label_tween.is_valid():
+		_skill_label_tween.kill()
+	if not skill_label1.visible:
+		return
+	_skill_label_tween = create_tween()
+	_skill_label_tween.tween_property(skill_label1, "modulate:a", 0.0, 0.2)
+	_skill_label_tween.tween_callback(func():
+		skill_label1.visible = false
+		skill_label1.modulate.a = 1.0
+	)
 
 func _get_reward_name(reward_id: String) -> String:
 	# 从 LvUp 单例的 all_rewards_list 中查找奖励名称
@@ -1754,8 +1867,17 @@ func show_emblem_detail(emblem_index: int) -> void:
 		_: return
 	
 	if detail and detail.text != "":
+		var old_tw = _emblem_tweens.get(emblem_index) as Tween
+		if old_tw and old_tw.is_valid():
+			old_tw.kill()
 		detail.visible = true
 		panel.visible = true
+		panel.modulate.a = 0.0
+		detail.modulate.a = 0.0
+		var tw = create_tween()
+		tw.tween_property(panel, "modulate:a", 1.0, 0.2)
+		tw.parallel().tween_property(detail, "modulate:a", 1.0, 0.2)
+		_emblem_tweens[emblem_index] = tw
 
 func hide_emblem_detail(emblem_index: int) -> void:
 	var detail: RichTextLabel
@@ -1772,12 +1894,24 @@ func hide_emblem_detail(emblem_index: int) -> void:
 		_: return
 	
 	if detail:
-		detail.visible = false
-		panel.visible = false
+		var old_tw = _emblem_tweens.get(emblem_index) as Tween
+		if old_tw and old_tw.is_valid():
+			old_tw.kill()
+		var tw = create_tween()
+		tw.tween_property(panel, "modulate:a", 0.0, 0.2)
+		tw.parallel().tween_property(detail, "modulate:a", 0.0, 0.2)
+		tw.tween_callback(func():
+			detail.visible = false
+			panel.visible = false
+			panel.modulate.a = 1.0
+			detail.modulate.a = 1.0
+		)
+		_emblem_tweens[emblem_index] = tw
 
 # ============== 游戏结果显示 ==============
 
 func show_game_over() -> void:
+	_reset_game_speed()
 	gameover_label.visible = true
 	# game over 瞬间隐藏升级按钮，防止继续点击
 	if lv_up_start_button:
@@ -1786,8 +1920,12 @@ func show_game_over() -> void:
 		instant_level_up_button.visible = false
 	if instant_level_up_button_label:
 		instant_level_up_button_label.visible = false
+	# 强制清理升级界面，防止advance弹出后卡死
+	if level_up_manager:
+		level_up_manager._force_cleanup_level_up_ui()
 
 func show_victory() -> void:
+	_reset_game_speed()
 	victory_label.visible = true
 
 func play_victory_sequence() -> void:
@@ -1958,6 +2096,40 @@ func _init_lv_up_start_button() -> void:
 			lv_up_start_button.pressed.connect(_on_lv_up_start_button_pressed)
 		lv_up_start_button.visible = false # 初始不可见，由 _update_lv_up_start_button_badge 统一控制
 		_update_lv_up_start_button_badge()
+
+## 初始化速度切换按钮
+func _init_speed_change_button() -> void:
+	_current_speed_index = 0
+	Global.game_speed = 1.0
+	Engine.time_scale = 1.0
+	if not speed_change_button:
+		speed_change_button = get_node_or_null("speed_change")
+	if speed_change_button:
+		speed_change_button.expand_icon = true
+		speed_change_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if not speed_change_button.pressed.is_connected(_on_speed_change_button_pressed):
+			speed_change_button.pressed.connect(_on_speed_change_button_pressed)
+		_update_speed_button_icon()
+
+func _on_speed_change_button_pressed() -> void:
+	_current_speed_index = (_current_speed_index + 1) % SPEED_VALUES.size()
+	Global.game_speed = SPEED_VALUES[_current_speed_index]
+	Engine.time_scale = Global.game_speed
+	_update_speed_button_icon()
+
+func _update_speed_button_icon() -> void:
+	if not speed_change_button:
+		return
+	var icon_path = SPEED_ICON_PATHS[_current_speed_index]
+	var tex = load(icon_path)
+	if tex:
+		speed_change_button.icon = tex
+
+func _reset_game_speed() -> void:
+	_current_speed_index = 0
+	Global.game_speed = 1.0
+	Engine.time_scale = 1.0
+	_update_speed_button_icon()
 
 ## 切换即时/手动升级模式
 func _on_instant_level_up_button_toggled(pressed: bool) -> void:
@@ -2139,7 +2311,7 @@ func play_warning_animation() -> void:
 	)
 
 func _build_treasure_faze_detail(level: int) -> String:
-	var tiers = [4, 7, 10, 13, 16]
+	var tiers = [4, 9, 15, 20, 25]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -2148,10 +2320,10 @@ func _build_treasure_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("宝器法则"))
 	lines.append(_color_owned_weapons("宝器类武器：仙枝，风龙杖，玄武盾"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：宝器类武器伤害提升 15%，天命提升 4 点"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：天命提升 6 点，每点天命使宝器类武器伤害提升 3%"))
-	lines.append(_format_faze_line(level, current_tier, 10, "10阶：宝器类武器攻击速度提升 25% ，天命提升 12 点"))
-	lines.append(_format_faze_line(level, current_tier, 13, "13阶：宝器类武器伤害提升 35% ，天命提升 8 点，每拥有 20 点天命，升级时会额外获得 1 次刷新次数"))
-	lines.append(_format_faze_line(level, current_tier, 16, "16阶：宝器类武器伤害提升 100% ，天命提升 12 点，每点天命使宝器类武器对精英及首领的伤害提升 6%"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：天命提升 6 点，每点天命使宝器类武器伤害提升 3%"))
+	lines.append(_format_faze_line(level, current_tier, 15, "15阶：宝器类武器攻击速度提升 25% ，天命提升 12 点"))
+	lines.append(_format_faze_line(level, current_tier, 20, "20阶：宝器类武器伤害提升 35% ，天命提升 8 点，每拥有 20 点天命，升级时会额外获得 1 次刷新次数"))
+	lines.append(_format_faze_line(level, current_tier, 25, "25阶：宝器类武器伤害提升 100% ，天命提升 12 点，每点天命使宝器类武器对精英及首领的伤害提升 6%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -2167,7 +2339,7 @@ func _build_chaos_faze_detail(level: int) -> String:
 			current_tier = tier
 	var lines: Array = []
 	lines.append(_build_law_title("混沌法则"))
-	lines.append("每个达到 4、7 层的法则使混沌法则阶级提升 1，达到 10 层的法则使混沌法则阶级降低 2")
+	lines.append("每个达到 5、9 层的法则使混沌法则阶级提升 1，达到 12 层的法则使混沌法则阶级降低 2")
 	lines.append(_format_faze_line(level, current_tier, 3, "3阶：最终伤害、经验获得率、真气获取率提升 15%"))
 	lines.append(_format_faze_line(level, current_tier, 5, "5阶：最终伤害、经验获得率再次提升 30%，真气获取率再次提升 25%"))
 	lines.append(_format_faze_line(level, current_tier, 7, "7阶：最终伤害、经验获得率再次提升 60%，真气获取率再次提升 40%"))
@@ -2178,6 +2350,19 @@ func _build_chaos_faze_detail(level: int) -> String:
 		if i < lines.size() - 1:
 			text += "\n"
 	return text
+
+# ============== 暂停菜单 ==============
+
+func _init_stop_layer() -> void:
+	if stop_button:
+		stop_button.process_mode = Node.PROCESS_MODE_ALWAYS
+		stop_button.pressed.connect(_on_stop_button_pressed)
+	if stop_layer and setting_layer:
+		stop_layer.setup(setting_layer)
+
+func _on_stop_button_pressed() -> void:
+	if stop_layer:
+		stop_layer.open()
 
 # ============== 咏唱魔法 UI ==============
 func _init_spell_ui() -> void:
@@ -2370,3 +2555,72 @@ func _on_spell_chant_timer_tick() -> void:
 	var remaining = max(_spell_chant_total_time - _spell_chant_elapsed, 0.0)
 	if _spell_time_label:
 		_spell_time_label.text = str(snapped(remaining, 0.1)) + "s"
+
+
+# ============== Buff通知弹出系统 ==============
+
+## 返回BuffManager引用（供外部查找）
+func get_buff_manager() -> BuffManager:
+	return buff_manager
+
+## 弹出Buff通知（图标+文字，位于玩家右侧30px，白字红描边）
+func show_buff_notification(icon_path: String, buff_name: String, prefix: String = "+ ") -> void:
+	# 创建通知容器（挂到CanvasLayer下，使用屏幕坐标）
+	var notif = Control.new()
+	notif.name = "BuffNotification"
+	notif.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(notif)
+
+	# 获取玩家屏幕位置
+	var player_screen_pos = _get_player_screen_position()
+	notif.position = player_screen_pos + Vector2(30, 0)
+
+	# 图标
+	var icon = TextureRect.new()
+	icon.size = Vector2(36, 36)
+	icon.position = Vector2(0, 0)
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	if icon_path != "" and ResourceLoader.exists(icon_path):
+		icon.texture = load(icon_path)
+	notif.add_child(icon)
+
+	# 文字标签（白字红描边）
+	var custom_font = load("res://AssetBundle/Uranus_Pixel_11Px.ttf")
+	var label = Label.new()
+	label.size = Vector2(200, 28)
+	label.position = Vector2(32, 0)
+	label.text = prefix + buff_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.add_theme_font_override("font", custom_font)
+	label.add_theme_font_size_override("font_size", 26)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_outline_color", Color.RED)
+	label.add_theme_constant_override("outline_size", 2)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	notif.add_child(label)
+
+	# 初始透明
+	notif.modulate.a = 0.0
+
+	# 动画：淡入 → 停留 → 淡出
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(notif, "modulate:a", 1.0, 0.2)
+	tween.tween_property(notif, "position:y", notif.position.y - 20, 0.2)
+	await tween.finished
+
+	await get_tree().create_timer(1.2).timeout
+
+	var fade_tween = create_tween()
+	fade_tween.tween_property(notif, "modulate:a", 0.0, 0.3)
+	await fade_tween.finished
+	notif.queue_free()
+
+## 获取玩家在屏幕上的位置（用于UI坐标转换）
+func _get_player_screen_position() -> Vector2:
+	if not PC.player_instance or not is_instance_valid(PC.player_instance):
+		return Vector2(200, 400) # 默认位置
+	# 世界坐标 → 屏幕坐标：用 canvas_transform 正向变换
+	return get_viewport().get_canvas_transform() * PC.player_instance.global_position

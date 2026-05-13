@@ -35,7 +35,8 @@ func parse_rect_from_func_string(rect_str: String) -> Rect2:
 func screen_shake(intensity: float = 6.0, duration: float = 0.3) -> void:
 	if not Global.screen_shake_enabled:
 		return
-	var camera = get_viewport().get_camera_2d()
+	var vp = get_viewport()
+	var camera = vp.get_camera_2d() if vp else null
 	if not camera:
 		return
 	var original_offset = camera.offset
@@ -43,10 +44,13 @@ func screen_shake(intensity: float = 6.0, duration: float = 0.3) -> void:
 	while elapsed < duration:
 		var dt = get_process_delta_time()
 		elapsed += dt
+		if not is_instance_valid(camera):
+			break
 		var strength = intensity * (1.0 - elapsed / duration)
 		camera.offset = original_offset + Vector2(
 			randf_range(-strength, strength),
 			randf_range(-strength, strength)
 		)
 		await get_tree().process_frame
-	camera.offset = original_offset
+	if is_instance_valid(camera):
+		camera.offset = original_offset

@@ -13,7 +13,7 @@ const START_TEXTURES = [
 	preload("res://AssetBundle/Sprites/image/start5.png"),
 	preload("res://AssetBundle/Sprites/image/start6.png"),
 	preload("res://AssetBundle/Sprites/image/start7.png"),
-	preload("res://AssetBundle/Sprites/image/start7.png"),
+	preload("res://AssetBundle/Sprites/image/start8.png"),
 ]
 
 const START_SUBTITLES = [
@@ -24,15 +24,15 @@ const START_SUBTITLES = [
 	"可没过多久，那裂隙便逐渐消失，仿佛从未出现过……",
 	"有镇民欲前去查探，谁知刚行至镇外桃林，便被一股奇力推了回来，无法前进分毫。",
 	"察觉到龙门山被幻境封锁，天衍宗派遣弟子前去调查，但他们同样被奇力推回。",
-	"这等奇事引起天衍宗重视，派出八部长老及精英弟子前去调查。",
-	"大长老乾在一番探测后，发现幻境构造精妙绝伦，已远非宗门阵道造诣所能及……",
+	"这等奇事引起了宗主的重视，派出八部长老及精英弟子前去调查。",
+	"大长老乾在一番探测后，发现这幻境的构造闻所未闻，难以破译……",
 ]
 
 ## 打字速度：每字符间隔（秒）
 const TYPE_SPEED := 0.07
 
 ## 文字显示完成后自动翻页等待时间（秒）
-const AUTO_NEXT_DELAY := 12.0
+const AUTO_NEXT_DELAY := 6.0
 
 var current_page: int = 0
 var is_animating: bool = false
@@ -45,6 +45,8 @@ var _auto_next_id: int = 0 ## 计时器唯一标识，用于失效旧回调
 var scale_tween: Tween
 ## sprite的初始缩放基准（从场景读取）
 var _base_scale: Vector2
+## 跳过打字后的防抖标志，防止同一帧的第二次输入事件直接触发翻页
+var _just_skipped: bool = false
 
 func _ready() -> void:
 	current_page = 0
@@ -123,11 +125,12 @@ func _type_next_char() -> void:
 	_type_next_char()
 
 func _skip_typing() -> void:
-	## 直接显示完整字幕，并启动自动翻页计时器
+	## 直接显示完整字幕，不触发自动翻页，等玩家再按一次才翻页
 	is_typing = false
 	if start_text:
 		start_text.text = type_full_text
-	_start_auto_next_timer()
+	# 取消之前残留的自动计时器，避免干扰
+	_cancel_auto_next_timer()
 
 func _start_auto_next_timer() -> void:
 	## 启动自动翻页计时器，旧计时器通过id校验自动失效
@@ -153,18 +156,21 @@ func _input(event: InputEvent) -> void:
 	if not (is_click or is_tap):
 		return
 	get_viewport().set_input_as_handled()
+	# 防抖：跳过打字后的同一帧内忽略翻页输入
+	if _just_skipped:
+		_just_skipped = false
+		return
 	if is_typing:
-		# 先按一次：跳过打字直接显示完整字幕（内部会重启计时器）
 		_skip_typing()
+		_just_skipped = true
 	else:
-		# 已显示完毕，取消自动计时器，立即翻页
 		_cancel_auto_next_timer()
 		_next_page()
 
 func _next_page() -> void:
 	var next = current_page + 1
 	if next >= START_TEXTURES.size():
-		# 所有页播完，跳转到主城
+		# 所有页播完，跳转到剧情 story_1
 		_go_to_main_town()
 		return
 	is_animating = true
@@ -199,5 +205,5 @@ func _go_to_main_town() -> void:
 	var tw = create_tween()
 	tw.tween_property(overlay, "color:a", 1.0, 0.5)
 	tw.tween_callback(func():
-		SceneChange.change_scene("res://Scenes/main_town.tscn", true)
+		SceneChange.change_scene("res://Scenes/story/story_1.tscn", true)
 	)

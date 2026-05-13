@@ -1,6 +1,11 @@
 extends Node
 class_name EnemyDebuffManager
 
+# Debuff增减信号，供boss血条等UI监听
+signal debuff_added_signal(debuff_id: String, stacks: int)
+signal debuff_removed_signal(debuff_id: String)
+signal debuff_stack_changed_signal(debuff_id: String, new_stacks: int)
+
 # Debuff数据结构
 class DebuffData:
 	var id: String
@@ -18,6 +23,9 @@ class DebuffData:
 	var dot_tick_interval: float = 1.0 # DOT结算间隔
 	var dot_affect_neighbors: bool = false # DOT是否影响周围敌人
 	var dot_neighbor_radius: float = 40.0 # DOT影响半径
+	var display_name: String = "" # 显示名称
+	var icon_path: String = "" # 图标路径
+	var description: String = "" # 描述文本
 
 	func _init(
 		p_id: String,
@@ -34,7 +42,10 @@ class DebuffData:
 		p_dot_damage_ratio: float,
 		p_dot_tick_interval: float,
 		p_dot_affect_neighbors: bool,
-		p_dot_neighbor_radius: float
+		p_dot_neighbor_radius: float,
+		p_display_name: String = "",
+		p_icon_path: String = "",
+		p_description: String = ""
 	):
 		id = p_id
 		duration = p_duration
@@ -51,22 +62,25 @@ class DebuffData:
 		dot_tick_interval = p_dot_tick_interval
 		dot_affect_neighbors = p_dot_affect_neighbors
 		dot_neighbor_radius = p_dot_neighbor_radius
+		display_name = p_display_name
+		icon_path = p_icon_path
+		description = p_description
 
 
 var burn_scene = preload("res://Scenes/player/debuff_burn.tscn")
 
 static var debuff_configs: Dictionary = {
-	"slow": DebuffData.new("slow", 5.0, 1, false, "", true, Color.SKY_BLUE, 0.0, 0.0, -0.25, false, 0.0, 1.0, false, 40.0),
-	"vulnerable": DebuffData.new("vulnerable", 5.0, 1, false, "", true, Color(1.0, 0.5, 0.5), -0.25, 0.0, 0.0, false, 0.0, 1.0, false, 40.0),
-	"penetrated": DebuffData.new("penetrated", 3.0, 1, false, "", false, Color.WHITE, 0.0, 0.2, 0.0, false, 0.0, 1.0, false, 40.0),
-	"paralyze": DebuffData.new("paralyze", 3.0, 1, false, "", true, Color(0.7, 0.7, 1.0), 0.0, 0.0, 0.0, true, 0.0, 1.0, false, 40.0),
-	"stun": DebuffData.new("stun", 3.0, 1, false, "", true, Color(0.9, 0.9, 0.9), 0.0, 0.0, 0.0, true, 0.0, 1.0, false, 40.0),
-	"bleed": DebuffData.new("bleed", 5.0, 5, false, "", true, Color(0.9, 0.3, 0.3), 0.0, 0.0, 0.0, false, 0.15, 1.0, false, 40.0),
-	"burn": DebuffData.new("burn", 3.0, 1, false, "", true, Color(1.0, 0.6, 0.2), 0.0, 0.0, 0.0, false, 0.4, 1.0, true, 60.0),
-	"electrified": DebuffData.new("electrified", 3.0, 1, false, "", true, Color(0.8, 0.8, 0.0), 0.0, 0.0, 0.0, false, 0.5, 1.0, false, 40.0),
-	"light_accumulation": DebuffData.new("light_accumulation", 5.0, 20, false, "", true, Color(1.0, 1.0, 0.8), 0.0, 0.05, 0.0, false, 0.0, 1.0, false, 40.0),
-	"corrosion": DebuffData.new("corrosion", 5.0, 1, false, "", true, Color(0.6, 0.8, 0.2), 0.0, 0.2, 0.0, false, 0.0, 1.0, false, 40.0), # 腐蚀：受到的伤害增加20%
-	"corrosion2": DebuffData.new("corrosion2", 5.0, 1, false, "", true, Color(0.5, 0.9, 0.1), 0.0, 0.3, 0.0, false, 0.0, 1.0, false, 40.0) # 腐蚀2：受到的伤害增加30%
+	"slow": DebuffData.new("slow", 5.0, 1, false, "", true, Color.SKY_BLUE, 0.0, 0.0, -0.25, false, 0.0, 1.0, false, 40.0, "减速", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xuanbing.png", "移动速度降低25%"),
+	"vulnerable": DebuffData.new("vulnerable", 5.0, 1, false, "", true, Color(1.0, 0.5, 0.5), -0.25, 0.0, 0.0, false, 0.0, 1.0, false, 40.0, "脆弱", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/genshan.png", "造成的伤害降低25%"),
+	"penetrated": DebuffData.new("penetrated", 3.0, 1, false, "", false, Color.WHITE, 0.0, 0.2, 0.0, false, 0.0, 1.0, false, 40.0, "穿透", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xiepo.png", "受到的伤害增加20%"),
+	"paralyze": DebuffData.new("paralyze", 3.0, 1, false, "", true, Color(0.7, 0.7, 1.0), 0.0, 0.0, 0.0, true, 0.0, 1.0, false, 40.0, "麻痹", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/thunder.png", "无法行动"),
+	"stun": DebuffData.new("stun", 3.0, 1, false, "", true, Color(0.9, 0.9, 0.9), 0.0, 0.0, 0.0, true, 0.0, 1.0, false, 40.0, "眩晕", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/thunder.png", "无法行动"),
+	"bleed": DebuffData.new("bleed", 5.0, 5, false, "", true, Color(0.9, 0.3, 0.3), 0.0, 0.0, 0.0, false, 0.15, 1.0, false, 40.0, "流血", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_blood.png", "每秒受到攻击力15%的伤害，可叠加5层"),
+	"burn": DebuffData.new("burn", 3.0, 1, false, "", true, Color(1.0, 0.6, 0.2), 0.0, 0.0, 0.0, false, 0.4, 1.0, true, 60.0, "燃烧", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_fire.png", "每秒受到攻击力40%的伤害，影响周围敌人"),
+	"electrified": DebuffData.new("electrified", 3.0, 1, false, "", true, Color(0.8, 0.8, 0.0), 0.0, 0.0, 0.0, false, 0.5, 1.0, false, 40.0, "感电", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_thunder.png", "每秒受到攻击力50%的伤害"),
+	"light_accumulation": DebuffData.new("light_accumulation", 5.0, 20, false, "", true, Color(1.0, 1.0, 0.8), 0.0, 0.05, 0.0, false, 0.0, 1.0, false, 40.0, "蓄光", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/guangdan.png", "每层受到的伤害增加5%，最多20层"),
+	"corrosion": DebuffData.new("corrosion", 5.0, 1, false, "", true, Color(0.6, 0.8, 0.2), 0.0, 0.2, 0.0, false, 0.0, 1.0, false, 40.0, "腐蚀", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/duize.png", "受到的伤害增加20%"),
+	"corrosion2": DebuffData.new("corrosion2", 5.0, 1, false, "", true, Color(0.5, 0.9, 0.1), 0.0, 0.3, 0.0, false, 0.0, 1.0, false, 40.0, "腐蚀Ⅱ", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/duize.png", "受到的伤害增加30%")
 }
 
 static var debuff_elite_boss_damage_bonus: Dictionary = {}
@@ -114,6 +128,7 @@ func add_debuff(debuff_id: String, extra_stacks_limit: int = 0, duration_overrid
 		current_debuff["stacks"] = new_stacks
 		current_debuff["timer"].start(effective_duration)
 		active_debuffs[debuff_id] = current_debuff
+		debuff_stack_changed_signal.emit(debuff_id, new_stacks)
 	else:
 		# 添加新的debuff
 		var timer = Timer.new()
@@ -134,6 +149,7 @@ func add_debuff(debuff_id: String, extra_stacks_limit: int = 0, duration_overrid
 		}
 
 		_apply_debuff_effects(debuff_id)
+		debuff_added_signal.emit(debuff_id, 1)
 
 func _apply_debuff_effects(debuff_id: String):
 	var debuff_entry = active_debuffs[debuff_id]
@@ -165,6 +181,7 @@ func _on_debuff_expired(debuff_id: String):
 	var debuff_entry = active_debuffs[debuff_id]
 	debuff_entry["timer"].queue_free()
 	active_debuffs.erase(debuff_id)
+	debuff_removed_signal.emit(debuff_id)
 	_reapply_remaining_debuff_effects()
 
 func _reapply_remaining_debuff_effects():
@@ -228,7 +245,7 @@ func get_damage_multiplier() -> float:
 			
 			multiplier += config.damage_taken_multiplier * effect_multiplier
 			
-	# 最终伤害乘区已经统一放到怪物基类 / 公共受击结算，这里只保留易伤与额外伤害倍率。
+	# 最终伤害乘区已经统一放到怪物基类 / 公共结算，这里只保留易伤与额外伤害倍率。
 	# R40-UR40: 反击 - 每1%减伤率提供X%的最终伤害加成
 	var counter_bonus = 0.0
 	if PC.selected_rewards.has("UR40"): counter_bonus = PC.damage_reduction_rate * 100 * 0.008
@@ -357,6 +374,7 @@ func _apply_dot_damage(debuff_id: String, damage: float) -> void:
 	var config: DebuffData = debuff_entry["config"]
 	var damage_type_int = _get_dot_damage_type_int(debuff_id)
 	if debuff_id == "burn":
+		SEManager.play("50")
 		var burn_instance = Global.debuff_burn_pool.acquire(get_tree().current_scene)
 		burn_instance.global_position = target_enemy.global_position
 		burn_instance.scale = Vector2.ONE * Faze.get_burn_range_multiplier(PC.faze_fire_level)

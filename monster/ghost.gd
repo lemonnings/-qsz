@@ -22,6 +22,9 @@ const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 
 # 精英怪相关
 
+# 边界检测标志，防止重复触发转向
+var is_out_of_bounds: bool = false
+
 func _ready():
 	player_hit_emit_self = true
 	health_bar_tween_duration = 0.15
@@ -81,6 +84,16 @@ func _physics_process(delta: float) -> void:
 		elif move_vector.x < 0:
 			sprite.flip_h = false
 		
+		# 超出边界范围时，朝向玩家方向转向
+		# cave关卡顶部边界下移20像素
+		var top_bound = 70.0 if Global.current_stage_id == "cave" else 50.0
+		var currently_out_of_bounds = (global_position.y > 550 or global_position.y < top_bound or global_position.x > 295 or global_position.x < -300)
+		if currently_out_of_bounds and not is_out_of_bounds:
+			_pick_direction_to_safe_zone()
+			is_out_of_bounds = true
+		elif not currently_out_of_bounds:
+			is_out_of_bounds = false
+		
 	if hp <= 0:
 		free_health_bar()
 		if not is_dead: # Add this check
@@ -124,10 +137,6 @@ func _physics_process(delta: float) -> void:
 
 
 func _on_body_entered(body: Node2D) -> void:
-	# 碰到边界（StaticBody2D）时随机改变方向
-	if body is StaticBody2D:
-		_pick_random_direction()
-		return
 	handle_common_body_entered(body)
 
 
@@ -161,7 +170,7 @@ func _on_area_entered(area: Area2D) -> void:
 			
 		hp -= int(final_damage_val)
 		if hp <= 0:
-			# 如果已经死亡，则不重复播放死亡动画，也不播放受击动画
+			# 如果已经死亡，则不重复播放死亡动画，也不播放动画
 			if not is_dead:
 				$AnimatedSprite2D.play("death")
 		else:
@@ -172,6 +181,16 @@ func _on_area_entered(area: Area2D) -> void:
 func _pick_random_direction() -> void:
 	var angle = randf() * TAU
 	move_vector = Vector2(cos(angle), sin(angle))
+
+# 朝向安全区域中心选择方向（避免再次越界）
+func _pick_direction_to_safe_zone() -> void:
+	var direction_to_player: Vector2
+	if PC.player_instance:
+		direction_to_player = (PC.player_instance.global_position - global_position).normalized()
+	else:
+		direction_to_player = Vector2.LEFT
+	var random_offset = deg_to_rad(randf_range(-30, 30))
+	move_vector = direction_to_player.rotated(random_offset)
 
 # 每隔 FIRE_INTERVAL 秒向玩家发射一次子弹
 func _shoot_bullet() -> void:
@@ -188,6 +207,3 @@ func _shoot_bullet() -> void:
 		shoot_direction = move_vector
 	fireball.set_direction(shoot_direction)
 	fireball.play_animation("fire")
-
-
-

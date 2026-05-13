@@ -6,7 +6,7 @@ extends Area2D
 ## 外观：petal.png 带 1px 红色勾边（由 petal_outline.gdshader 实现）。
 
 const DETOX_BUFF_ID := "boss_a_detox"
-const DETOX_DURATION: float = 3.0
+const DETOX_DURATION: float = 4.0
 const GOLDEN_PETAL_TINT := Color(1.0, 0.95, 0.62, 1.0)
 
 @onready var sprite: Sprite2D = $Sprite2D

@@ -19,9 +19,6 @@ var get_mechanism: int = SettingMoster.bat("mechanism")
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 
-# 坐标日志计时器
-var _log_timer: float = 0.0
-
 # 精英怪相关
 
 # 边界检测标志，防止重复触发转向
@@ -47,13 +44,10 @@ func _ready():
 	CharacterEffects.create_shadow(self , 16.0, 5.0, 13.0)
 
 func _physics_process(delta: float) -> void:
-	# 每秒打印一次坐标日志
-	_log_timer += delta
-	if _log_timer >= 1.0:
-		_log_timer = 0.0
-		print("[bat] position: ", position, " | global_position: ", global_position)
+	# 更新离屏缓存
+	update_offscreen_status()
 	
-	if hp < hpMax and hp > 0:
+	if not _is_offscreen and hp < hpMax and hp > 0:
 		show_health_bar()
 	
 	if debuff_manager.is_action_disabled():
@@ -62,35 +56,19 @@ func _physics_process(delta: float) -> void:
 	if fire_timer.paused:
 		fire_timer.paused = false
 
-	# 处理推挤效果（防止怪物重叠）
-	if not is_dead:
+	# 处理推挤效果（防止怪物重叠，离屏时跳过）
+	if not is_dead and not _is_offscreen:
 		CharacterEffects.apply_separation(self , 10.0, 12.0)
-	
-	# 处理敌人之间的碰撞 - 直接防止重叠
-	if monitoring:
-		var overlapping_bodies = get_overlapping_areas()
-		
-		for body in overlapping_bodies:
-			if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
-				var distance = global_position.distance_to(body.global_position)
-				var min_distance = 12.0 # 最小允许距离
-				
-				# 如果距离太近，直接调整位置
-				if distance < min_distance and distance > 0.1:
-					var direction_away = (global_position - body.global_position).normalized()
-					var overlap = min_distance - distance
-					# 两个物体各自移动一半的重叠距离
-					position += direction_away * (overlap * 0.5)
 
-		
 	if not is_dead:
 		speed = get_effective_move_speed(base_speed)
 		position += move_vector * speed * delta
 		# 根据水平移动方向翻转精灵
-		if move_vector.x > 0:
-			sprite.flip_h = true
-		elif move_vector.x < 0:
-			sprite.flip_h = false
+		if not _is_offscreen:
+			if move_vector.x > 0:
+				sprite.flip_h = true
+			elif move_vector.x < 0:
+				sprite.flip_h = false
 		
 		# 超出边界范围时，朝向玩家方向转向（只在刚越界时触发一次）
 		# 边界：y > 25, y < -560, x > 305, x < -310，向内缩10像素作为触发边界
@@ -174,7 +152,7 @@ func _on_area_entered(area: Area2D) -> void:
 			
 		hp -= int(final_damage_val)
 		if hp <= 0:
-			# 如果已经死亡，则不重复播放死亡动画，也不播放受击动画
+			# 如果已经死亡，则不重复播放死亡动画，也不播放动画
 			if not is_dead:
 				$AnimatedSprite2D.play("death")
 		else:

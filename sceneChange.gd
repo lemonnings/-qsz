@@ -5,6 +5,7 @@ var loading_path = ""
 
 
 func _ready() -> void:
+	self.process_mode = Node.PROCESS_MODE_ALWAYS
 	self.hide()
 	pass
 	

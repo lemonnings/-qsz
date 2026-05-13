@@ -136,7 +136,7 @@ func finish_warning():
 	print("扇形AOE预警结束，检查伤害判定...")
 	
 	# 检查玩家是否在范围内
-	if player_ref and is_player_in_range():
+	if player_ref and is_player_in_range() and damage > 0:
 		# 对玩家造成伤害
 		deal_damage_to_player()
 	else:
@@ -200,7 +200,7 @@ func deal_damage_to_player():
 	if PC.invincible:
 		return
 	
-	# 触发受击效果
+	# 触发效果
 	
 	# 计算实际伤害（考虑减伤率）
 	var actual_damage = int(damage * (1.0 - PC.damage_reduction_rate))

@@ -1,6 +1,8 @@
 extends Node
 class_name LevelUpManager
 
+const BOSS_HP_BAR_SCRIPT = preload("res://Script/system/boss_hp_bar.gd")
+
 # 升级管理器 - 处理升级界面逻辑
 # 从stage1.gd中提取的升级相关功能
 
@@ -67,7 +69,15 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	if scene_tree and refresh_id == 0 and PC.instant_level_up:
 		await scene_tree.create_timer(0.25, true, false, true).timeout
 	
+	# await期间玩家可能已死亡，重新检查
+	if PC.is_game_over:
+		_force_cleanup_level_up_ui()
+		return
+	
 	lv_up_change.visible = true
+	# 升级选项出现时关闭Buff悬停提示，避免遮挡按钮
+	BuffManager.set_buffs_interactive(false)
+	BOSS_HP_BAR_SCRIPT.set_boss_buffs_interactive(false)
 	
 	# 渐入 instant_level_up_button（与升级选项一同出现；刷新时按钮不渐入渐出）
 	var is_refresh = (refresh_id != 0)
@@ -408,16 +418,22 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 	if !connect_array.is_empty():
 		for conn in connect_array:
 			button.pressed.disconnect(conn.callable)
-	# 包装回调，在选择前处理锁定逻辑
+	# 包装回调，在选择前处理锁定逻辑并记录派系
+	var reward_faction = reward.faction
 	var wrapped_callback = func():
 		_on_reward_button_selected(button_id)
+		LvUp._last_applied_reward_faction = reward_faction
 		callback.call()
 	button.pressed.connect(wrapped_callback)
 
 # 检查并处理待升级
 func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport: Viewport = null) -> void:
-	# 战败后不再处理待升级项
+	# 战败后不再处理待升级项，直接清理升级UI
 	if PC.is_game_over:
+		_force_cleanup_level_up_ui()
+		return
+	# 诗想难度不弹出任何领悟/进阶界面
+	if Global.current_stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
 		return
 	# 清理dark_overlay
 	_cleanup_dark_overlay()
@@ -516,6 +532,11 @@ func _on_reward_button_selected(selected_button_id: int) -> void:
 
 # 升级选择完成回调
 func _on_level_up_selection_complete(_viewport: Viewport = null) -> void:
+	# 战败后直接清理升级界面，防止游戏卡死
+	if PC.is_game_over:
+		_force_cleanup_level_up_ui()
+		return
+	
 	# 清理升级选择时创建的背景变暗效果
 	_cleanup_dark_overlay()
 	# 清空当前界面临时锁定数据
@@ -554,6 +575,9 @@ func _on_level_up_selection_complete(_viewport: Viewport = null) -> void:
 	else:
 		# 所有升级完成，隐藏界面
 		lv_up_change.visible = false
+		# 恢复Buff悬停提示
+		BuffManager.set_buffs_interactive(true)
+		BOSS_HP_BAR_SCRIPT.set_boss_buffs_interactive(true)
 		# 渐出 instant_level_up_button（与升级选项一同消失）
 		_fade_instant_level_up_button(false)
 		Global.is_level_up = false
@@ -607,8 +631,10 @@ func get_required_lv_up_value(level: int) -> float:
 	# todo 测试期间/10
 	var value: float = 1200
 	for i in range(level):
-		value = (value + 1200 + 12.2 * (i + 1) * i)
-	return value
+		value = (value + 1000 + 13 * (i + 1) * i)
+	# 修习树领悟篇：升级经验需求降低
+	var reduction_mult = clampf(1.0 - Global.study_exp_reduction, 0.2, 1.0)
+	return value * reduction_mult
 
 # 清理dark_overlay的私有函数
 func _cleanup_dark_overlay() -> void:
@@ -617,6 +643,29 @@ func _cleanup_dark_overlay() -> void:
 		if dark_overlay != null and is_instance_valid(dark_overlay):
 			dark_overlay.queue_free()
 		remove_meta("dark_overlay")
+
+# 强制清理升级界面（战败时调用，防止游戏卡死）
+func _force_cleanup_level_up_ui() -> void:
+	_cleanup_dark_overlay()
+	if lv_up_change:
+		lv_up_change.visible = false
+		lv_up_change.modulate.a = 1.0
+	# 恢复Buff悬停提示
+	BuffManager.set_buffs_interactive(true)
+	BOSS_HP_BAR_SCRIPT.set_boss_buffs_interactive(true)
+	Global.is_level_up = false
+	pending_level_ups = 0
+	current_rewards.clear()
+	tentative_locked_rewards.clear()
+	now_main_skill_name = ""
+	# 恢复技能节点状态
+	for skill_node in skill_nodes:
+		if skill_node and skill_node.has_method("set_game_paused"):
+			skill_node.set_game_paused(false)
+	# 取消游戏树暂停
+	if get_tree():
+		get_tree().set_pause(false)
+	print("[LvUp] _force_cleanup_level_up_ui: 战败后强制清理升级界面")
 
 # 暂停所有人物和怪物的动画
 func _pause_all_animations(scene_tree: SceneTree) -> void:
@@ -741,7 +790,7 @@ func _play_slow_motion_focus() -> void:
 	Engine.time_scale = 0.2
 	# 使用不受time_scale影响的SceneTreeTimer，0.1s实际时间 = 0.5s游戏时间
 	get_tree().create_timer(0.5, true, false, true).timeout.connect(func():
-		Engine.time_scale = 1.0
+		Engine.time_scale = Global.game_speed
 	)
 
 ## 渐入/渐出 instant_level_up_button 及其 label，与升级选项界面同步

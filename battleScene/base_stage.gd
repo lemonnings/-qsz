@@ -23,6 +23,12 @@ const ELITE_EXP_MULTIPLIER: float = 4.0 # 经验4倍
 const ELITE_POINT_MULTIPLIER: float = 5.0 # 真气5倍
 const ELITE_DROP_MULTIPLIER: float = 15.0 # 掉落率15倍
 
+const LATE_GAME_RAMP_TIME: float = 120.0 # 120秒后开始加速出怪
+const LATE_GAME_INTERVAL_DECREASE: float = 0.1 # 每次出怪间隔降低0.1秒
+const LATE_GAME_MIN_INTERVAL: float = 2.0 # 最低出怪间隔2.0秒
+const LATE_GAME_SPEED_INCREASE: float = 0.01 # 每次出怪speed提升1%
+const LATE_GAME_MAX_SPEED_BONUS: float = 0.30 # speed最多提升30%
+
 # 动态平衡（所有关卡一致的常数）
 const DYNAMIC_BALANCE_SPAWN_HIGH_THRESHOLD: float = 0.6 # 出怪增量高阈值（60%时0%增量）
 const DYNAMIC_BALANCE_HP_LOW_THRESHOLD: float = 0.7 # HP削减低阈值（70%开始削弱）
@@ -61,14 +67,24 @@ var other_type_alive: int = 0 # 非基础类型怪物当前存活数
 var elite_alive: int = 0 # 当前存活精英怪数量
 
 var current_wave_hp_reduction: float = 0.0 # 当前波的HP削减比例
+var current_spawn_interval: float = 0.0 # 当前出怪间隔（运行时由SPAWN_INTERVAL_SECONDS初始化）
+var late_game_speed_bonus: float = 0.0 # 120秒后累积的speed加成（最大0.3=30%）
 
 # 怪物生成池（子类初始化）
 var stage_spawn_pool: Array[Dictionary] = []
+
+# 金团团场景（修习树特殊篇解锁后可用）
+const GOLD_BALL_BASE_CHANCE: float = 0.003 # 每波 0.3% 基础概率
+var _gold_ball_scene: PackedScene = null
+
+# 战斗动态对话系统
+var battle_chat: BattleChat = null
 
 # ============== 初始化 ==============
 func _ready() -> void:
 	_setup_stage_config()
 	max_monster_limit = INITIAL_MONSTER_LIMIT
+	current_spawn_interval = SPAWN_INTERVAL_SECONDS
 
 	PC.player_instance = $Player
 	Global.emit_signal("reset_camera")
@@ -76,11 +92,19 @@ func _ready() -> void:
 	map_mechanism_num = 0
 	var stage_index = Global.STAGE_ID_LIST.find(Global.current_stage_id)
 	if Global.current_stage_id == "peach_grove" and Global.current_stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
-		map_mechanism_num_max = 5
+		map_mechanism_num_max = 20000
 	else:
-		map_mechanism_num_max = 52000 + stage_index * 2000
+		map_mechanism_num_max = 52000 + stage_index * 1000
+		#map_mechanism_num_max = 5
 
 	DpsManager.reset_dps_counter()
+
+	# 重置击杀计数
+	GU.reset_kill_count()
+
+	# 诗想难度：玩家直接50级 + Boss基于第8分钟数据
+	if Global.current_stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
+		_apply_poetry_init()
 
 	# 连接关卡特定信号
 	Global.connect("monster_mechanism_gained", Callable(self , "_on_monster_mechanism_gained"))
@@ -95,15 +119,104 @@ func _ready() -> void:
 	monster_spawn_timer.wait_time = SPAWN_INTERVAL_SECONDS
 	monster_spawn_timer.one_shot = false
 	monster_spawn_timer.connect("timeout", Callable(self , "_on_monster_spawn_timer_timeout"))
-	monster_spawn_timer.start()
+	# 诗想难度不启动刷怪计时器
+	if Global.current_stage_difficulty != Global.STAGE_DIFFICULTY_POETRY:
+		monster_spawn_timer.start()
 
 	# 初始化技能冷却显示
 	layer_ui.update_skill_cooldowns($Player)
-	_spawn_wave()
+	# 诗想难度不刷第一波怪
+	if Global.current_stage_difficulty != Global.STAGE_DIFFICULTY_POETRY:
+		_spawn_wave()
+
+	# 初始化战斗动态对话系统
+	battle_chat = BattleChat.new()
+	add_child(battle_chat)
+	battle_chat.initialize(layer_ui.teammate_dialogue_mgr)
 
 # ============== 虚方法（子类覆盖）==============
 func _setup_stage_config() -> void:
 	pass # 子类覆盖，设置 STAGE_ID 和各种配置值
+
+# ============== 诗想难度初始化 ===============
+func _apply_poetry_init() -> void:
+	# 1. 执行49次属性成长（不含奖励选择），使玩家达到50级属性
+	for i in range(49):
+		_poetry_stat_growth()
+	PC.pc_lv = 50
+	PC.pc_hp = PC.pc_max_hp
+	
+	# 2. 设置游戏时间为第8分钟(480秒)，使怪物/Boss基于该时刻的数值
+	PC.real_time = 480
+	PC.current_time = 480
+	
+	# 3. 重新应用诗想备战配置（reset_player_attr会清空selected_rewards，此处恢复）
+	_apply_poetry_loadout()
+	
+	# 4. 设置诗想难度下的DPS计算覆盖值
+	Global.poetry_dps_override = PC.pc_atk * 15.0
+	
+	# 5. 直接出Boss：机制上限设为5，进图即触发
+	map_mechanism_num_max = 5
+	
+	print("[Poetry] 玩家初始化50级, ATK=", PC.pc_atk, " HP=", PC.pc_max_hp, " DPS覆盖=", Global.poetry_dps_override)
+
+## 重新应用诗想备战配置并添加武器伤害加成
+func _apply_poetry_loadout() -> void:
+	var loadout = PC.poetry_loadout
+	if loadout.is_empty():
+		return
+	
+	PC.selected_rewards.clear()
+	PC.current_weapon_num = 0
+	
+	# 应用+12武器及进阶
+	var w12_id = loadout.get("w12_id", "")
+	if w12_id != "":
+		_grant_poetry_weapon_level(w12_id, 12)
+		for adv_id in loadout.get("adv12_ids", []):
+			if adv_id != "":
+				_grant_poetry_advancement(adv_id)
+	
+	# 应用+3武器及进阶
+	var w3_ids = loadout.get("w3_ids", [])
+	var adv3_ids = loadout.get("adv3_ids", [])
+	for i in range(w3_ids.size()):
+		var w_id = w3_ids[i]
+		if w_id != "":
+			_grant_poetry_weapon_level(w_id, 3)
+			if i < adv3_ids.size() and adv3_ids[i] != "":
+				_grant_poetry_advancement(adv3_ids[i])
+	
+	# 添加武器伤害加成：+12武器72%，每个+3武器18%
+	PC.pc_final_atk += 0.72 + w3_ids.size() * 0.18
+
+func _grant_poetry_weapon_level(w_id: String, target_level: int):
+	var base_func = "reward_" + w_id
+	if LvUp.has_method(base_func):
+		LvUp.call(base_func)
+	var upgrade_func = "reward_R" + w_id
+	for i in range(target_level - 1):
+		if LvUp.has_method(upgrade_func):
+			LvUp.call(upgrade_func)
+
+func _grant_poetry_advancement(adv_id: String):
+	var adv_func = "reward_" + adv_id
+	if LvUp.has_method(adv_func):
+		LvUp.call(adv_func)
+
+## 诗想难度单次属性成长（模拟 global_level_up 中的纯属性部分）
+func _poetry_stat_growth() -> void:
+	PC.pc_atk += 5
+	PC.pc_start_atk += 5
+	PC.pc_atk = int(PC.pc_atk * 1.1)
+	PC.pc_start_atk = int(PC.pc_start_atk * 1.1)
+	PC.pc_max_hp += 20
+	PC.pc_start_max_hp += 20
+	PC.pc_hp += 20
+	var lv_hp_bonus = int(PC.pc_start_max_hp * 0.02)
+	PC.pc_max_hp += lv_hp_bonus
+	PC.pc_start_max_hp += lv_hp_bonus
 
 func _spawn_wave() -> void:
 	pass # 子类覆盖，实现怪物波生成
@@ -155,7 +268,7 @@ func _process(_delta: float) -> void:
 func _physics_process(_delta: float) -> void:
 	# 机关进度更新
 	if not boss_event_triggered:
-		map_mechanism_num += _delta * 30
+		map_mechanism_num += _delta * 40
 
 	# 难度递增
 	if PC.current_time < 0.3:
@@ -225,7 +338,11 @@ func _on_warning_finished() -> void:
 			return
 
 	boss_node.position = _get_boss_position()
+	# Boss渐变出现效果
+	boss_node.modulate.a = 0.0
 	get_tree().current_scene.add_child(boss_node)
+	var boss_tween = boss_node.create_tween()
+	boss_tween.tween_property(boss_node, "modulate:a", 1.0, 0.8)
 	_clear_non_boss_enemies()
 
 func _clear_non_boss_enemies() -> void:
@@ -243,7 +360,13 @@ func _clear_non_boss_enemies() -> void:
 
 
 func _on_monster_spawn_timer_timeout() -> void:
+	_try_spawn_gold_ball()
 	_spawn_wave()
+	# 120秒后：出怪间隔逐渐降低，怪物速度逐渐提升
+	if PC.real_time >= LATE_GAME_RAMP_TIME:
+		current_spawn_interval = max(LATE_GAME_MIN_INTERVAL, current_spawn_interval - LATE_GAME_INTERVAL_DECREASE)
+		late_game_speed_bonus = min(LATE_GAME_MAX_SPEED_BONUS, late_game_speed_bonus + LATE_GAME_SPEED_INCREASE)
+	monster_spawn_timer.wait_time = current_spawn_interval
 
 func _get_wave_spawn_count() -> int:
 	var growth_steps = int(float(spawn_count - 1) / float(WAVE_SPAWN_INCREASE_STEP))
@@ -259,6 +382,22 @@ func _update_wave_monster_limit() -> void:
 	elif PC.selected_rewards.has("SSR39"): extra_mult += 0.07
 	elif PC.selected_rewards.has("SR39"): extra_mult += 0.06
 	elif PC.selected_rewards.has("R39"): extra_mult += 0.05
+	# 洪流（R48系列）：敌人数量加成
+	if PC.selected_rewards.has("SSR48"): extra_mult += 0.12
+	elif PC.selected_rewards.has("SR48"): extra_mult += 0.10
+	elif PC.selected_rewards.has("R48"): extra_mult += 0.08
+	# 驱迫（R49系列）：敌人数量加成
+	if PC.selected_rewards.has("SSR49"): extra_mult += 0.15
+	elif PC.selected_rewards.has("SR49"): extra_mult += 0.10
+	elif PC.selected_rewards.has("R49"): extra_mult += 0.08
+	# 狂怒（R50系列）：敌人数量加成
+	if PC.selected_rewards.has("SSR50"): extra_mult += 0.12
+	elif PC.selected_rewards.has("SR50"): extra_mult += 0.10
+	elif PC.selected_rewards.has("R50"): extra_mult += 0.08
+	# 兵临（R53系列）：敌人数量加成
+	if PC.selected_rewards.has("SSR53"): extra_mult += 0.12
+	elif PC.selected_rewards.has("SR53"): extra_mult += 0.08
+	elif PC.selected_rewards.has("R53"): extra_mult += 0.05
 
 	max_monster_limit = int(base_limit * (1.0 + extra_mult))
 
@@ -287,6 +426,22 @@ func _calculate_spawn_count_multiplier() -> float:
 	elif PC.selected_rewards.has("SSR39"): extra_mult += 0.07
 	elif PC.selected_rewards.has("SR39"): extra_mult += 0.06
 	elif PC.selected_rewards.has("R39"): extra_mult += 0.05
+	# 洪流（R48系列）：敌人数量加成
+	if PC.selected_rewards.has("SSR48"): extra_mult += 0.12
+	elif PC.selected_rewards.has("SR48"): extra_mult += 0.10
+	elif PC.selected_rewards.has("R48"): extra_mult += 0.08
+	# 驱迫（R49系列）：敌人数量加成
+	if PC.selected_rewards.has("SSR49"): extra_mult += 0.15
+	elif PC.selected_rewards.has("SR49"): extra_mult += 0.10
+	elif PC.selected_rewards.has("R49"): extra_mult += 0.08
+	# 狂怒（R50系列）：敌人数量加成
+	if PC.selected_rewards.has("SSR50"): extra_mult += 0.12
+	elif PC.selected_rewards.has("SR50"): extra_mult += 0.10
+	elif PC.selected_rewards.has("R50"): extra_mult += 0.08
+	# 兵临（R53系列）：敌人数量加成
+	if PC.selected_rewards.has("SSR53"): extra_mult += 0.12
+	elif PC.selected_rewards.has("SR53"): extra_mult += 0.08
+	elif PC.selected_rewards.has("R53"): extra_mult += 0.05
 
 	return base_mult + extra_mult
 
@@ -308,6 +463,12 @@ func _apply_dynamic_hp_reduction(monster_node: Node) -> void:
 	var reduction_multiplier = 1.0 - current_wave_hp_reduction
 	monster_node.hp *= reduction_multiplier
 	monster_node.hpMax *= reduction_multiplier
+
+## 应用120秒后的怪物速度加成
+func _apply_late_game_speed_bonus(monster_node: Node) -> void:
+	if late_game_speed_bonus <= 0.0:
+		return
+	monster_node.speed *= (1.0 + late_game_speed_bonus)
 
 
 func _should_force_low_population_wave() -> bool:
@@ -408,9 +569,45 @@ void fragment() {
 	# 给怪物添加精英怪标记
 	monster_node.set_meta("is_elite_monster", true)
 
+# ============== 金团团生成 ==============
+## 每波怪生成时尝试刷新金团团（基础 0.3% 概率，受修习树加成影响）
+func _try_spawn_gold_ball() -> void:
+	if boss_event_triggered:
+		return
+	if not Global.study_gold_ball_unlocked:
+		return
+	# 实际概率 = 基础 0.3% × (1 + 金团团概率加成)
+	var chance = GOLD_BALL_BASE_CHANCE * (1.0 + Global.study_gold_ball_chance_bonus)
+	if randf() > chance:
+		return
+	# 延迟加载场景（首次生成时加载）
+	if _gold_ball_scene == null:
+		_gold_ball_scene = load("res://Scenes/moster/gold_ball.tscn")
+	if _gold_ball_scene == null:
+		return
+	var gold_ball_node = _gold_ball_scene.instantiate()
+	gold_ball_node.move_direction = 2 # 朝向角色移动
+	var spawn_edge = randi_range(0, 3)
+	var spawn_position = Vector2.ZERO
+	match spawn_edge:
+		0: spawn_position = Vector2(randf_range(-500, 500), -30)
+		1: spawn_position = Vector2(randf_range(-500, 500), 550)
+		2: spawn_position = Vector2(-550, randf_range(50, 450))
+		3: spawn_position = Vector2(550, randf_range(50, 450))
+	gold_ball_node.position = spawn_position
+	get_tree().current_scene.add_child(gold_ball_node)
+	gold_ball_node.modulate.a = 0
+	var tween = create_tween()
+	tween.tween_property(gold_ball_node, "modulate:a", 1.0, 0.7)
+	current_monster_count += 1
+	gold_ball_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
+	print("[GoldBall] 金团团已生成！")
+
 # ============== 游戏结果 ==============
 func show_game_over():
 	PC.is_game_over = true
+	Global.total_defeat_count += 1
+	Global.save_game()
 	EmblemManager.clear_all_emblems()
 	DpsManager.stop_dps_counter()
 	layer_ui.show_game_over()
@@ -426,13 +623,13 @@ func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 	if not PC.is_game_over:
 		# 标记游戏结束状态，防止后续逻辑触发
 		PC.is_game_over = true
-
+		
 		# 清除所有纹章效果
 		EmblemManager.clear_all_emblems()
-
+		
 		# 停止DPS计数器
 		DpsManager.stop_dps_counter()
-
+		
 		$Victory.play()
 		var player = get_node("Player")
 		player.enter_victory_state()
@@ -440,7 +637,19 @@ func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 		layer_ui.stop_all_skill_cooldowns()
 		var item_control = get_node("ItemControl")
 		item_control.start_victory_collect(player, 225.0, 3.0)
+		
+		# 如果是桃林关卡，标记已击败boss
+		if STAGE_ID == "peach_grove":
+			Global.has_defeated_peach_grove_boss = true
+		
 		Global.mark_stage_difficulty_cleared(STAGE_ID, Global.current_stage_difficulty)
+		# 角色解锁：首次通关ruin解锁诺姆，首次通关cave解锁坎塞尔
+		if STAGE_ID == "ruin" and not Global.unlock_noam:
+			Global.unlock_noam = true
+			print("[HeroUnlock] 首次通关ruin，解锁诺姆及疗愈技能")
+		if STAGE_ID == "cave" and not Global.unlock_kansel:
+			Global.unlock_kansel = true
+			print("[HeroUnlock] 首次通关cave，解锁坎塞尔及炽炎技能")
 		Global.add_shop_battle_refresh(1)
 		await player.play_boss_defeat_camera_focus(boss_position)
 

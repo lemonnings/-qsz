@@ -16,6 +16,8 @@ func _ready():
 	_base_offset_y = offset.y
 
 func _process(delta):
+	if not is_instance_valid(get_parent()):
+		return
 	# 边界限制逻辑
 	_clamp_camera_position()
 	
@@ -23,6 +25,10 @@ func _process(delta):
 	_update_walk_bob(delta)
 
 func _clamp_camera_position():
+	# 基于 Player（父节点）的全局位置直接计算本地偏移
+	# 每帧只写一次 position，不修改 global_position，确保 position_smoothing 正常工作
+	var parent_pos = get_parent().global_position
+
 	# 获取当前渲染视口的实际像素尺寸（考虑 stretch 设置）
 	var screen_size = get_viewport().get_visible_rect().size
 
@@ -30,7 +36,7 @@ func _clamp_camera_position():
 	var half_viewport_width = screen_size.x / 2.0 / zoom.x
 	var half_viewport_height = screen_size.y / 2.0 / zoom.y
 
-	# 计算相机中心允许的最小/最大位置
+	# 计算相机中心允许的最小/最大全局位置
 	var min_x = limit_left + half_viewport_width
 	var max_x = limit_right - half_viewport_width
 	var min_y = limit_top + half_viewport_height
@@ -46,16 +52,11 @@ func _clamp_camera_position():
 		min_y = center_y
 		max_y = center_y
 
-	# 强制将相机中心限制在合法范围内
-	position.x = clamp(position.x, min_x, max_x)
-	position.y = clamp(position.y, min_y, max_y)
-
-	# 修复平滑滞后导致的视野出界问题
-	if is_position_smoothing_enabled():
-		var current_center = get_screen_center_position()
-		if current_center.x < min_x - 1.0 or current_center.x > max_x + 1.0 or \
-		   current_center.y < min_y - 1.0 or current_center.y > max_y + 1.0:
-			reset_smoothing()
+	# 从 Player 位置 clamp 出目标全局位置，再转换为本地偏移
+	# 玩家在边界内 → position=(0,0)，相机完美跟随
+	# 玩家靠近边界 → position 产生偏移，相机停在边界
+	position.x = clamp(parent_pos.x, min_x, max_x) - parent_pos.x
+	position.y = clamp(parent_pos.y, min_y, max_y) - parent_pos.y
 
 func _update_walk_bob(delta: float):
 	if bob_amplitude <= 0.0:

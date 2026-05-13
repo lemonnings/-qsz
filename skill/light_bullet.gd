@@ -23,8 +23,8 @@ var hit_targets: Dictionary = {}
 var travelled_distance: float = 0.0
 var reached_max_range: bool = false
 var fade_out_duration: float = 0.4
-var base_sprite_scale: Vector2 = Vector2.ONE
-var base_collision_scale: Vector2 = Vector2.ONE
+var base_sprite_scale: Vector2 = Vector2(0.3, 0.3)
+var base_collision_scale: Vector2 = Vector2(0.24, 0.24)
 
 func _ready() -> void:
 	if not sprite:

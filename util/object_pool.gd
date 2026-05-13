@@ -15,6 +15,8 @@ var _free_list: Array[Node] = []
 var _warm_up_count: int = 0
 ## 活跃计数（用于外部监控）
 var active_count: int = 0
+## 追踪待延迟移除的节点 instance_id，防止 reacquire 后被延迟 remove_child 误移除
+var _pending_removes: Dictionary = {}
 
 ## scene   : 要池化的 PackedScene（必须 preload）
 ## warm_up : 预热数量，构造时立即创建缓存
@@ -32,6 +34,8 @@ func _ready() -> void:
 ## 从池中取出一个实例。
 ## parent : 取出后挂载的父节点（默认 null 则挂到 get_tree().current_scene）
 ## 返回 : 可用的节点实例（已 visible = true，已加入场景树）
+## 注意：CollisionObject2D 子类在物理回调中需延迟 add_child，
+##       非 CollisionObject2D 节点直接入树，保证 create_tween 等立即可用。
 func acquire(parent: Node = null) -> Node:
 	var inst: Node
 	if _free_list.size() > 0:
@@ -42,15 +46,25 @@ func acquire(parent: Node = null) -> Node:
 	else:
 		inst = _scene.instantiate()
 	
+	# 取消待移除标记（防止延迟 remove_child 误移除已重新取出的节点）
+	_pending_removes.erase(inst.get_instance_id())
+	# 移除回收标记
+	inst.remove_meta("_pool_recycled")
+	
 	# 绑定池引用，便于 recycle() 时找回归属的池
-	inst.set_meta("_object_pool", self )
+	inst.set_meta("_object_pool", self)
 	_activate(inst)
 	
 	var target_parent = parent if parent else get_tree().current_scene
 	if target_parent and inst.get_parent() != target_parent:
 		if inst.get_parent():
 			inst.get_parent().remove_child(inst)
-		target_parent.add_child(inst)
+		# CollisionObject2D 在物理回调中 add_child 会报错，需要延迟
+		# 非 CollisionObject2D（如 damage_label）直接入树，保证立即可用
+		if inst is CollisionObject2D:
+			target_parent.call_deferred("add_child", inst)
+		else:
+			target_parent.add_child(inst)
 	
 	active_count += 1
 	return inst
@@ -60,9 +74,13 @@ func acquire(parent: Node = null) -> Node:
 static func recycle(inst: Node) -> void:
 	if not is_instance_valid(inst):
 		return
+	# 防止双重回收（同一帧内物理回调可能多次触发）
+	if inst.has_meta("_pool_recycled"):
+		return
 	if inst.has_meta("_object_pool"):
 		var pool = inst.get_meta("_object_pool")
 		if pool and is_instance_valid(pool):
+			inst.set_meta("_pool_recycled", true)
 			# 调用实例的重置方法（如果有）
 			if inst.has_method("reset_for_pool"):
 				inst.reset_for_pool()
@@ -75,14 +93,32 @@ func release(inst: Node) -> void:
 	if not is_instance_valid(inst):
 		return
 	_deactivate(inst)
-	# 立即移除（而非 deferred），避免快速 acquire/release 循环时的竞态
+	# CollisionObject2D 在物理回调中 remove_child 会报错，需延迟移除
+	# 非 CollisionObject2D 直接移除，保证池状态一致
 	if inst.get_parent():
-		inst.get_parent().remove_child(inst)
+		if inst is CollisionObject2D:
+			_pending_removes[inst.get_instance_id()] = true
+			call_deferred("_deferred_remove_from_tree", inst)
+		else:
+			inst.get_parent().remove_child(inst)
 	_free_list.append(inst)
 	active_count = max(active_count - 1, 0)
 
+## 延迟执行从场景树移除，带安全检查防止误移除已重新取出的节点
+func _deferred_remove_from_tree(inst: Node) -> void:
+	if not is_instance_valid(inst):
+		return
+	var id = inst.get_instance_id()
+	if not _pending_removes.has(id):
+		# 已被 acquire 重新取出，跳过移除
+		return
+	_pending_removes.erase(id)
+	if inst.get_parent():
+		inst.get_parent().remove_child(inst)
+
 ## 清空池（真正释放所有缓存实例的内存）
 func clear_pool() -> void:
+	_pending_removes.clear()
 	for inst in _free_list:
 		if is_instance_valid(inst):
 			inst.queue_free()
@@ -100,10 +136,9 @@ func _activate(inst: Node) -> void:
 	inst.set_physics_process(true)
 	inst.visible = true
 	# 重新启用碰撞（如果有的话）
-	if inst.has_method("set_deferred"):
-		var cs = inst.get_node_or_null("CollisionShape2D")
-		if cs:
-			cs.set_deferred("disabled", false)
+	var cs = inst.get_node_or_null("CollisionShape2D")
+	if cs:
+		cs.set_deferred("disabled", false)
 
 func _deactivate(inst: Node) -> void:
 	inst.set_process(false)

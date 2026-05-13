@@ -26,6 +26,7 @@ var is_other_sword_wave: bool = false # 标记是否为额外发射的剑气
 
 var is_rebound: bool = false # 标记是否为反弹子弹
 var parent_bullet: bool = true # 标记是否为父级子弹，默认为true
+var weapon_tag: String = "" # 武器分类标签，用于修习树武器篇伤害加成
 
 # 用于防止同一帧内多次处理碰撞
 var collision_processed_this_frame: bool = false
@@ -131,7 +132,7 @@ func initialize_bullet_damage() -> void:
 #宽度提升，被击中的敌人附加减速15%，强化到25%，有10%概率冰冻，对boss无效但会额外造成200%伤害，
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary: # Returns {"damage": float, "is_crit": bool}
-	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": is_summon_bullet}
+	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": is_summon_bullet, "weapon_tag": weapon_tag}
 
 # 处理子弹穿透逻辑，返回是否应该销毁子弹
 # 如果返回false，表示这一帧已经处理过碰撞，应该忽略当前碰撞

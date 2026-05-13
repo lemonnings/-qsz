@@ -1,7 +1,7 @@
 extends Area2D
 
-@export var sprite : AnimatedSprite2D
-@export var collision : CollisionShape2D
+@export var sprite: AnimatedSprite2D
+@export var collision: CollisionShape2D
 
 var duration: float
 var interval: float = 0.5
@@ -67,8 +67,8 @@ func check_collision():
 	
 	for target in all_targets:
 		if target.is_in_group("enemies"):
-			# 造成伤害
-			var damage = PC.pc_atk * damage_ratio
+			# 造成伤害 — 修习树技能篇：应用技能总伤害加成
+			var damage = PC.pc_atk * damage_ratio * (1.0 + Global.study_skill_damage_bonus)
 			if target.has_method("take_damage"):
 				target.take_damage(damage, false, false, "")
 				hit_enemy = true

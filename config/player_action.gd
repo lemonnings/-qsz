@@ -111,6 +111,9 @@ func _ready() -> void:
 	# 将player节点添加到player组中
 	add_to_group("player")
 	
+	# 进入关卡时整体缩放至100%（包括阴影）
+	scale = Vector2(1, 1)
+	
 	# 创建脚底阴影
 	CharacterEffects.create_shadow(self , 22.0, 9.0, 7.5)
 	var faze_manager = Faze.new()
@@ -272,10 +275,11 @@ func _process(_delta: float) -> void:
 	var raw_move_bonus: float
 	if Global.in_town:
 		raw_move_bonus = (Global.cultivation_zhuifeng_level * 0.01)
-		move_speed = 120.0 * 1.2 * (1 + raw_move_bonus)
+		move_speed = 140 * (1 + (raw_move_bonus / 2))
 	else:
+		# 修习树团队篇：移速百分比加成
 		raw_move_bonus = (Global.cultivation_zhuifeng_level * 0.01) + PC.pc_speed + bloodwave_speed_bonus
-		move_speed = 120.0 * (1 + _diminishing_returns(raw_move_bonus))
+		move_speed = 100.0 * (1 + _diminishing_returns(raw_move_bonus)) * (1.0 + Global.study_move_speed_bonus)
 		
 	_update_dynamic_emblem_effects()
 	
@@ -343,7 +347,12 @@ func _zoom_camera(zoom_delta: float) -> void:
 	# 限制缩放范围
 	new_zoom = clamp(new_zoom, min_zoom, max_zoom)
 	
-	# 检查缩放后是否会超出场景边界
+	# 放大（zoom in）总是允许，因为放大只会让视野变小，不会超出边界
+	if zoom_delta > 0:
+		camera.zoom = Vector2(new_zoom, new_zoom)
+		return
+	
+	# 缩小（zoom out）时检查是否会超出场景边界
 	var viewport_size = get_viewport().get_visible_rect().size
 	var camera_rect_size = viewport_size / new_zoom
 	
@@ -357,7 +366,7 @@ func _zoom_camera(zoom_delta: float) -> void:
 	var scene_width = limit_right - limit_left
 	var scene_height = limit_bottom - limit_top
 	
-	# 确保缩放后的视野不会超出场景边界
+	# 确保缩小后的视野不会超出场景边界
 	if camera_rect_size.x <= scene_width and camera_rect_size.y <= scene_height:
 		camera.zoom = Vector2(new_zoom, new_zoom)
 
@@ -472,14 +481,29 @@ func _physics_process(_delta: float) -> void:
 			slow_stack = BuffManager.get_buff_stack("slow")
 		var slow_reduction = max(0.1, 1.0 - (0.1 * slow_stack))
 		
-		velocity = input_vector * move_speed * frozen_reduction * slow_reduction
+		# 咏唱期间减速
+		var chant_reduction = 1.0
+		if PC.is_chanting:
+			chant_reduction = max(0.1, 1.0 - PC.chant_speed_reduction)
 		
-		if velocity.x < -0.01:
-			sprite.flip_h = true
-			sprite_direction_right = false
-		elif velocity.x > 0.01:
-			sprite.flip_h = false
-			sprite_direction_right = true
+		velocity = input_vector * move_speed * frozen_reduction * slow_reduction * chant_reduction
+		
+		# 咏唱期间面向鼠标方向，非咏唱期间面向移动方向
+		if PC.is_chanting:
+			var mouse_pos = get_global_mouse_position()
+			if mouse_pos.x < global_position.x:
+				sprite.flip_h = true
+				sprite_direction_right = false
+			else:
+				sprite.flip_h = false
+				sprite_direction_right = true
+		else:
+			if velocity.x < -0.01:
+				sprite.flip_h = true
+				sprite_direction_right = false
+			elif velocity.x > 0.01:
+				sprite.flip_h = false
+				sprite_direction_right = true
 		
 		if velocity == Vector2.ZERO:
 			animator.play("idle")
@@ -491,12 +515,51 @@ func _physics_process(_delta: float) -> void:
 		update_chenjing_visual()
 		
 		move_and_slide()
+		
+		# 追踪移动距离（10像素=1米，每200米=2000像素触发buff）
+		if not Global.in_town and velocity.length() > 0.1:
+			PC.total_distance_moved += velocity.length() * _delta
+			_check_distance_buffs()
 	elif PC.movement_disabled and Global.in_town:
 		# 城镇中打开菜单时暂停玩家动画
 		velocity = Vector2.ZERO
 		move_and_slide()
 		if animator and animator.is_playing():
 			animator.pause()
+
+
+# 检查移动距离buff（每200米=2000像素触发1层）
+func _check_distance_buffs() -> void:
+	var meters = PC.total_distance_moved / 10.0 # 像素转米
+	var layers = int(meters / 200.0) # 每200米1层
+	
+	# 移动经验buff（只有金色，selected_rewards中有SSR59才生效）
+	if PC.selected_rewards.has("SSR59"):
+		var current_stack = 0
+		if BuffManager.has_buff("move_exp"):
+			current_stack = BuffManager.get_buff_stack("move_exp")
+		var new_stack = mini(layers, 9999)
+		if new_stack != current_stack:
+			PC.exp_multi = PC.exp_multi - current_stack * 0.01 + new_stack * 0.01
+			if new_stack > 0:
+				if current_stack == 0:
+					Global.emit_signal("buff_added", "move_exp", 0.0, new_stack)
+				else:
+					Global.emit_signal("buff_stack_changed", "move_exp", new_stack)
+	
+	# 移动掉落buff（只有金色，selected_rewards中有SSR60才生效）
+	if PC.selected_rewards.has("SSR60"):
+		var current_stack = 0
+		if BuffManager.has_buff("move_drop"):
+			current_stack = BuffManager.get_buff_stack("move_drop")
+		var new_stack = mini(layers, 9999)
+		if new_stack != current_stack:
+			PC.drop_multi = PC.drop_multi - current_stack * 0.01 + new_stack * 0.01
+			if new_stack > 0:
+				if current_stack == 0:
+					Global.emit_signal("buff_added", "move_drop", 0.0, new_stack)
+				else:
+					Global.emit_signal("buff_stack_changed", "move_drop", new_stack)
 
 
 func game_over():
@@ -530,9 +593,27 @@ func game_over():
 			animator = yiqiu_sprite
 			sprite = yiqiu_sprite
 		animator.play("game_over")
+		_play_return_animation()
 		if is_inside_tree() and get_tree().current_scene != null:
 			get_tree().current_scene.show_game_over()
 		$RestartTimer.start()
+
+var _return_scene: PackedScene = preload("res://Scenes/global/return.tscn")
+
+func _play_return_animation() -> void:
+	await get_tree().create_timer(1.3).timeout
+	if not is_inside_tree() or get_tree().current_scene == null:
+		return
+	var return_instance = _return_scene.instantiate()
+	return_instance.global_position = global_position
+	return_instance.modulate.a = 0.0
+	get_tree().current_scene.add_child(return_instance)
+	# 0.2秒渐入 → 动画播放剩余0.8秒 → 0.2秒渐出 → 销毁
+	var tween = return_instance.create_tween()
+	tween.tween_property(return_instance, "modulate:a", 1.0, 0.2)
+	tween.tween_interval(0.9)
+	tween.tween_property(return_instance, "modulate:a", 0.0, 0.2)
+	tween.tween_callback(return_instance.queue_free)
 
 func enter_victory_state() -> void:
 	PC.movement_disabled = true
@@ -586,6 +667,7 @@ func _on_fire_branch(_skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
+	SEManager.play("5")
 	_on_fire_detail_branch()
 
 func _on_fire_moyan(_skill_id: int) -> void:
@@ -593,6 +675,7 @@ func _on_fire_moyan(_skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
+	SEManager.play("6")
 	_on_fire_detail_moyan()
 
 func _on_fire_riyan(_skill_id: int) -> void:
@@ -600,6 +683,7 @@ func _on_fire_riyan(_skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
+	SEManager.play("7")
 	_on_fire_detail_riyan()
 
 func _on_fire_ringFire(_skill_id: int) -> void:
@@ -607,6 +691,7 @@ func _on_fire_ringFire(_skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
+	SEManager.play("8")
 	_on_fire_detail_ringFire()
 
 func _on_fire_thunder(_skill_id: int) -> void:
@@ -614,6 +699,7 @@ func _on_fire_thunder(_skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
+	SEManager.play("9")
 	_on_fire_detail_thunder()
 
 func _on_fire_bloodwave(_skill_id: int) -> void:
@@ -623,6 +709,7 @@ func _on_fire_bloodwave(_skill_id: int) -> void:
 		return
 	if not PC.selected_rewards.has("Bloodwave"):
 		return
+	SEManager.play("10")
 	_on_fire_detail_bloodwave()
 
 func _on_fire_bloodboardsword(_skill_id: int) -> void:
@@ -632,6 +719,7 @@ func _on_fire_bloodboardsword(_skill_id: int) -> void:
 		return
 	if not PC.selected_rewards.has("Bloodboardsword"):
 		return
+	SEManager.play("11")
 	_on_fire_detail_bloodboardsword()
 
 func _on_fire_ice(_skill_id: int = 9) -> void:
@@ -641,6 +729,7 @@ func _on_fire_ice(_skill_id: int = 9) -> void:
 		return
 	if not PC.selected_rewards.has("Ice"):
 		return
+	SEManager.play("3")
 	_on_fire_detail_ice()
 
 func _on_fire_thunder_break(_skill_id: int = 10) -> void:
@@ -648,6 +737,7 @@ func _on_fire_thunder_break(_skill_id: int = 10) -> void:
 		return
 	if PC.is_game_over:
 		return
+	SEManager.play("23")
 	_on_fire_detail_thunder_break()
 
 func _on_fire_light_bullet(_skill_id: int = 11) -> void:
@@ -655,6 +745,7 @@ func _on_fire_light_bullet(_skill_id: int = 11) -> void:
 		return
 	if PC.is_game_over:
 		return
+	SEManager.play("4")
 	_on_fire_detail_light_bullet()
 
 func _on_fire_detail_light_bullet() -> void:
@@ -875,6 +966,7 @@ func _on_fire_water(_skill_id: int = 12) -> void:
 		return
 	if PC.is_game_over:
 		return
+	SEManager.play("12")
 	_on_fire_detail_water()
 
 func _on_fire_detail_water() -> void:
@@ -984,7 +1076,7 @@ func _on_fire_qiankun(_skill_id: int = 13) -> void:
 	
 	if not qiankun_scene:
 		return
-		
+	SEManager.play("13")
 	var script = load("res://Script/skill/qiankun.gd")
 	if script:
 		script.fire_skill(qiankun_scene, global_position, get_tree())
@@ -1009,7 +1101,7 @@ func _on_fire_detail() -> void:
 		else:
 			base_direction = Vector2.RIGHT
 
-	$FireSound.play()
+	SEManager.play("1")
 
 	var main_bullet = bullet_scene.instantiate()
 	main_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
@@ -1065,7 +1157,7 @@ func _fire_extra_sword_attack(damage_multiplier: float) -> void:
 	var bullet_node_size = Global.get_attack_range_multiplier()
 	var base_direction = _get_base_weapon_direction()
 	var spawn_position = position
-	$FireSound.play()
+	SEManager.play("1")
 	var main_bullet = bullet_scene.instantiate()
 	main_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
 	main_bullet.set_direction(base_direction)
@@ -1081,7 +1173,7 @@ func _fire_extra_qigong_attack(damage_multiplier: float) -> void:
 	if not qigong_scene:
 		return
 	_sync_qigong_runtime_data()
-	$FireSound.play()
+	SEManager.play("2")
 	_spawn_qigong(_get_base_weapon_direction(), Vector2.ZERO, damage_multiplier, {"is_emblem_extra_attack": true})
 
 func _fire_extra_light_bullet_attack(damage_multiplier: float) -> void:
@@ -1089,7 +1181,7 @@ func _fire_extra_light_bullet_attack(damage_multiplier: float) -> void:
 		return
 	var data = _build_light_bullet_data()
 	var instance = Global.light_bullet_pool.acquire(get_tree().current_scene)
-	$FireSound.play()
+	SEManager.play("4")
 	instance.setup_light_bullet(
 		global_position,
 		_get_base_weapon_direction(),
@@ -1108,7 +1200,7 @@ func _fire_extra_ice_attack(damage_multiplier: float) -> void:
 		return
 	var data = IceFlower._build_data()
 	var instance = Global.ice_flower_pool.acquire(get_tree().current_scene)
-	$FireSound.play()
+	SEManager.play("3")
 	instance.setup_ice_flower(
 		global_position,
 		_get_base_weapon_direction(),
@@ -1348,7 +1440,7 @@ func _on_fire_detail_branch() -> void:
 			base_direction = Vector2.RIGHT
 
 	# Play sound
-	#$FireSound.play()
+	# SEManager.play("5") は _on_fire_branch() で再生済み
 
 	var main_bullet = Global.branch_pool.acquire(get_tree().current_scene)
 	main_bullet.position = spawn_position
@@ -1375,7 +1467,7 @@ func _on_fire_detail_moyan() -> void:
 			base_direction = Vector2.RIGHT
 
 	# Play sound
-	#$FireSound.play()
+	# SEManager.play("6") は _on_fire_moyan() で再生済み
 
 	var main_bullet = moyan_scene.instantiate()
 	main_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
@@ -1442,6 +1534,7 @@ func _on_fire_duize(_skill_id: int = 14) -> void:
 		return
 	if PC.is_game_over:
 		return
+	SEManager.play("20")
 	_on_fire_detail_duize()
 
 func _on_fire_detail_duize() -> void:
@@ -1462,13 +1555,14 @@ func _on_fire_holylight(_skill_id: int = 18) -> void:
 		return
 	if not PC.selected_rewards.has("Holylight"):
 		return
+	SEManager.play("18")
 	_on_fire_detail_holylight()
 
 func _on_fire_detail_holylight() -> void:
 	if not holy_light_scene:
 		return
 
-	FazeLight.fire_skill(holy_light_scene, global_position, get_tree())
+	HolyLight.fire_skill(holy_light_scene, global_position, get_tree())
 
 
 func _on_fire_detail_thunder_break() -> void:
@@ -1730,7 +1824,7 @@ func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, _wor
 func _on_player_hit_ignore_invincible(damage_val: float, shield_val: float, attacker: Node2D, _world_position: Vector2, _source_name: String) -> void:
 	if PC.is_game_over:
 		return
-	# 播放受击音效和闪烁，但不触发无敌
+	# 播放音效和闪烁，但不触发无敌
 	if PC.pc_hp > 0:
 		$HitSound.play()
 		sprite.modulate = Color(1, 0.5, 0.5)
@@ -2039,6 +2133,7 @@ func _on_fire_xunfeng(_skill_id: int) -> void:
 		return
 	if not PC.selected_rewards.has("Xunfeng"):
 		return
+	SEManager.play("15")
 	_on_fire_detail_xunfeng()
 
 func _on_fire_detail_xunfeng() -> void:
@@ -2056,6 +2151,7 @@ func _on_fire_genshan(_skill_id: int) -> void:
 		return
 	if not PC.selected_rewards.has("Genshan"):
 		return
+	SEManager.play("16")
 	_on_fire_detail_genshan()
 
 func _on_fire_detail_genshan() -> void:
@@ -2075,7 +2171,7 @@ func _fire_ring_bullets() -> void:
 	var spawn_position = position
 	
 	# 播放音效
-	$FireSound.play()
+	SEManager.play("1")
 	
 	# 按圆形状均匀散布子弹
 	for i in range(bullet_count):
@@ -2108,7 +2204,7 @@ func _fire_wave_bullets() -> void:
 		base_direction = Vector2.LEFT
 	
 	# 播放音效
-	$FireSound.play()
+	SEManager.play("1")
 	
 	var current_arc_deg = 35.0 + PC.wave_bullet_count
 	for i in range(bullet_count):
@@ -2141,6 +2237,7 @@ func _on_fire_xuanwu(_skill_id: int) -> void:
 		return
 	if not PC.selected_rewards.has("Xuanwu"):
 		return
+	SEManager.play("14")
 	_on_fire_detail_xuanwu()
 
 func _on_fire_detail_xuanwu() -> void:
@@ -2158,6 +2255,7 @@ func _on_fire_qigong(_skill_id: int = 19) -> void:
 		return
 	if not PC.selected_rewards.has("Qigong"):
 		return
+	SEManager.play("2")
 	_on_fire_detail_qigong()
 
 func _on_fire_detail_qigong() -> void:
@@ -2201,6 +2299,7 @@ func _on_fire_dragonwind(_skill_id: int = 20) -> void:
 		return
 	if not PC.selected_rewards.has("Dragonwind"):
 		return
+	SEManager.play("17")
 	_on_fire_detail_dragonwind()
 
 func _on_fire_detail_dragonwind() -> void:

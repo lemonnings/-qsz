@@ -64,7 +64,7 @@ func _on_warning_finished():
 
 func _on_damage_dealt(damage_amount: float):
     print("对玩家造成伤害: ", damage_amount)
-    # 显示伤害数字、播放受击音效等
+    # 显示伤害数字、播放音效等
 ```
 
 ## API参考

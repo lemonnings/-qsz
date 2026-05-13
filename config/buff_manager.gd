@@ -36,6 +36,13 @@ static var active_buffs: Dictionary = {}
 # Buff数据字典 {buff_id: {remaining_time, stack, buff_data}}
 static var buff_data: Dictionary = {}
 
+# 切换所有Buff UI的鼠标交互（升级选项出现时关闭，消失时恢复）
+static func set_buffs_interactive(enabled: bool) -> void:
+	var filter = Control.MOUSE_FILTER_PASS if enabled else Control.MOUSE_FILTER_IGNORE
+	for buff_ui in active_buffs.values():
+		if is_instance_valid(buff_ui):
+			buff_ui.mouse_filter = filter
+
 func _ready():
 	# 清理静态数据，防止跨局残留
 	active_buffs.clear()
@@ -126,7 +133,7 @@ static func _init_buff_configs():
 	buff_configs["holy_fire"] = BuffData.new(
 		"holy_fire",
 		"神圣灼烧",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/buff_zhuoshao.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_zhuoshao.png",
 		BuffType.TEMPORARY,
 		1,
 		"对周围造成伤害并恢复体力"
@@ -144,7 +151,7 @@ static func _init_buff_configs():
 	buff_configs["burning_fire"] = BuffData.new(
 		"burning_fire",
 		"燃火",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/zhuoshao.png",
 		BuffType.TEMPORARY,
 		4,
 		"每秒受到最大体力1%的伤害"
@@ -153,7 +160,7 @@ static func _init_buff_configs():
 	buff_configs["frozen"] = BuffData.new(
 		"frozen",
 		"冻僵",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/binghan.png",
 		BuffType.TEMPORARY,
 		4,
 		"降低移动速度10%"
@@ -162,7 +169,7 @@ static func _init_buff_configs():
 	buff_configs["stun"] = BuffData.new(
 		"stun",
 		"眩晕",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/chenjing.png",
 		BuffType.TEMPORARY,
 		1,
 		"眩晕中，无法移动"
@@ -171,7 +178,7 @@ static func _init_buff_configs():
 	buff_configs["slow"] = BuffData.new(
 		"slow",
 		"减速",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianbu.png",
 		BuffType.TEMPORARY,
 		10,
 		"移动速度大幅降低"
@@ -180,7 +187,7 @@ static func _init_buff_configs():
 	buff_configs["restrained"] = BuffData.new(
 		"restrained",
 		"拘束",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xiepo.png",
 		BuffType.PERMANENT,
 		1,
 		"受到暗影拘束，减伤率提升至80%，但造成的伤害降低80%"
@@ -189,16 +196,16 @@ static func _init_buff_configs():
 	buff_configs["boss_a_detox"] = BuffData.new(
 		"boss_a_detox",
 		"解毒",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/yuliao.png",
 		BuffType.TEMPORARY,
 		1,
-		"持续3秒，期间触碰 boss_a 的毒圈会将其净化销毁"
+		"持续4秒，期间触碰 boss_a 的毒圈会将其净化销毁"
 	)
 
 	buff_configs["tiandao_1"] = BuffData.new(
 		"tiandao_1",
 		"天道碎片·一",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/tiandao.png",
 		BuffType.PERMANENT,
 		1,
 		"已获得天道碎片·一，最终伤害+8%。集齐三块碎片可得悟天道！"
@@ -207,7 +214,7 @@ static func _init_buff_configs():
 	buff_configs["tiandao_2"] = BuffData.new(
 		"tiandao_2",
 		"天道碎片·二",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/tiandao.png",
 		BuffType.PERMANENT,
 		1,
 		"已获得天道碎片·二，体力上限+12%。集齐三块碎片可得悟天道！"
@@ -216,7 +223,7 @@ static func _init_buff_configs():
 	buff_configs["tiandao_3"] = BuffData.new(
 		"tiandao_3",
 		"天道碎片·三",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/tiandao.png",
 		BuffType.PERMANENT,
 		1,
 		"已获得天道碎片·三，减伤率+5%。集齐三块碎片可得悟天道！"
@@ -225,12 +232,89 @@ static func _init_buff_configs():
 	buff_configs["dedao"] = BuffData.new(
 		"dedao",
 		"得道",
-		"res://AssetBundle/Sprites/Ghostpixxells_pixelfood/07_bread.png",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/tiandao.png",
 		BuffType.PERMANENT,
 		1,
 		"三块天道碎片已融合！最终伤害+100%，体力上限+150%，减伤率+70%"
 	)
+	
+	buff_configs["move_exp"] = BuffData.new(
+		"move_exp",
+		"行修·悟",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/mingxiang.png",
+		BuffType.PERMANENT,
+		9999,
+		"每移动200米，经验获取率+1%"
+	)
+	
+	buff_configs["move_drop"] = BuffData.new(
+		"move_drop",
+		"行修·缘",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_treasure.png",
+		BuffType.PERMANENT,
+		9999,
+		"每移动200米，治愈精华掉落率+1%"
+	)
+	
+	buff_configs["xianqi"] = BuffData.new(
+		"xianqi",
+		"仙气凝聚",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xianqiningju.png",
+		BuffType.PERMANENT,
+		9999,
+		"仙气凝聚中，每移动200米汇聚1点仙气"
+	)
+	
+	buff_configs["xianli"] = BuffData.new(
+		"xianli",
+		"仙力护体",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xianqihuti.png",
+		BuffType.PERMANENT,
+		1,
+		"仙气凝聚已满！最终伤害+25%，减伤率+10%，攻击速度+20%，移动速度+30%"
+	)
 
+	# Boss石巨人 — 落石预警debuff
+	buff_configs["rockfall_warn_1"] = BuffData.new(
+		"rockfall_warn_1",
+		"落石预警I",
+		"res://AssetBundle/Sprites/Sprite sheets/Icons/stone1.png",
+		BuffType.TEMPORARY,
+		1,
+		"落石即将落下"
+	)
+	buff_configs["rockfall_warn_2"] = BuffData.new(
+		"rockfall_warn_2",
+		"落石预警II",
+		"res://AssetBundle/Sprites/Sprite sheets/Icons/stone2.png",
+		BuffType.TEMPORARY,
+		1,
+		"落石即将落下"
+	)
+	buff_configs["rockfall_warn_3"] = BuffData.new(
+		"rockfall_warn_3",
+		"落石预警III",
+		"res://AssetBundle/Sprites/Sprite sheets/Icons/stone3.png",
+		BuffType.TEMPORARY,
+		1,
+		"落石即将落下"
+	)
+	buff_configs["rockfall_warn_4"] = BuffData.new(
+		"rockfall_warn_4",
+		"落石预警IV",
+		"res://AssetBundle/Sprites/Sprite sheets/Icons/stone4.png",
+		BuffType.TEMPORARY,
+		1,
+		"落石即将落下"
+	)
+	buff_configs["rockfall_warn_5"] = BuffData.new(
+		"rockfall_warn_5",
+		"落石预警V",
+		"res://AssetBundle/Sprites/Sprite sheets/Icons/stone5.png",
+		BuffType.TEMPORARY,
+		1,
+		"落石即将落下"
+	)
 
 static func get_buff_data(buff_id: String) -> BuffData:
 	if buff_configs.is_empty():
@@ -268,7 +352,7 @@ func setup_buff_container(container: HBoxContainer) -> void:
 	if buff_container:
 		# 设置容器属性
 		buff_container.alignment = BoxContainer.ALIGNMENT_CENTER
-		buff_container.add_theme_constant_override("separation", 8)
+		buff_container.add_theme_constant_override("separation", 12)
 
 func _on_buff_added(buff_id: String, duration: float, stack: int):
 	# 获取buff配置数据

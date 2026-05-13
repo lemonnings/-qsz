@@ -23,7 +23,7 @@ extends Node
 
 var items_data = {
 	"item_001": {
-		"item_name": "愈灵",
+		"item_name": "治愈灵气",
 		"item_stack_max": 10,
 		"item_type": "immediate", # 立即生效
 		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/healths.png",
@@ -32,6 +32,7 @@ var items_data = {
 		"item_use_condition": "",
 		"item_detail": "恢复少量生命值。",
 		"item_rare": "common", # 普通
+		"item_color": Color(0.56, 0.93, 0.56, 1), # 浅绿色
 		"item_anime": "res://assets/animations/item_pickup_common.tres"
 	},
 	"item_002": {
@@ -1355,30 +1356,50 @@ func get_item_property(item_id: String, property_name: String):
 		return null
 
 # 野果拾取函数
+var _heal_aura_buff_timer: SceneTreeTimer = null # 治愈灵气临时buff计时器
+var _heal_aura_applied_speed: float = 0.0 # 当前已施加的移速加成
+var _heal_aura_applied_dr: float = 0.0 # 当前已施加的减伤加成
+
 func _on_item_001_picked_up(_player, _item_id := ""):
 	if PC.is_game_over:
 		# victory 结算吸取阶段：无条件拾取（物品消失），但不实际回血
 		if Global.victory_collecting:
 			return true
 		return false
-	# 只有满血时才能拾取
-	#if PC.pc_hp != PC.pc_max_hp:
-		#PC.pc_hp += PC.pc_max_hp * 0.2
-		## 防止生命值超过上限
-		#if PC.pc_hp > PC.pc_max_hp:
-			#PC.pc_hp = PC.pc_max_hp
-		#return true # 表示成功拾取
-	#else:
-		#return false # 表示无法拾取
 	var base_heal = PC.pc_max_hp * 0.2
-	var final_heal = base_heal * (1 + PC.heal_multi + Global.fruit_heal_multi)
+	# 修习树特殊篇 study_heal_aura_recovery_bonus 增加回复量
+	var final_heal = base_heal * (1 + PC.heal_multi + Global.fruit_heal_multi + Global.study_heal_aura_recovery_bonus)
 	PC.pc_hp += int(final_heal)
 	# 防止生命值超过上限
 	if PC.pc_hp > PC.pc_max_hp:
 		PC.pc_hp = PC.pc_max_hp
 
-	
+	# 治愈灵气拾取后临时buff：移速提升 + 减伤率提升，持续3秒
+	var speed_bonus = Global.study_heal_aura_speed_bonus
+	var dr_bonus = Global.study_heal_aura_damage_reduction
+	if speed_bonus > 0.0 or dr_bonus > 0.0:
+		# 先移除上一次的buff（如果还在生效）
+		_remove_heal_aura_buff()
+		# 施加新buff
+		_heal_aura_applied_speed = speed_bonus
+		_heal_aura_applied_dr = dr_bonus
+		PC.pc_speed *= (1.0 + speed_bonus)
+		PC.damage_reduction_rate += dr_bonus
+		# 3秒后自动移除
+		_heal_aura_buff_timer = _player.get_tree().create_timer(3.0)
+		_heal_aura_buff_timer.timeout.connect(_remove_heal_aura_buff)
+
 	return true # 表示成功拾取
+
+func _remove_heal_aura_buff() -> void:
+	if _heal_aura_applied_speed > 0.0:
+		PC.pc_speed /= (1.0 + _heal_aura_applied_speed)
+		_heal_aura_applied_speed = 0.0
+	if _heal_aura_applied_dr > 0.0:
+		PC.damage_reduction_rate -= _heal_aura_applied_dr
+		PC.damage_reduction_rate = max(0.0, PC.damage_reduction_rate)
+		_heal_aura_applied_dr = 0.0
+	_heal_aura_buff_timer = null
 
 func on_item_picked_up(_player, item_id: String) -> bool:
 	return _add_to_inventory(item_id)

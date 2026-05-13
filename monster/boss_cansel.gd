@@ -91,6 +91,12 @@ func _ready():
 	add_to_group("boss")
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
+	# 红色描边
+	if sprite:
+		sprite.material = ShaderMaterial.new()
+		sprite.material.shader = _get_outline_shader()
+		sprite.material.set_shader_parameter("outline_color", Color.RED)
+		sprite.material.set_shader_parameter("outline_width", 1.0)
 	# 根据玩家DPS和难度增加Boss HP
 	var dps_multiplier := 6
 	match Global.current_stage_difficulty:
@@ -101,18 +107,24 @@ func _ready():
 		Global.STAGE_DIFFICULTY_POETRY:
 			dps_multiplier = 10
 	hpMax += Global.get_current_dps() * dps_multiplier
+	# 诗想难度下Boss生命额外提升40倍
+	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
+		hpMax *= 32
 	hp = hpMax
 	
-	# 浅层难度下Boss只造成25%伤害
+	# 浅层难度下Boss只造成50%伤害
 	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
 		atk *= 0.5
+	# 诗想难度下Boss攻击额外提升50%
+	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
+		atk *= 1.75
 
 	setup_monster_base()
 	player_hit_emit_self = true
 	use_debuff_take_damage_multiplier = false
 	check_action_disabled_on_body_entered = false
 
-	CharacterEffects.create_shadow(self , 50.0, 16.0, 40.0)
+	CharacterEffects.create_shadow(self , 50.0, 16.0, 24.0)
 
 	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "坎塞尔")
 	Global.emit_signal("boss_hp_bar_show")
@@ -545,7 +557,7 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, _direction: Vector2):
 					Global.emit_signal("player_heal", float(heal_amount), player_pos)
 					consumed = true
 				else:
-					# 否则：扣除当前生命30% + 叠加燃烧（正常触发受击无敌）
+					# 否则：扣除当前生命30% + 叠加燃烧（正常触发无敌）
 					Global.emit_signal("player_hit", self )
 					var actual_damage = int(PC.pc_hp * 0.3)
 					PC.pc_hp -= actual_damage
@@ -554,6 +566,7 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, _direction: Vector2):
 					if BuffManager.has_buff("burning_fire"):
 						stacks = BuffManager.get_buff_stack("burning_fire") + 1
 					Global.emit_signal("buff_added", "burning_fire", 12.0, stacks)
+					_show_buff_notification("burning_fire")
 					consumed = true
 			else:
 				# 身上有燃烧：解除燃烧 + 回复最大生命30% + 不受冰冻
@@ -568,7 +581,7 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, _direction: Vector2):
 					Global.emit_signal("player_heal", float(heal_amount), player_pos)
 					consumed = true
 				else:
-					# 否则：扣除当前生命30% + 叠加冰冻（正常触发受击无敌）
+					# 否则：扣除当前生命30% + 叠加冰冻（正常触发无敌）
 					var actual_damage = int(PC.pc_hp * 0.3)
 					PC.pc_hp -= actual_damage
 					Global.emit_signal("player_hit", float(actual_damage), 0.0, self , player_pos, "星冰碎片")
@@ -576,6 +589,7 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, _direction: Vector2):
 					if BuffManager.has_buff("frozen"):
 						stacks = BuffManager.get_buff_stack("frozen") + 1
 					Global.emit_signal("buff_added", "frozen", 12.0, stacks)
+					_show_buff_notification("frozen")
 					consumed = true
 			
 			if consumed:
@@ -727,6 +741,7 @@ class _ParticleDot extends Node2D:
 
 # ================= 技能逻辑 =================
 func _attack_blazing_fire():
+	SEManager.play("130")
 	_show_symbol("fire")
 	var chant_time = 1.0 if is_chain_chanting else 2.0
 	if not _combo_mode:
@@ -775,6 +790,7 @@ func _attack_blazing_fire():
 	_finish_skill()
 
 func _attack_extreme_ice():
+	SEManager.play("131")
 	_show_symbol("ice")
 	var chant_time = 1.0 if is_chain_chanting else 2.0
 	if not _combo_mode:
@@ -804,6 +820,7 @@ func _attack_extreme_ice():
 	warn.start_warning(boss_pos, 1.0, ice_radius, warn_dur, atk * 1.2, "冰封", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
 
 func _attack_ring_thunder():
+	SEManager.play("132")
 	_show_symbol("thunder")
 	var chant_time = 1.0 if is_chain_chanting else 2.0
 	if not _combo_mode:
@@ -983,6 +1000,7 @@ class _DirectionArrowIndicator extends Node2D:
 		draw_rect(Rect2(center + Vector2(0, -P), Vector2(P, P)), highlight)
 
 func _attack_ground_fire():
+	SEManager.play("133")
 	Global.emit_signal("boss_chant_start", "耀星", 1.5)
 	await get_tree().create_timer(1.5).timeout
 	if not is_instance_valid(self ) or is_dead: return
@@ -1117,6 +1135,7 @@ func _spawn_ground_fire_line(start_pos: Vector2, direction: Vector2, step_dist: 
 		current_pos += direction * step_dist
 
 func _attack_cross_fire():
+	SEManager.play("134")
 	_show_symbol("cross")
 	var chant_time = 1.0 if is_chain_chanting else 1.5
 	if not _combo_mode:
@@ -1135,7 +1154,9 @@ func _attack_cross_fire():
 	warn1.attacker = self ; warn2.attacker = self
 	
 	var warn_dur = chant_time if not _combo_mode else 0.8
+	warn1.source_name = "十字十字"
 	warn1.start_warning(boss_pos + Vector2(-600, 0), boss_pos + Vector2(600, 0), cross_width, warn_dur, atk * 2.0, "炽焰十字")
+	warn2.source_name = "十字十字"
 	warn2.start_warning(boss_pos + Vector2(0, -600), boss_pos + Vector2(0, 600), cross_width, warn_dur, atk * 2.0, "炽焰十字")
 	
 	if _combo_mode:
@@ -1157,6 +1178,7 @@ func _attack_cross_fire():
 	_finish_skill()
 
 func _attack_x_ice():
+	SEManager.play("135")
 	_show_symbol("x")
 	var chant_time = 1.0 if is_chain_chanting else 1.5
 	if not _combo_mode:
@@ -1176,7 +1198,9 @@ func _attack_x_ice():
 	warn1.attacker = self ; warn2.attacker = self
 	
 	var warn_dur = chant_time if not _combo_mode else 0.8
+	warn1.source_name = "交叉十字"
 	warn1.start_warning(boss_pos + Vector2(-500, -500), boss_pos + Vector2(500, 500), x_width, warn_dur, atk * 2.0, "霜牙交错")
+	warn2.source_name = "交叉十字"
 	warn2.start_warning(boss_pos + Vector2(-500, 500), boss_pos + Vector2(500, -500), x_width, warn_dur, atk * 2.0, "霜牙交错")
 	
 	if _combo_mode:
@@ -1199,6 +1223,7 @@ func _attack_x_ice():
 
 # ================= 冰刺术 =================
 func _attack_ice_spike():
+	SEManager.play("137")
 	var ice_fan_angle = CORE_ICE_SPIKE_ANGLE if _is_core_or_harder() else 210.0
 	var spike_angle_step = 15
 	if _is_poetry():
@@ -1338,6 +1363,7 @@ func _clear_overlay(canvas: CanvasLayer):
 
 # ================= 诗想终极技能 =================
 func _attack_poetry_ultimate():
+	SEManager.play("138")
 	var is_fire_ultimate = randi() % 2 == 0
 	var charge_level = (randi() % 2) + 1 # I or II
 	# 蓄力I → 释放 II or III, 蓄力II → 释放 III or IV
@@ -1432,6 +1458,7 @@ func _attack_poetry_ultimate():
 	_finish_skill()
 
 func _attack_chain_chant():
+	SEManager.play("136")
 	is_chain_chanting = true
 	Global.emit_signal("boss_chant_start", "三连咏唱", 4.0)
 	
@@ -1584,3 +1611,41 @@ func _die():
 	var shadow = get_node_or_null("Shadow")
 	if shadow: shadow.visible = false
 	queue_free()
+
+func _show_buff_notification(buff_id: String):
+	var buff_config = BuffManager.get_buff_data(buff_id)
+	if not buff_config:
+		return
+	var canvas = get_tree().current_scene.get_node_or_null("CanvasLayer")
+	if canvas and canvas.has_method("show_buff_notification"):
+		canvas.show_buff_notification(buff_config.icon_path, buff_config.name)
+
+static func _get_outline_shader() -> Shader:
+	var shader = Shader.new()
+	shader.code = """
+shader_type canvas_item;
+
+uniform vec4 outline_color : source_color = vec4(1.0, 0.0, 0.0, 1.0);
+uniform float outline_width : hint_range(0.0, 10.0) = 1.0;
+
+void fragment() {
+	vec4 col = texture(TEXTURE, UV);
+	if (col.a < 0.01) {
+		float a = 0.0;
+		a = max(a, texture(TEXTURE, UV + vec2(-outline_width / float(TEXTURE_PIXEL_SIZE.x), 0.0)).a);
+		a = max(a, texture(TEXTURE, UV + vec2( outline_width / float(TEXTURE_PIXEL_SIZE.x), 0.0)).a);
+		a = max(a, texture(TEXTURE, UV + vec2(0.0, -outline_width / float(TEXTURE_PIXEL_SIZE.y))).a);
+		a = max(a, texture(TEXTURE, UV + vec2(0.0,  outline_width / float(TEXTURE_PIXEL_SIZE.y))).a);
+		a = max(a, texture(TEXTURE, UV + vec2(-outline_width / float(TEXTURE_PIXEL_SIZE.x), -outline_width / float(TEXTURE_PIXEL_SIZE.y))).a);
+		a = max(a, texture(TEXTURE, UV + vec2( outline_width / float(TEXTURE_PIXEL_SIZE.x), -outline_width / float(TEXTURE_PIXEL_SIZE.y))).a);
+		a = max(a, texture(TEXTURE, UV + vec2(-outline_width / float(TEXTURE_PIXEL_SIZE.x),  outline_width / float(TEXTURE_PIXEL_SIZE.y))).a);
+		a = max(a, texture(TEXTURE, UV + vec2( outline_width / float(TEXTURE_PIXEL_SIZE.x),  outline_width / float(TEXTURE_PIXEL_SIZE.y))).a);
+		if (a > 0.01) {
+			COLOR = outline_color;
+			return;
+		}
+	}
+	COLOR = col;
+}
+"""
+	return shader

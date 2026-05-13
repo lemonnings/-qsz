@@ -10,6 +10,9 @@ var is_test: bool = false
 var time_slow_enabled: bool = false
 var is_debug: bool = true
 
+# 战斗速度倍率（由速度切换按钮控制）
+var game_speed: float = 1.0
+
 # 保存指示器相关
 const SAVE_INDICATOR_SCENE := preload("res://Scenes/global/loading_anime.tscn")
 var _save_indicator_layer: CanvasLayer
@@ -93,8 +96,8 @@ var exp_orb_system = preload("res://Script/system/exp_orb_system.gd").new()
 
 @export var unlock_moning: bool = true
 @export var unlock_yiqiu: bool = true
-@export var unlock_noam: bool = true
-@export var unlock_kansel: bool = true
+@export var unlock_noam: bool = false
+@export var unlock_kansel: bool = false
 
 @export var exp_multi: float = 0
 @export var drop_multi: float = 0
@@ -239,6 +242,110 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 # 天赋树节点等级 { "weapon1-1": 0, "weapon2-2": 1, ... }
 @export var player_study_tree: Dictionary = {}
 
+# ---- 修习树 · 武器伤害加成（由 SettingStudyTreeUp.apply_all() 刷新）----
+@export var study_main_weapon_damage_bonus: float = 0.0 # 主武器强化
+@export var study_sword_damage_bonus: float = 0.0 # 刀剑系
+@export var study_projectile_damage_bonus: float = 0.0 # 弹道系
+@export var study_wind_damage_bonus: float = 0.0 # 啸风系
+@export var study_wide_damage_bonus: float = 0.0 # 广域系
+@export var study_life_damage_bonus: float = 0.0 # 生灵系
+@export var study_destroy_damage_bonus: float = 0.0 # 破坏系
+@export var study_fire_damage_bonus: float = 0.0 # 炽炎系
+@export var study_protect_damage_bonus: float = 0.0 # 护佑系
+@export var study_thunder_damage_bonus: float = 0.0 # 鸣雷系
+@export var study_bagua_damage_bonus: float = 0.0 # 八卦系
+@export var study_heal_damage_bonus: float = 0.0 # 治愈系
+@export var study_treasure_damage_bonus: float = 0.0 # 宝器系
+
+# ---- 修习树 · 武器解锁标记 ----
+@export var study_unlock_qiankun: bool = false # 乾坤双剑
+@export var study_unlock_dragonwind: bool = false # 风龙杖
+@export var study_unlock_bloodwave: bool = false # 血气波
+@export var study_unlock_water: bool = false # 坎水诀
+@export var study_unlock_baoyan: bool = false # 爆炎诀
+@export var study_unlock_genshan: bool = false # 艮山诀
+@export var study_unlock_thunder_break: bool = false # 天雷破
+@export var study_unlock_holylight: bool = false # 圣光术
+@export var study_unlock_xuanwu: bool = false # 玄武盾
+
+# ---- 修习树 · 技能篇加成（由 SettingStudyTreeSkill.apply_all() 刷新）----
+@export var study_skill_damage_bonus: float = 0.0 # 技能伤害提升
+# -- 技能解锁标记 --
+@export var study_unlock_shouhua: bool = false # 兽化
+@export var study_unlock_shensheng: bool = false # 神圣灼烧
+@export var study_unlock_mowenzhen: bool = false # 魔纹阵
+@export var study_unlock_xuanbing: bool = false # 玄冰
+@export var study_unlock_luanji: bool = false # 乱击
+@export var study_unlock_liaoshang: bool = false # 疗伤
+@export var study_unlock_mizongbu: bool = false # 迷踪步
+@export var study_unlock_shuimu: bool = false # 水幕护体
+@export var study_unlock_mingxiang: bool = false # 冥想
+@export var study_unlock_chiyan: bool = false # 炽炎
+# -- 技能强化数值 --
+@export var study_fengleipo_damage_bonus: float = 0.0 # 强化风雷破·伤害提升
+@export var study_fengleipo_range_bonus: float = 0.0 # 强化风雷破·范围提升
+@export var study_shouhua_duration_bonus: float = 0.0 # 强化兽化·持续时间
+@export var study_shouhua_atkspeed_bonus: float = 0.0 # 强化兽化·攻速提升
+@export var study_shensheng_duration_bonus: float = 0.0 # 强化神圣灼烧·持续时间
+@export var study_shensheng_damage_bonus: float = 0.0 # 强化神圣灼烧·伤害提升
+@export var study_mowenzhen_size_bonus: float = 0.0 # 强化魔纹阵·大小提升
+@export var study_mowenzhen_cd_reduction: float = 0.0 # 强化魔纹阵·冷却减少
+@export var study_xuanbing_size_bonus: float = 0.0 # 强化玄冰·大小提升
+@export var study_xuanbing_damage_bonus: float = 0.0 # 强化玄冰·伤害提升
+@export var study_liaoyu_recovery_bonus: float = 0.0 # 强化疗愈·回复提升
+@export var study_liaoyu_cd_reduction: float = 0.0 # 强化疗愈·冷却减少
+@export var study_luanji_count_bonus: int = 0 # 强化乱击·剑气数量
+@export var study_luanji_damage_bonus: float = 0.0 # 强化乱击·伤害提升
+@export var study_mizongbu_duration_bonus: float = 0.0 # 强化迷踪步·持续时间
+@export var study_mizongbu_dmgreduction_bonus: float = 0.0 # 强化迷踪步·减伤率
+@export var study_shuimu_shield_bonus: float = 0.0 # 强化水幕护体·护盾提升
+@export var study_shuimu_cd_reduction: float = 0.0 # 强化水幕护体·冷却减少
+@export var study_mingxiang_cd_reduction: float = 0.0 # 强化冥想·冷却减少
+@export var study_shanbi_invincible_bonus: float = 0.0 # 强化闪避·无敌时间
+@export var study_shanbi_cd_reduction: float = 0.0 # 强化闪避·冷却减少
+@export var study_chiyan_enhance_damage_bonus: float = 0.0 # 强化炽炎·伤害提升
+
+# ---- 修习树 · 领悟篇加成（由 SettingStudyTreeLearn.apply_all() 刷新）----
+@export var study_emblem_effect_bonus: float = 0.0 # 纹章效果提升
+@export var study_initial_lucky: int = 0 # 初始天命提升
+@export var study_summon_damage_bonus: float = 0.0 # 唤灵系伤害提升
+@export var study_summon_interval_reduction: float = 0.0 # 唤灵系攻击间隔缩短
+@export var study_emblem_slots_bonus: int = 0 # 纹章栏位增加
+@export var study_exp_bonus: float = 0.0 # 经验获取提升
+@export var study_exp_reduction: float = 0.0 # 升级经验降低
+@export var study_six_chance_bonus: float = 0.0 # 六识系出现概率提升
+@export var study_red_chance_bonus: float = 0.0 # 逆天概率提升
+@export var study_gold_chance_bonus: float = 0.0 # 臻境概率提升
+@export var study_purple_chance_bonus: float = 0.0 # 悟道概率提升
+
+# ---- 修习树 · 团队篇加成（由 SettingStudyTreeTeam.apply_all() 刷新）----
+@export var study_atk_bonus: float = 0.0 # 攻击提升
+@export var study_hp_bonus: int = 0 # HP提升
+@export var study_atk_speed_bonus: float = 0.0 # 攻速提升
+@export var study_move_speed_bonus: float = 0.0 # 移速提升
+@export var study_crit_rate_bonus: float = 0.0 # 暴击率提升
+@export var study_crit_damage_bonus: float = 0.0 # 暴击伤害提升
+@export var study_qi_gain_bonus: float = 0.0 # 真气获取率提升
+@export var study_damage_reduction_bonus: float = 0.0 # 减伤率提升
+@export var study_final_damage_bonus: float = 0.0 # 最终伤害提升
+@export var study_normal_monster_damage_bonus: float = 0.0 # 对小怪伤害提升
+@export var study_elite_damage_bonus: float = 0.0 # 对精英首领伤害提升
+@export var study_drop_rate_bonus: float = 0.0 # 掉落率提升
+
+# ---- 修习树 · 特殊篇加成（由 SettingStudyTreeSpecial.apply_all() 刷新）----
+@export var study_heal_aura_recovery_bonus: float = 0.0 # 治愈灵气回复量提升
+@export var study_heal_aura_spawn_chance: float = 0.0 # 治愈灵气出现概率提升
+@export var study_heal_aura_speed_bonus: float = 0.0 # 治愈灵气拾取后移速提升
+@export var study_heal_aura_damage_reduction: float = 0.0 # 治愈灵气拾取后减伤提升
+@export var study_fragment_drop_chance: float = 0.0 # 灵髓碎片出现概率提升
+@export var study_boss_core_drop_chance: float = 0.0 # boss掉落魔核概率提升
+@export var study_levelup_heal_bonus: float = 0.0 # 升级后回复体力量提升
+@export var study_levelup_atk_bonus: int = 0 # 升级后额外攻击
+@export var study_levelup_hp_bonus: int = 0 # 升级后额外HP
+@export var study_gold_ball_unlocked: bool = false # 金团团解锁
+@export var study_gold_ball_chance_bonus: float = 0.0 # 金团团出现概率提升
+@export var study_gold_ball_qi_bonus: float = 0.0 # 金团团掉落真气量提升
+
 @export var player_active_skill_data: Dictionary = {
 	"dodge": {
 		"level": 1,
@@ -249,11 +356,6 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 		"level": 1,
 		"learned": [],
 		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mizongbu.png"
-	},
-	"huanling": {
-		"level": 1,
-		"learned": [],
-		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mingxiang.png"
 	},
 	"random_strike": {
 		"level": 1,
@@ -284,14 +386,35 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 		"level": 1,
 		"learned": [],
 		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/fengleipo.png"
+	},
+	"magical_ice": {
+		"level": 1,
+		"learned": [],
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/binghua.png"
+	},
+	"magical_fire": {
+		"level": 1,
+		"learned": [],
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/RingFire.png"
+	},
+	"magic": {
+		"level": 1,
+		"learned": [],
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mowenzhen.png"
+	},
+	"meditation": {
+		"level": 1,
+		"learned": [],
+		"icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/meditation.png"
 	}
 }
 
 
 @export var player_now_active_skill: Dictionary = {
-	"space": {"name": "dodge"},
-	"q": {"name": "random_strike"},
-	"e": {"name": "beastify"}
+	"moning": {"space": {"name": "dodge"}, "q": {"name": "wind_thunder"}, "e": {"name": ""}},
+	"yiqiu": {"space": {"name": "dodge"}, "q": {"name": "beastify"}, "e": {"name": ""}},
+	"noam": {"space": {"name": "dodge"}, "q": {"name": "heal_hot"}, "e": {"name": ""}},
+	"kansel": {"space": {"name": "dodge"}, "q": {"name": "magical_fire"}, "e": {"name": ""}}
 }
 
 # 世界等级
@@ -305,6 +428,14 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 @export var main_menu_instance: PackedScene = null
 @export var has_visited_town: bool = false
 @export var is_first_game: bool = true
+@export var has_seen_battle_tutorial: bool = false
+@export var has_seen_peach_grove_dialogue: bool = false
+@export var has_seen_peach_grove_boss: bool = false
+@export var has_seen_peach_grove_boss_charge: bool = false
+@export var has_defeated_peach_grove_boss: bool = false  # 是否击败了桃林boss
+
+# 全局失败次数计数
+@export var total_defeat_count: int = 0
 
 # 信号定义
 @warning_ignore("unused_signal")
@@ -372,6 +503,12 @@ signal buff_updated(buff_id: String, remaining_time: float, stack: int)
 @warning_ignore("unused_signal")
 signal buff_stack_changed(buff_id: String, new_stack: int)
 @warning_ignore("unused_signal")
+signal boss_buff_added(buff_id: String, display_name: String, icon_path: String, duration: float, stack: int, is_permanent: bool, description: String)
+@warning_ignore("unused_signal")
+signal boss_buff_removed(buff_id: String)
+@warning_ignore("unused_signal")
+signal boss_buff_updated(buff_id: String, remaining_time: float, stack: int)
+@warning_ignore("unused_signal")
 signal emblem_added(emblem_id: String, stack: int)
 @warning_ignore("unused_signal")
 signal emblem_removed(emblem_id: String)
@@ -437,6 +574,8 @@ signal press_g
 signal press_h
 @warning_ignore("unused_signal")
 signal dps_updated(total_dps: float, weapon_dps: Dictionary)
+@warning_ignore("unused_signal")
+signal teammate_dialogue(speaker: String, text: String)
 
 # --------------------------
 # --- DPS 计数逻辑 ---
@@ -671,7 +810,7 @@ func consume_shop_battle_refresh(count: int = 1) -> bool:
 
 # 把外部传进来的难度ID校正成可识别的值。
 # 这样就算按钮配置错了，或者旧数据里写了别的字符串，
-# 也会自动回退到“浅层”，不至于把逻辑跑崩。
+# 也会自动回退到"浅层"，不至于把逻辑跑崩。
 func validate_stage_difficulty_id(difficulty_id: String) -> String:
 	match difficulty_id:
 		STAGE_DIFFICULTY_SHALLOW, STAGE_DIFFICULTY_DEEP, STAGE_DIFFICULTY_CORE, STAGE_DIFFICULTY_POETRY:
@@ -693,7 +832,7 @@ func get_stage_difficulty_display_name(difficulty_id: String) -> String:
 			return "浅层"
 
 # 返回进入某一层之前，必须先通关的前置层。
-# 比如：想进“深层”，就必须先通关“浅层”。
+# 比如：想进"深层"，就必须先通关"浅层"。
 func get_required_stage_clear_difficulty(difficulty_id: String) -> String:
 	match validate_stage_difficulty_id(difficulty_id):
 		STAGE_DIFFICULTY_DEEP:
@@ -758,18 +897,22 @@ func is_stage_difficulty_unlocked(difficulty_id: String) -> bool:
 			return true
 	return false
 
-# 判断某个“关卡 + 难度”组合是否已经解锁。
+# 判断某个"关卡 + 难度"组合是否已经解锁。
 # 规则：
 # 1) 壹·浅层 初始解锁；
 # 2) 浅层只会按关卡顺序横向解锁下一关；
-# 3) 深层 / 核心 / 诗想 只会在同一关内纵向解锁下一难度；
-# 4) 通关本格后保持已解锁。
+# 3) 深层 / 核心 只会在同一关内纵向解锁下一难度；
+# 4) 通关本格后保持已解锁；
+# 5) 诗想难度需要通关cave后才可进入。
 func can_enter_stage_difficulty(stage_id: String, difficulty_id: String) -> bool:
 	_normalize_stage_difficulty_clear_progress()
 	var resolved_stage_id := str(stage_id)
 	var valid_difficulty := validate_stage_difficulty_id(difficulty_id)
 	var stage_index := STAGE_ID_LIST.find(resolved_stage_id)
 	if stage_index == -1:
+		return false
+	# 诗想难度：需要通关cave后才能进入
+	if valid_difficulty == STAGE_DIFFICULTY_POETRY and not is_stage_cleared("cave"):
 		return false
 	if is_stage_difficulty_cleared(resolved_stage_id, valid_difficulty):
 		return true
@@ -796,7 +939,7 @@ func mark_stage_difficulty_cleared(stage_id: String, difficulty_id: String) -> v
 	stage_difficulty_clear_progress[stage_id] = stage_progress
 
 # 取得某个关卡在某个难度下的倍率。
-# 如果不传参数，就默认读取“当前已进入关卡”的上下文。
+# 如果不传参数，就默认读取"当前已进入关卡"的上下文。
 func get_stage_difficulty_stat_multiplier(stage_id: String = "", difficulty_id: String = "") -> float:
 	var resolved_stage_id := stage_id
 	if resolved_stage_id.is_empty():
@@ -855,13 +998,15 @@ func get_stage_recommended_power(stage_id: String, difficulty_id: String) -> int
 
 func _get_effective_normal_monster_bonus() -> float:
 	if typeof(PC) != TYPE_NIL:
-		return PC.normal_monster_multi
-	return normal_monster_multi
+		# 修习树团队篇：对普通怪伤害百分比加成
+		return PC.normal_monster_multi + study_normal_monster_damage_bonus
+	return normal_monster_multi + study_normal_monster_damage_bonus
 
 func _get_effective_boss_bonus() -> float:
 	if typeof(PC) != TYPE_NIL:
-		return PC.boss_multi
-	return boss_multi
+		# 修习树团队篇：对精英/Boss伤害百分比加成
+		return PC.boss_multi + study_elite_damage_bonus
+	return boss_multi + study_elite_damage_bonus
 
 func get_effective_exp_multiplier() -> float:
 	var effective_exp_bonus = exp_multi
@@ -882,7 +1027,8 @@ func get_attack_range_multiplier() -> float:
 	return max(0.01, effective_attack_range)
 
 func get_emblem_effect_multiplier() -> float:
-	return max(0.0, 1.0 + emblem_effect_rate)
+	# 修习树领悟篇：纹章效果提升加成
+	return max(0.0, 1.0 + emblem_effect_rate + study_emblem_effect_bonus)
 
 func get_scaled_emblem_value(base_value: float) -> float:
 	return base_value * get_emblem_effect_multiplier()
@@ -924,6 +1070,43 @@ func apply_enemy_damage_bonus(damage: float, target: Node) -> float:
 	return damage * get_enemy_damage_bonus_multiplier(target)
 
 ## 显示保存指示器动画（右下角，渐进渐出，持续2秒）
+# ===== 角色独立键位配置辅助 =====
+
+## 获取当前角色的技能键位配置（自动补全缺失角色）
+func get_current_active_skills() -> Dictionary:
+	var hero := PC.player_name
+	if not player_now_active_skill.has(hero):
+		player_now_active_skill[hero] = _default_skill_config()
+	return player_now_active_skill[hero]
+
+func _default_skill_config() -> Dictionary:
+	return {
+		"space": {"name": "dodge"},
+		"q": {"name": ""},
+		"e": {"name": ""}
+	}
+
+func _get_default_skill_config_for_hero(hero_name: String) -> Dictionary:
+	return {
+		"space": {"name": "dodge"},
+		"q": {"name": _get_default_q_skill(hero_name)},
+		"e": {"name": ""}
+	}
+
+func _get_default_q_skill(hero_name: String) -> String:
+	match hero_name:
+		"moning":
+			return "wind_thunder"
+		"yiqiu":
+			return "beastify"
+		"noam":
+			return "heal_hot"
+		"kansel":
+			return "magical_fire"
+		_:
+			return ""
+
+
 func _show_save_indicator() -> void:
 	# 如果已有动画在播放，先清理
 	if _save_indicator_tween and _save_indicator_tween.is_running():
@@ -1004,6 +1187,11 @@ func save_game():
 		"shop_level": shop_level,
 		"shop_battle_refresh_count": shop_battle_refresh_count,
 		"shop_lingshi_unit_price": shop_lingshi_unit_price,
+		"has_seen_battle_tutorial": has_seen_battle_tutorial,
+		"has_seen_peach_grove_dialogue": has_seen_peach_grove_dialogue,
+		"has_seen_peach_grove_boss": has_seen_peach_grove_boss,
+		"has_seen_peach_grove_boss_charge": has_seen_peach_grove_boss_charge,
+		"total_defeat_count": total_defeat_count,
 		"shop_first_entered": shop_first_entered,
 		"shop_saved_items": shop_saved_items,
 		"has_visited_town": has_visited_town,
@@ -1038,6 +1226,102 @@ func save_game():
 		"cultivation_liejin_level_max": cultivation_liejin_level_max,
 		"player_study_data": player_study_data,
 		"player_study_tree": player_study_tree,
+		# 修习树武器伤害加成
+		"study_main_weapon_damage_bonus": study_main_weapon_damage_bonus,
+		"study_sword_damage_bonus": study_sword_damage_bonus,
+		"study_projectile_damage_bonus": study_projectile_damage_bonus,
+		"study_wind_damage_bonus": study_wind_damage_bonus,
+		"study_wide_damage_bonus": study_wide_damage_bonus,
+		"study_life_damage_bonus": study_life_damage_bonus,
+		"study_destroy_damage_bonus": study_destroy_damage_bonus,
+		"study_fire_damage_bonus": study_fire_damage_bonus,
+		"study_protect_damage_bonus": study_protect_damage_bonus,
+		"study_thunder_damage_bonus": study_thunder_damage_bonus,
+		"study_bagua_damage_bonus": study_bagua_damage_bonus,
+		"study_heal_damage_bonus": study_heal_damage_bonus,
+		"study_treasure_damage_bonus": study_treasure_damage_bonus,
+		# 修习树武器解锁
+		"study_unlock_qiankun": study_unlock_qiankun,
+		"study_unlock_dragonwind": study_unlock_dragonwind,
+		"study_unlock_bloodwave": study_unlock_bloodwave,
+		"study_unlock_water": study_unlock_water,
+		"study_unlock_baoyan": study_unlock_baoyan,
+		"study_unlock_genshan": study_unlock_genshan,
+		"study_unlock_thunder_break": study_unlock_thunder_break,
+		"study_unlock_holylight": study_unlock_holylight,
+		"study_unlock_xuanwu": study_unlock_xuanwu,
+		# 修习树领悟篇加成
+		"study_emblem_effect_bonus": study_emblem_effect_bonus,
+		"study_initial_lucky": study_initial_lucky,
+		"study_summon_damage_bonus": study_summon_damage_bonus,
+		"study_summon_interval_reduction": study_summon_interval_reduction,
+		"study_emblem_slots_bonus": study_emblem_slots_bonus,
+		"study_exp_bonus": study_exp_bonus,
+		"study_exp_reduction": study_exp_reduction,
+		"study_six_chance_bonus": study_six_chance_bonus,
+		"study_red_chance_bonus": study_red_chance_bonus,
+		"study_gold_chance_bonus": study_gold_chance_bonus,
+		"study_purple_chance_bonus": study_purple_chance_bonus,
+		# 修习树团队篇加成
+		"study_atk_bonus": study_atk_bonus,
+		"study_hp_bonus": study_hp_bonus,
+		"study_atk_speed_bonus": study_atk_speed_bonus,
+		"study_move_speed_bonus": study_move_speed_bonus,
+		"study_crit_rate_bonus": study_crit_rate_bonus,
+		"study_crit_damage_bonus": study_crit_damage_bonus,
+		"study_qi_gain_bonus": study_qi_gain_bonus,
+		"study_damage_reduction_bonus": study_damage_reduction_bonus,
+		"study_final_damage_bonus": study_final_damage_bonus,
+		"study_normal_monster_damage_bonus": study_normal_monster_damage_bonus,
+		"study_elite_damage_bonus": study_elite_damage_bonus,
+		"study_drop_rate_bonus": study_drop_rate_bonus,
+		# 修习树特殊篇加成
+		"study_heal_aura_recovery_bonus": study_heal_aura_recovery_bonus,
+		"study_heal_aura_spawn_chance": study_heal_aura_spawn_chance,
+		"study_heal_aura_speed_bonus": study_heal_aura_speed_bonus,
+		"study_heal_aura_damage_reduction": study_heal_aura_damage_reduction,
+		"study_fragment_drop_chance": study_fragment_drop_chance,
+		"study_boss_core_drop_chance": study_boss_core_drop_chance,
+		"study_levelup_heal_bonus": study_levelup_heal_bonus,
+		"study_levelup_atk_bonus": study_levelup_atk_bonus,
+		"study_levelup_hp_bonus": study_levelup_hp_bonus,
+		"study_gold_ball_unlocked": study_gold_ball_unlocked,
+		"study_gold_ball_chance_bonus": study_gold_ball_chance_bonus,
+		"study_gold_ball_qi_bonus": study_gold_ball_qi_bonus,
+		# 修习树技能篇加成
+		"study_skill_damage_bonus": study_skill_damage_bonus,
+		"study_unlock_shouhua": study_unlock_shouhua,
+		"study_unlock_shensheng": study_unlock_shensheng,
+		"study_unlock_mowenzhen": study_unlock_mowenzhen,
+		"study_unlock_xuanbing": study_unlock_xuanbing,
+		"study_unlock_luanji": study_unlock_luanji,
+		"study_unlock_liaoshang": study_unlock_liaoshang,
+		"study_unlock_mizongbu": study_unlock_mizongbu,
+		"study_unlock_shuimu": study_unlock_shuimu,
+		"study_unlock_mingxiang": study_unlock_mingxiang,
+		"study_unlock_chiyan": study_unlock_chiyan,
+		"study_fengleipo_damage_bonus": study_fengleipo_damage_bonus,
+		"study_fengleipo_range_bonus": study_fengleipo_range_bonus,
+		"study_shouhua_duration_bonus": study_shouhua_duration_bonus,
+		"study_shouhua_atkspeed_bonus": study_shouhua_atkspeed_bonus,
+		"study_shensheng_duration_bonus": study_shensheng_duration_bonus,
+		"study_shensheng_damage_bonus": study_shensheng_damage_bonus,
+		"study_mowenzhen_size_bonus": study_mowenzhen_size_bonus,
+		"study_mowenzhen_cd_reduction": study_mowenzhen_cd_reduction,
+		"study_xuanbing_size_bonus": study_xuanbing_size_bonus,
+		"study_xuanbing_damage_bonus": study_xuanbing_damage_bonus,
+		"study_liaoyu_recovery_bonus": study_liaoyu_recovery_bonus,
+		"study_liaoyu_cd_reduction": study_liaoyu_cd_reduction,
+		"study_luanji_count_bonus": study_luanji_count_bonus,
+		"study_luanji_damage_bonus": study_luanji_damage_bonus,
+		"study_mizongbu_duration_bonus": study_mizongbu_duration_bonus,
+		"study_mizongbu_dmgreduction_bonus": study_mizongbu_dmgreduction_bonus,
+		"study_shuimu_shield_bonus": study_shuimu_shield_bonus,
+		"study_shuimu_cd_reduction": study_shuimu_cd_reduction,
+		"study_mingxiang_cd_reduction": study_mingxiang_cd_reduction,
+		"study_shanbi_invincible_bonus": study_shanbi_invincible_bonus,
+		"study_shanbi_cd_reduction": study_shanbi_cd_reduction,
+		"study_chiyan_enhance_damage_bonus": study_chiyan_enhance_damage_bonus,
 		"player_active_skill_data": player_active_skill_data,
 		"player_now_active_skill": player_now_active_skill,
 		"max_main_skill_num": max_main_skill_num,
@@ -1110,6 +1394,11 @@ func load_game():
 	shop_first_entered = bool(config.get_value("save", "shop_first_entered", shop_first_entered))
 	has_visited_town = bool(config.get_value("save", "has_visited_town", false))
 	is_first_game = bool(config.get_value("save", "is_first_game", true))
+	has_seen_battle_tutorial = bool(config.get_value("save", "has_seen_battle_tutorial", false))
+	has_seen_peach_grove_dialogue = bool(config.get_value("save", "has_seen_peach_grove_dialogue", false))
+	has_seen_peach_grove_boss = bool(config.get_value("save", "has_seen_peach_grove_boss", false))
+	has_seen_peach_grove_boss_charge = bool(config.get_value("save", "has_seen_peach_grove_boss_charge", false))
+	total_defeat_count = int(config.get_value("save", "total_defeat_count", 0))
 	var loaded_shop_items = config.get_value("save", "shop_saved_items", [])
 	if typeof(loaded_shop_items) == TYPE_ARRAY:
 		shop_saved_items = (loaded_shop_items as Array).duplicate(true)
@@ -1132,8 +1421,8 @@ func load_game():
 
 	unlock_moning = config.get_value("save", "unlock_moning", true)
 	unlock_yiqiu = config.get_value("save", "unlock_yiqiu", true)
-	unlock_noam = config.get_value("save", "unlock_noam", true)
-	unlock_kansel = config.get_value("save", "unlock_kansel", true)
+	unlock_noam = config.get_value("save", "unlock_noam", false)
+	unlock_kansel = config.get_value("save", "unlock_kansel", false)
 	refresh_max_num = config.get_value("save", "refresh_max_num", 3)
 	cultivation_unlock_progress = config.get_value("save", "cultivation_unlock_progress", 0)
 	cultivation_poxu_level = config.get_value("save", "cultivation_poxu_level", 0)
@@ -1157,22 +1446,143 @@ func load_game():
 		if not loaded_study_data[p_name].has("zhenqi_points"): loaded_study_data[p_name]["zhenqi_points"] = 100
 	player_study_data = loaded_study_data
 	player_study_tree = config.get_value("save", "player_study_tree", player_study_tree)
+	# 修习树武器伤害加成
+	study_main_weapon_damage_bonus = config.get_value("save", "study_main_weapon_damage_bonus", 0.0)
+	study_sword_damage_bonus = config.get_value("save", "study_sword_damage_bonus", 0.0)
+	study_projectile_damage_bonus = config.get_value("save", "study_projectile_damage_bonus", 0.0)
+	study_wind_damage_bonus = config.get_value("save", "study_wind_damage_bonus", 0.0)
+	study_wide_damage_bonus = config.get_value("save", "study_wide_damage_bonus", 0.0)
+	study_life_damage_bonus = config.get_value("save", "study_life_damage_bonus", 0.0)
+	study_destroy_damage_bonus = config.get_value("save", "study_destroy_damage_bonus", 0.0)
+	study_fire_damage_bonus = config.get_value("save", "study_fire_damage_bonus", 0.0)
+	study_protect_damage_bonus = config.get_value("save", "study_protect_damage_bonus", 0.0)
+	study_thunder_damage_bonus = config.get_value("save", "study_thunder_damage_bonus", 0.0)
+	study_bagua_damage_bonus = config.get_value("save", "study_bagua_damage_bonus", 0.0)
+	study_heal_damage_bonus = config.get_value("save", "study_heal_damage_bonus", 0.0)
+	study_treasure_damage_bonus = config.get_value("save", "study_treasure_damage_bonus", 0.0)
+	# 修习树武器解锁
+	study_unlock_qiankun = config.get_value("save", "study_unlock_qiankun", false)
+	study_unlock_dragonwind = config.get_value("save", "study_unlock_dragonwind", false)
+	study_unlock_bloodwave = config.get_value("save", "study_unlock_bloodwave", false)
+	study_unlock_water = config.get_value("save", "study_unlock_water", false)
+	study_unlock_baoyan = config.get_value("save", "study_unlock_baoyan", false)
+	study_unlock_genshan = config.get_value("save", "study_unlock_genshan", false)
+	study_unlock_thunder_break = config.get_value("save", "study_unlock_thunder_break", false)
+	study_unlock_holylight = config.get_value("save", "study_unlock_holylight", false)
+	study_unlock_xuanwu = config.get_value("save", "study_unlock_xuanwu", false)
+	# 修习树领悟篇加成
+	study_emblem_effect_bonus = config.get_value("save", "study_emblem_effect_bonus", 0.0)
+	study_initial_lucky = config.get_value("save", "study_initial_lucky", 0)
+	study_summon_damage_bonus = config.get_value("save", "study_summon_damage_bonus", 0.0)
+	study_summon_interval_reduction = config.get_value("save", "study_summon_interval_reduction", 0.0)
+	study_emblem_slots_bonus = config.get_value("save", "study_emblem_slots_bonus", 0)
+	study_exp_bonus = config.get_value("save", "study_exp_bonus", 0.0)
+	study_exp_reduction = config.get_value("save", "study_exp_reduction", 0.0)
+	study_six_chance_bonus = config.get_value("save", "study_six_chance_bonus", 0.0)
+	study_red_chance_bonus = config.get_value("save", "study_red_chance_bonus", 0.0)
+	study_gold_chance_bonus = config.get_value("save", "study_gold_chance_bonus", 0.0)
+	study_purple_chance_bonus = config.get_value("save", "study_purple_chance_bonus", 0.0)
+	# 修习树团队篇加成
+	study_atk_bonus = config.get_value("save", "study_atk_bonus", 0.0)
+	study_hp_bonus = config.get_value("save", "study_hp_bonus", 0)
+	study_atk_speed_bonus = config.get_value("save", "study_atk_speed_bonus", 0.0)
+	study_move_speed_bonus = config.get_value("save", "study_move_speed_bonus", 0.0)
+	study_crit_rate_bonus = config.get_value("save", "study_crit_rate_bonus", 0.0)
+	study_crit_damage_bonus = config.get_value("save", "study_crit_damage_bonus", 0.0)
+	study_qi_gain_bonus = config.get_value("save", "study_qi_gain_bonus", 0.0)
+	study_damage_reduction_bonus = config.get_value("save", "study_damage_reduction_bonus", 0.0)
+	study_final_damage_bonus = config.get_value("save", "study_final_damage_bonus", 0.0)
+	study_normal_monster_damage_bonus = config.get_value("save", "study_normal_monster_damage_bonus", 0.0)
+	study_elite_damage_bonus = config.get_value("save", "study_elite_damage_bonus", 0.0)
+	study_drop_rate_bonus = config.get_value("save", "study_drop_rate_bonus", 0.0)
+	# 修习树特殊篇加成
+	study_heal_aura_recovery_bonus = config.get_value("save", "study_heal_aura_recovery_bonus", 0.0)
+	study_heal_aura_spawn_chance = config.get_value("save", "study_heal_aura_spawn_chance", 0.0)
+	study_heal_aura_speed_bonus = config.get_value("save", "study_heal_aura_speed_bonus", 0.0)
+	study_heal_aura_damage_reduction = config.get_value("save", "study_heal_aura_damage_reduction", 0.0)
+	study_fragment_drop_chance = config.get_value("save", "study_fragment_drop_chance", 0.0)
+	study_boss_core_drop_chance = config.get_value("save", "study_boss_core_drop_chance", 0.0)
+	study_levelup_heal_bonus = config.get_value("save", "study_levelup_heal_bonus", 0.0)
+	study_levelup_atk_bonus = config.get_value("save", "study_levelup_atk_bonus", 0)
+	study_levelup_hp_bonus = config.get_value("save", "study_levelup_hp_bonus", 0)
+	study_gold_ball_unlocked = config.get_value("save", "study_gold_ball_unlocked", false)
+	study_gold_ball_chance_bonus = config.get_value("save", "study_gold_ball_chance_bonus", 0.0)
+	study_gold_ball_qi_bonus = config.get_value("save", "study_gold_ball_qi_bonus", 0.0)
+	# 修习树技能篇加成
+	study_skill_damage_bonus = config.get_value("save", "study_skill_damage_bonus", 0.0)
+	study_unlock_shouhua = config.get_value("save", "study_unlock_shouhua", false)
+	study_unlock_shensheng = config.get_value("save", "study_unlock_shensheng", false)
+	study_unlock_mowenzhen = config.get_value("save", "study_unlock_mowenzhen", false)
+	study_unlock_xuanbing = config.get_value("save", "study_unlock_xuanbing", false)
+	study_unlock_luanji = config.get_value("save", "study_unlock_luanji", false)
+	study_unlock_liaoshang = config.get_value("save", "study_unlock_liaoshang", false)
+	study_unlock_mizongbu = config.get_value("save", "study_unlock_mizongbu", false)
+	study_unlock_shuimu = config.get_value("save", "study_unlock_shuimu", false)
+	study_unlock_mingxiang = config.get_value("save", "study_unlock_mingxiang", false)
+	study_unlock_chiyan = config.get_value("save", "study_unlock_chiyan", false)
+	study_fengleipo_damage_bonus = config.get_value("save", "study_fengleipo_damage_bonus", 0.0)
+	study_fengleipo_range_bonus = config.get_value("save", "study_fengleipo_range_bonus", 0.0)
+	study_shouhua_duration_bonus = config.get_value("save", "study_shouhua_duration_bonus", 0.0)
+	study_shouhua_atkspeed_bonus = config.get_value("save", "study_shouhua_atkspeed_bonus", 0.0)
+	study_shensheng_duration_bonus = config.get_value("save", "study_shensheng_duration_bonus", 0.0)
+	study_shensheng_damage_bonus = config.get_value("save", "study_shensheng_damage_bonus", 0.0)
+	study_mowenzhen_size_bonus = config.get_value("save", "study_mowenzhen_size_bonus", 0.0)
+	study_mowenzhen_cd_reduction = config.get_value("save", "study_mowenzhen_cd_reduction", 0.0)
+	study_xuanbing_size_bonus = config.get_value("save", "study_xuanbing_size_bonus", 0.0)
+	study_xuanbing_damage_bonus = config.get_value("save", "study_xuanbing_damage_bonus", 0.0)
+	study_liaoyu_recovery_bonus = config.get_value("save", "study_liaoyu_recovery_bonus", 0.0)
+	study_liaoyu_cd_reduction = config.get_value("save", "study_liaoyu_cd_reduction", 0.0)
+	study_luanji_count_bonus = config.get_value("save", "study_luanji_count_bonus", 0)
+	study_luanji_damage_bonus = config.get_value("save", "study_luanji_damage_bonus", 0.0)
+	study_mizongbu_duration_bonus = config.get_value("save", "study_mizongbu_duration_bonus", 0.0)
+	study_mizongbu_dmgreduction_bonus = config.get_value("save", "study_mizongbu_dmgreduction_bonus", 0.0)
+	study_shuimu_shield_bonus = config.get_value("save", "study_shuimu_shield_bonus", 0.0)
+	study_shuimu_cd_reduction = config.get_value("save", "study_shuimu_cd_reduction", 0.0)
+	study_mingxiang_cd_reduction = config.get_value("save", "study_mingxiang_cd_reduction", 0.0)
+	study_shanbi_invincible_bonus = config.get_value("save", "study_shanbi_invincible_bonus", 0.0)
+	study_shanbi_cd_reduction = config.get_value("save", "study_shanbi_cd_reduction", 0.0)
+	study_chiyan_enhance_damage_bonus = config.get_value("save", "study_chiyan_enhance_damage_bonus", 0.0)
+	# 根据 player_study_tree 重算一次，确保一致性
+	SettingStudyTreeUp.apply_all()
+	SettingStudyTreeSkill.apply_all()
+	SettingStudyTreeLearn.apply_all()
+	SettingStudyTreeTeam.apply_all()
+	SettingStudyTreeSpecial.apply_all()
 	player_active_skill_data = config.get_value("save", "player_active_skill_data", player_active_skill_data)
+	# 旧存档可能含有弃用的唤灵技能，清理掉
+	player_active_skill_data.erase("huanling")
 	# 强制修正技能图标路径，防止存档里的旧路径覆盖代码中更新的图标
 	var _skill_icon_table: Dictionary = {
 		"dodge": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanbi.png",
 		"mizongbu": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mizongbu.png",
-		"huanling": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mingxiang.png",
 		"random_strike": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/luanji.png",
 		"beastify": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shouhua.png",
 		"heal_hot": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yuliao.png",
 		"water_sheild": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shuiliumu.png",
 		"holy_fire": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png",
+		"magical_ice": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/binghua.png",
+		"magical_fire": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/RingFire.png",
+		"magic": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mowenzhen.png",
+		"meditation": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/meditation.png",
 	}
 	for _sid in _skill_icon_table:
 		if player_active_skill_data.has(_sid):
 			player_active_skill_data[_sid]["icon"] = _skill_icon_table[_sid]
 	player_now_active_skill = config.get_value("save", "player_now_active_skill", player_now_active_skill)
+	# 旧存档兼容：扁平格式（顶层键含 "space"）→ 迁移为角色嵌套格式
+	if player_now_active_skill.has("space"):
+		var _old_config = player_now_active_skill.duplicate(true)
+		player_now_active_skill = {}
+		for _hero_name in ["moning", "yiqiu", "noam", "kansel"]:
+			player_now_active_skill[_hero_name] = _old_config.duplicate(true)
+	# 确保所有角色都有完整的键位配置并填充默认Q技能
+	for _hero_name in ["moning", "yiqiu", "noam", "kansel"]:
+		if not player_now_active_skill.has(_hero_name):
+			player_now_active_skill[_hero_name] = _get_default_skill_config_for_hero(_hero_name)
+		else:
+			var _config = player_now_active_skill[_hero_name]
+			if _config.get("q", {}).get("name", "") == "":
+				_config["q"] = {"name": _get_default_q_skill(_hero_name)}
 	max_main_skill_num = config.get_value("save", "max_main_skill_num", 3)
 	max_weapon_num = config.get_value("save", "max_weapon_num", 5)
 	
@@ -1240,7 +1650,7 @@ func _on_player_heal(heal_value: float, world_position: Vector2):
 		var lbl = _create_damage_label()
 		if lbl: lbl.show_damage_number(9, heal_value, world_position)
 
-func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String = "受击"):
+func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String = ""):
 	if not damage_show_enabled: return
 	if shield_val > 0:
 		emit_signal("player_shield_damaged", shield_val)
@@ -1250,7 +1660,7 @@ func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, worl
 		var lbl = _create_damage_label()
 		if lbl: lbl.show_damage_number(11, damage_val, world_position, source_name)
 
-func _on_player_hit_ignore_invincible(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String = "受击"):
+func _on_player_hit_ignore_invincible(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String = ""):
 	# 无视无敌伤害的弹幕显示（同player_hit，但不发射player_shield_damaged信号）
 	if not damage_show_enabled: return
 	if shield_val > 0:
@@ -1274,12 +1684,19 @@ func _create_damage_label() -> Node2D:
 		pass
 	return instance
 
-func get_current_dps() -> float: return current_dps
+var poetry_dps_override: float = -1.0 # 诗想难度DPS覆盖值，-1表示不覆盖
+var poetry_last_code: String = "" # 上次诗想难度出战的备战码
+
+func get_current_dps() -> float:
+	if poetry_dps_override >= 0.0:
+		return poetry_dps_override
+	return current_dps
 func get_weapon_dps() -> Dictionary: return weapon_dps
 
 # 兼容旧逻辑函数
 func reset_dps_counter() -> void:
 	dps_damage_records.clear(); current_dps = 0.0; weapon_dps.clear()
+	poetry_dps_override = -1.0
 	if dps_timer: dps_timer.start()
 func stop_dps_counter() -> void:
 	if dps_timer: dps_timer.stop()

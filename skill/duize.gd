@@ -4,13 +4,13 @@ class_name Duize
 @export var sprite: AnimatedSprite2D
 @export var collision: CollisionShape2D
 
-static var main_skill_duize_damage: float = 0.3
+static var main_skill_duize_damage: float = 0.24
 static var duize_final_damage_multi: float = 1.0
 static var duize_range: float = 60.0
 static var duize_slow_ratio: float = 0.2
 
 static func reset_data() -> void:
-	main_skill_duize_damage = 0.3
+	main_skill_duize_damage = 0.24
 	duize_final_damage_multi = 1.0
 	duize_range = 60.0
 	duize_slow_ratio = 0.2

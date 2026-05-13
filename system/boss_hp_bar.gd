@@ -32,6 +32,8 @@ const BAR_COLORS: Array[Color] = [
 ]
 
 #-------------------- Private Variables (私有变量) --------------------#
+## 当前boss_hp_bar实例的静态引用，供level_up等外部模块控制buff交互
+static var _current_instance: Control = null
 ## 存储动态创建的ProgressBar节点的数组。
 var _progress_bars_nodes: Array[ProgressBar] = []
 ## 显示Boss名字的Label节点
@@ -51,6 +53,20 @@ var _chant_elapsed: float = 0.0
 var _chant_active: bool = false
 var _chant_timer: Timer = null
 
+# Buff显示相关
+## Buff图标容器（HBoxContainer）
+@export var buff_container: HBoxContainer
+## 当前活跃的debuff图标 {debuff_id: BossBuffIcon}
+var _active_debuff_icons: Dictionary = {}
+## 当前活跃的boss正面buff图标 {buff_id: BossBuffIcon}
+var _active_buff_icons: Dictionary = {}
+## boss正面buff数据 {buff_id: {remaining_time, stack, is_permanent, display_name, icon_path, description}}
+var _boss_buff_data: Dictionary = {}
+## 引用当前boss的debuff_manager
+var _boss_debuff_manager: EnemyDebuffManager = null
+## 是否已连接boss的debuff信号
+var _debuff_signals_connected: bool = false
+
 #-------------------- Godot Lifecycle Methods (Godot生命周期函数) --------------------#
 func _ready():
 	Global.connect("boss_hp_bar_show", Callable(self , "_on_boss_hp_bar_show"))
@@ -59,8 +75,19 @@ func _ready():
 	Global.connect("boss_hp_bar_take_damage", Callable(self , "_on_boss_hp_bar_take_damage"))
 	Global.connect("boss_chant_start", Callable(self , "_on_boss_chant_start"))
 	Global.connect("boss_chant_end", Callable(self , "_on_boss_chant_end"))
+	# Boss正面buff信号
+	Global.connect("boss_buff_added", Callable(self , "_on_boss_buff_added"))
+	Global.connect("boss_buff_removed", Callable(self , "_on_boss_buff_removed"))
+	Global.connect("boss_buff_updated", Callable(self , "_on_boss_buff_updated"))
+	# 注册为当前实例
+	_current_instance = self
 	# 初始化时，根据health_bar_shown设置此Control节点自身的可见性。
 	visible = health_bar_shown
+
+	# Boss血条是纯展示元素，不需要拦截鼠标事件，
+	# 避免遮挡升级面板的 RefreshButton 等交互控件
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_set_mouse_filter_recursive(self )
 
 	# --- UI定位逻辑 (此Control节点) --- #
 	grow_horizontal = GROW_DIRECTION_BOTH
@@ -141,6 +168,9 @@ func _ready():
 	_chant_timer.timeout.connect(_on_chant_timer_tick)
 	add_child(_chant_timer)
 
+	# 创建并配置Buff图标容器
+	_setup_buff_container()
+
 
 #-------------------- Private Helper Methods (私有辅助函数) --------------------#
 ## 动态创建并配置ProgressBar子节点。
@@ -191,6 +221,7 @@ func _create_and_configure_bars():
 		bar_node.value = 0 # 初始值，将在_update_display中设置
 		bar_node.max_value = 100 # 临时值，将在_update_display中根据hp_per_segment设置
 		bar_node.show_percentage = false # 不显示百分比文本
+		bar_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		
 		# 设置大小和位置使其堆叠
 		bar_node.anchor_right = 1.0
@@ -384,6 +415,11 @@ func _update_labels_and_ui():
 ## 隐藏并销毁血条的函数
 func _hide_and_destroy_hp_bar():
 	health_bar_shown = false
+	_clear_all_buff_icons()
+	# 断开debuff_manager信号
+	_disconnect_boss_debuff_signals()
+	# 清除静态引用
+	_current_instance = null
 	# 创建淡出动画
 	var tween = get_tree().create_tween()
 	tween.tween_property(self , "modulate:a", 0.0, 0.3).set_trans(Tween.TRANS_LINEAR)
@@ -430,6 +466,10 @@ func _on_boss_hp_bar_show():
 	if is_instance_valid(_bar_count_label): _bar_count_label.visible = true
 	
 	_update_display() # 更新内容，但不直接控制这里的动画透明度
+	_update_buff_container_visibility()
+	# 延迟一帧后尝试连接boss debuff信号
+	await get_tree().process_frame
+	_try_connect_boss_debuff_signals()
 
 func _on_boss_hp_bar_hide():
 	health_bar_shown = false
@@ -449,6 +489,9 @@ func _on_boss_hp_bar_initialize(max_hp: float, current_hp: float, bar_num: int, 
 	hp = current_hp
 	hp_bar_num = bar_num
 	boss_name = bar_boss_name
+	# 清除旧的buff图标，断开旧boss信号
+	_clear_all_buff_icons()
+	_disconnect_boss_debuff_signals()
 	refresh_bar_config_and_display()
 
 # -------------------- Chant UI (读条 UI) --------------------#
@@ -510,6 +553,13 @@ func _process(delta: float):
 				target_alpha = 0.4
 				
 		modulate.a = lerp(modulate.a, target_alpha, 8.0 * delta)
+		
+		# 尝试连接boss的debuff_manager信号（如果尚未连接）
+		if not _debuff_signals_connected:
+			_try_connect_boss_debuff_signals()
+		
+		# 更新debuff图标的剩余时间（从EnemyDebuffManager的Timer获取）
+		_update_debuff_remaining_times()
 
 # Timer 仅负责每 0.1 秒刷新剩余时间文字
 func _on_chant_timer_tick():
@@ -523,3 +573,233 @@ func _on_chant_timer_tick():
 func set_health_bar_shown(is_shown: bool):
 	health_bar_shown = is_shown
 	_update_display()
+
+
+## 递归设置所有 Control 子节点的 mouse_filter 为 IGNORE
+func _set_mouse_filter_recursive(node: Node) -> void:
+	for child in node.get_children():
+		if child is Control:
+			child.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_set_mouse_filter_recursive(child)
+
+# -------------------- Buff Display (Buff 显示) --------------------#
+## 创建并配置Buff图标容器
+func _setup_buff_container():
+	if buff_container == null:
+		buff_container = HBoxContainer.new()
+		buff_container.name = "BuffContainer"
+		buff_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		buff_container.alignment = BoxContainer.ALIGNMENT_BEGIN
+		buff_container.add_theme_constant_override("separation", 2)
+		add_child(buff_container)
+	
+	# 定位在boss名字下方、血条左下方
+	buff_container.z_index = 20
+	buff_container.anchor_right = 0.0
+	buff_container.anchor_bottom = 0.0
+	buff_container.offset_left = 20
+	# 位于血条区域下方
+	buff_container.offset_top = size.y + 2
+	buff_container.offset_right = size.x
+	buff_container.offset_bottom = size.y + 40
+	buff_container.visible = false
+
+## 尝试连接当前boss的debuff_manager信号
+func _try_connect_boss_debuff_signals():
+	if _debuff_signals_connected:
+		return
+	var boss = get_tree().get_first_node_in_group("boss")
+	if not is_instance_valid(boss):
+		return
+	var dm = boss.get("debuff_manager")
+	if dm != null and is_instance_valid(dm) and dm is EnemyDebuffManager:
+		_boss_debuff_manager = dm
+		if not dm.debuff_added_signal.is_connected(_on_boss_debuff_added):
+			dm.debuff_added_signal.connect(_on_boss_debuff_added)
+		if not dm.debuff_removed_signal.is_connected(_on_boss_debuff_removed):
+			dm.debuff_removed_signal.connect(_on_boss_debuff_removed)
+		if not dm.debuff_stack_changed_signal.is_connected(_on_boss_debuff_stack_changed):
+			dm.debuff_stack_changed_signal.connect(_on_boss_debuff_stack_changed)
+		_debuff_signals_connected = true
+		# 同步已存在的debuff
+		_sync_existing_debuffs()
+
+## 同步boss身上已有的debuff（用于boss切换或信号延迟连接的情况）
+func _sync_existing_debuffs():
+	if _boss_debuff_manager == null or not is_instance_valid(_boss_debuff_manager):
+		return
+	for debuff_id in _boss_debuff_manager.active_debuffs:
+		if not _active_debuff_icons.has(debuff_id):
+			var debuff_entry = _boss_debuff_manager.active_debuffs[debuff_id]
+			var config: EnemyDebuffManager.DebuffData = debuff_entry["config"]
+			_create_debuff_icon(debuff_id, debuff_entry["stacks"], config)
+
+## Boss身上debuff添加回调
+func _on_boss_debuff_added(debuff_id: String, stacks: int):
+	if _boss_debuff_manager == null or not is_instance_valid(_boss_debuff_manager):
+		return
+	if not _boss_debuff_manager.active_debuffs.has(debuff_id):
+		return
+	var debuff_entry = _boss_debuff_manager.active_debuffs[debuff_id]
+	var config: EnemyDebuffManager.DebuffData = debuff_entry["config"]
+	_create_debuff_icon(debuff_id, stacks, config)
+
+## Boss身上debuff移除回调
+func _on_boss_debuff_removed(debuff_id: String):
+	_remove_debuff_icon(debuff_id)
+
+## Boss身上debuff层数变化回调
+func _on_boss_debuff_stack_changed(debuff_id: String, new_stacks: int):
+	if _active_debuff_icons.has(debuff_id):
+		var icon_node = _active_debuff_icons[debuff_id]
+		if is_instance_valid(icon_node):
+			icon_node.stack_count = new_stacks
+			icon_node._update_display()
+
+## 创建debuff图标
+func _create_debuff_icon(debuff_id: String, stacks: int, config):
+	if _active_debuff_icons.has(debuff_id):
+		# 已存在，更新
+		var existing = _active_debuff_icons[debuff_id]
+		if is_instance_valid(existing):
+			existing.stack_count = stacks
+			existing._update_display()
+			return
+	# 创建新的BossBuffIcon
+	var icon_node = BossBuffIcon.new()
+	icon_node.name = "Debuff_" + debuff_id
+	buff_container.add_child(icon_node)
+	icon_node.setup_debuff(debuff_id, stacks, config)
+	icon_node.buff_expired.connect(_on_debuff_icon_expired.bind(debuff_id))
+	_active_debuff_icons[debuff_id] = icon_node
+	_update_buff_container_visibility()
+
+## 移除debuff图标
+func _remove_debuff_icon(debuff_id: String):
+	if _active_debuff_icons.has(debuff_id):
+		var icon_node = _active_debuff_icons[debuff_id]
+		if is_instance_valid(icon_node):
+			icon_node.queue_free()
+		_active_debuff_icons.erase(debuff_id)
+		_update_buff_container_visibility()
+
+## debuff图标自然过期回调
+func _on_debuff_icon_expired(debuff_id: String):
+	_remove_debuff_icon(debuff_id)
+
+## Boss正面buff添加回调
+func _on_boss_buff_added(buff_id: String, p_display_name: String, icon_path: String, duration: float, stack: int, permanent: bool, desc: String):
+	if _active_buff_icons.has(buff_id):
+		# 已存在，更新
+		_update_existing_boss_buff(buff_id, duration, stack)
+		return
+	# 创建新的BossBuffIcon
+	var icon_node = BossBuffIcon.new()
+	icon_node.name = "BossBuff_" + buff_id
+	buff_container.add_child(icon_node)
+	icon_node.setup_buff(buff_id, p_display_name, icon_path, duration, stack, permanent, desc)
+	icon_node.buff_expired.connect(_on_boss_buff_icon_expired.bind(buff_id))
+	_active_buff_icons[buff_id] = icon_node
+	_boss_buff_data[buff_id] = {
+		"remaining_time": duration,
+		"stack": stack,
+		"is_permanent": permanent,
+		"display_name": p_display_name,
+		"icon_path": icon_path,
+		"description": desc
+	}
+	_update_buff_container_visibility()
+
+## Boss正面buff移除回调
+func _on_boss_buff_removed(buff_id: String):
+	if _active_buff_icons.has(buff_id):
+		var icon_node = _active_buff_icons[buff_id]
+		if is_instance_valid(icon_node):
+			icon_node.queue_free()
+		_active_buff_icons.erase(buff_id)
+	_boss_buff_data.erase(buff_id)
+	_update_buff_container_visibility()
+
+## Boss正面buff更新回调
+func _on_boss_buff_updated(buff_id: String, remaining_time: float, stack: int):
+	_update_existing_boss_buff(buff_id, remaining_time, stack)
+
+## 更新已有的boss正面buff
+func _update_existing_boss_buff(buff_id: String, remaining_time: float, stack: int):
+	if _active_buff_icons.has(buff_id):
+		var icon_node = _active_buff_icons[buff_id]
+		if is_instance_valid(icon_node):
+			icon_node.update_buff(remaining_time, stack)
+	if _boss_buff_data.has(buff_id):
+		_boss_buff_data[buff_id]["remaining_time"] = remaining_time
+		_boss_buff_data[buff_id]["stack"] = stack
+
+## boss正面buff图标自然过期回调
+func _on_boss_buff_icon_expired(buff_id: String):
+	_on_boss_buff_removed(buff_id)
+
+## 更新buff容器可见性
+func _update_buff_container_visibility():
+	if buff_container:
+		var has_any = not _active_debuff_icons.is_empty() or not _active_buff_icons.is_empty()
+		buff_container.visible = has_any and health_bar_shown
+
+## 切换所有Boss血条上buff图标的鼠标交互（升级选项出现时关闭，消失时恢复）
+static func set_boss_buffs_interactive(enabled: bool) -> void:
+	var inst = _current_instance
+	if not is_instance_valid(inst):
+		return
+	var filter = Control.MOUSE_FILTER_STOP if enabled else Control.MOUSE_FILTER_IGNORE
+	for icon in inst._active_debuff_icons.values():
+		if is_instance_valid(icon):
+			icon.mouse_filter = filter
+	for icon in inst._active_buff_icons.values():
+		if is_instance_valid(icon):
+			icon.mouse_filter = filter
+
+## 断开boss的debuff_manager信号
+func _disconnect_boss_debuff_signals():
+	if _boss_debuff_manager != null and is_instance_valid(_boss_debuff_manager):
+		if _boss_debuff_manager.debuff_added_signal.is_connected(_on_boss_debuff_added):
+			_boss_debuff_manager.debuff_added_signal.disconnect(_on_boss_debuff_added)
+		if _boss_debuff_manager.debuff_removed_signal.is_connected(_on_boss_debuff_removed):
+			_boss_debuff_manager.debuff_removed_signal.disconnect(_on_boss_debuff_removed)
+		if _boss_debuff_manager.debuff_stack_changed_signal.is_connected(_on_boss_debuff_stack_changed):
+			_boss_debuff_manager.debuff_stack_changed_signal.disconnect(_on_boss_debuff_stack_changed)
+	_boss_debuff_manager = null
+	_debuff_signals_connected = false
+
+## 清除所有buff图标
+func _clear_all_buff_icons():
+	for debuff_id in _active_debuff_icons.keys():
+		var icon_node = _active_debuff_icons[debuff_id]
+		if is_instance_valid(icon_node):
+			icon_node.queue_free()
+	_active_debuff_icons.clear()
+	
+	for buff_id in _active_buff_icons.keys():
+		var icon_node = _active_buff_icons[buff_id]
+		if is_instance_valid(icon_node):
+			icon_node.queue_free()
+	_active_buff_icons.clear()
+	_boss_buff_data.clear()
+	
+	if buff_container:
+		buff_container.visible = false
+
+## 从EnemyDebuffManager的Timer获取debuff剩余时间并更新图标
+func _update_debuff_remaining_times():
+	if _boss_debuff_manager == null or not is_instance_valid(_boss_debuff_manager):
+		return
+	for debuff_id in _active_debuff_icons:
+		if not _boss_debuff_manager.active_debuffs.has(debuff_id):
+			continue
+		var icon_node = _active_debuff_icons[debuff_id]
+		if not is_instance_valid(icon_node):
+			continue
+		var debuff_entry = _boss_debuff_manager.active_debuffs[debuff_id]
+		var timer: Timer = debuff_entry["timer"]
+		if is_instance_valid(timer) and not timer.is_stopped():
+			var remaining = timer.time_left
+			var stacks = debuff_entry["stacks"]
+			icon_node.update_debuff(remaining, stacks)

@@ -89,11 +89,17 @@ func _ready():
 		Global.STAGE_DIFFICULTY_POETRY:
 			dps_multiplier = 10
 	hpMax += Global.get_current_dps() * dps_multiplier
+	# 诗想难度下Boss生命额外提升30倍
+	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
+		hpMax *= 30
 	hp = hpMax
 	
-	# 浅层难度下Boss只造成25%伤害
+	# 浅层难度下Boss只造成50%伤害
 	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
 		atk *= 0.5
+	# 诗想难度下Boss攻击额外提升50%
+	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
+		atk *= 1.75
 
 	setup_monster_base()
 	player_hit_emit_self = true
@@ -230,6 +236,7 @@ func _execute_skill(skill_id: int):
 
 ## 1. 腐蚀射线
 func _skill_corrosive_ray():
+	SEManager.play("120")
 	Global.emit_signal("boss_chant_start", "腐蚀射线", 1.5)
 	var warn_l = WarnRectUtil.new(); get_tree().current_scene.add_child(warn_l)
 	var warn_r = WarnRectUtil.new(); get_tree().current_scene.add_child(warn_r)
@@ -240,7 +247,9 @@ func _skill_corrosive_ray():
 		warn_l.player_ref = PC.player_instance
 		warn_r.player_ref = PC.player_instance
 	var ray_width = 160.0
+	warn_l.source_name = "腐蚀射线"
 	warn_l.start_warning(global_position, global_position + Vector2(-800, 0), ray_width, 1.5, atk * 1.2, "腐蚀射线")
+	warn_r.source_name = "腐蚀射线"
 	warn_r.start_warning(global_position, global_position + Vector2(800, 0), ray_width, 1.5, atk * 1.2, "腐蚀射线")
 	
 	await get_tree().create_timer(1.5).timeout
@@ -255,6 +264,7 @@ func _skill_corrosive_ray():
 
 ## 9. 腐蚀连击（诗想专属：腐蚀射线+腐蚀下压融合，同时释放激光和两次不同方向扇形攻击）
 func _skill_corrosive_combo():
+	SEManager.play("123")
 	Global.emit_signal("boss_chant_start", "腐蚀连击", 2.0)
 	var ray_width = 160.0
 	var range_dist = 800.0
@@ -282,7 +292,9 @@ func _skill_corrosive_combo():
 	w1.attacker = self ; w2.attacker = self
 	w1.source_name = "腐蚀连击"; w2.source_name = "腐蚀连击"
 	w1.warning_finished.connect(w1.queue_free); w2.warning_finished.connect(w2.queue_free)
+	w1.source_name = "腐蚀下压"
 	w1.start_warning(global_position, global_position + first_vecs[0].normalized() * range_dist, 90.0, 1.0, atk, "腐蚀连击")
+	w2.source_name = "腐蚀下压"
 	w2.start_warning(global_position, global_position + first_vecs[1].normalized() * range_dist, 90.0, 1.0, atk, "腐蚀连击")
 
 	await get_tree().create_timer(1.0).timeout
@@ -323,7 +335,9 @@ func _skill_corrosive_combo():
 	w3.attacker = self ; w4.attacker = self
 	w3.source_name = "腐蚀连击"; w4.source_name = "腐蚀连击"
 	w3.warning_finished.connect(w3.queue_free); w4.warning_finished.connect(w4.queue_free)
+	w3.source_name = "腐蚀下压"
 	w3.start_warning(global_position, global_position + second_vecs[0].normalized() * range_dist, 90.0, 1.0, atk, "腐蚀连击")
+	w4.source_name = "腐蚀下压"
 	w4.start_warning(global_position, global_position + second_vecs[1].normalized() * range_dist, 90.0, 1.0, atk, "腐蚀连击")
 
 	await get_tree().create_timer(1.0).timeout
@@ -335,7 +349,7 @@ func _skill_corrosive_combo():
 	effect2.global_position = global_position; effect2.ray_width = ray_width
 	get_tree().current_scene.add_child(effect2)
 	print("[腐蚀连击] 第二轮激光发射，Boss位置=", global_position, "，玩家位置=", PC.player_instance.global_position if is_instance_valid(PC.player_instance) else "N/A", "，PC.invincible=", PC.invincible)
-	# 第二轮激光使用无视受击无敌的伤害判定，确保连击的连续性
+	# 第二轮激光使用无视无敌的伤害判定，确保连击的连续性
 	_deal_combo_ray_damage_ignore_invincible(ray_width)
 
 	# 第二次扇形攻击判定 + 粒子
@@ -366,7 +380,7 @@ func _deal_combo_ray_damage(ray_width: float):
 	else:
 		print("[腐蚀连击] 未命中")
 
-## 腐蚀连击激光伤害（无视受击无敌，用于第二轮确保命中）
+## 腐蚀连击激光伤害（无视无敌，用于第二轮确保命中）
 func _deal_combo_ray_damage_ignore_invincible(ray_width: float):
 	if not is_instance_valid(PC.player_instance):
 		print("[腐蚀连击-无视无敌] 伤害判定跳过：玩家无效")
@@ -385,6 +399,7 @@ func _deal_combo_ray_damage_ignore_invincible(ray_width: float):
 
 ## 3. 腐蚀风暴 (长读条4秒, 300%伤害, 增加释放前检测逻辑)
 func _skill_corrosive_storm():
+	SEManager.play("122")
 	# 检查 Boss 是否站在拘束圈上
 	var on_restrainer = false
 	for r in _get_active_restrainers():
@@ -457,6 +472,7 @@ func _skill_corrosive_storm():
 
 ## 4. 腐蚀下压 (随机顺序)
 func _skill_corrosive_slam():
+	SEManager.play("121")
 	Global.emit_signal("boss_chant_start", "腐蚀下压", 2.0)
 	var range_dist = 800.0
 	var is_tl_br_first = randf() < 0.5
@@ -468,7 +484,9 @@ func _skill_corrosive_slam():
 	w1.source_name = "腐蚀下压"
 	w2.source_name = "腐蚀下压"
 	w1.warning_finished.connect(w1.queue_free); w2.warning_finished.connect(w2.queue_free)
+	w1.source_name = "腐蚀下压"
 	w1.start_warning(global_position, global_position + first_vecs[0].normalized() * range_dist, 90.0, 1.0, atk, "腐蚀下压")
+	w2.source_name = "腐蚀下压"
 	w2.start_warning(global_position, global_position + first_vecs[1].normalized() * range_dist, 90.0, 1.0, atk, "腐蚀下压")
 	await get_tree().create_timer(1.0).timeout
 	if is_dead: return
@@ -480,7 +498,9 @@ func _skill_corrosive_slam():
 	w3.source_name = "腐蚀下压"
 	w4.source_name = "腐蚀下压"
 	w3.warning_finished.connect(w3.queue_free); w4.warning_finished.connect(w4.queue_free)
+	w3.source_name = "腐蚀下压"
 	w3.start_warning(global_position, global_position + second_vecs[0].normalized() * range_dist, 90.0, 1.0, atk, "腐蚀下压")
+	w4.source_name = "腐蚀下压"
 	w4.start_warning(global_position, global_position + second_vecs[1].normalized() * range_dist, 90.0, 1.0, atk, "腐蚀下压")
 	await get_tree().create_timer(1.0).timeout
 	if is_dead: return
@@ -992,14 +1012,14 @@ class _ShadowRestrainer extends Node2D:
 			if not p_in:
 				p_in = true
 				boss.add_restrainer_buff()
-			# 受击无敌期间暂停DOT累积
+			# 无敌期间暂停DOT累积
 			if not PC.invincible:
 				dot_timer += delta
 				if dot_timer >= 1.0:
 					dot_timer -= 1.0
 					var was_invincible = PC.invincible
 					PC.player_hit(max(1, int(PC.pc_max_hp * 0.01)), self , "暗影拘束")
-					# 暗影拘束不触发受击无敌：如果player_hit设置了无敌，立即取消
+					# 暗影拘束不触发无敌：如果player_hit设置了无敌，立即取消
 					if not was_invincible and PC.invincible and PC.player_instance and PC.player_instance.has_method("stop_invincible"):
 						PC.player_instance.stop_invincible()
 		elif p_in: _clear_restrain_effect()

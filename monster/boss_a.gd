@@ -77,15 +77,15 @@ const SECTOR_RADIUS: float = 2000.0 # 扇形半径(超出场地画幅)
 const MULTI_SECTOR_ROUNDS: int = 4 # 连续扇形轮数
 
 const DETOX_BUFF_ID := "boss_a_detox"
-const DEEP_METEOR_SIZE_MULTIPLIER: float = 1.3
+const DEEP_METEOR_SIZE_MULTIPLIER: float = 1.35
 const CORE_PETAL_SPEED_MULTIPLIER: float = 1.25
 const GOLDEN_PETAL_CHANCE: float = 0.06
-const GOLDEN_PETAL_SCALE_MULTIPLIER: float = 1.25
+const GOLDEN_PETAL_SCALE_MULTIPLIER: float = 1.35
 const POETRY_BARRAGE_DENSITY_MULTIPLIER: float = 1.3
-const POETRY_EXTRA_METEOR_MIN_COUNT: int = 3
-const POETRY_EXTRA_METEOR_MAX_COUNT: int = 4
-const POETRY_EXTRA_METEOR_MIN_DISTANCE: float = 46.0
-const POETRY_EXTRA_METEOR_MAX_DISTANCE: float = 120.0
+const POETRY_EXTRA_METEOR_MIN_COUNT: int = 7
+const POETRY_EXTRA_METEOR_MAX_COUNT: int = 11
+const POETRY_EXTRA_METEOR_MIN_DISTANCE: float = 16.0
+const POETRY_EXTRA_METEOR_MAX_DISTANCE: float = 190.0
 
 var stage_difficulty: String = Global.STAGE_DIFFICULTY_SHALLOW
 var forced_poison_attack_index: int = -1
@@ -104,15 +104,21 @@ func _ready():
 		Global.STAGE_DIFFICULTY_POETRY:
 			dps_multiplier = 10
 	hpMax += Global.get_current_dps() * dps_multiplier
+	# 诗想难度下Boss生命额外提升40倍
+	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
+		hpMax *= 40
 	print("[BossA] DPS加成HP: +", Global.get_current_dps() * dps_multiplier, "  最终hpMax: ", hpMax)
 	
 	# 防止boss升级期间打人
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	hp = hpMax # 初始化当前血量
 	
-	# 浅层难度下Boss只造成25%伤害
+	# 浅层难度下Boss只造成50%伤害
 	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
 		atk *= 0.5
+	# 诗想难度下Boss攻击额外提升50%
+	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
+		atk *= 1.75
 	
 	setup_monster_base()
 	use_debuff_take_damage_multiplier = false
@@ -136,6 +142,9 @@ func _ready():
 	attack_timer = Timer.new()
 	add_child(attack_timer)
 	attack_timer.wait_time = 2.5
+	# 诗想难度：技能间隔减少60%
+	if _is_poetry():
+		attack_timer.wait_time *= 0.4
 	attack_timer.timeout.connect(_choose_attack)
 	attack_timer.start()
 
@@ -223,7 +232,7 @@ func _get_random_player_side_meteor_position(player_pos: Vector2, min_distance: 
 	return _clamp_position_to_arena(player_pos + Vector2.RIGHT.rotated(angle) * distance, 28.0)
 
 
-func _spawn_meteor_warning_at(spawn_pos: Vector2, persistent: bool = false, _source_name: String = "陨石") -> void:
+func _spawn_meteor_warning_at(spawn_pos: Vector2, persistent: bool = false, _source_name: String = "盛放之棘") -> void:
 	var warning_circle := WarnCircleUtil.new()
 	add_child(warning_circle)
 	var meteor_radius := _get_meteor_radius()
@@ -484,6 +493,7 @@ func _show_attack_indicator(type: int):
 			attack_indicator.visible = true
 	
 func _attack_straight_line():
+	SEManager.play("101")
 	# 连续射击5次
 	for i in range(5):
 		# 每次射击前重新瞄准玩家
@@ -628,6 +638,7 @@ func _hide_attack_indicator_with_animation():
 
 
 func _attack_triple_line():
+	SEManager.play("102")
 	print("Attack: Triple Line")
 	
 	# 连续射击3次
@@ -750,6 +761,7 @@ func _show_attack_indicator_for_triple_line(base_direction: Vector2):
 
 
 func _attack_eight_directions():
+	SEManager.play("103")
 	print("Attack: Eight Directions")
 
 	# 检查玩家是否在攻击范围内并造成伤害
@@ -797,7 +809,20 @@ func _attack_eight_directions():
 
 
 func _attack_charge():
+	SEManager.play("104")
 	print("Attack: Charge")
+
+	# 首次冲锋触发对话
+	if not Global.has_seen_peach_grove_boss_charge:
+		Global.has_seen_peach_grove_boss_charge = true
+		Global.save_game()
+		Global.emit_signal("teammate_dialogue", "言秋", " 它要对着我们冲过来了！")
+		# 5秒后再推送墨宁的台词
+		var _t = get_tree().create_timer(5.0)
+		_t.timeout.connect(func():
+			if is_instance_valid(self) and is_inside_tree():
+				Global.emit_signal("teammate_dialogue", "墨宁", "离他远一点更安全，这样能更容易躲开这些藤蔓了。")
+		)
 
 	# 根据锁定的冲锋方向设置 sprite 朝向
 	if charge_indicator_direction.x < 0:
@@ -866,12 +891,13 @@ func _attack_charge():
 # 检查怪物是否在可伤害范围内（超出视野20px才能被伤害）
 func _is_monster_in_damage_range() -> bool:
 	# 获取摄像头
-	var camera = get_viewport().get_camera_2d()
+	var _vp = get_viewport()
+	var camera = _vp.get_camera_2d() if _vp else null
 	if not camera:
 		return true # 如果没有摄像头，默认可以伤害
 	
 	# 获取视野范围
-	var viewport_size = get_viewport().get_visible_rect().size
+	var viewport_size = _vp.get_visible_rect().size if _vp else Vector2.ZERO
 	var camera_zoom = camera.zoom
 	var visible_size = viewport_size / camera_zoom
 	
@@ -987,6 +1013,7 @@ func _point_to_line_distance(point: Vector2, line_start: Vector2, line_end: Vect
 	return point.distance_to(closest_point)
 
 func _attack_random_barrage():
+	SEManager.play("105")
 	print("Attack: Random Barrage")
 	var barrage_bullet_count := _get_random_barrage_bullet_count()
 	var barrage_duration := _get_random_barrage_duration()
@@ -1030,6 +1057,7 @@ func apply_knockback(_direction: Vector2, _force: float):
 # ============== 新技能: 陨石攻击(即时伤害) ==============
 func _attack_meteor_instant():
 	"""技能6: 向玩家周围随机掉落陨石，落地后直接判定伤害"""
+	SEManager.play("106")
 	print("Attack: Meteor Instant")
 	Global.emit_signal("boss_chant_start", "盛放之棘", METEOR_WARNING_TIME + METEOR_COUNT * 0.15)
 	
@@ -1072,6 +1100,7 @@ func _on_meteor_damage_dealt(damage_amount: float):
 # ============== 新技能: 陨石攻击(持续伤害区域) ==============
 func _attack_meteor_persistent():
 	"""技能7: 向玩家周围随机掉落陨石，落地后产生poison_circle持续伤害绿圈"""
+	SEManager.play("106")
 	print("Attack: Meteor Persistent")
 	Global.emit_signal("boss_chant_start", "剧毒之棘", METEOR_WARNING_TIME + METEOR_COUNT * 0.15)
 	
@@ -1133,6 +1162,7 @@ func _attack_sector_aoe():
 	warning_sector.damage_dealt.connect(_on_sector_damage_dealt)
 	
 	# 开始预警
+	warning_sector.source_name = "扇形斩击"
 	warning_sector.start_warning(
 		global_position, # 起始位置(Boss位置)
 		target_point, # 目标点(决定方向和半径)
@@ -1177,6 +1207,7 @@ func _attack_multi_sector_aoe():
 		
 		# 开始预警 - 连续攻击用更短的预警时间
 		var quick_warning_time = SECTOR_WARNING_TIME * 0.6
+		warning_sector.source_name = "连续扇形斩击"
 		warning_sector.start_warning(
 			global_position, # 起始位置(Boss位置)
 			target_point, # 目标点(决定方向和半径)
@@ -1327,6 +1358,7 @@ func _attack_petal_rain() -> void:
 	"""落花：从场地顶部持续飘落带红色勾边的花瓣，碰到玩家造成 ATK×60% 伤害。
 	不同难度会额外提升初始数量、重复使用增长量与花瓣速度。
 	花瓣持续飘落直到 boss 死亡才停止。"""
+	SEManager.play("100")
 	petal_use_count += 1
 	attacks_since_last_petal = 0
 	_reset_interval_attack_plan()
@@ -1337,8 +1369,11 @@ func _attack_petal_rain() -> void:
 	var spawn_interval: float = 0.5 / float(petals_per_second)
 
 	# 技能读条
-	Global.emit_signal("boss_chant_start", "落花", 1.2)
-	await get_tree().create_timer(1.2, false).timeout
+	if petal_use_count > 1:
+		Global.emit_signal("boss_chant_start", "落花（强化）", 1)
+	else:
+		Global.emit_signal("boss_chant_start", "落花", 1)
+	await get_tree().create_timer(1, false).timeout
 	Global.emit_signal("boss_chant_end")
 
 	# 读条结束后立即解除攻击锁定，boss 可继续释放其他技能
@@ -1365,11 +1400,15 @@ func _spawn_one_petal() -> void:
 	p.scale = Vector2(0.3, 0.3) * (GOLDEN_PETAL_SCALE_MULTIPLIER if is_golden_petal else 1.0)
 	var spawn_x = randf_range(left_boundary, right_boundary)
 	var spawn_y = top_boundary - randf_range(20.0, 80.0) # 从顶部边界上方飘落
+	var petal_speed := _get_petal_speed_multiplier()
+	# 金色花瓣飘落速度降低30%
+	if is_golden_petal:
+		petal_speed *= 0.7
 	p.initialize(
 		atk * 0.6,
 		Vector2(spawn_x, spawn_y),
 		bottom_boundary + 100.0,
-		_get_petal_speed_multiplier(),
+		petal_speed,
 		is_golden_petal
 	)
 
@@ -1378,7 +1417,8 @@ func _spawn_one_petal() -> void:
 func _start_charge_shake() -> void:
 	"""冲锋位移期间持续小幅震颟，直到 is_charging = false。
 	用独立的 base_offset 捕获 + 循环帧偏移，避免与 _screen_shake 冲突。"""
-	var camera = get_viewport().get_camera_2d()
+	var _vp = get_viewport()
+	var camera = _vp.get_camera_2d() if _vp else null
 	if not camera:
 		return
 	var base_offset = camera.offset

@@ -2,12 +2,13 @@ extends TextureButton
 
 # 主动技能图标
 
-var skill_name: String = "" # 技能名称ID（对应Global.player_now_active_skill中的name）
+var skill_name: String = "" # 技能名称ID（对应Global.get_current_active_skills()中的name）
 var slot_key: String = "" # 槽位键（space/q/e）
 var cooldown_time: float = 0.0 # 冷却时间
 var current_cooldown: float = 0.0 # 当前剩余冷却
 var is_on_cooldown: bool = false # 是否在冷却中
 var is_paused: bool = false
+var is_chanting_skill: bool = false # 是否为咏唱技能（受冷却加速影响）
 
 # 快捷键标签 - 使用运行时获取，不使用@export（因为脚本是动态替换的）
 var hotkey_label: Label = null
@@ -73,8 +74,8 @@ func setup_active_skill(slot: String, hotkey_text: String) -> void:
 		hotkey_label.text = hotkey_text
 		hotkey_label.show()
 	
-	# 从Global获取该槽位绑定的技能
-	var skill_config = Global.player_now_active_skill.get(slot, {})
+	# 从Global获取该槽位绑定的技能（角色独立键位）
+	var skill_config = Global.get_current_active_skills().get(slot, {})
 	skill_name = skill_config.get("name", "")
 	
 	if skill_name == "":
@@ -92,6 +93,13 @@ func setup_active_skill(slot: String, hotkey_text: String) -> void:
 			if cooldown_progress:
 				_cooldown_mask = _create_rounded_square_mask(icon_texture.get_width(), icon_texture.get_height())
 				cooldown_progress.texture_progress = _cooldown_mask
+	
+	# 检查是否为咏唱技能（受魔纹阵冷却加速影响）
+	is_chanting_skill = false
+	if Global.active_skill_manager:
+		var mgr_skill = Global.active_skill_manager.mastered_skills.get(skill_name, null)
+		if mgr_skill and "chant_time" in mgr_skill:
+			is_chanting_skill = true
 	
 	# 获取技能冷却时间
 	cooldown_time = _get_skill_cooldown(skill_name)
@@ -115,8 +123,6 @@ func _get_skill_icon_path(skill_id: String) -> String:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanbi.png"
 		"mizongbu":
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mizongbu.png"
-		"huanling":
-			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mingxiang.png"
 		"random_strike":
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/luanji.png"
 		"beastify":
@@ -127,6 +133,14 @@ func _get_skill_icon_path(skill_id: String) -> String:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shuiliumu.png"
 		"holy_fire":
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png"
+		"magical_ice":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/binghua.png"
+		"magical_fire":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/RingFire.png"
+		"magic":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mowenzhen.png"
+		"meditation":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/meditation.png"
 		_:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/luanji.png"
 
@@ -155,15 +169,6 @@ func _get_skill_cooldown(skill_id: String) -> float:
 			cd_reduction = cd_reduction * PC.cooldown_multi
 			return max(2.0, base_cd - cd_reduction) * cooldown_multiplier * cooldown_multiplier
 
-		"huanling":
-			var base_cd = 20.0
-			var cd_reduction = 0.0
-			for lv in [4, 7, 10, 13]:
-				if level >= lv:
-					cd_reduction += 1.0
-			cd_reduction = cd_reduction * PC.cooldown_multi
-			return max(4.0, base_cd - cd_reduction) * cooldown_multiplier
-
 		"random_strike":
 			# 乱击：基础冷却20秒，等级4，7，10，13时冷却-1秒
 			var base_cd = 20.0
@@ -182,7 +187,11 @@ func _process(delta: float) -> void:
 		return
 		
 	if is_on_cooldown:
-		current_cooldown -= delta
+		var cd_delta = delta
+		# 咏唱技能受冷却加速影响，与active_skill_manager保持同步
+		if is_chanting_skill and PC.chant_cooldown_acceleration > 0:
+			cd_delta = delta * (1.0 + PC.chant_cooldown_acceleration)
+		current_cooldown -= cd_delta
 		if current_cooldown <= 0:
 			current_cooldown = 0
 			is_on_cooldown = false

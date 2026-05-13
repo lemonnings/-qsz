@@ -30,6 +30,20 @@ extends Node
 @export var boss_multi: float = 0 # 对精英首领额外伤害
 @export var cooldown: float = 0 # 主动技能冷却缩减
 @export var active_skill_multi: float = 0 # 主动技能伤害加成
+@export var chant_cooldown_acceleration: float = 0.0 # 咏唱技能冷却加速倍率（0=无加速，1.0=100%加速即每秒额外减1秒）
+@export var chant_time_reduction: float = 0.0 # 咏唱时间缩减比例（0=无缩减，0.5=缩减50%）
+@export var enemy_move_speed_multiplier: float = 1.0 # 关卡内敌人移动速度倍率（每次进入关卡重置为1.0）
+@export var enemy_hp_multiplier: float = 1.0 # 关卡内敌人体力上限倍率（每次进入关卡重置为1.0）
+@export var enemy_damage_multiplier: float = 1.0 # 关卡内敌人伤害倍率（每次进入关卡重置为1.0）
+
+@export var total_distance_moved: float = 0.0 # 本局累计移动距离（像素，10像素=1米）
+@export var xianqi_points: int = 0 # 仙气凝聚点数（满100触发仙力护体）
+@export var xianli_active: bool = false # 仙力护体是否已激活
+@export var xuji_remaining: int = 0 # 蓄积(UR53)剩余升级次数（每次升级+5%攻击）
+@export var bleed_damage_multi: float = 0.0 # 流血伤害加成倍率（UR51十八层）
+@export var electrification_damage_multi: float = 0.0 # 感电伤害加成倍率（UR51十八层）
+@export var fire_damage_multi: float = 0.0 # 灼烧伤害加成倍率（UR51十八层）
+@export var debuff_cross_damage_multi: float = 0.0 # 异常交叉伤害加成倍率（UR51十八层：有一种异常时其他两异常伤害+100%）
 
 @export var faze_blood_level: int = 0
 @export var faze_sword_level: int = 0
@@ -125,6 +139,9 @@ extends Node
 @export var now_blue_p: float = 70
 @export var selected_rewards = []
 
+# 诗想难度备战配置（跨场景保持，reset_player_attr不重置此字段）
+var poetry_loadout: Dictionary = {}
+
 # 存储主要技能等级
 @export var main_skill_swordQi = 0
 @export var main_skill_swordQi_advance = 0
@@ -154,7 +171,7 @@ extends Node
 @export var riyan_range: float = 70.0
 @export var riyan_cooldown: float = 1 # 赤曜伤害频率：1秒/次
 @export var riyan_hp_max_damage: float = 0.08 # 赤曜基础伤害：最大体力的8%/秒
-@export var riyan_atk_damage: float = 0.16 # 赤曜基础伤害：攻击力的16%
+@export var riyan_atk_damage: float = 0.24 # 赤曜基础伤害：攻击力的24%
 
 # 环火相关量
 @export var main_skill_ringFire = 0
@@ -306,6 +323,8 @@ const CHARACTER_BASE_WEAPON_RUNTIME_MAP := {
 
 @export var is_game_over: bool = false
 @export var movement_disabled: bool = false # 控制玩家移动是否被禁用
+@export var is_chanting: bool = false # 是否正在咏唱技能（咏唱期间可移动但减速）
+@export var chant_speed_reduction: float = 0.0 # 咏唱期间移动速度减少比例（0.7=减70%）
 
 func _ready():
 	Global.connect("lucky_level_up", Callable(self , "_on_lucky_level_up"))
@@ -410,7 +429,8 @@ func reset_player_attr() -> void:
 	PC.pc_lv = 1
 	PC.pc_exp = 0
 	PC.pc_speed = 0 # 修炼追风加成在移速公式中单独计算，此处不重复叠加
-	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.008) # 流光提升攻速，每级+0.8%
+	# 修习树团队篇：攻速百分比加成
+	PC.pc_atk_speed = 0 + (Global.cultivation_liuguang_level * 0.008) + Global.study_atk_speed_bonus # 流光提升攻速，每级+0.8%
 	PC.pc_sheild = []
 
 	PC.current_weapon_num = 0
@@ -443,10 +463,13 @@ func reset_player_attr() -> void:
 	PC.summon_bullet_size_multiplier = 1.0
 	
 	# 重置暴击相关属性
-	PC.crit_chance = 0.1 + (Global.cultivation_fengrui_level * 0.004) # 基础暴击率 + 局外成长
-	PC.crit_damage_multi = 1.5 + (Global.cultivation_liejin_level * 0.016) # 基础暴击伤害倍率 + 局外成长
+	# 修习树团队篇：暴击率加成
+	PC.crit_chance = 0.1 + (Global.cultivation_fengrui_level * 0.004) + Global.study_crit_rate_bonus # 基础暴击率 + 局外成长
+	# 修习树团队篇：暴击伤害加成
+	PC.crit_damage_multi = 1.5 + (Global.cultivation_liejin_level * 0.016) + Global.study_crit_damage_bonus # 基础暴击伤害倍率 + 局外成长
 	
-	PC.damage_reduction_rate = min(0.0 + (Global.cultivation_huti_level * 0.002), 0.7) # 基础减伤率 + 局外成长，最高70%
+	# 修习树团队篇：减伤率加成
+	PC.damage_reduction_rate = min(0.0 + (Global.cultivation_huti_level * 0.002) + Global.study_damage_reduction_bonus, 0.7) # 基础减伤率 + 局外成长，最高70%
 	PC.damage_deal_multiplier = 1.0
 	PC.pc_final_atk = Global.get_cultivation_final_damage_bonus()
 	PC.wind_huanfeng_stacks = 0
@@ -465,9 +488,11 @@ func reset_player_attr() -> void:
 	PC.sixsense_applied_atk_speed = 0.0
 	PC.sixsense_applied_damage_reduction = 0.0
 	PC.sixsense_applied_atk = 0.0
-	PC.point_multi = 0 + (Global.cultivation_hualing_level * 0.02)
-	PC.exp_multi = Global.exp_multi
-	PC.drop_multi = Global.drop_multi
+	# 修习树团队篇：真气获取率百分比加成
+	PC.point_multi = 0 + (Global.cultivation_hualing_level * 0.02) + Global.study_qi_gain_bonus
+	PC.exp_multi = Global.exp_multi + Global.study_exp_bonus # 修习树领悟篇：经验获取提升
+	# 修习树团队篇：掉落率百分比加成
+	PC.drop_multi = Global.drop_multi + Global.study_drop_rate_bonus
 	PC.body_size = Global.body_size
 	PC.set_attack_range_value(Global.attack_range)
 	PC.heal_multi = Global.heal_multi
@@ -476,6 +501,17 @@ func reset_player_attr() -> void:
 	PC.boss_multi = Global.boss_multi
 	PC.cooldown = Global.cooldown
 	PC.active_skill_multi = Global.active_skill_multi
+	PC.enemy_move_speed_multiplier = 1.0 # 重置敌人移速倍率
+	PC.enemy_hp_multiplier = 1.0 # 重置敌人体力倍率
+	PC.enemy_damage_multiplier = 1.0 # 重置敌人伤害倍率
+	PC.total_distance_moved = 0.0 # 重置移动距离
+	PC.xianqi_points = 0 # 重置仙气凝聚点数
+	PC.xianli_active = false # 重置仙力护体状态
+	PC.xuji_remaining = 0 # 重置蓄积剩余次数
+	PC.bleed_damage_multi = 0.0 # 重置流血伤害加成
+	PC.electrification_damage_multi = 0.0 # 重置感电伤害加成
+	PC.fire_damage_multi = 0.0 # 重置灼烧伤害加成
+	PC.debuff_cross_damage_multi = 0.0 # 重置异常交叉伤害加成
 	PC.last_atk_speed = 0
 	PC.last_speed = 0
 	PC.last_lunky_level = 1
@@ -560,7 +596,7 @@ func reset_player_attr() -> void:
 	PC.riyan_range = 70.0
 	PC.riyan_cooldown = 1.0
 	PC.riyan_hp_max_damage = 0.08
-	PC.riyan_atk_damage = 0.08
+	PC.riyan_atk_damage = 0.24
 	
 	# 重置环火相关属性
 	PC.main_skill_ringFire = 0
@@ -666,27 +702,33 @@ func reset_player_attr() -> void:
 	
 	# todo 测试武器升级
 	PC.selected_rewards = []
+	
+	# 非诗想难度清除备战配置，诗想难度由_apply_poetry_init恢复
+	if Global.current_stage_difficulty != Global.STAGE_DIFFICULTY_POETRY:
+		PC.poetry_loadout = {}
 
-	if PC.player_name == "moning":
-		PC.selected_rewards.append("Qigong")
-		PC.current_weapon_num += 1
-		PC.faze_wind_level += 2
-		PC.faze_wide_level += 2
-	if PC.player_name == "yiqiu":
-		PC.selected_rewards.append("Swordqi")
-		PC.current_weapon_num += 1
-		PC.faze_sword_level += 2
-		PC.faze_bullet_level += 2
-	if PC.player_name == "noam":
-		PC.selected_rewards.append("Lightbullet")
-		PC.current_weapon_num += 1
-		PC.faze_life_level += 2
-		PC.faze_bullet_level += 2
-	if PC.player_name == "kansel":
-		PC.selected_rewards.append("Ice")
-		PC.current_weapon_num += 1
-		PC.faze_destroy_level += 2
-		PC.faze_bullet_level += 2
+	# 诗想难度下不添加角色默认武器（由poetry_loadout统一管理），非诗想难度才添加
+	if Global.current_stage_difficulty != Global.STAGE_DIFFICULTY_POETRY:
+		if PC.player_name == "moning":
+			PC.selected_rewards.append("Qigong")
+			PC.current_weapon_num += 1
+			PC.faze_wind_level += 3
+			PC.faze_wide_level += 3
+		if PC.player_name == "yiqiu":
+			PC.selected_rewards.append("Swordqi")
+			PC.current_weapon_num += 1
+			PC.faze_sword_level += 3
+			PC.faze_bullet_level += 3
+		if PC.player_name == "noam":
+			PC.selected_rewards.append("Lightbullet")
+			PC.current_weapon_num += 1
+			PC.faze_life_level += 3
+			PC.faze_bullet_level += 3
+		if PC.player_name == "kansel":
+			PC.selected_rewards.append("Ice")
+			PC.current_weapon_num += 1
+			PC.faze_destroy_level += 3
+			PC.faze_bullet_level += 3
 	
 
 func add_shield(amount: int, duration: float) -> void:
@@ -746,7 +788,7 @@ func player_hit(damage: int, attacker: Node2D = null, source_name: String = "未
 		
 	return remaining_damage
 
-## 无视无敌状态的伤害（用于DOT、燃烧等不应触发受击无敌的伤害）
+## 无视无敌状态的伤害（用于DOT、燃烧等不应触发无敌的伤害）
 func player_hit_ignore_invincible(damage: int, attacker: Node2D = null, source_name: String = "未知") -> int:
 	if is_game_over:
 		return 0
@@ -812,11 +854,13 @@ func _remove_empty_shields() -> void:
 
 	
 func exec_pc_atk() -> void:
-	PC.pc_atk = int(25 + int(Global.cultivation_poxu_level * 2))
+	# 修习树团队篇：攻击力百分比加成
+	PC.pc_atk = int((25 + int(Global.cultivation_poxu_level * 2)) * (1.0 + Global.study_atk_bonus))
 	PC.pc_start_atk = PC.pc_atk
 	
 func exec_pc_hp() -> void:
-	PC.pc_max_hp = int(500 + int(Global.cultivation_xuanyuan_level * 20))
+	# 修习树团队篇：HP绝对值加成
+	PC.pc_max_hp = int(500 + int(Global.cultivation_xuanyuan_level * 20)) + Global.study_hp_bonus
 	PC.pc_start_max_hp = PC.pc_max_hp
 	PC.pc_hp = PC.pc_max_hp
 	
@@ -832,11 +876,15 @@ func add_attack_range(delta: float) -> void:
 
 func exec_lucky_level() -> void:
 	PC.now_lunky_level = Global.lunky_level
-	PC.lucky = PC.now_lunky_level
-	PC.now_red_p = Global.red_p + Global.lunky_level * 0.1
-	PC.now_gold_p = Global.gold_p + Global.lunky_level * 0.5
-	PC.now_darkorchid_p = Global.darkorchid_p + Global.lunky_level * 0.6
+	# 修习树领悟篇：初始天命提升
+	PC.lucky = PC.now_lunky_level + Global.study_initial_lucky
+	# 修习树领悟篇：逆天/臻境/悟道概率提升
+	PC.now_red_p = Global.red_p + Global.lunky_level * 0.1 + Global.study_red_chance_bonus
+	PC.now_gold_p = Global.gold_p + Global.lunky_level * 0.5 + Global.study_gold_chance_bonus
+	PC.now_darkorchid_p = Global.darkorchid_p + Global.lunky_level * 0.6 + Global.study_purple_chance_bonus
 	PC.now_blue_p = Global.blue_p + Global.lunky_level * 1
+	# 修习树领悟篇：纹章栏位增加
+	PC.emblem_slots_max = 4 + Global.study_emblem_slots_bonus
 
 func exec_swordqi_skills() -> void:
 	# 根据已学习的技能初始化剑气等级和伤害
@@ -913,7 +961,7 @@ func get_character_attributes_text() -> String:
 	var crit_rate = (0.1 + Global.cultivation_fengrui_level * 0.004 + equipment_stats["crit_chance"]) * 100
 	var crit_damage = (1.5 + Global.cultivation_liejin_level * 0.016 + equipment_stats["crit_damage_multi"]) * 100
 	var point_rate = (1 + Global.cultivation_hualing_level * 0.02 + equipment_stats["point_multi"]) * 100
-	var exp_rate = (1 + Global.exp_multi + equipment_stats["exp_multi"]) * 100
+	var exp_rate = (1 + Global.exp_multi + equipment_stats["exp_multi"] + Global.study_exp_bonus) * 100 # 修习树领悟篇：经验获取提升
 	var drop_rate = (1 + Global.drop_multi + equipment_stats["drop_multi"]) * 100
 	
 	# 计算次要属性（用于修为计算）

@@ -66,57 +66,44 @@ func _physics_process(delta: float) -> void:
 			# 在原地生成毒圈（独立加入当前场景，不随slime销毁）
 			var poison_circle = preload("res://Scenes/moster/poison_circle.tscn").instantiate()
 			poison_circle.damage_per_tick = atk * 0.5
+			poison_circle.instant_damage_on_enter = false
+			poison_circle.tick_interval = 0.5
 			poison_circle.global_position = global_position
 			get_tree().current_scene.add_child(poison_circle)
 			await get_tree().create_timer(0.35).timeout
 			queue_free()
 		
-	if hp < hpMax and hp > 0:
+	# 更新离屏缓存
+	update_offscreen_status()
+	
+	# 血条显示（离屏时跳过）
+	if not _is_offscreen and hp < hpMax and hp > 0:
 		show_health_bar()
 	
 	if debuff_manager.is_action_disabled():
 		return
 	
-	# 处理推挤效果（防止怪物重叠）
-	if not is_dead:
+	# 推挤效果（离屏时跳过，无人看到重叠）
+	if not is_dead and not _is_offscreen:
 		CharacterEffects.apply_separation(self , 10.0, 12.0)
-		
+	
 	if not is_dead:
 		if move_direction == 0:
 			position += Vector2(speed, 0) * delta
-			sprite.flip_h = true;
+			if not _is_offscreen:
+				sprite.flip_h = true
 		if move_direction == 1:
 			position -= Vector2(speed, 0) * delta
-			sprite.flip_h = false;
+			if not _is_offscreen:
+				sprite.flip_h = false
 		if move_direction >= 2:
-			# 靠近角色的移动方式
 			if PC.player_instance != null:
 				var player_pos = PC.player_instance.global_position
 				var direction_to_player = (player_pos - global_position).normalized()
 				speed = get_effective_move_speed(base_speed)
 				position += direction_to_player * speed * delta
-				# 根据移动方向设置精灵翻转
-				if direction_to_player.x > 0:
-					sprite.flip_h = true
-				else:
-					sprite.flip_h = false
-	
-	
-	# 处理敌人之间的碰撞 - 直接防止重叠
-	if monitoring:
-		var overlapping_bodies = get_overlapping_areas()
-		
-		for body in overlapping_bodies:
-			if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
-				var distance = global_position.distance_to(body.global_position)
-				var min_distance = 12.0 # 最小允许距离
-				
-				# 如果距离太近，直接调整位置
-				if distance < min_distance and distance > 0.1:
-					var direction_away = (global_position - body.global_position).normalized()
-					var overlap = min_distance - distance
-					# 两个物体各自移动一半的重叠距离
-					position += direction_away * (overlap * 0.5)
+				if not _is_offscreen:
+					sprite.flip_h = direction_to_player.x > 0
 	
 	if move_direction == 0 and position.x <= -534:
 		free_health_bar()
@@ -156,7 +143,7 @@ func _on_area_entered(area: Area2D) -> void:
 			area.call_deferred("create_rebound")
 			
 		if hp <= 0:
-			# 如果已经死亡，则不重复播放死亡动画，也不播放受击动画
+			# 如果已经死亡，则不重复播放死亡动画，也不播放动画
 			if not is_dead:
 				$AnimatedSprite2D.play("death")
 		else:

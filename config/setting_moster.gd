@@ -27,7 +27,10 @@ func _calc_stage_scaled_value(base_value: float) -> float:
 
 func _calc_atk(base_atk: float) -> float:
 	var t = PC.real_time
-	return base_atk + (0.75 * t) * pow(1.015, PC.pc_lv - 1) * _get_current_stage_multiplier()
+	# 难度加成对攻击力的影响降低为70%（深层/核心/诗想）
+	var raw_mult = _get_current_stage_multiplier()
+	var atk_mult = 1.0 + (raw_mult - 1.0) * 0.7
+	return (base_atk + (0.5 * t) * pow(1.0125, PC.pc_lv - 1) * atk_mult) * PC.enemy_damage_multiplier
 
 # 计算新武器带来的怪物血量加成
 func _get_new_weapon_hp_multiplier() -> float:
@@ -47,27 +50,27 @@ func _get_new_weapon_hp_multiplier() -> float:
 
 func _calc_hp(base_hp: float) -> float:
 	var t = float(PC.real_time)
-	var lv_bonus = pow(1.1, PC.pc_lv - 1) # 玩家每升1级，怪物血量提升10%
+	var lv_bonus = pow(1.07, PC.pc_lv - 1) # 玩家每升1级，怪物血量提升
 	var new_weapon_bonus = _get_new_weapon_hp_multiplier() # 新武器带来的血量加成
 	
 	var first_part = base_hp + t / 8.0
-	var linear_part = 5.0 * t / 45000.0
+	var linear_part = 5.0 * t / 50000.0
 	var quadratic_part = t * t / 500000.0
 	var second_part = 1.0 + linear_part + quadratic_part
 	
 	var first_jump_time = 90.0
-	var second_jump_time = 180.0
-	var third_jump_time = 270.0
-	var fourth_jump_time = 360.0
-	var fifth_jump_time = 450.0
-	var sixth_jump_time = 540.0
+	var second_jump_time = 165.0
+	var third_jump_time = 240.0
+	var fourth_jump_time = 315.0
+	var fifth_jump_time = 390.0
+	var sixth_jump_time = 465.0
 	
-	var first_jump_multiplier = 1.35
-	var second_jump_multiplier = 1.8
-	var third_jump_multiplier = 2.4
-	var fourth_jump_multiplier = 3.2
-	var fifth_jump_multiplier = 4
-	var sixth_jump_multiplier = 5
+	var first_jump_multiplier = 2
+	var second_jump_multiplier = 2.8
+	var third_jump_multiplier = 3.9
+	var fourth_jump_multiplier = 5.3
+	var fifth_jump_multiplier = 7
+	var sixth_jump_multiplier = 8.9
 	
 	var jump_multiplier = 1.0
 	if t < first_jump_time:
@@ -85,21 +88,40 @@ func _calc_hp(base_hp: float) -> float:
 	else:
 		jump_multiplier = sixth_jump_multiplier
 	
-	return first_part * second_part * jump_multiplier * lv_bonus * new_weapon_bonus * _get_current_stage_multiplier()
+	return first_part * second_part * jump_multiplier * lv_bonus * new_weapon_bonus * _get_current_stage_multiplier() * PC.enemy_hp_multiplier
 
 
 func _finalize_monster_data(data: Dictionary, query: String):
 	# 所有怪物的 mechanism 统一翻倍
 	if data.has("mechanism"):
 		data["mechanism"] = int(data.get("mechanism", 0)) * 1
+	# 修习树特殊篇：提升治愈灵气和灵髓碎片的掉落概率
+	if query == "itemdrop" and data.has("itemdrop"):
+		var drops = data["itemdrop"]
+		if drops.has("item_001") and Global.study_heal_aura_spawn_chance > 0.0:
+			drops["item_001"] *= (1.0 + Global.study_heal_aura_spawn_chance)
+		if drops.has("item_007") and Global.study_fragment_drop_chance > 0.0:
+			drops["item_007"] *= (1.0 + Global.study_fragment_drop_chance)
 	return data.get(query, null)
-
+	
+func goldball(query: String):
+	var data = {
+		"atk": _calc_atk(1),
+		"hp": Global.get_current_dps() * 0.1 + 30,
+		"speed": 75,
+		"exp": 2500,
+		"point": 200 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
+		"mechanism": 10,
+		"itemdrop": {"item_007": 1.0}
+	}
+	return _finalize_monster_data(data, query)
+	
 # ============== 关卡1 桃林(PEACH_GROVE) ==============
 
 func slime_blue(query: String): # 蓝色史莱姆 / 普通怪1
 	var data = {
-		"atk": _calc_atk(200),
-		"hp": _calc_hp(30),
+		"atk": _calc_atk(140),
+		"hp": _calc_hp(27),
 		"speed": 42,
 		"exp": 350,
 		"point": 10 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -110,8 +132,8 @@ func slime_blue(query: String): # 蓝色史莱姆 / 普通怪1
 
 func taohua_yao(query: String): # 桃花妖 / 普通怪2
 	var data = {
-		"atk": _calc_atk(220),
-		"hp": _calc_hp(33),
+		"atk": _calc_atk(160),
+		"hp": _calc_hp(30),
 		"speed": 36,
 		"exp": 450,
 		"point": 15 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -122,8 +144,8 @@ func taohua_yao(query: String): # 桃花妖 / 普通怪2
 
 func frog(query: String): # 幼体树精 / 远程怪
 	var data = {
-		"atk": _calc_atk(180),
-		"hp": _calc_hp(27),
+		"atk": _calc_atk(120),
+		"hp": _calc_hp(24),
 		"speed": 35,
 		"exp": 500,
 		"point": 20 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -186,9 +208,9 @@ func slime_grey(query: String): # 灰色史莱姆 / 特殊怪
 
 func ghost(query: String): # 鬼魂 / 远程怪
 	var data = {
-		"atk": _calc_atk(500),
+		"atk": _calc_atk(480),
 		"hp": _calc_hp(80),
-		"speed": 45,
+		"speed": 30,
 		"exp": 500,
 		"point": 18 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 12,
@@ -211,7 +233,7 @@ func armor_stone(query: String): # 甲石 / 普通怪1
 func stone_man(query: String): # 石人 / 特殊怪
 	var data = {
 		"atk": _calc_atk(550),
-		"hp": _calc_hp(80),
+		"hp": _calc_hp(120),
 		"speed": 28,
 		"exp": 550,
 		"point": 22 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
@@ -296,6 +318,8 @@ func get_boss_extra_drop() -> Dictionary:
 	# 固定掉落1个，剩余期望由5种魔核概率掉落覆盖
 	var extra_expected = max(0.0, total_expected - 1.0)
 	var each_chance = clampf(extra_expected / 5.0, 0.0, 1.0) * Global.get_effective_drop_multiplier()
+	# 修习树特殊篇：boss掉落魔核概率提升
+	each_chance *= (1.0 + Global.study_boss_core_drop_chance)
 	
 	# 桃林浅层：新手教学关，魔核概率降为50%
 	var is_peach_shallow = (difficulty == Global.STAGE_DIFFICULTY_SHALLOW and Global.current_stage_id == "peach_grove")

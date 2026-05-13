@@ -21,6 +21,11 @@ const BASE_NAME_OUTLINE := 3
 const BASE_DIALOG_OUTLINE := 2
 
 
+func _ready() -> void:
+	# 基于完整文本预计算换行布局，避免逐字显示时换行边界闪烁
+	dialog_label.visible_characters_behavior = TextServer.VC_CHARS_AFTER_SHAPING
+
+
 ## ── 公开方法 ─────────────────────────────────
 
 ## 设置发言人名称

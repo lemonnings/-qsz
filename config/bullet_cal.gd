@@ -51,6 +51,12 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 	# 最终伤害乘区改由怪物基类统一结算，这里只保留子弹自身与目标类型相关的基础增伤。
 	final_damage_val = Global.apply_enemy_damage_bonus(final_damage_val, enemy)
 	
+	# 修习树武器篇伤害加成（根据武器分类动态获取）
+	if weapon_tag != "":
+		var study_weapon_bonus = SettingStudyTreeUp.get_total_damage_bonus(weapon_tag)
+		if study_weapon_bonus > 0.0:
+			final_damage_val *= (1.0 + study_weapon_bonus)
+	
 	if weapon_tag == "treasure" or weapon_tag == "branch":
 		if enemy.is_in_group("elite") or enemy.is_in_group("boss"):
 			final_damage_val = final_damage_val * Faze.get_treasure_elite_boss_multiplier(PC.faze_treasure_level, PC.lucky)

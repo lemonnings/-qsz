@@ -33,7 +33,7 @@ const DAMAGE_COLORS = {
 	DamageType.PLAYER_HURT: Color.RED # 红色
 }
 
-var base_font_size: int = 12
+var base_font_size: int = 10
 var base_outline_size: int = 2
 var _current_tween: Tween = null
 var _canvas_layer: CanvasLayer = null
@@ -53,7 +53,7 @@ func _ready():
 	# 创建 CanvasLayer 用于屏幕空间渲染（不受 Camera2D zoom 影响，避免像素模糊）
 	_canvas_layer = CanvasLayer.new()
 	_canvas_layer.name = "DamageCanvasLayer"
-	_canvas_layer.layer = 100
+	_canvas_layer.layer = 10
 	add_child(_canvas_layer)
 	# 将 Label 移至 CanvasLayer 下，使其在屏幕空间渲染
 	damage_label.reparent(_canvas_layer)
@@ -91,7 +91,8 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 		damage_type = DamageType.PLAYER_HURT
 		
 	# 将世界坐标转换为屏幕坐标（CanvasLayer 屏幕空间渲染，不受 Camera2D zoom 影响）
-	var cam: Camera2D = get_viewport().get_camera_2d()
+	var _vp = get_viewport()
+	var cam: Camera2D = _vp.get_camera_2d() if _vp else null
 	var cam_zoom: float = 1.0
 	var screen_pos: Vector2 = display_position
 	if cam:
@@ -119,9 +120,9 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	# DOT/召唤物始终11；玩家受伤始终16；暴击额外×1.15
 	var final_font_size: int
 	if damage_type == DamageType.DOT_ELECTRIFIED or damage_type == DamageType.DOT_BURN or damage_type == DamageType.DOT_BLEED or damage_type == DamageType.DOT_POISON or damage_type == DamageType.SUMMON_DAMAGE:
-		final_font_size = 11
+		final_font_size = 7
 	elif damage_type == DamageType.PLAYER_HURT:
-		final_font_size = 14
+		final_font_size = 11
 	else:
 		final_font_size = base_font_size + font_bonus # 12+0=12, 12+2=14(k/万), 12+4=16(m/亿)
 		if damage_type == DamageType.PLAYER_BULLET_CRIT:
@@ -159,21 +160,21 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	tween.set_ease(Tween.EASE_OUT) # 缓动类型
 
 	# 1. 初始显示 (渐入)
-	tween.tween_property(damage_label, "modulate:a", 1.0, 0.25)
+	tween.tween_property(damage_label, "modulate:a", 1.0, 0.15)
 
 	# 2. 保持显示1s，暴击额外0.6s
 	# 注意：tween_interval 会等待前面的动画完成后再执行
 	if damage_type == DamageType.PLAYER_BULLET_CRIT:
-		tween.tween_interval(1)
+		tween.tween_interval(0.25)
 	else:
-		tween.tween_interval(0.5)
+		tween.tween_interval(0.25)
 
 	# 3. 向上飘动并渐隐
 	# 获取当前damage_label的相对位置
 	var current_label_pos = damage_label.position
 	
-	tween.tween_property(damage_label, "position:y", current_label_pos.y - 20.0 * cam_zoom, 0.5)
-	tween.parallel().tween_property(damage_label, "modulate:a", 0.0, 0.5)
+	tween.tween_property(damage_label, "position:y", current_label_pos.y - 20.0 * cam_zoom, 0.3)
+	tween.parallel().tween_property(damage_label, "modulate:a", 0.0, 0.3)
 
 	# 动画完成后回收到对象池（或 queue_free）
 	tween.finished.connect(_on_display_finished)
@@ -210,7 +211,7 @@ func _format_damage(damage_value: float) -> Dictionary:
 		# 中式缩写：超过10亿显示xx.xx亿，超过10万显示xx.xx万
 		if damage_value >= 1000000000:
 			text = "%.2f亿" % (damage_value / 100000000.0)
-			font_bonus = 2
+			font_bonus = 3
 		elif damage_value >= 100000:
 			text = "%.2f万" % (damage_value / 10000.0)
 			font_bonus = 1

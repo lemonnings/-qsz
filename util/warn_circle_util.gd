@@ -160,7 +160,7 @@ func finish_warning():
 	# 根据释放模式执行不同逻辑
 	if release_mode == ReleaseMode.INSTANT_DAMAGE:
 		# 模式1：直接判定伤害
-		if player_ref and is_player_in_range():
+		if player_ref and is_player_in_range() and damage > 0:
 			deal_damage_to_player()
 	else:
 		# 模式2：创建持续区域效果

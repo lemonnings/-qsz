@@ -20,14 +20,14 @@ extends Node2D
 @export var cystal: AnimatedSprite2D
 @export var levelUpMan: AnimatedSprite2D
 @export var levelUpMan2: AnimatedSprite2D
-@export var blackSmith: AnimatedSprite2D
+@export var bard: AnimatedSprite2D
 @export var merchant: AnimatedSprite2D
 @export var danlu: AnimatedSprite2D
 @export var portal: AnimatedSprite2D
 @export var cystalTips: Control
 @export var levelUpManTips: Control
 @export var levelUpMan2Tips: Control
-@export var blackSmithTips: Control
+@export var bardTips: Control
 @export var merchantTips: Control
 @export var danluTips: Control
 @export var portalTips: Control
@@ -37,9 +37,10 @@ extends Node2D
 @export var cultivation_msg: RichTextLabel
 @export var point_label: Label
 
-@export var interaction_distance: float = 35.0
+@export var interaction_distance: float = 40.0
 var dialog_file_to_start: String = "res://AssetBundle/Dialog/test_dialog.txt"
 var qian_dialog: String = "res://AssetBundle/Dialog/qian_dialog.txt"
+var bard_dialog: String = "res://AssetBundle/Dialog/bard_dialog.txt"
 
 var transition_tween: Tween
 # UI动画相关变量
@@ -66,6 +67,15 @@ func _ready() -> void:
 	
 	Global.in_town = true
 	player.change_hero(PC.player_name)
+	
+	# 功能解锁检查
+	_apply_feature_unlocks()
+	
+	# 为NPC添加脚底阴影
+	_setup_npc_shadows()
+	
+	# 城镇内不应用关卡的体型缩小(0.9)
+	player.scale = Vector2(1.2, 1.2)
 	
 	defaultLayer.unlock_setting_button()
 	
@@ -102,6 +112,57 @@ func _spawn_animals() -> void:
 		)
 		add_child(rabbit)
 
+## 根据游戏进度控制功能解锁
+## - 全局第2次失败后：炼丹炉解锁
+## - 全局第3次失败后：坎(神秘商铺)解锁
+## - 通关ruin后：坤(study_tree加点)解锁
+## - 通关cave后：异国的诗人解锁，诗想难度开启
+func _apply_feature_unlocks() -> void:
+	# 炼丹炉：全局第2次失败后解锁
+	var danlu_unlocked = Global.total_defeat_count >= 2
+	if danlu:
+		danlu.visible = danlu_unlocked
+		if danlu_unlocked:
+			_create_npc_shadow(danlu)
+	
+	# 坎(神秘商铺)：全局第3次失败后解锁
+	var merchant_unlocked = Global.total_defeat_count >= 3
+	if merchant:
+		merchant.visible = merchant_unlocked
+		if merchant_unlocked:
+			_create_npc_shadow(merchant)
+	
+	# 坤(study_tree)：通关ruin后解锁
+	var levelUpMan2_unlocked = Global.is_stage_cleared("ruin")
+	if levelUpMan2:
+		levelUpMan2.visible = levelUpMan2_unlocked
+		if levelUpMan2_unlocked:
+			_create_npc_shadow(levelUpMan2)
+	
+	# 异国的诗人：通关cave后解锁
+	var bard_unlocked = Global.is_stage_cleared("cave")
+	if bard:
+		bard.visible = bard_unlocked
+		if bard_unlocked:
+			_create_npc_shadow(bard)
+
+## 为初始可见的NPC添加脚底阴影
+func _setup_npc_shadows() -> void:
+	for npc in [cystal, levelUpMan, portal]:
+		if npc:
+			_create_npc_shadow(npc)
+
+## 为NPC创建脚底阴影
+## NPC纹理128x128，居中后脚底约在本地y=+55处
+## 阴影需在脚底下方，使用show_behind_parent确保绘制在NPC后面
+func _create_npc_shadow(npc: AnimatedSprite2D) -> void:
+	if npc.has_node("Shadow"):
+		return
+	var shadow = CharacterEffects.create_shadow(npc, 40.0, 14.0, 55.0)
+	shadow.z_index = 0
+	shadow.z_as_relative = true
+	shadow.show_behind_parent = true
+
 func setup_audio_buses() -> void:
 	# 设置所有音效使用SFX总线
 	if has_node("LevelUP"):
@@ -115,6 +176,7 @@ func setup_audio_buses() -> void:
 	ui_states["cystalTips"] = false
 	ui_states["levelUpManTips"] = false
 	ui_states["levelUpMan2Tips"] = false
+	ui_states["bardTips"] = false
 	ui_states["merchantTips"] = false
 	ui_states["danluTips"] = false
 	ui_states["portalTips"] = false
@@ -127,6 +189,8 @@ func setup_audio_buses() -> void:
 	levelUpManTips.modulate.a = 0.0
 	levelUpMan2Tips.visible = false
 	levelUpMan2Tips.modulate.a = 0.0
+	bardTips.visible = false
+	bardTips.modulate.a = 0.0
 	merchantTips.visible = false
 	merchantTips.modulate.a = 0.0
 	danluTips.visible = false
@@ -151,6 +215,8 @@ func setup_audio_buses() -> void:
 	
 	if studyLayer:
 		studyLayer.visible = false
+		if studyLayer.has_signal("exit_requested") and not studyLayer.exit_requested.is_connected(_on_exit_pressed):
+			studyLayer.exit_requested.connect(_on_exit_pressed)
 	
 	if heroLayer:
 		heroLayer.visible = false
@@ -262,7 +328,7 @@ func _process(_delta: float) -> void:
 	if not is_instance_valid(player):
 		return
 
-	if player.global_position.distance_to(cystal.global_position) < interaction_distance:
+	if player.global_position.distance_to(cystal.global_position) < interaction_distance + 10:
 		animate_ui_element(cystalTips, "cystalTips", true)
 		levelUpManTips.change_name("乾
 		<侠士切换>")
@@ -271,7 +337,7 @@ func _process(_delta: float) -> void:
 		animate_ui_element(cystalTips, "cystalTips", false)
 		
 				
-	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance:
+	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance - 5:
 		animate_ui_element(levelUpManTips, "levelUpManTips", true)
 		levelUpManTips.change_name("巽
 		<修炼>")
@@ -282,7 +348,7 @@ func _process(_delta: float) -> void:
 		animate_ui_element(levelUpManTips, "levelUpManTips", false)
 	
 				
-	if player.global_position.distance_to(levelUpMan2.global_position) < interaction_distance:
+	if player.global_position.distance_to(levelUpMan2.global_position) < interaction_distance - 5 and levelUpMan2.visible:
 		animate_ui_element(levelUpMan2Tips, "levelUpMan2Tips", true)
 		levelUpMan2Tips.change_name("震
 		<进阶>")
@@ -292,7 +358,15 @@ func _process(_delta: float) -> void:
 	else:
 		animate_ui_element(levelUpMan2Tips, "levelUpMan2Tips", false)
 	
-	if player.global_position.distance_to(merchant.global_position) < interaction_distance + 10:
+	if player.global_position.distance_to(bard.global_position) < interaction_distance + 5 and bard.visible:
+		animate_ui_element(bardTips, "bardTips", true)
+		bardTips.change_name("异国的诗人
+		<旅人>")
+		bardTips.change_label1_text("交谈 [F]")
+	else:
+		animate_ui_element(bardTips, "bardTips", false)
+
+	if player.global_position.distance_to(merchant.global_position) < interaction_distance + 15 and merchant.visible:
 		animate_ui_element(merchantTips, "merchantTips", true)
 		merchantTips.change_name("坎
 		<货摊>")
@@ -301,7 +375,7 @@ func _process(_delta: float) -> void:
 		animate_ui_element(merchantTips, "merchantTips", false)
 	
 				
-	if player.global_position.distance_to(danlu.global_position) < interaction_distance + 20:
+	if player.global_position.distance_to(danlu.global_position) < interaction_distance + 20 and danlu.visible:
 		animate_ui_element(danluTips, "danluTips", true)
 		danluTips.change_name("八卦炉
 		<合成>")
@@ -311,7 +385,7 @@ func _process(_delta: float) -> void:
 	else:
 		animate_ui_element(danluTips, "danluTips", false)
 				
-	if player.global_position.distance_to(portal.global_position) < interaction_distance:
+	if player.global_position.distance_to(portal.global_position) < interaction_distance + 20:
 		animate_ui_element(portalTips, "portalTips", true)
 		portalTips.change_name("衍阵
 		<关卡选择>")
@@ -352,10 +426,10 @@ func press_interact():
 				child.modulate.a = 0.0
 				ui_tweens["heroLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
 	
-	if player.global_position.distance_to(merchant.global_position) < interaction_distance + 10:
+	if player.global_position.distance_to(merchant.global_position) < interaction_distance + 15 and merchant.visible:
 		_open_shop_layer()
 	
-	if player.global_position.distance_to(portal.global_position) < interaction_distance:
+	if player.global_position.distance_to(portal.global_position) < interaction_distance + 20:
 		PC.movement_disabled = true
 		defaultLayer.visible = false
 		if dark_overlay:
@@ -383,7 +457,7 @@ func press_interact():
 				child.modulate.a = 0.0
 				ui_tweens["levelChangeLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
 
-	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance:
+	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance - 5:
 		PC.movement_disabled = true
 		
 		if dark_overlay:
@@ -411,7 +485,7 @@ func press_interact():
 				child.modulate.a = 0.0
 				ui_tweens["cultivationLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
 
-	if player.global_position.distance_to(danlu.global_position) < interaction_distance + 20:
+	if player.global_position.distance_to(danlu.global_position) < interaction_distance + 20 and danlu.visible:
 		PC.movement_disabled = true
 		
 		if dark_overlay:
@@ -441,7 +515,7 @@ func press_interact():
 		Global.in_synthesis = true
 		
 		
-	if player.global_position.distance_to(levelUpMan2.global_position) < interaction_distance + 20:
+	if player.global_position.distance_to(levelUpMan2.global_position) < interaction_distance - 5 and levelUpMan2.visible:
 		PC.movement_disabled = true
 		
 		if dark_overlay:
@@ -466,6 +540,10 @@ func press_interact():
 				child.modulate.a = 0.0
 				ui_tweens["studyLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
 
+	if player.global_position.distance_to(bard.global_position) < interaction_distance + 5 and bard.visible:
+		if not dialog_control.visible:
+			start_dialog_interaction("bard")
+
 
 # G交互
 func press_interact2():
@@ -489,6 +567,8 @@ func start_dialog_interaction(npc_id: String) -> void:
 
 	if npc_id == "qian":
 		Global.start_dialog.emit(qian_dialog)
+	elif npc_id == "bard":
+		Global.start_dialog.emit(bard_dialog)
 
 
 func _on_exit_pressed() -> void:
@@ -508,55 +588,59 @@ func _on_exit_pressed() -> void:
 		).set_delay(0.2)
 	
 	# 渐出关卡选择界面
-	if levelChangeLayer.visible:
+	if is_instance_valid(levelChangeLayer) and levelChangeLayer.visible:
 		for child in levelChangeLayer.get_children():
 			if child.has_method("set_modulate"):
 				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)
 		exit_tween.tween_callback(func():
-			levelChangeLayer.visible = false
-			# 重置子节点透明度
-			for child in levelChangeLayer.get_children():
-				if child.has_method("set_modulate"):
-					child.modulate.a = 1.0
+			if is_instance_valid(levelChangeLayer):
+				levelChangeLayer.visible = false
+				# 重置子节点透明度
+				for child in levelChangeLayer.get_children():
+					if child.has_method("set_modulate"):
+						child.modulate.a = 1.0
 		).set_delay(0.2)
 	
 	# 渐出修炼界面
-	if cultivationLayer.visible:
+	if is_instance_valid(cultivationLayer) and cultivationLayer.visible:
 		for child in cultivationLayer.get_children():
 			if child.has_method("set_modulate"):
 				exit_tween.tween_property(child, "modulate:a", 0.0, 0.1)
 		exit_tween.tween_callback(func():
-			cultivationLayer.visible = false
-			# 重置子节点透明度
-			for child in cultivationLayer.get_children():
-				if child.has_method("set_modulate"):
-					child.modulate.a = 1.0
+			if is_instance_valid(cultivationLayer):
+				cultivationLayer.visible = false
+				# 重置子节点透明度
+				for child in cultivationLayer.get_children():
+					if child.has_method("set_modulate"):
+						child.modulate.a = 1.0
 		).set_delay(0.1)
 
 	# 渐出合成界面
-	if synthesisLayer.visible:
+	if is_instance_valid(synthesisLayer) and synthesisLayer.visible:
 		# 退出合成界面时，重置合成状态标志
 		Global.in_synthesis = false
 		for child in synthesisLayer.get_children():
 			if child.has_method("set_modulate"):
 				exit_tween.tween_property(child, "modulate:a", 0.0, 0.1)
 		exit_tween.tween_callback(func():
-			synthesisLayer.visible = false
-			# 重置子节点透明度
-			for child in synthesisLayer.get_children():
-				if child.has_method("set_modulate"):
-					child.modulate.a = 1.0
+			if is_instance_valid(synthesisLayer):
+				synthesisLayer.visible = false
+				# 重置子节点透明度
+				for child in synthesisLayer.get_children():
+					if child.has_method("set_modulate"):
+						child.modulate.a = 1.0
 		).set_delay(0.1)
 
-	if heroLayer.visible:
+	if is_instance_valid(heroLayer) and heroLayer.visible:
 		for child in heroLayer.get_children():
 			if child.has_method("set_modulate"):
 				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)
 		exit_tween.tween_callback(func():
-			heroLayer.visible = false
-			for child in heroLayer.get_children():
-				if child.has_method("set_modulate"):
-					child.modulate.a = 1.0
+			if is_instance_valid(heroLayer):
+				heroLayer.visible = false
+				for child in heroLayer.get_children():
+					if child.has_method("set_modulate"):
+						child.modulate.a = 1.0
 		).set_delay(0.2)
 	
 	if is_instance_valid(shopLayer) and shopLayer.visible:
@@ -566,10 +650,24 @@ func _on_exit_pressed() -> void:
 			if child.has_method("set_modulate"):
 				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)
 		exit_tween.tween_callback(func():
-			shopLayer.visible = false
-			for child in shopLayer.get_children():
-				if child.has_method("set_modulate"):
-					child.modulate.a = 1.0
+			if is_instance_valid(shopLayer):
+				shopLayer.visible = false
+				for child in shopLayer.get_children():
+					if child.has_method("set_modulate"):
+						child.modulate.a = 1.0
+		).set_delay(0.2)
+
+	# 渐出修习界面
+	if is_instance_valid(studyLayer) and studyLayer.visible:
+		for child in studyLayer.get_children():
+			if child.has_method("set_modulate"):
+				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)
+		exit_tween.tween_callback(func():
+			if is_instance_valid(studyLayer):
+				studyLayer.visible = false
+				for child in studyLayer.get_children():
+					if child.has_method("set_modulate"):
+						child.modulate.a = 1.0
 		).set_delay(0.2)
 
 	# jcLayer 由自身的 _close_layer 处理渐出，此处仅需确保它存在时调用
@@ -577,6 +675,9 @@ func _on_exit_pressed() -> void:
 		if jcLayerInstance.has_method("_close_layer"):
 			jcLayerInstance._close_layer()
 	
+var poetry_choice_layer_scene = preload("res://Scenes/town/poetry_choice_layer.tscn")
+var current_poetry_layer = null
+
 func _enter_stage(stage_scene_path: String, stage_id: String) -> void:
 	if stage_scene_path.is_empty():
 		if tip != null and tip.has_method("start_animation"):
@@ -584,11 +685,24 @@ func _enter_stage(stage_scene_path: String, stage_id: String) -> void:
 		if has_node("Buzzer"):
 			$Buzzer.play()
 		return
+		
+	var diff = Global.validate_stage_difficulty_id(Global.selected_stage_difficulty)
+	if diff == Global.STAGE_DIFFICULTY_POETRY:
+		if not is_instance_valid(current_poetry_layer):
+			current_poetry_layer = poetry_choice_layer_scene.instantiate()
+			add_child(current_poetry_layer)
+		current_poetry_layer.show_layer(stage_scene_path, stage_id, self)
+		return
+		
+	_do_enter_stage(stage_scene_path, stage_id, diff, false)
+
+func _do_enter_stage(stage_scene_path: String, stage_id: String, diff: String, skip_reset: bool = false) -> void:
 	Global.current_stage_id = stage_id
-	Global.current_stage_difficulty = Global.validate_stage_difficulty_id(Global.selected_stage_difficulty)
+	Global.current_stage_difficulty = diff
 	Global.in_town = false
 	PC.movement_disabled = false
-	PC.reset_player_attr()
+	if not skip_reset:
+		PC.reset_player_attr()
 	SceneChange.change_scene(stage_scene_path, true)
 
 func _on_stage_1_pressed() -> void:

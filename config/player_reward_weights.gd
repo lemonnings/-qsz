@@ -4,6 +4,9 @@ extends Node
 # 结构: { "rarity_name": { "faction_name": weight_value, ... }, ... }
 var rarity_faction_weights: Dictionary = {}
 
+# Summon派系每升一级权重衰减控制：选择过Summon后停止衰减
+var summon_decay_frozen: bool = false
+
 # 定义游戏中存在的稀有度等级
 const RARITY_LEVELS: Array[String] = ["normal_white", "pro_green", "rare_blue", "super_rare_darkorchid", "super2_rare_orange", "unbelievable_gold"]
 
@@ -20,31 +23,63 @@ const C_FACTIONS: Array[String] = ["Normal", "Live", "Debuff", "Summon", "Lucky"
 
 # C类各派系的基础权重（直接用于 get_level_up_weights 归一化）
 const C_BASE_WEIGHTS: Dictionary = {
-	"Normal": 20.0,
-	"Live": 15.0,
+	"Normal": 65.0,
+	"Live": 30.0,
 	"Debuff": 15.0,
-	"Summon": 15.0,
-	"Lucky": 12.0,
-	"Six": 10.0
+	"Summon": 20.0,
+	"Lucky": 15.0,
+	"Six": 15.0
+}
+
+# 需要修习树解锁的武器派系 → 对应的 Global 解锁变量名
+const STUDY_UNLOCK_MAP: Dictionary = {
+	"Qiankun": "study_unlock_qiankun",
+	"Dragonwind": "study_unlock_dragonwind",
+	"Bloodwave": "study_unlock_bloodwave",
+	"Water": "study_unlock_water",
+	"Moyan": "study_unlock_baoyan",
+	"Genshan": "study_unlock_genshan",
+	"Thunderbreak": "study_unlock_thunder_break",
+	"Holylight": "study_unlock_holylight",
+	"Xuanwu": "study_unlock_xuanwu",
 }
 
 func _init():
 	print("PlayerRewardWeights initialized.")
 	reset_all_weights()
 
+# 检查某武器派系是否已通过修习树解锁（不在映射表中的武器默认已解锁）
+func is_faction_study_unlocked(faction: String) -> bool:
+	if not STUDY_UNLOCK_MAP.has(faction):
+		return true
+	return Global.get(STUDY_UNLOCK_MAP[faction]) == true
+
+# 返回当前修习树已解锁的武器派系列表（未解锁的武器不参与权重计算）
+func get_available_weapon_factions() -> Array[String]:
+	var available: Array[String] = []
+	for faction in WEAPON_FACTIONS:
+		if is_faction_study_unlocked(faction):
+			available.append(faction)
+	return available
+
 # 重置所有稀有度的C类派系权重到基础值
 func reset_all_weights():
 	rarity_faction_weights.clear()
 	for rarity in RARITY_LEVELS:
 		rarity_faction_weights[rarity] = C_BASE_WEIGHTS.duplicate(true)
+	summon_decay_frozen = false
 
 # 获取特定稀有度下特定C类派系的权重
 func get_faction_weight(rarity: String, faction: String) -> float:
+	var weight: float = 0.0
 	if rarity_faction_weights.has(rarity) and rarity_faction_weights[rarity].has(faction):
-		return rarity_faction_weights[rarity][faction]
-	if C_BASE_WEIGHTS.has(faction):
-		return C_BASE_WEIGHTS[faction]
-	return 0.0
+		weight = rarity_faction_weights[rarity][faction]
+	elif C_BASE_WEIGHTS.has(faction):
+		weight = C_BASE_WEIGHTS[faction]
+	# 修习树领悟篇：六识系出现概率提升（提升权重百分比）
+	if faction == "Six" and Global.study_six_chance_bonus > 0.0:
+		weight *= (1.0 + Global.study_six_chance_bonus)
+	return weight
 
 # 更新特定稀有度下特定C类派系的权重
 func set_faction_weight(rarity: String, faction: String, new_weight: float):
@@ -56,6 +91,9 @@ func set_faction_weight(rarity: String, faction: String, new_weight: float):
 func on_faction_selected(selected_faction: String):
 	if not C_BASE_WEIGHTS.has(selected_faction):
 		return
+	# 选择了Summon派系奖励后停止权重衰减
+	if selected_faction == "Summon":
+		summon_decay_frozen = true
 	for rarity in RARITY_LEVELS:
 		if not rarity_faction_weights.has(rarity):
 			continue
@@ -68,30 +106,29 @@ func on_faction_selected(selected_faction: String):
 		var new_weight: float = weights[selected_faction] * 1.2 + 1
 		weights[selected_faction] = min(new_weight, base_weight + 3)
 
-# 获取玩家当前拥有的武器派系列表
+# 每次升级后调用：Summon派系权重-1，减到0为止；如果已选择过Summon则不再衰减
+func apply_summon_level_up_decay() -> void:
+	if summon_decay_frozen:
+		return
+	for rarity in RARITY_LEVELS:
+		if not rarity_faction_weights.has(rarity):
+			continue
+		var weights: Dictionary = rarity_faction_weights[rarity]
+		if weights.has("Summon"):
+			weights["Summon"] = max(0.0, weights["Summon"] - 1.0)
+
+# 获取玩家当前拥有的武器派系列表（仅统计已解锁的武器）
 func get_owned_weapon_factions() -> Array[String]:
 	var owned: Array[String] = []
 	var sr = PC.selected_rewards
-	if sr.has("Branch"): owned.append("Branch")
-	if sr.has("Moyan"): owned.append("Moyan")
-	if sr.has("Riyan"): owned.append("Riyan")
-	if sr.has("Ringfire"): owned.append("Ringfire")
-	if sr.has("Thunderbreak"): owned.append("Thunderbreak")
-	if sr.has("Swordqi"): owned.append("Swordqi")
-	if sr.has("Thunder"): owned.append("Thunder")
-	if sr.has("Bloodwave"): owned.append("Bloodwave")
-	if sr.has("Bloodboardsword"): owned.append("Bloodboardsword")
-	if sr.has("Lightbullet"): owned.append("Lightbullet")
-	if sr.has("Water"): owned.append("Water")
-	if sr.has("Qiankun"): owned.append("Qiankun")
-	if sr.has("Xuanwu"): owned.append("Xuanwu")
-	if sr.has("Xunfeng"): owned.append("Xunfeng")
-	if sr.has("Genshan"): owned.append("Genshan")
-	if sr.has("Duize"): owned.append("Duize")
-	if sr.has("Qigong"): owned.append("Qigong")
-	if sr.has("Holylight"): owned.append("Holylight")
-	if sr.has("Ice"): owned.append("Ice")
-	if sr.has("Dragonwind"): owned.append("Dragonwind")
+	for faction in WEAPON_FACTIONS:
+		if not is_faction_study_unlocked(faction):
+			continue
+		# 检查 selected_rewards 中是否有该派系（注意大小写需与 reward 函数 append 的一致）
+		var check_key: String = faction
+		# 部分派系在 selected_rewards 中的 key 与 WEAPON_FACTIONS 中的大小写不同
+		if sr.has(check_key):
+			owned.append(faction)
 	return owned
 
 # 计算本次升级奖励各派系的动态权重
@@ -127,15 +164,15 @@ func get_level_up_weights(rarity: String) -> Dictionary:
 		new_weapon_total = 0.0
 		# 根据武器数量动态调整武器升级权重
 		if weapon_count <= 1:
-			weapon_upgrade_total = 8.0
+			weapon_upgrade_total = 5.0
 		elif weapon_count == 2:
-			weapon_upgrade_total = 12.0
+			weapon_upgrade_total = 10.0
 		elif weapon_count == 3:
-			weapon_upgrade_total = 20.0
+			weapon_upgrade_total = 15.0
 		elif weapon_count == 4:
-			weapon_upgrade_total = 30.0
+			weapon_upgrade_total = 20.0
 		else:
-			weapon_upgrade_total = 42.0
+			weapon_upgrade_total = 25.0
 		other_total = 100.0 - weapon_upgrade_total
 
 	# 权重B：已有武器平分武器升级总权重
@@ -144,9 +181,10 @@ func get_level_up_weights(rarity: String) -> Dictionary:
 		for faction in owned_weapons:
 			result[faction] = per_owned
 
-	# 权重A：未拥有的武器平分新武器总权重
+	# 权重A：未拥有且已解锁的武器平分新武器总权重
+	var available_factions: Array[String] = get_available_weapon_factions()
 	var unowned_weapons: Array[String] = []
-	for faction in WEAPON_FACTIONS:
+	for faction in available_factions:
 		if not owned_weapons.has(faction):
 			unowned_weapons.append(faction)
 	if not unowned_weapons.is_empty():

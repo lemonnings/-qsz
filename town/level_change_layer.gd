@@ -18,12 +18,6 @@ extends CanvasLayer
 @export var rect7: Area2D
 @export var rect8: Area2D
 
-# 这 4 个按钮按你的要求保留为 `@export`，
-# 后续你可以直接在场景里拖节点进来、换样式、换位置。
-# 这里脚本只负责：
-# 1. 监听它们的点击；
-# 2. 记录当前想进入的难度；
-# 3. 刷新悬浮提示框里的推荐修为。
 @export var shallow_button: Button
 @export var deep_button: Button
 @export var core_button: Button
@@ -34,10 +28,7 @@ const MOUSE_OFFSET := Vector2(34, 24)
 const TOOLTIP_DESC_WIDTH := 260.0
 const TOOLTIP_SCREEN_MARGIN := 10.0
 
-
-# 关卡说明数据。
-# 这里把“关卡名”和“简介”写死在脚本里，
-# 这样即使场景节点还没补全，也能先把功能跑起来。
+# 关卡说明数据
 const STAGE_INFO := {
 	"stage1": {
 		"stage_id": "peach_grove",
@@ -98,6 +89,7 @@ var _tooltip_font: Font = null
 var _tooltip_cached_size: Vector2 = Vector2.ZERO
 var _tooltip_canvas_layer: CanvasLayer = null
 var _tooltip_request_id: int = 0
+var _tooltip_tween: Tween = null
 var _selected_difficulty: String = Global.STAGE_DIFFICULTY_SHALLOW
 var _lock_texture: AtlasTexture = null
 var _difficulty_lock_overlays: Dictionary = {}
@@ -134,9 +126,6 @@ func _ready() -> void:
 		_tooltip_font = load("res://AssetBundle/Uranus_Pixel_11Px.ttf")
 	_setup_lock_texture()
 	
-	# 原来这里的 `stage1~stage8` 会在鼠标悬浮时当作“跟着鼠标跑的提示按钮”。
-	# 现在需求改成“背包同款提示框”，
-	# 所以这些按钮只保留为“信号桥接器”，本体不再负责显示提示内容。
 	for button in _stage_buttons.values():
 		if button != null:
 			button.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -146,6 +135,7 @@ func _ready() -> void:
 	_create_tooltip_panel()
 	_connect_rect_input_events()
 	_connect_difficulty_buttons()
+	_fix_difficulty_button_hit_areas()
 	prepare_for_open()
 
 func _process(_delta: float) -> void:
@@ -163,6 +153,9 @@ func prepare_for_open() -> void:
 	if not Global.is_stage_difficulty_unlocked(_selected_difficulty):
 		_selected_difficulty = Global.STAGE_DIFFICULTY_SHALLOW
 		Global.set_selected_stage_difficulty(_selected_difficulty)
+	# 诗想难度：通关cave后才显示按钮
+	if poetry_button != null:
+		poetry_button.visible = Global.is_stage_cleared("cave")
 	_refresh_lock_visuals()
 	_apply_difficulty_button_visual()
 
@@ -199,6 +192,40 @@ func _connect_difficulty_buttons() -> void:
 		if button != null and not button.pressed.is_connected(_on_difficulty_button_pressed.bind(difficulty_id)):
 			button.pressed.connect(_on_difficulty_button_pressed.bind(difficulty_id))
 
+func _fix_difficulty_button_hit_areas() -> void:
+	for button in [shallow_button, deep_button, core_button, poetry_button]:
+		if button == null:
+			continue
+		var ref_style = button.get_theme_stylebox("normal")
+		if ref_style == null:
+			continue
+		var el = ref_style.expand_margin_left
+		var et = ref_style.expand_margin_top
+		var er = ref_style.expand_margin_right
+		var eb = ref_style.expand_margin_bottom
+		if el == 0 and et == 0 and er == 0 and eb == 0:
+			continue
+		# 扩大按钮矩形，使其覆盖原先 expand_margin 渲染的区域
+		button.offset_left -= el
+		button.offset_top -= et
+		button.offset_right += er
+		button.offset_bottom += eb
+		# 替换各状态的 StyleBox：去掉 expand_margin，将其转为 content_margin
+		for style_name in ["normal", "hover", "pressed", "focus"]:
+			var style = button.get_theme_stylebox(style_name)
+			if style == null:
+				continue
+			var new_style = style.duplicate()
+			new_style.content_margin_left = style.get_margin(SIDE_LEFT) + el
+			new_style.content_margin_top = style.get_margin(SIDE_TOP) + et
+			new_style.content_margin_right = style.get_margin(SIDE_RIGHT) + er
+			new_style.content_margin_bottom = style.get_margin(SIDE_BOTTOM) + eb
+			new_style.expand_margin_left = 0
+			new_style.expand_margin_top = 0
+			new_style.expand_margin_right = 0
+			new_style.expand_margin_bottom = 0
+			button.add_theme_stylebox_override(style_name, new_style)
+
 func _on_difficulty_button_pressed(difficulty_id: String) -> void:
 	if not Global.is_stage_difficulty_unlocked(difficulty_id):
 		_show_tip(_build_locked_difficulty_message_for(difficulty_id))
@@ -209,9 +236,7 @@ func _on_difficulty_button_pressed(difficulty_id: String) -> void:
 	if not _hovered_stage_key.is_empty():
 		_show_stage_tooltip(_hovered_stage_key)
 
-# 给当前选中的难度按钮一个直观的高亮。
-# 这里只改透明度，不改你的按钮文字、贴图和主题，
-# 这样你后面自己配场景时更自由。
+# 给当前选中的难度按钮一个直观的高亮
 func _apply_difficulty_button_visual() -> void:
 	_refresh_lock_visuals()
 	for difficulty_id in _difficulty_button_map.keys():
@@ -358,7 +383,7 @@ func _build_locked_difficulty_message_for(difficulty_id: String) -> String:
 	var required_difficulty := Global.get_required_stage_clear_difficulty(difficulty_id)
 	if required_difficulty.is_empty():
 		return "当前难度暂未解锁。"
-	return "需要先通关%s，才能开启%s。" % [
+	return "需要先通关%s难度，才能开启%s难度。" % [
 		Global.get_stage_difficulty_display_name(required_difficulty),
 		Global.get_stage_difficulty_display_name(difficulty_id)
 	]
@@ -503,6 +528,7 @@ func _on_rect_input_event(_viewport: Node, event: InputEvent, _shape_idx: int, s
 		_show_tip(_build_locked_stage_message(stage_key))
 		return
 	Global.set_selected_stage_difficulty(_selected_difficulty)
+	_hide_tooltip()
 	var button := _stage_buttons.get(stage_key) as Button
 	if button != null:
 		button.pressed.emit()
@@ -558,15 +584,24 @@ func _show_stage_tooltip(stage_key: String) -> void:
 		return
 	if _hovered_stage_key != stage_key:
 		return
-	_tooltip_panel.modulate.a = 1.0
+	# 渐入动画，打断上一次
+	if _tooltip_tween and _tooltip_tween.is_valid():
+		_tooltip_tween.kill()
+	_tooltip_tween = create_tween()
+	_tooltip_tween.tween_property(_tooltip_panel, "modulate:a", 1.0, 0.15)
 	_tooltip_panel.visible = true
 
 
 func _hide_tooltip() -> void:
 	_tooltip_request_id += 1
 	_tooltip_cached_size = Vector2.ZERO
-	if _tooltip_panel != null:
-		_tooltip_panel.visible = false
+	_hovered_stage_key = ""
+	if _tooltip_panel != null and _tooltip_panel.visible:
+		if _tooltip_tween and _tooltip_tween.is_valid():
+			_tooltip_tween.kill()
+		_tooltip_tween = create_tween()
+		_tooltip_tween.tween_property(_tooltip_panel, "modulate:a", 0.0, 0.12)
+		_tooltip_tween.tween_callback(func(): _tooltip_panel.visible = false)
 
 func _on_stage_mouse_entered(stage_key: String) -> void:
 	_show_stage_tooltip(stage_key)

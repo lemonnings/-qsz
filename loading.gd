@@ -3,7 +3,8 @@ extends Control
 @onready var progressBar: ProgressBar = $ProgressBar
 @onready var label: Label = $Label
 @onready var tips: Label = $Tips
-@onready var animatedSprite2D: AnimatedSprite2D = $"../Control/AnimatedSprite2D"
+@export var animatedSprite2D: AnimatedSprite2D
+
 
 var progress = []
 var scene_load_status = 0
@@ -11,12 +12,13 @@ var scene_load_status = 0
 # 预定义的提示文本列表
 var tip_texts = [
 	"等级非常重要，升级可以提升大量的攻击与少量的体力上限",
-	"每升两级可以获取一次领悟的刷新次数",
+	"每升2级可以获取一次领悟的刷新次数",
+	"每升5级可以获取一次领悟的锁定次数",
 	"天命可以提升获取更高品质领悟选项的概率",
 	"感电会让目标每秒受到50%角色攻击的伤害",
 	"流血可以叠加到最多5层，每层会让目标每秒受到15%角色攻击的伤害",
 	"燃烧会让目标每秒受到40%角色攻击的伤害，并对小范围内的其他敌人造成一半伤害",
-	"每种法则升级到最高阶级后都会有极其强大的增益效果",
+	"每种法则升级到高阶级后都会有极其强大的增益效果",
 	"深层和核心会获取更多的灵气",
 	"深层和核心难度下，首领会掉落更多的稀有材料",
 	"易伤会使目标受到伤害加深20%",
@@ -26,6 +28,7 @@ var tip_texts = [
 	"设置里可以开关伤害显示与武器粒子特效，如果感觉卡顿建议关闭",
 	"攻击速度与移动速度超过80%之后的部分会大幅衰减效果",
 	"适当的提升最大体力可以有效的提升容错率",
+	"逆天级别（红色）的领悟有着改变战局的强大威力",
 	"均衡的提升攻击力，攻击速度，暴击率与暴击伤害会让角色造成的伤害更高",
 	"越到战局后期，纹章的效果就越突出",
 	"如果不想战斗环节被领悟打断，可以勾选领悟界面左下角的手动升级",
@@ -39,7 +42,12 @@ var tip_texts = [
 
 func _ready() -> void:
 	progressBar.max_value = 100.0
-	animatedSprite2D.play()
+	# 播放当前角色的奔跑动画
+	var anim_name = _get_character_anim_name()
+	if animatedSprite2D.sprite_frames and animatedSprite2D.sprite_frames.has_animation(anim_name):
+		animatedSprite2D.play(anim_name)
+	else:
+		animatedSprite2D.play()
 	
 	# 随机选择一条提示
 	var random_index = randi_range(0, tip_texts.size() - 1)
@@ -55,3 +63,17 @@ func _process(delta: float) -> void:
 		set_process(false)
 		await get_tree().create_timer(0.3).timeout
 		SceneChange.change_scene(ResourceLoader.load_threaded_get(SceneChange.loading_path))
+
+## 根据当前选中的角色返回对应的loading动画名（兼容sprite_frames中的命名差异）
+func _get_character_anim_name() -> String:
+	match PC.player_name:
+		"moning":
+			return "moning"
+		"yiqiu":
+			return "yanqiu"
+		"noam":
+			return "noam"
+		"kansel":
+			return "kansel"
+		_:
+			return "moning"

@@ -1,6 +1,6 @@
 extends Area2D
 
-@export var sprite : AnimatedSprite2D
+@export var sprite: AnimatedSprite2D
 
 var duration: float
 var heal_interval: float = 2.0
@@ -58,7 +58,8 @@ func _process(delta):
 
 func perform_heal():
 	var max_hp = PC.pc_max_hp
-	var heal_amount = int((max_hp * heal_percent + heal_base) * (1.0 + PC.heal_multi))
+	# 修习树技能篇：疗愈回复量加成
+	var heal_amount = int((max_hp * heal_percent + heal_base) * (1.0 + PC.heal_multi) * (1.0 + Global.study_liaoyu_recovery_bonus))
 	
 	var player = get_tree().get_first_node_in_group("player")
 	
