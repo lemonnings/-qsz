@@ -6,11 +6,22 @@ extends "res://Script/battleScene/base_stage.gd"
 @export var frog_scene: PackedScene
 @export var extra_scene: PackedScene
 
+const SPAWN_TOP_X_MIN := -10.0
+const SPAWN_TOP_X_MAX := 150.0
+const SPAWN_TOP_Y := 130.0
+const SPAWN_LEFT_X := -420.0
+const SPAWN_LEFT_Y_MIN := 350.0
+const SPAWN_LEFT_Y_MAX := 540.0
+const SPAWN_RIGHT_X := 425.0
+const SPAWN_RIGHT_Y_MIN := 290.0
+const SPAWN_RIGHT_Y_MAX := 550.0
+
 # ============== 关卡配置 ==============
 func _setup_stage_config() -> void:
 	STAGE_ID = "cave"
 	SPAWN_INTERVAL_SECONDS = 4.65
 	INITIAL_MONSTER_LIMIT = 50
+	WAVE_SPAWN_INCREASE_STEP = 10
 	DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD = 0.3
 	DYNAMIC_BALANCE_SPAWN_MAX_BONUS = 1.0
 	DYNAMIC_BALANCE_HP_MAX_REDUCTION = 0.4
@@ -25,6 +36,19 @@ func _setup_stage_config() -> void:
 		{"type": "slime", "weight": 2, "blocked_early": false},
 		{"type": "frog", "weight": 2, "blocked_early": false}
 	]
+
+func _get_corrupted_elite_spawn_data(spawn_type: String) -> Dictionary:
+	match spawn_type:
+		"bat":
+			return {"scene": bat_scene, "monster_id": "armor_stone"}
+		"extra":
+			return {"scene": extra_scene, "monster_id": "slime"}
+		"slime":
+			return {"scene": slime_scene, "monster_id": "ghost"}
+		"frog":
+			return {"scene": frog_scene, "monster_id": "stone_man"}
+		_:
+			return {}
 
 # ============== 初始化 ==============
 func _ready() -> void:
@@ -83,6 +107,8 @@ func _spawn_wave() -> void:
 
 	# 逐个生成，间隔0.1秒
 	for i in range(spawn_list.size()):
+		if boss_event_triggered:
+			return
 		if current_monster_count >= max_monster_limit:
 			break
 		match spawn_list[i]:
@@ -95,31 +121,34 @@ func _spawn_wave() -> void:
 			"extra":
 				_spawn_single_extra()
 		if i < spawn_list.size() - 1:
-			if not is_inside_tree():
+			if not is_inside_tree() or boss_event_triggered:
 				return
 			await get_tree().create_timer(0.1).timeout
-			if not is_inside_tree():
+			if not is_inside_tree() or boss_event_triggered:
 				return
 
+	if boss_event_triggered:
+		return
 	monster_spawn_timer.start()
+
+func _get_spawn_position() -> Vector2:
+	var spawn_edge = randi_range(0, 2)
+	match spawn_edge:
+		0:
+			return Vector2(randf_range(SPAWN_TOP_X_MIN, SPAWN_TOP_X_MAX), SPAWN_TOP_Y)
+		1:
+			return Vector2(SPAWN_LEFT_X, randf_range(SPAWN_LEFT_Y_MIN, SPAWN_LEFT_Y_MAX))
+		_:
+			return Vector2(SPAWN_RIGHT_X, randf_range(SPAWN_RIGHT_Y_MIN, SPAWN_RIGHT_Y_MAX))
 
 func _spawn_single_slime() -> void:
 	if not is_inside_tree() or get_tree().current_scene == null:
 		return
 	var slime_node = slime_scene.instantiate()
-	var spawn_edge = randi_range(0, 3)
-	var spawn_position = Vector2.ZERO
-	match spawn_edge:
-		0: # Top - y轴上限-10
-			spawn_position = Vector2(randf_range(-400, 400), -10)
-		1: # Bottom
-			spawn_position = Vector2(randf_range(-400, 400), 750)
-		2: # Left
-			spawn_position = Vector2(-400, randf_range(15, 750))
-		3: # Right
-			spawn_position = Vector2(400, randf_range(15, 750))
+	var spawn_position = _get_spawn_position()
 	slime_node.position = spawn_position
 	get_tree().current_scene.add_child(slime_node)
+	_mark_spirit_enemy_type(slime_node, true)
 	_try_make_elite(slime_node)
 	_apply_dynamic_hp_reduction(slime_node)
 	_apply_late_game_speed_bonus(slime_node)
@@ -134,19 +163,10 @@ func _spawn_single_bat() -> void:
 		return
 	var bat_node = bat_scene.instantiate()
 	bat_node.move_direction = 2 # armor_stone: 靠近角色移动
-	var spawn_edge = randi_range(0, 3)
-	var spawn_position = Vector2.ZERO
-	match spawn_edge:
-		0: # Top - y轴上限-10
-			spawn_position = Vector2(randf_range(-400, 400), -10)
-		1: # Bottom
-			spawn_position = Vector2(randf_range(-400, 400), 300)
-		2: # Left
-			spawn_position = Vector2(-400, randf_range(15, 244))
-		3: # Right
-			spawn_position = Vector2(400, randf_range(15, 244))
+	var spawn_position = _get_spawn_position()
 	bat_node.position = spawn_position
 	get_tree().current_scene.add_child(bat_node)
+	_mark_spirit_enemy_type(bat_node, false)
 	_try_make_elite(bat_node)
 	_apply_dynamic_hp_reduction(bat_node)
 	_apply_late_game_speed_bonus(bat_node)
@@ -161,19 +181,10 @@ func _spawn_single_frog() -> void:
 		return
 	var frog_node = frog_scene.instantiate()
 	frog_node.move_direction = 2 # 朝向角色移动
-	var spawn_edge = randi_range(0, 3)
-	var spawn_position = Vector2.ZERO
-	match spawn_edge:
-		0: # Top
-			spawn_position = Vector2(randf_range(-400, 400), -10)
-		1: # Bottom
-			spawn_position = Vector2(randf_range(-400, 400), 750)
-		2: # Left
-			spawn_position = Vector2(-400, randf_range(15, 750))
-		3: # Right
-			spawn_position = Vector2(400, randf_range(15, 750))
+	var spawn_position = _get_spawn_position()
 	frog_node.position = spawn_position
 	get_tree().current_scene.add_child(frog_node)
+	_mark_spirit_enemy_type(frog_node, true)
 	_try_make_elite(frog_node)
 	_apply_dynamic_hp_reduction(frog_node)
 	_apply_late_game_speed_bonus(frog_node)
@@ -182,26 +193,17 @@ func _spawn_single_frog() -> void:
 	tween.tween_property(frog_node, "modulate:a", 1.0, 0.7)
 	current_monster_count += 1
 	frog_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
-	frog_node.connect("tree_exiting", func(): other_type_alive = max(0, other_type_alive - 1))
+	frog_node.connect("tree_exiting", Callable(self, "_on_other_type_monster_tree_exiting"))
 
 func _spawn_single_extra() -> void:
 	if not is_inside_tree() or get_tree().current_scene == null:
 		return
 	var extra_node = extra_scene.instantiate()
 	extra_node.move_direction = 2 # 朝向角色移动
-	var spawn_edge = randi_range(0, 3)
-	var spawn_position = Vector2.ZERO
-	match spawn_edge:
-		0: # Top
-			spawn_position = Vector2(randf_range(-400, 400), -10)
-		1: # Bottom
-			spawn_position = Vector2(randf_range(-400, 400), 750)
-		2: # Left
-			spawn_position = Vector2(-400, randf_range(15, 750))
-		3: # Right
-			spawn_position = Vector2(400, randf_range(15, 750))
+	var spawn_position = _get_spawn_position()
 	extra_node.position = spawn_position
 	get_tree().current_scene.add_child(extra_node)
+	_mark_spirit_enemy_type(extra_node, false)
 	_try_make_elite(extra_node)
 	_apply_dynamic_hp_reduction(extra_node)
 	_apply_late_game_speed_bonus(extra_node)
@@ -210,4 +212,4 @@ func _spawn_single_extra() -> void:
 	tween.tween_property(extra_node, "modulate:a", 1.0, 0.7)
 	current_monster_count += 1
 	extra_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
-	extra_node.connect("tree_exiting", func(): other_type_alive = max(0, other_type_alive - 1))
+	extra_node.connect("tree_exiting", Callable(self, "_on_other_type_monster_tree_exiting"))

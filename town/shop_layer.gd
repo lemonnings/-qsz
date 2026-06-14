@@ -476,6 +476,9 @@ const TIER5_PILLS := ["item_076", "item_077", "item_078", "item_079", "item_080"
 const LOWER_SPECIAL_PILLS := ["item_085", "item_088", "item_091", "item_094"]
 const MIDDLE_SPECIAL_PILLS := ["item_086", "item_089", "item_092", "item_095"]
 const UPPER_SPECIAL_PILLS := ["item_087", "item_090", "item_093", "item_096"]
+const LOWER_SPECIAL_PILL_RECYCLE_PRICE := 24
+const MIDDLE_SPECIAL_PILL_RECYCLE_PRICE := 48
+const UPPER_SPECIAL_PILL_RECYCLE_PRICE := 96
 const SHOP_UPGRADE_COSTS := {
 	1: [ {"item_id": Global.LINGSHI_ITEM_ID, "count": 100}],
 	2: [
@@ -537,6 +540,8 @@ const SHOP_UPGRADE_COSTS := {
 
 var _now_ls_label: RichTextLabel
 
+const LINGSHI_ICON_PATH := "res://AssetBundle/Sprites/Sprite sheets/lingshi.png"
+const ZHENQI_ICON_PATH := "res://AssetBundle/Sprites/Sprite sheets/zhenqi.png"
 
 var _item_panels: Array[Panel] = []
 var _detail_labels: Array[RichTextLabel] = []
@@ -929,6 +934,7 @@ func _generate_shop_items() -> void:
 	_shop_items.clear()
 	for _i in range(_item_panels.size()):
 		_shop_items.append(_generate_single_offer())
+	AchievementManager.record_shop_roll(_shop_items)
 
 func _generate_single_offer() -> Dictionary:
 	var rarity := _roll_weighted_key(_get_rarity_weights(Global.shop_level), RARITY_ORDER)
@@ -1102,7 +1108,7 @@ func _refresh_display() -> void:
 		if glow_node != null:
 			glow_node.set_glow_rarity(rarity)
 			glow_node.set_glow_alpha_scale(1.0)
-		if bool(offer.get("sold", false)):
+		if offer.get("sold", false) == true:
 			if detail_label != null:
 				detail_label.text = "已售罄"
 			if price_label != null:
@@ -1118,7 +1124,8 @@ func _refresh_display() -> void:
 		if detail_label != null:
 			detail_label.text = item_name + " " + str(offer.get("quantity", 0)) + " 个"
 		if price_label != null:
-			price_label.text = _format_offer_price(offer)
+			price_label.bbcode_enabled = true
+			price_label.text = _format_offer_price_icon(offer)
 
 
 func _update_shop_header() -> void:
@@ -1144,7 +1151,13 @@ func _update_now_ls_label() -> void:
 	if _now_ls_label == null:
 		return
 	# 这里的“真气”沿用商店购买灵石包时使用的 point 资源，也就是 `Global.total_points`。
-	_now_ls_label.text = "灵石 %d   真气 %d" % [Global.lingshi, Global.total_points]
+	_now_ls_label.bbcode_enabled = true
+	_now_ls_label.text = "[img=38x38]%s[/img] %d   [img=38x38]%s[/img] %d" % [
+		LINGSHI_ICON_PATH,
+		Global.lingshi,
+		ZHENQI_ICON_PATH,
+		Global.total_points,
+	]
 
 
 func _update_refresh_label() -> void:
@@ -1198,6 +1211,13 @@ func _format_offer_price(offer: Dictionary) -> String:
 	if str(offer.get("cost_resource", "lingshi")) == "point":
 		return str(cost) + " 真气"
 	return str(cost) + " 灵石"
+
+func _format_offer_price_icon(offer: Dictionary) -> String:
+	var cost := int(offer.get("cost", 0))
+	var icon_path := LINGSHI_ICON_PATH
+	if str(offer.get("cost_resource", "lingshi")) == "point":
+		icon_path = ZHENQI_ICON_PATH
+	return "[img=31x31]%s[/img] %d" % [icon_path, cost]
 
 func _get_offer_price_color(offer: Dictionary) -> Color:
 	if str(offer.get("cost_resource", "lingshi")) == "point":
@@ -1274,7 +1294,7 @@ func _show_offer_tooltip(index: int, request_id: int) -> void:
 	icon.visible = true
 	icon.modulate = Color(1, 1, 1, 1)
 	icon.texture = load(item_icon) if not item_icon.is_empty() and ResourceLoader.exists(item_icon) else null
-	if bool(offer.get("sold", false)):
+	if offer.get("sold", false) == true:
 		name_label.text = "  " + item_name
 		name_label.add_theme_color_override("font_color", SOLD_OUT_TEXT_COLOR)
 		type_label.text = "[已售罄]"
@@ -1411,7 +1431,7 @@ func _try_buy_offer(index: int) -> void:
 	if index < 0 or index >= _shop_items.size():
 		return
 	var offer := _shop_items[index]
-	if bool(offer.get("sold", false)):
+	if offer.get("sold", false) == true:
 		_show_tips("商品已告罄", 0.5)
 		return
 	if str(offer.get("product_type", "")) == "lingshi_pack":
@@ -1434,6 +1454,7 @@ func _try_buy_offer(index: int) -> void:
 	_shop_items[index] = offer
 	if str(offer.get("product_type", "")) == "lingshi_pack":
 		Global.shop_lingshi_unit_price += int(quantity / 10.0)
+	AchievementManager.record_shop_purchase(str(offer.get("cost_resource", "")), cost, str(offer.get("rarity", "")))
 	_refresh_display()
 	_save_shop_items_to_save()
 	_refresh_external_ui()
@@ -1518,6 +1539,7 @@ func _on_shop_level_up_pressed() -> void:
 		Global.consume_item_count(str(cost.get("item_id", "")), int(cost.get("count", 0)))
 	Global.shop_level += 1
 	Global.shop_level = clampi(Global.shop_level, 1, SHOP_LEVEL_CAP)
+	AchievementManager.scan_meta_progress(false)
 	_refresh_display()
 	_refresh_external_ui()
 	Global.save_game()
@@ -1575,11 +1597,11 @@ func _recycle_obsolete_pills() -> String:
 			continue
 		Global.player_inventory.erase(item_id)
 		total_lingshi += gain
-		recycled_lines.append(str(entry.get("item_name", item_id)) + "×" + str(count) + "（+" + str(gain) + "灵石）")
+		recycled_lines.append("%s×%d，获得%d灵石" % [str(entry.get("item_name", item_id)), count, gain])
 	if total_lingshi <= 0:
 		return ""
 	Global.add_item_count(Global.LINGSHI_ITEM_ID, total_lingshi)
-	return "丹药回收：\n" + "\n".join(recycled_lines) + "\n共获得 " + str(total_lingshi) + " 灵石"
+	return "丹药回收：" + "；".join(recycled_lines) + "。共获得%d灵石。" % total_lingshi
 
 
 func _get_item_max_uses(item_id: String) -> int:
@@ -1592,21 +1614,21 @@ func _get_item_max_uses(item_id: String) -> int:
 
 func _get_recycle_unit_price(item_id: String) -> int:
 	if TIER1_PILLS.has(item_id):
-		return 8
+		return int(LOWER_SPECIAL_PILL_RECYCLE_PRICE / 2.0)
 	if TIER2_PILLS.has(item_id):
-		return 16
+		return int(LOWER_SPECIAL_PILL_RECYCLE_PRICE / 2.0)
 	if TIER3_PILLS.has(item_id):
-		return 32
+		return int(MIDDLE_SPECIAL_PILL_RECYCLE_PRICE / 2.0)
 	if TIER4_PILLS.has(item_id):
-		return 64
+		return int(MIDDLE_SPECIAL_PILL_RECYCLE_PRICE / 2.0)
 	if TIER5_PILLS.has(item_id):
-		return 128
+		return int(UPPER_SPECIAL_PILL_RECYCLE_PRICE / 2.0)
 	if LOWER_SPECIAL_PILLS.has(item_id):
-		return 24
+		return LOWER_SPECIAL_PILL_RECYCLE_PRICE
 	if MIDDLE_SPECIAL_PILLS.has(item_id):
-		return 48
+		return MIDDLE_SPECIAL_PILL_RECYCLE_PRICE
 	if UPPER_SPECIAL_PILLS.has(item_id):
-		return 96
+		return UPPER_SPECIAL_PILL_RECYCLE_PRICE
 	return 0
 
 func _refresh_external_ui() -> void:

@@ -3,6 +3,8 @@ class_name ExpOrb
 
 ## 经验光点 - 敌人死亡后掉落，飞向玩家提供经验
 
+static var _shared_texture: ImageTexture = null
+
 # 经验值
 var exp_value: int = 1
 
@@ -38,14 +40,16 @@ var fade_timer: float = 0.0
 var sprite: Sprite2D = null
 
 func _ready() -> void:
-	# 创建像素风格的光点精灵
-	_create_sprite()
+	if sprite == null:
+		_create_sprite()
 	
 	# 添加到经验光点组
-	add_to_group("exp_orb")
+	if not is_in_group("exp_orb"):
+		add_to_group("exp_orb")
 	
 	# 连接区域进入信号（备用）
-	connect("area_entered", Callable(self , "_on_area_entered"))
+	if not area_entered.is_connected(_on_area_entered):
+		area_entered.connect(_on_area_entered)
 	
 	# 获取玩家引用
 	_get_player_ref()
@@ -59,38 +63,7 @@ func _create_sprite() -> void:
 	sprite = Sprite2D.new()
 	add_child(sprite)
 	
-	# 创建像素光点纹理 (5x5像素)
-	# 浅蓝色描边(1层) + 淡蓝色中层(1层) + 白色中心(1像素)
-	var image = Image.create(5, 5, false, Image.FORMAT_RGBA8)
-	
-	# 浅蓝色描边 - 最外层 (RGB: 100, 180, 230)
-	var outer_color = Color(0.4, 0.7, 0.9, 1.0)
-	# 上边
-	for x in range(5):
-		image.set_pixel(x, 0, outer_color)
-	# 下边
-	for x in range(5):
-		image.set_pixel(x, 4, outer_color)
-	# 左边
-	for y in range(5):
-		image.set_pixel(0, y, outer_color)
-	# 右边
-	for y in range(5):
-		image.set_pixel(4, y, outer_color)
-	
-	# 淡蓝色中层 - 第2层 (RGB: 180, 220, 255)
-	var middle_color = Color(0.7, 0.86, 1.0, 1.0)
-	for x in range(1, 4):
-		image.set_pixel(x, 1, middle_color)
-		image.set_pixel(x, 3, middle_color)
-	image.set_pixel(1, 2, middle_color)
-	image.set_pixel(3, 2, middle_color)
-	
-	# 白色中心 - 最里面 (1像素)
-	image.set_pixel(2, 2, Color(1, 1, 1, 1))
-	
-	var texture = ImageTexture.create_from_image(image)
-	sprite.texture = texture
+	sprite.texture = _get_shared_texture()
 	
 	# 放大显示（原1.5缩小至50%）
 	base_sprite_scale = 0.6
@@ -105,7 +78,39 @@ func _create_sprite() -> void:
 	# 初始化呼吸动画
 	breath_time = randf() * PI * 2 # 随机起始相位
 
+static func _get_shared_texture() -> ImageTexture:
+	if _shared_texture != null:
+		return _shared_texture
+	# 创建像素光点纹理 (5x5像素)
+	# 浅蓝色描边(1层) + 淡蓝色中层(1层) + 白色中心(1像素)
+	var image = Image.create(5, 5, false, Image.FORMAT_RGBA8)
+	
+	# 浅蓝色描边 - 最外层 (RGB: 100, 180, 230)
+	var outer_color = Color(0.4, 0.7, 0.9, 1.0)
+	for x in range(5):
+		image.set_pixel(x, 0, outer_color)
+		image.set_pixel(x, 4, outer_color)
+	for y in range(5):
+		image.set_pixel(0, y, outer_color)
+		image.set_pixel(4, y, outer_color)
+	
+	# 淡蓝色中层 - 第2层 (RGB: 180, 220, 255)
+	var middle_color = Color(0.7, 0.86, 1.0, 1.0)
+	for x in range(1, 4):
+		image.set_pixel(x, 1, middle_color)
+		image.set_pixel(x, 3, middle_color)
+	image.set_pixel(1, 2, middle_color)
+	image.set_pixel(3, 2, middle_color)
+	
+	# 白色中心 - 最里面 (1像素)
+	image.set_pixel(2, 2, Color(1, 1, 1, 1))
+	
+	_shared_texture = ImageTexture.create_from_image(image)
+	return _shared_texture
+
 func _get_player_ref() -> void:
+	if not is_inside_tree():
+		return
 	var players = get_tree().get_nodes_in_group("player")
 	if players.size() > 0:
 		player_ref = players[0]
@@ -173,12 +178,13 @@ func _process_fade(delta: float) -> void:
 	
 	# 渐隐结束，销毁
 	if fade_timer <= 0:
-		queue_free()
+		ObjectPool.recycle(self)
 
 func _give_exp_to_player() -> void:
-	# 添加经验，并吃到全局/角色的经验获取倍率加成。
-	var final_exp = int(max(1.0, round(float(exp_value) * Global.get_effective_exp_multiplier())))
-	PC.pc_exp += final_exp
+	# exp_value 已在怪物死亡掉落时计算过经验倍率，吸收时只入账。
+	if exp_value <= 0:
+		return
+	PC.pc_exp += exp_value
 
 func _on_area_entered(area: Area2D) -> void:
 	# 如果碰到玩家，立即进入追踪状态
@@ -187,8 +193,39 @@ func _on_area_entered(area: Area2D) -> void:
 			current_state = State.TRACK
 
 func setup(value: int, spawn_position: Vector2) -> void:
+	if sprite == null:
+		_create_sprite()
 	exp_value = value
 	global_position = spawn_position
 	# 以怪物当前位置为起点，向上偏移20像素后开始追踪
+	current_state = State.RISE
+	fade_timer = 0.0
+	breath_time = randf() * PI * 2
 	rise_start_y = spawn_position.y
 	rise_target_y = rise_start_y - rise_distance
+	_get_player_ref()
+	if sprite:
+		sprite.modulate.a = 0.75
+		sprite.rotation = 0.0
+		sprite.scale = Vector2(base_sprite_scale, base_sprite_scale)
+	var collision_shape := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if collision_shape:
+		collision_shape.set_deferred("disabled", false)
+
+func reset_for_pool() -> void:
+	exp_value = 1
+	current_state = State.RISE
+	fade_timer = 0.0
+	rise_start_y = 0.0
+	rise_target_y = -rise_distance
+	player_ref = null
+	breath_time = 0.0
+	global_position = Vector2.ZERO
+	rotation = 0.0
+	if sprite:
+		sprite.modulate.a = 0.75
+		sprite.rotation = 0.0
+		sprite.scale = Vector2(base_sprite_scale, base_sprite_scale)
+	var collision_shape := get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if collision_shape:
+		collision_shape.set_deferred("disabled", false)

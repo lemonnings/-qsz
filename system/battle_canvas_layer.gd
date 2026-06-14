@@ -57,14 +57,14 @@ var warning_active: bool = false
 @export var active3: TextureButton
 
 # 升级选择UI
-@onready var lv_up_change = $LevelUpChange
-@export var lv_up_change_b1: Button
-@export var lv_up_change_b2: Button
-@export var lv_up_change_b3: Button
+@onready var lv_up_change: Control = $LevelUpChange
+@onready var lv_up_change_b1: Button = lv_up_change.get_node("LvUpChange1Button")
+@onready var lv_up_change_b2: Button = lv_up_change.get_node("LvUpChange2Button")
+@onready var lv_up_change_b3: Button = lv_up_change.get_node("LvUpChange3Button")
 
 @export var lv_up_start_button: Button
-@export var instant_level_up_button_label: Label
-@export var instant_level_up_button: CheckButton
+@onready var instant_level_up_button_label: Label = lv_up_change.get_node("manual_level_up_label")
+@onready var instant_level_up_button: CheckButton = lv_up_change.get_node("manual_level_up")
 
 @export var speed_change_button: Button
 
@@ -82,7 +82,7 @@ var _current_speed_index: int = 0
 @export var lv_up_tip: Panel
 @export var spell: Control
 
-@export var refreshOrLockNum: RichTextLabel
+@onready var refreshOrLockNum: RichTextLabel = lv_up_change.get_node("LevelUpChange_Panel#RefreshNum")
 # 刷新次数配置（每达REFRESH_LEVEL_STEP级，额外获得REFRESH_BONUS_PER_STEP次刷新）
 const REFRESH_LEVEL_STEP: int = 2
 const REFRESH_BONUS_PER_STEP: int = 1
@@ -185,6 +185,11 @@ const LOCK_BONUS_PER_STEP: int = 1
 var _skill_label_tween: Tween = null
 var _active_skill_tween: Tween = null
 var _emblem_tweens: Dictionary = {} # key = emblem_index
+var _manual_level_up_shop_hidden: bool = false
+var _manual_level_up_shop_tween: Tween = null
+var _shop_restore_instant_level_up_button_visible: bool = false
+var _shop_restore_instant_level_up_label_visible: bool = false
+var victory_summary_data: Dictionary = {}
 
 # ============== 管理器引用 ==
 var level_up_manager: LevelUpManager
@@ -357,6 +362,9 @@ func _refresh_faze_ui() -> void:
 		faze_slot_laws[slot_index] = law
 		slot_index += 1
 	_sync_bullet_faze_buff()
+
+func refresh_faze_ui() -> void:
+	_refresh_faze_ui()
 
 func _sync_bullet_faze_buff() -> void:
 	var bullet_level = PC.faze_bullet_level
@@ -624,7 +632,7 @@ func _build_bagua_faze_detail(level: int) -> String:
 	var lines: Array = []
 	lines.append(_build_law_title("八卦法则"))
 	lines.append(_color_owned_weapons("八卦类武器：乾坤双剑，离火诀，兑泽诀，坎水诀，震雷诀，巽风诀，艮山诀"))
-	lines.append(_format_faze_line(level, current_tier, 4, "4阶：八卦类武器击中目标 + 1 推衍度，击杀目标 + 5 推衍度，对精英及首领翻倍，满 100 点后，获得 1 层【推衍完成】，每层提升 4% 的八卦类武器伤害加成与经验值加成，每层【推衍完成】会使下一层【推衍完成】的获取所需的推衍值 +10"))
+	lines.append(_format_faze_line(level, current_tier, 4, "4阶：八卦类武器击中目标 + 1 推衍度，击杀目标 + 5 推衍度，对精英及首领翻倍，满 100 点后，获得 1 层【推衍完成】，每层提升 4% 的经验值加成，每层【推衍完成】会使下一层【推衍完成】的获取所需的推衍值 +10"))
 	lines.append(_format_faze_line(level, current_tier, 10, "10阶：推衍度获得翻倍，八卦类武器伤害提升 25%"))
 	lines.append(_format_faze_line(level, current_tier, 16, "16阶：推衍度获得提升至 3 倍，八卦类武器伤害再次提升 35%"))
 	lines.append(_format_faze_line(level, current_tier, 22, "22阶：推衍度获得提升至 5 倍，八卦类武器伤害再次提升 50%"))
@@ -830,7 +838,6 @@ func _update_faze_panel_size(panel: Panel, detail: RichTextLabel) -> void:
 func _connect_signals() -> void:
 	Global.connect("skill_attack_speed_updated", Callable(self , "_on_skill_attack_speed_updated"))
 	Global.connect("player_lv_up", Callable(self , "_on_level_up"))
-	Global.connect("level_up_selection_complete", Callable(self , "_check_and_process_pending_level_ups"))
 	Global.connect("manual_level_up_pending", Callable(self , "_on_manual_level_up_pending"))
 	
 	# 连接玩家咏唱信号
@@ -1044,6 +1051,8 @@ func _connect_active_skill_signals() -> void:
 			icon.mouse_exited.connect(_on_active_skill_mouse_exited)
 
 func _on_active_skill_mouse_entered(slot_key: String) -> void:
+	if lv_up_change and lv_up_change.visible:
+		return
 	show_active_skill_label(slot_key)
 
 func _on_active_skill_mouse_exited() -> void:
@@ -1421,24 +1430,34 @@ func update_mechanism_bar(current_value: float, max_value: float, is_boss_trigge
 ## 更新时间显示
 func update_time_display(real_time: float) -> void:
 	if now_time:
-		var minutes = int(real_time / 60.0)
-		var seconds = int(real_time) % 60
+		var display_time := Global.get_battle_display_time(real_time)
+		var minutes = int(display_time / 60.0)
+		var seconds = int(display_time) % 60
 		now_time.text = "%02d : %02d" % [minutes, seconds]
+	if _attr_label_open and attr_label != null and attr_label.visible and (attr_label_tween == null or not attr_label_tween.is_valid()):
+		show_attr_label()
 
 ## 更新等级显示
 func update_level_display(level: int) -> void:
 	now_lv.text = "Lv." + str(level)
 
 ## 更新分数显示
-func update_score_display(point: int) -> void:
+func update_score_display(point: int, spirit: int = 0) -> void:
+	var formatted_spirit: String
+	if spirit >= 10000000:
+		formatted_spirit = "%.3fm" % (spirit / 1000000.0)
+	elif spirit >= 100000:
+		formatted_spirit = "%.2fk" % (spirit / 1000.0)
+	else:
+		formatted_spirit = str(spirit)
 	var formatted_point: String
 	if point >= 10000000:
-		formatted_point = "%.3fm 真气" % (point / 1000000.0)
+		formatted_point = "%.3fm" % (point / 1000000.0)
 	elif point >= 100000:
-		formatted_point = "%.2fk 真气" % (point / 1000.0)
+		formatted_point = "%.2fk" % (point / 1000.0)
 	else:
-		formatted_point = str(point) + " 真气"
-	score_label.text = formatted_point
+		formatted_point = str(point)
+	score_label.text = formatted_spirit + "\n" + formatted_point
 
 ## 更新DPS显示
 func update_dps_display() -> void:
@@ -1464,6 +1483,9 @@ func init_main_skill(fire_speed_wait_time: float) -> void:
 
 ## 检查并更新技能图标可见性
 func check_and_update_skill_icons(player_node: Node) -> void:
+	if not has_meta("_qigong_debug_done"):
+		set_meta("_qigong_debug_done", true)
+		print("[Qigong DEBUG] check_and_update_skill_icons ENTERED. rewards=%s, player=%s, first_has_qigong=%s" % [str(PC.selected_rewards), PC.player_name, PC.first_has_qigong])
 	if PC.selected_rewards.has("Swordqi") and PC.first_has_swordqi:
 		skill1.visible = true
 		skill1.update_skill(1, player_node.fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianqi.png")
@@ -1550,6 +1572,7 @@ func check_and_update_skill_icons(player_node: Node) -> void:
 		PC.first_has_holylight = false
 	
 	if PC.selected_rewards.has("Qigong") and PC.first_has_qigong:
+		print("[Qigong] skill19 init: wait_time=%s" % player_node.qigong_fire_speed.wait_time)
 		skill19.visible = true
 		skill19.update_skill(19, player_node.qigong_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/qigong.png")
 		PC.first_has_qigong = false
@@ -1653,8 +1676,35 @@ func _on_skill_attack_speed_updated() -> void:
 
 # 属性标签过渡动画 Tween
 var attr_label_tween: Tween = null
+var _attr_label_open: bool = false
+
+func _format_attr_bonus_percent(value: float) -> String:
+	var percent := int(round(value * 100.0))
+	if percent > 0:
+		return "+%d%%" % percent
+	return "%d%%" % percent
+
+func _get_attr_panel_final_damage_bonus() -> float:
+	var bonus := PC.pc_final_atk
+	if Global.is_current_poetry_difficulty():
+		bonus += Global.get_poetry_player_final_damage_multiplier() - 1.0
+	return bonus
+
+func _get_attr_panel_heal_bonus() -> float:
+	var bonus := PC.heal_multi
+	if Global.is_current_poetry_difficulty():
+		bonus -= 1.0 - Global.get_poetry_heal_shield_multiplier()
+	return bonus
+
+func _get_attr_panel_shield_bonus() -> float:
+	var bonus := PC.sheild_multi
+	if Global.is_current_poetry_difficulty():
+		bonus -= 1.0 - Global.get_poetry_heal_shield_multiplier()
+	return bonus
 
 func show_attr_label() -> void:
+	_attr_label_open = true
+	var was_visible := attr_label.visible
 	# 停止之前的动画
 	if attr_label_tween and attr_label_tween.is_valid():
 		attr_label_tween.kill()
@@ -1663,14 +1713,16 @@ func show_attr_label() -> void:
 	var text = ""
 	
 	# ===== 基本属性 =====
-	text += "[font_size=21][color=#87CEEB]═══ 基本属性 ═══[/color][/font_size]\n"
+	text += "\n[font_size=21][color=#87CEEB]═══ 基本属性 ═══[/color][/font_size]\n"
 	text += "攻击：" + str(PC.pc_atk) + "    "
 	text += "HP：" + str(PC.pc_hp) + "/" + str(PC.pc_max_hp) + "\n"
+	text += "护甲：" + str(int(PC.pc_armor)) + "（%.2f%%）\n" % (PC.pc_armor / (PC.pc_armor + 500.0) * 100.0)
 	text += "攻击速度：+" + str(int(PC.pc_atk_speed * 100)) + "%    "
 	var total_move_speed = PC.pc_speed + Global.cultivation_zhuifeng_level * 0.01 + Global.study_move_speed_bonus
 	text += "移动速度：+" + str(int(total_move_speed * 100)) + "%\n"
 	text += "暴击率：" + str(int(PC.crit_chance * 100)) + "%    "
 	text += "暴击伤害：" + str(int(PC.crit_damage_multi * 100)) + "%\n"
+	text += "最终伤害：" + _format_attr_bonus_percent(_get_attr_panel_final_damage_bonus()) + "\n"
 	text += "减伤率：" + str(int(PC.damage_reduction_rate * 100)) + "%    "
 	text += "天命：" + str(PC.now_lunky_level) + "\n"
 	
@@ -1679,11 +1731,11 @@ func show_attr_label() -> void:
 	text += "攻击范围：+" + str(int((Global.get_attack_range_multiplier() - 1.0) * 100)) + "%    "
 	text += "体型大小：" + str(int(PC.body_size * 100)) + "%\n"
 	text += "真气获取：+" + str(int(PC.point_multi * 100)) + "%    "
-	text += "经验获取：+" + str(int(PC.exp_multi * 100)) + "%\n"
-	text += "掉落率：+" + str(int(PC.drop_multi * 100)) + "%    "
-	text += "最终伤害：+" + str(int(PC.pc_final_atk * 100)) + "%\n"
-	text += "治疗加成：+" + str(int(PC.heal_multi * 100)) + "%    "
-	text += "护盾加成：+" + str(int(PC.sheild_multi * 100)) + "%\n"
+	text += "精魄获取：+" + str(int(PC.spirit_multi * 100)) + "%\n"
+	text += "经验获取：+" + str(int(PC.exp_multi * 100)) + "%    "
+	text += "掉落率：+" + str(int(PC.drop_multi * 100)) + "%    \n"
+	text += "治疗加成：" + _format_attr_bonus_percent(_get_attr_panel_heal_bonus()) + "    "
+	text += "护盾加成：" + _format_attr_bonus_percent(_get_attr_panel_shield_bonus()) + "\n"
 	text += "对小怪增伤：+" + str(int(PC.normal_monster_multi * 100)) + "%    "
 	text += "对精英首领增伤：+" + str(int(PC.boss_multi * 100)) + "%\n"
 	text += "主动技能冷却缩减：" + str(int(PC.cooldown * 100)) + "%    "
@@ -1725,18 +1777,22 @@ func show_attr_label() -> void:
 		text += "弹体大小：" + str(int(PC.summon_bullet_size_multiplier * 100)) + "%    "
 		text += "攻击间隔倍率：" + str(int(PC.summon_interval_multiplier * 100)) + "%\n"
 	
-	attr_label.text = text
+	attr_label.text = text + "\n"
 	
 	# 设置初始透明度并显示
 	if not attr_label.visible:
 		attr_label.modulate.a = 0.0
 		attr_label.visible = true
+	if was_visible:
+		attr_label.modulate.a = 1.0
+		return
 	
 	# 渐入动画
 	attr_label_tween = create_tween()
 	attr_label_tween.tween_property(attr_label, "modulate:a", 1.0, 0.3)
 
 func hide_attr_label() -> void:
+	_attr_label_open = false
 	# 停止之前的动画
 	if attr_label_tween and attr_label_tween.is_valid():
 		attr_label_tween.kill()
@@ -1910,6 +1966,9 @@ func hide_emblem_detail(emblem_index: int) -> void:
 
 # ============== 游戏结果显示 ==============
 
+func set_victory_summary_data(data: Dictionary) -> void:
+	victory_summary_data = data.duplicate(true)
+
 func show_game_over() -> void:
 	_reset_game_speed()
 	gameover_label.visible = true
@@ -1960,25 +2019,34 @@ func _get_victory_summary_labels() -> Array:
 	return [victory_time_label, victory_score_label, victory_kill_label, victory_total_label]
 
 func _build_victory_summary_texts() -> Array:
-	var time_text = now_time.text
-	var time_seconds = _get_time_seconds_from_text(time_text)
-	var time_grade_name = _get_time_grade_name(time_seconds)
-	var time_grade_info = _get_grade_info(time_grade_name)
-	var score_text = score_label.text
-	var score_value = _get_score_value_from_text(score_text)
-	var score_grade_name = _get_score_grade_name(score_value)
-	var score_grade_info = _get_grade_info(score_grade_name)
-	var kill_count = GU.get_kill_count()
-	var kill_grade_name = _get_kill_grade_name(kill_count)
-	var kill_grade_info = _get_grade_info(kill_grade_name)
-	var total_score = time_grade_info["score"] + score_grade_info["score"] + kill_grade_info["score"]
-	var total_grade_name = _get_total_grade_name(total_score)
-	var total_grade_info = _get_grade_info(total_grade_name)
-	var time_line = _build_summary_line("通关时间", time_text, time_grade_info)
-	var score_line = _build_summary_line("获取真气", score_text, score_grade_info)
-	var kill_line = _build_summary_line("击杀敌人", str(kill_count), kill_grade_info)
-	var total_line = _build_summary_line("总体评价", "总分 " + str(total_score), total_grade_info)
-	return [time_line, score_line, kill_line, total_line]
+	var boss_defeat_time = float(victory_summary_data.get("boss_defeat_time", PC.real_time))
+	var kill_count = int(victory_summary_data.get("kill_count", GU.get_kill_count()))
+	var highest_dps = float(victory_summary_data.get("highest_dps", Global.get_highest_dps()))
+	var lost_hp = float(victory_summary_data.get("lost_hp", 0.0))
+	var time_line = _build_data_summary_line("击败首领用时", _format_summary_time(boss_defeat_time))
+	var kill_line = _build_data_summary_line("击败敌人数量", str(kill_count))
+	var dps_line = _build_data_summary_line("最高秒伤", _format_summary_raw_number(highest_dps))
+	var lost_hp_line = _build_data_summary_line("损失体力", _format_summary_number(lost_hp))
+	return [time_line, kill_line, dps_line, lost_hp_line]
+
+func _build_data_summary_line(title: String, value_text: String) -> String:
+	return "[right][font_size=28]" + title + "：" + value_text + "[/font_size][/right]"
+
+func _format_summary_time(seconds_float: float) -> String:
+	var total_seconds = max(0, int(Global.get_battle_display_time(seconds_float)))
+	return "%02d : %02d" % [int(total_seconds / 60), total_seconds % 60]
+
+func _format_summary_number(value: float) -> String:
+	if value >= 10000000.0:
+		return "%.3fm" % (value / 1000000.0)
+	if value >= 100000.0:
+		return "%.2fk" % (value / 1000.0)
+	if abs(value - round(value)) < 0.05:
+		return str(int(round(value)))
+	return "%.1f" % value
+
+func _format_summary_raw_number(value: float) -> String:
+	return str(int(round(value)))
 
 func _build_summary_line(title: String, value_text: String, grade_info: Dictionary) -> String:
 	var grade_name = grade_info["name"]
@@ -1997,6 +2065,10 @@ func _get_time_seconds_from_text(time_text: String) -> int:
 	return minutes * 60 + seconds
 
 func _get_score_value_from_text(score_text: String) -> int:
+	for line in score_text.split("\n"):
+		if line.contains("真气"):
+			score_text = line
+			break
 	var clean_text = score_text.replace("真气", "").strip_edges()
 	var value = 0.0
 	if clean_text.ends_with("m"):
@@ -2100,8 +2172,7 @@ func _init_lv_up_start_button() -> void:
 ## 初始化速度切换按钮
 func _init_speed_change_button() -> void:
 	_current_speed_index = 0
-	Global.game_speed = 1.0
-	Engine.time_scale = 1.0
+	Global.reset_game_speed()
 	if not speed_change_button:
 		speed_change_button = get_node_or_null("speed_change")
 	if speed_change_button:
@@ -2125,11 +2196,25 @@ func _update_speed_button_icon() -> void:
 	if tex:
 		speed_change_button.icon = tex
 
+func set_speed_button_visible(show: bool) -> void:
+	if not speed_change_button:
+		return
+	if show:
+		speed_change_button.visible = true
+		var tw = create_tween()
+		tw.tween_property(speed_change_button, "modulate:a", 1.0, 0.25)
+	else:
+		var tw = create_tween()
+		tw.tween_property(speed_change_button, "modulate:a", 0.0, 0.25)
+		tw.tween_callback(func():
+			speed_change_button.visible = false
+		)
+
 func _reset_game_speed() -> void:
 	_current_speed_index = 0
-	Global.game_speed = 1.0
-	Engine.time_scale = 1.0
+	Global.reset_game_speed()
 	_update_speed_button_icon()
+	set_speed_button_visible(true)
 
 ## 切换即时/手动升级模式
 func _on_instant_level_up_button_toggled(pressed: bool) -> void:
@@ -2143,7 +2228,7 @@ func _update_lv_up_start_button_badge() -> void:
 	var pending_count = level_up_manager.get_pending_level_ups()
 	var advance_count = level_up_manager.count_pending_advances()
 	var total = pending_count + advance_count
-	lv_up_start_button.visible = not PC.instant_level_up and total > 0 and not Global.is_level_up
+	lv_up_start_button.visible = not _manual_level_up_shop_hidden and not PC.instant_level_up and total > 0 and not Global.is_level_up
 	# 动态创建或查找右下角 badge
 	var badge = lv_up_start_button.get_node_or_null("PendingBadge")
 	if badge == null:
@@ -2155,9 +2240,74 @@ func _update_lv_up_start_button_badge() -> void:
 	badge.text = str(total)
 	badge.position = Vector2(lv_up_start_button.size.x - 24, lv_up_start_button.size.y - 24)
 
+func set_qi_vortex_shop_manual_level_up_hidden(hidden: bool) -> void:
+	_manual_level_up_shop_hidden = hidden
+	if _manual_level_up_shop_tween and _manual_level_up_shop_tween.is_valid():
+		_manual_level_up_shop_tween.kill()
+	if hidden:
+		_shop_restore_instant_level_up_button_visible = instant_level_up_button != null and instant_level_up_button.visible
+		_shop_restore_instant_level_up_label_visible = instant_level_up_button_label != null and instant_level_up_button_label.visible
+		_manual_level_up_shop_tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		_manual_level_up_shop_tween.set_ignore_time_scale(true)
+		_manual_level_up_shop_tween.set_parallel(true)
+		var has_visible_control := false
+		for control in _get_manual_level_up_controls():
+			if control and control.visible:
+				has_visible_control = true
+				if control is BaseButton:
+					(control as BaseButton).disabled = true
+				_manual_level_up_shop_tween.tween_property(control, "modulate:a", 0.0, 0.2)
+		if not has_visible_control:
+			_manual_level_up_shop_tween.kill()
+			_hide_manual_level_up_controls_for_shop()
+			return
+		_manual_level_up_shop_tween.chain().tween_callback(func():
+			_hide_manual_level_up_controls_for_shop()
+		)
+	else:
+		if lv_up_start_button:
+			lv_up_start_button.disabled = false
+		if instant_level_up_button:
+			instant_level_up_button.disabled = false
+			_restore_manual_level_up_control(instant_level_up_button, _shop_restore_instant_level_up_button_visible)
+		if instant_level_up_button_label:
+			_restore_manual_level_up_control(instant_level_up_button_label, _shop_restore_instant_level_up_label_visible)
+		_update_lv_up_start_button_badge()
+		_shop_restore_instant_level_up_button_visible = false
+		_shop_restore_instant_level_up_label_visible = false
+
+func _hide_manual_level_up_controls_for_shop() -> void:
+	for control in _get_manual_level_up_controls():
+		if control:
+			control.visible = false
+			control.modulate.a = 1.0
+
+func _get_manual_level_up_controls() -> Array[Control]:
+	var controls: Array[Control] = []
+	if lv_up_start_button:
+		controls.append(lv_up_start_button)
+	if instant_level_up_button:
+		controls.append(instant_level_up_button)
+	if instant_level_up_button_label:
+		controls.append(instant_level_up_button_label)
+	return controls
+
+func _restore_manual_level_up_control(control: Control, should_show: bool) -> void:
+	if not control:
+		return
+	if not should_show:
+		control.visible = false
+		control.modulate.a = 1.0
+		return
+	control.visible = true
+	control.modulate.a = 0.0
+	var tween := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.set_ignore_time_scale(true)
+	tween.tween_property(control, "modulate:a", 1.0, 0.2)
+
 ## 手动升级按钮点击
 func _on_lv_up_start_button_pressed() -> void:
-	if Global.is_level_up:
+	if Global.is_level_up or _manual_level_up_shop_hidden:
 		return
 	if PC.is_game_over:
 		return
@@ -2241,7 +2391,8 @@ func handle_refresh_button(button_id: int) -> void:
 		_update_refresh_lock_display()
 
 func get_required_lv_up_value(level: int) -> int:
-	return int(level_up_manager.get_required_lv_up_value(level))
+	var base_value := int(level_up_manager.get_required_lv_up_value(level))
+	return int(ceil(float(base_value) * Global.get_core_required_exp_multiplier()))
 
 func add_pending_level_up() -> void:
 	level_up_manager.add_pending_level_up()
@@ -2332,7 +2483,7 @@ func _build_treasure_faze_detail(level: int) -> String:
 	return text
 
 func _build_chaos_faze_detail(level: int) -> String:
-	var tiers = [3, 5, 7, 9]
+	var tiers = [3, 5, 8, 11]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
@@ -2342,8 +2493,8 @@ func _build_chaos_faze_detail(level: int) -> String:
 	lines.append("每个达到 5、9 层的法则使混沌法则阶级提升 1，达到 12 层的法则使混沌法则阶级降低 2")
 	lines.append(_format_faze_line(level, current_tier, 3, "3阶：最终伤害、经验获得率、真气获取率提升 15%"))
 	lines.append(_format_faze_line(level, current_tier, 5, "5阶：最终伤害、经验获得率再次提升 30%，真气获取率再次提升 25%"))
-	lines.append(_format_faze_line(level, current_tier, 7, "7阶：最终伤害、经验获得率再次提升 60%，真气获取率再次提升 40%"))
-	lines.append(_format_faze_line(level, current_tier, 9, "9阶：最终伤害、经验获得率再次提升 120%，真气获取率再次提升 80%"))
+	lines.append(_format_faze_line(level, current_tier, 8, "8阶：最终伤害、经验获得率再次提升 60%，真气获取率再次提升 40%"))
+	lines.append(_format_faze_line(level, current_tier, 11, "11阶：最终伤害、经验获得率再次提升 120%，真气获取率再次提升 80%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -2361,6 +2512,8 @@ func _init_stop_layer() -> void:
 		stop_layer.setup(setting_layer)
 
 func _on_stop_button_pressed() -> void:
+	if get_tree().paused:
+		return
 	if stop_layer:
 		stop_layer.open()
 

@@ -89,6 +89,7 @@ func _trigger_explosion() -> void:
 		explore.play("default")
 	
 	# 爆炸震屏 0.5秒
+	SEManager.play("67")
 	GU.screen_shake(6.0, 0.5)
 	
 	# 直接执行爆炸伤害（基于exploreShape半径做距离判定，不依赖物理帧重叠）

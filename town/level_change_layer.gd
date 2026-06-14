@@ -23,10 +23,21 @@ extends CanvasLayer
 @export var core_button: Button
 @export var poetry_button: Button
 
+@onready var difficulty_bonus_label: RichTextLabel = $Control/DifficultyBounsLabel
+@onready var difficulty_bonus_num: RichTextLabel = $Control/DifficultyBounsNum
+@onready var difficulty_bonus_text: RichTextLabel = $Control/DifficultyBounsText
+@onready var core_depth_right_button: Button = $Control/right
+@onready var core_depth_left_button: Button = $Control/left
+
+@onready var poey_bonus_label: RichTextLabel = $Control/poeyBounsText
+
 const TOOLTIP_FONT_SIZE := 24
 const MOUSE_OFFSET := Vector2(34, 24)
 const TOOLTIP_DESC_WIDTH := 260.0
 const TOOLTIP_SCREEN_MARGIN := 10.0
+const CORE_BONUS_COLOR_VALUE := "yellow"
+const CORE_BONUS_COLOR_UPGRADED := "red"
+const CORE_BONUS_COLOR_MECHANIC := "orange"
 
 # 关卡说明数据
 const STAGE_INFO := {
@@ -90,10 +101,15 @@ var _tooltip_cached_size: Vector2 = Vector2.ZERO
 var _tooltip_canvas_layer: CanvasLayer = null
 var _tooltip_request_id: int = 0
 var _tooltip_tween: Tween = null
+var _stage_tooltips_suppressed: bool = false
 var _selected_difficulty: String = Global.STAGE_DIFFICULTY_SHALLOW
 var _lock_texture: AtlasTexture = null
 var _difficulty_lock_overlays: Dictionary = {}
 var _stage_lock_overlays: Dictionary = {}
+var _core_bonus_controls: Array[Control] = []
+var _core_bonus_tween: Tween = null
+var _poetry_bonus_controls: Array[Control] = []
+var _poetry_bonus_tween: Tween = null
 
 const LOCK_ICON_TEXTURE_PATH := "res://AssetBundle/Sprites/Sprite sheets/Sprite sheet for Basic Pack.png"
 const LOCK_ICON_REGION := Rect2(496, 160, 16, 16)
@@ -135,6 +151,8 @@ func _ready() -> void:
 	_create_tooltip_panel()
 	_connect_rect_input_events()
 	_connect_difficulty_buttons()
+	_setup_core_bonus_controls()
+	_setup_poetry_bonus_controls()
 	_fix_difficulty_button_hit_areas()
 	prepare_for_open()
 
@@ -147,12 +165,16 @@ func _process(_delta: float) -> void:
 
 # 每次重新打开关卡层时，重置悬浮态和难度按钮显示。
 func prepare_for_open() -> void:
+	_stage_tooltips_suppressed = false
 	_hovered_stage_key = ""
 	_hide_tooltip()
 	_selected_difficulty = Global.validate_stage_difficulty_id(Global.selected_stage_difficulty)
 	if not Global.is_stage_difficulty_unlocked(_selected_difficulty):
 		_selected_difficulty = Global.STAGE_DIFFICULTY_SHALLOW
 		Global.set_selected_stage_difficulty(_selected_difficulty)
+	var max_unlocked_core_depth := Global.get_global_max_unlocked_core_depth()
+	if max_unlocked_core_depth > 0 and Global.selected_core_depth > max_unlocked_core_depth:
+		Global.set_selected_core_depth(max_unlocked_core_depth)
 	# 诗想难度：通关cave后才显示按钮
 	if poetry_button != null:
 		poetry_button.visible = Global.is_stage_cleared("cave")
@@ -161,6 +183,11 @@ func prepare_for_open() -> void:
 
 func reset_stage_tooltip_state() -> void:
 	prepare_for_open()
+
+func suppress_stage_tooltips(suppressed: bool) -> void:
+	_stage_tooltips_suppressed = suppressed
+	if suppressed:
+		_hide_tooltip()
 
 func _connect_rect_input_events() -> void:
 	if rect1 != null:
@@ -191,6 +218,30 @@ func _connect_difficulty_buttons() -> void:
 		var button := _difficulty_button_map[difficulty_id] as Button
 		if button != null and not button.pressed.is_connected(_on_difficulty_button_pressed.bind(difficulty_id)):
 			button.pressed.connect(_on_difficulty_button_pressed.bind(difficulty_id))
+
+func _setup_core_bonus_controls() -> void:
+	_core_bonus_controls.clear()
+	for control in [difficulty_bonus_label, difficulty_bonus_num, difficulty_bonus_text, core_depth_right_button, core_depth_left_button]:
+		if control != null:
+			_core_bonus_controls.append(control)
+			control.modulate.a = 0.0
+			control.visible = false
+	for label in [difficulty_bonus_label, difficulty_bonus_num, difficulty_bonus_text]:
+		if label != null:
+			label.bbcode_enabled = true
+	if core_depth_right_button != null and not core_depth_right_button.pressed.is_connected(_on_core_depth_right_pressed):
+		core_depth_right_button.pressed.connect(_on_core_depth_right_pressed)
+	if core_depth_left_button != null and not core_depth_left_button.pressed.is_connected(_on_core_depth_left_pressed):
+		core_depth_left_button.pressed.connect(_on_core_depth_left_pressed)
+
+func _setup_poetry_bonus_controls() -> void:
+	_poetry_bonus_controls.clear()
+	if poey_bonus_label == null:
+		return
+	_poetry_bonus_controls.append(poey_bonus_label)
+	poey_bonus_label.bbcode_enabled = true
+	poey_bonus_label.modulate.a = 0.0
+	poey_bonus_label.visible = false
 
 func _fix_difficulty_button_hit_areas() -> void:
 	for button in [shallow_button, deep_button, core_button, poetry_button]:
@@ -250,6 +301,145 @@ func _apply_difficulty_button_visual() -> void:
 			button.modulate = Color(1, 1, 1, 1)
 		else:
 			button.modulate = Color(0.7, 0.7, 0.7, 0.9)
+	_update_core_bonus_ui(true)
+	_update_poetry_bonus_ui(true)
+
+func _on_core_depth_left_pressed() -> void:
+	Global.set_selected_core_depth(Global.selected_core_depth - 1)
+	_update_core_bonus_ui(false)
+	_refresh_lock_visuals()
+	if not _hovered_stage_key.is_empty():
+		_show_stage_tooltip(_hovered_stage_key)
+
+func _on_core_depth_right_pressed() -> void:
+	if Global.selected_core_depth >= Global.get_global_max_unlocked_core_depth():
+		return
+	Global.set_selected_core_depth(Global.selected_core_depth + 1)
+	_update_core_bonus_ui(false)
+	_refresh_lock_visuals()
+	if not _hovered_stage_key.is_empty():
+		_show_stage_tooltip(_hovered_stage_key)
+
+func _update_core_bonus_ui(animate_visibility: bool) -> void:
+	var should_show := _selected_difficulty == Global.STAGE_DIFFICULTY_CORE
+	_update_core_bonus_text()
+	_update_core_depth_navigation_state()
+	_set_core_bonus_visible(should_show, animate_visibility)
+
+func _update_poetry_bonus_ui(animate_visibility: bool) -> void:
+	var should_show := _selected_difficulty == Global.STAGE_DIFFICULTY_POETRY
+	_set_poetry_bonus_visible(should_show, animate_visibility)
+
+func _update_core_depth_navigation_state() -> void:
+	if core_depth_left_button != null:
+		core_depth_left_button.disabled = Global.selected_core_depth <= Global.CORE_DEPTH_MIN
+	if core_depth_right_button != null:
+		var max_unlocked_depth := Global.get_global_max_unlocked_core_depth()
+		core_depth_right_button.disabled = Global.selected_core_depth >= Global.CORE_DEPTH_MAX or Global.selected_core_depth >= max_unlocked_depth
+
+func _set_core_bonus_visible(should_show: bool, animate_visibility: bool) -> void:
+	if _core_bonus_tween and _core_bonus_tween.is_valid():
+		_core_bonus_tween.kill()
+	if _core_bonus_controls.is_empty():
+		return
+	if not animate_visibility:
+		for control in _core_bonus_controls:
+			control.visible = should_show
+			control.modulate.a = 1.0 if should_show else 0.0
+		return
+	if should_show:
+		_core_bonus_tween = create_tween()
+		_core_bonus_tween.set_parallel(true)
+		for control in _core_bonus_controls:
+			control.visible = true
+			_core_bonus_tween.tween_property(control, "modulate:a", 1.0, 0.18)
+	else:
+		_core_bonus_tween = create_tween()
+		_core_bonus_tween.set_parallel(true)
+		for control in _core_bonus_controls:
+			_core_bonus_tween.tween_property(control, "modulate:a", 0.0, 0.15)
+		_core_bonus_tween.set_parallel(false)
+		_core_bonus_tween.tween_callback(func():
+			for control in _core_bonus_controls:
+				control.visible = false
+		)
+
+func _set_poetry_bonus_visible(should_show: bool, animate_visibility: bool) -> void:
+	if _poetry_bonus_tween and _poetry_bonus_tween.is_valid():
+		_poetry_bonus_tween.kill()
+	if _poetry_bonus_controls.is_empty():
+		return
+	if not animate_visibility:
+		for control in _poetry_bonus_controls:
+			control.visible = should_show
+			control.modulate.a = 1.0 if should_show else 0.0
+		return
+	if should_show:
+		_poetry_bonus_tween = create_tween()
+		_poetry_bonus_tween.set_parallel(true)
+		for control in _poetry_bonus_controls:
+			control.visible = true
+			_poetry_bonus_tween.tween_property(control, "modulate:a", 1.0, 0.18)
+	else:
+		_poetry_bonus_tween = create_tween()
+		_poetry_bonus_tween.set_parallel(true)
+		for control in _poetry_bonus_controls:
+			_poetry_bonus_tween.tween_property(control, "modulate:a", 0.0, 0.15)
+		_poetry_bonus_tween.set_parallel(false)
+		_poetry_bonus_tween.tween_callback(func():
+			for control in _poetry_bonus_controls:
+				control.visible = false
+		)
+
+func _update_core_bonus_text() -> void:
+	var depth := Global.clamp_core_depth(Global.selected_core_depth)
+	if difficulty_bonus_label != null:
+		difficulty_bonus_label.text = "核心进阶"
+	if difficulty_bonus_num != null:
+		difficulty_bonus_num.text = str(depth)
+	if difficulty_bonus_text == null:
+		return
+	difficulty_bonus_text.clear()
+	var qi_bonus := Global.get_core_qi_gain_bonus_percent(depth) - 40
+	var stat_bonus := Global.get_core_stat_bonus_percent(depth)
+	var move_bonus := 25 if depth >= 10 else 15
+	var growth_bonus := 30 if depth >= 10 else 20
+	var exp_bonus := 25 if depth >= 10 else 20
+	var move_color := CORE_BONUS_COLOR_UPGRADED if depth >= 10 else CORE_BONUS_COLOR_VALUE
+	var growth_color := CORE_BONUS_COLOR_UPGRADED if depth >= 10 else CORE_BONUS_COLOR_VALUE
+	var exp_color := CORE_BONUS_COLOR_UPGRADED if depth >= 10 else CORE_BONUS_COLOR_VALUE
+	var lines: Array[String] = [
+		"真气获取提升%s" % _color_value("%d%%" % qi_bonus),
+		"敌人攻击、体力提升%s" % _color_value("%d%%" % stat_bonus)
+	]
+	if depth >= 1:
+		lines.append(_color_mechanic("首领技能强化"))
+	if depth >= 2:
+		lines.append("敌人移动速度提升%s" % _color_text("%d%%" % move_bonus, move_color))
+	if depth >= 3:
+		lines.append(_color_mechanic("出现被侵蚀的精英"))
+	if depth >= 4:
+		lines.append("灵气漩涡消耗精魄提升%s" % _color_value("25%"))
+	if depth >= 5:
+		lines.append("敌人攻击成长提升%s" % _color_text("%d%%" % growth_bonus, growth_color))
+	if depth >= 6:
+		lines.append("升级所需经验增加%s" % _color_text("%d%%" % exp_bonus, exp_color))
+	if depth >= 7:
+		lines.append(_color_mechanic("不定期飞弹袭击"))
+	if depth >= 8:
+		lines.append("灵气漩涡出现频率降低%s" % _color_value("16%"))
+	if depth >= 9:
+		lines.append("护盾与治疗效果降低%s" % _color_value("30%"))
+	difficulty_bonus_text.parse_bbcode("\n".join(lines))
+
+func _color_value(text: String) -> String:
+	return _color_text(text, CORE_BONUS_COLOR_VALUE)
+
+func _color_mechanic(text: String) -> String:
+	return _color_text(text, CORE_BONUS_COLOR_MECHANIC)
+
+func _color_text(text: String, color_name: String) -> String:
+	return "[color=%s]%s[/color]" % [color_name, text]
 
 func _setup_lock_texture() -> void:
 	if _lock_texture != null:
@@ -330,7 +520,7 @@ func _refresh_lock_visuals() -> void:
 		overlay.visible = _should_show_stage_lock(stage_key)
 
 func _is_stage_available(stage_key: String) -> bool:
-	return bool(STAGE_INFO.get(stage_key, {}).get("available", false))
+	return STAGE_INFO.get(stage_key, {}).get("available", false) == true
 
 func _is_stage_unlocked(stage_key: String) -> bool:
 	if not _is_stage_available(stage_key):
@@ -338,6 +528,8 @@ func _is_stage_unlocked(stage_key: String) -> bool:
 	var stage_id := str(STAGE_INFO.get(stage_key, {}).get("stage_id", ""))
 	if stage_id.is_empty():
 		return false
+	if _selected_difficulty == Global.STAGE_DIFFICULTY_CORE:
+		return Global.can_enter_core_depth(stage_id, Global.selected_core_depth)
 	return Global.can_enter_stage_difficulty(stage_id, _selected_difficulty)
 
 func _should_show_stage_lock(stage_key: String) -> bool:
@@ -354,12 +546,22 @@ func _get_stage_name_by_id(stage_id: String) -> String:
 
 func _build_locked_stage_message(stage_key: String) -> String:
 	var info: Dictionary = STAGE_INFO.get(stage_key, {})
-	if not bool(info.get("available", false)):
+	if info.get("available", false) != true:
 		return "当前测试版本该关卡暂未开放。"
 	var stage_id := str(info.get("stage_id", ""))
 	var stage_name := str(info.get("stage_name", "该关卡"))
 	var difficulty_name := Global.get_stage_difficulty_display_name(_selected_difficulty)
 	var previous_difficulty_id := Global.get_required_stage_clear_difficulty(_selected_difficulty)
+	if _selected_difficulty == Global.STAGE_DIFFICULTY_CORE:
+		var target_depth := Global.clamp_core_depth(Global.selected_core_depth)
+		var unlocked_depth := Global.get_stage_max_unlocked_core_depth(stage_id)
+		if unlocked_depth <= 0:
+			return "需要先通关%s的深层，才能开启核心进阶1层。" % stage_name
+		return "需要先通关%s的核心进阶%d层，才能开启核心进阶%d层。" % [
+			stage_name,
+			max(1, target_depth - 1),
+			target_depth
+		]
 	if _selected_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
 		var previous_stage_id := Global.get_previous_stage_id(stage_id)
 		if previous_stage_id.is_empty():
@@ -506,6 +708,17 @@ func _show_tip(message: String) -> void:
 func _build_locked_difficulty_message(stage_key: String) -> String:
 	var info = STAGE_INFO.get(stage_key, {})
 	var stage_name := str(info.get("stage_name", "该关卡"))
+	if _selected_difficulty == Global.STAGE_DIFFICULTY_CORE:
+		var stage_id := str(info.get("stage_id", ""))
+		var target_depth := Global.clamp_core_depth(Global.selected_core_depth)
+		var unlocked_depth := Global.get_stage_max_unlocked_core_depth(stage_id)
+		if unlocked_depth <= 0:
+			return "需要先通关%s的深层，才能进入核心进阶1层。" % stage_name
+		return "需要先通关%s的核心进阶%d层，才能进入核心进阶%d层。" % [
+			stage_name,
+			max(1, target_depth - 1),
+			target_depth
+		]
 	var required_difficulty := Global.get_required_stage_clear_difficulty(_selected_difficulty)
 	if required_difficulty.is_empty():
 		return "当前难度暂未解锁。"
@@ -528,12 +741,16 @@ func _on_rect_input_event(_viewport: Node, event: InputEvent, _shape_idx: int, s
 		_show_tip(_build_locked_stage_message(stage_key))
 		return
 	Global.set_selected_stage_difficulty(_selected_difficulty)
+	if _selected_difficulty == Global.STAGE_DIFFICULTY_CORE:
+		Global.set_selected_core_depth(Global.selected_core_depth)
 	_hide_tooltip()
 	var button := _stage_buttons.get(stage_key) as Button
 	if button != null:
 		button.pressed.emit()
 
 func _show_stage_tooltip(stage_key: String) -> void:
+	if _stage_tooltips_suppressed:
+		return
 	_hovered_stage_key = stage_key
 	_tooltip_request_id += 1
 	var request_id := _tooltip_request_id
@@ -549,7 +766,10 @@ func _show_stage_tooltip(stage_key: String) -> void:
 		_tooltip_power_label.text = _build_locked_stage_message(stage_key)
 	else:
 		var stage_id := str(info.get("stage_id", ""))
-		if Global.can_enter_stage_difficulty(stage_id, _selected_difficulty):
+		if _selected_difficulty == Global.STAGE_DIFFICULTY_CORE:
+			var recommended_power := Global.get_stage_recommended_power(stage_id, _selected_difficulty)
+			_tooltip_power_label.text = "推荐修为：" + str(recommended_power)
+		elif Global.can_enter_stage_difficulty(stage_id, _selected_difficulty):
 			var recommended_power := Global.get_stage_recommended_power(stage_id, _selected_difficulty)
 			_tooltip_power_label.text = "推荐修为：" + str(recommended_power)
 		else:

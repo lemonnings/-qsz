@@ -1,4 +1,4 @@
-﻿extends "res://Script/monster/monster_base.gd"
+extends "res://Script/monster/monster_base.gd"
 
 @onready var sprite = $AnimatedSprite2D
 
@@ -15,7 +15,6 @@ var hp: float = SettingMoster.bat("hp")
 var atk: float = SettingMoster.bat("atk")
 var get_point: int = SettingMoster.bat("point")
 var get_exp: int = SettingMoster.bat("exp")
-var get_mechanism: int = SettingMoster.bat("mechanism")
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 
@@ -50,7 +49,7 @@ func _physics_process(delta: float) -> void:
 	if not _is_offscreen and hp < hpMax and hp > 0:
 		show_health_bar()
 	
-	if debuff_manager.is_action_disabled():
+	if should_skip_actions_for_debuff():
 		fire_timer.paused = true
 		return
 	if fire_timer.paused:
@@ -62,6 +61,8 @@ func _physics_process(delta: float) -> void:
 
 	if not is_dead:
 		speed = get_effective_move_speed(base_speed)
+		if CharacterEffects.is_player_dead_or_game_over():
+			move_vector = CharacterEffects.get_player_death_scatter_direction(self)
 		position += move_vector * speed * delta
 		# 根据水平移动方向翻转精灵
 		if not _is_offscreen:
@@ -86,11 +87,9 @@ func _physics_process(delta: float) -> void:
 			$AnimatedSprite2D.stop()
 			$AnimatedSprite2D.play("death")
 			var point_gain = int(get_point * Faze.get_point_multiplier())
-			get_tree().current_scene.point += point_gain
-			Global.total_points += point_gain
+			grant_kill_point_rewards(point_gain)
 			var exp_gain = int(get_exp * Faze.get_exp_multiplier())
 			Global.emit_signal("drop_exp_orb", exp_gain, global_position, is_elite)
-			Global.emit_signal("monster_mechanism_gained", get_mechanism)
 			var change = randf()
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
 				# Release a round of sword Qi in (90°)(270°) and other all directions
@@ -168,7 +167,9 @@ func _pick_random_direction() -> void:
 func _pick_direction_to_safe_zone() -> void:
 	# 计算朝向玩家的方向
 	var direction_to_player: Vector2
-	if PC.player_instance:
+	if CharacterEffects.is_player_dead_or_game_over():
+		direction_to_player = CharacterEffects.get_player_death_scatter_direction(self)
+	elif PC.player_instance:
 		direction_to_player = (PC.player_instance.global_position - global_position).normalized()
 	else:
 		# 如果没有玩家实例，使用默认方向
@@ -181,14 +182,14 @@ func _pick_direction_to_safe_zone() -> void:
 func _shoot_bullet() -> void:
 	if is_dead:
 		return
-	var fireball_scene = preload("res://Scenes/moster/frog_attack.tscn")
-	var fireball = fireball_scene.instantiate()
-	get_parent().add_child(fireball)
-	fireball.global_position = global_position
 	var shoot_direction: Vector2
-	if PC.player_instance:
+	if CharacterEffects.is_player_dead_or_game_over():
+		shoot_direction = move_vector
+	elif PC.player_instance:
 		shoot_direction = (PC.player_instance.global_position - global_position).normalized()
 	else:
 		shoot_direction = move_vector
-	fireball.set_direction(shoot_direction)
-	fireball.play_animation("fire")
+	if is_corrupted_elite_monster():
+		fire_corrupted_spread_burst(shoot_direction)
+		return
+	fire_monster_projectile(shoot_direction, global_position)

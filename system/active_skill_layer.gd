@@ -27,12 +27,18 @@ extends CanvasLayer
 @export var skill14: Panel
 @export var skill15: Panel
 
+@export var start_weapon_icon: Panel
+@export var start_weapon_choice: OptionButton
+
 var active_slot_panels: Array[Panel] = []
 var learned_skill_panels: Array[Panel] = []
 var slot_keys: Array[String] = ["space", "q", "e"]
 
 var panel_icons: Dictionary = {}
 var panel_skill_map: Dictionary = {}
+var start_weapon_icon_rect: TextureRect
+var start_weapon_ids: Array[String] = []
+var is_refreshing_start_weapon_choice: bool = false
 
 # 专属技能映射：技能ID → 专属角色key
 const EXCLUSIVE_SKILLS: Dictionary = {
@@ -59,6 +65,7 @@ func _ready() -> void:
 	_setup_static_ui_input_filter()
 	exit_button.pressed.connect(_on_exit_pressed)
 	_setup_panels()
+	_setup_start_weapon_choice()
 	_create_tooltip()
 	# 这个界面需要在拖拽期间持续检查鼠标状态，
 	# 这样才能把 Godot 内置拖拽想切换的鼠标样式重新压回默认箭头。
@@ -81,6 +88,7 @@ func _setup_static_ui_input_filter() -> void:
 
 func open_layer() -> void:
 	_update_character_info()
+	_refresh_start_weapon_choice()
 	_refresh_learned_skill_panels()
 	_refresh_active_skill_panels()
 
@@ -97,6 +105,75 @@ func _setup_panels() -> void:
 		_setup_single_panel(panel, true)
 	for panel in active_slot_panels:
 		_setup_single_panel(panel, false)
+	if start_weapon_icon:
+		start_weapon_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+		start_weapon_icon_rect = _get_or_create_icon(start_weapon_icon)
+
+func _setup_start_weapon_choice() -> void:
+	if start_weapon_choice == null:
+		return
+	if not start_weapon_choice.item_selected.is_connected(_on_start_weapon_selected):
+		start_weapon_choice.item_selected.connect(_on_start_weapon_selected)
+	start_weapon_choice.clear()
+	_refresh_start_weapon_choice()
+
+func _refresh_start_weapon_choice() -> void:
+	if start_weapon_choice == null:
+		return
+	is_refreshing_start_weapon_choice = true
+	start_weapon_choice.clear()
+	start_weapon_ids.clear()
+	var selected_weapon_id := Global.get_selected_start_weapon()
+	var selected_index := 0
+	var available_weapons := Global.get_available_start_weapons()
+	for i in range(available_weapons.size()):
+		var weapon := available_weapons[i]
+		var weapon_id := str(weapon.get("id", ""))
+		start_weapon_ids.append(weapon_id)
+		start_weapon_choice.add_item(str(weapon.get("display_name", weapon_id)))
+		start_weapon_choice.set_item_metadata(i, weapon_id)
+		if weapon_id == selected_weapon_id:
+			selected_index = i
+	if start_weapon_choice.item_count > 0:
+		start_weapon_choice.select(selected_index)
+	is_refreshing_start_weapon_choice = false
+	_update_start_weapon_icon(selected_weapon_id)
+
+func _on_start_weapon_selected(index: int) -> void:
+	if is_refreshing_start_weapon_choice:
+		return
+	if index < 0 or index >= start_weapon_ids.size():
+		return
+	var weapon_id := start_weapon_ids[index]
+	Global.set_selected_start_weapon(weapon_id)
+	_update_start_weapon_icon(Global.get_selected_start_weapon())
+	Global.save_game()
+	var selected_weapon_id := Global.get_selected_start_weapon()
+	var faze_text := Global.get_start_weapon_faze_text(selected_weapon_id)
+	var tip_text := "起始武器已切换为 " + _get_start_weapon_display_name(selected_weapon_id)
+	if not faze_text.is_empty():
+		tip_text += "（" + faze_text + "）"
+	_show_tip(tip_text)
+
+func _update_start_weapon_icon(weapon_id: String) -> void:
+	if start_weapon_icon == null:
+		return
+	if start_weapon_icon_rect == null:
+		start_weapon_icon_rect = _get_or_create_icon(start_weapon_icon)
+	var icon_path := _get_start_weapon_icon_path(weapon_id)
+	start_weapon_icon_rect.texture = load(icon_path) if not icon_path.is_empty() else null
+
+func _get_start_weapon_display_name(weapon_id: String) -> String:
+	for weapon in Global.get_available_start_weapons():
+		if str(weapon.get("id", "")) == weapon_id:
+			return str(weapon.get("display_name", weapon_id))
+	return weapon_id
+
+func _get_start_weapon_icon_path(weapon_id: String) -> String:
+	for weapon in Global.get_available_start_weapons():
+		if str(weapon.get("id", "")) == weapon_id:
+			return str(weapon.get("icon", ""))
+	return ""
 
 func _setup_single_panel(panel: Panel, can_drag: bool) -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -136,7 +213,7 @@ func _update_character_info() -> void:
 	var player = get_tree().get_first_node_in_group("player")
 	var character_sprite = player.get_node(current_character) as AnimatedSprite2D
 	now_character_anime.sprite_frames = character_sprite.sprite_frames
-	now_character_anime.play("run")
+	now_character_anime.play("idle")
 
 func _refresh_learned_skill_panels() -> void:
 	panel_skill_map.clear()

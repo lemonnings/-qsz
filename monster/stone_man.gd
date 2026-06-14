@@ -11,7 +11,6 @@ var hp: float = SettingMoster.stone_man("hp")
 var atk: float = SettingMoster.stone_man("atk")
 var get_point: int = SettingMoster.stone_man("point")
 var get_exp: int = SettingMoster.stone_man("exp")
-var get_mechanism: int = SettingMoster.stone_man("mechanism")
 var last_swordqi_damage_time: float = 0.0
 const SWORDQI_DAMAGE_INTERVAL: float = 0.25
 const CHARGE_TRIGGER_DISTANCE: float = 100.0
@@ -45,11 +44,9 @@ func _physics_process(delta: float) -> void:
 			$AnimatedSprite2D.stop()
 			$AnimatedSprite2D.play("death")
 			var point_gain = int(get_point * Faze.get_point_multiplier())
-			get_tree().current_scene.point += point_gain
-			Global.total_points += point_gain
+			grant_kill_point_rewards(point_gain)
 			var exp_gain = int(get_exp * Faze.get_exp_multiplier())
 			Global.emit_signal("drop_exp_orb", exp_gain, global_position, is_elite)
-			Global.emit_signal("monster_mechanism_gained", get_mechanism)
 			var change = randf()
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
 				# Release a round of sword Qi in (90°)(270°) and other all directions
@@ -85,7 +82,7 @@ func _physics_process(delta: float) -> void:
 	if hp < hpMax and hp > 0:
 		show_health_bar()
 	
-	if debuff_manager.is_action_disabled():
+	if should_skip_actions_for_debuff():
 		return
 	
 	# 处理推挤效果（防止怪物重叠）
@@ -93,6 +90,12 @@ func _physics_process(delta: float) -> void:
 		CharacterEffects.apply_separation(self , 10.0, 12.0)
 		
 	if not is_dead:
+		if CharacterEffects.is_player_dead_or_game_over():
+			clear_charge_warning()
+			is_charge_warning = false
+			is_charging = false
+			move_away_from_dead_player(delta, base_speed, sprite)
+			return
 		if is_charging:
 			update_charge_movement(delta)
 		elif is_charge_warning:
@@ -109,31 +112,15 @@ func _physics_process(delta: float) -> void:
 				if move_direction >= 2:
 					# 靠近角色的移动方
 					if PC.player_instance != null:
-						var player_pos = PC.player_instance.global_position
-						var direction_to_player = (player_pos - global_position).normalized()
-						speed = get_effective_move_speed(base_speed)
-						position += direction_to_player * speed * delta
-						# 根据移动方向设置精灵翻转
-						if direction_to_player.x > 0:
-							sprite.flip_h = true
-						else:
-							sprite.flip_h = false
-	
-	
-	# 处理敌人之间的碰撞撞?- 直接防止重叠
-	if monitoring and not is_charge_warning and not is_charging:
-		var overlapping_bodies = get_overlapping_areas()
-		
-		for body in overlapping_bodies:
-			if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
-				var distance = global_position.distance_to(body.global_position)
-				var min_distance = 12.0 # 最小允许距离离?
-				# 如果距离太近，直接调整位置
-				if distance < min_distance and distance > 0.1:
-					var direction_away = (global_position - body.global_position).normalized()
-					var overlap = min_distance - distance
-					# 两个物体各自移动一半的重叠距离
-					position += direction_away * (overlap * 0.5)
+						var direction_to_player = CharacterEffects.get_tracking_direction_to_player(self)
+						if direction_to_player != Vector2.ZERO:
+							speed = get_effective_move_speed(base_speed)
+							position += direction_to_player * speed * delta
+							# 根据移动方向设置精灵翻转
+							if direction_to_player.x > 0:
+								sprite.flip_h = true
+							else:
+								sprite.flip_h = false
 	
 	if move_direction == 0 and position.x <= -534:
 		clear_charge_warning()
@@ -182,7 +169,7 @@ func _on_area_entered(area: Area2D) -> void:
 			Global.play_hit_anime(position, is_crit)
 
 func try_start_charge_skill():
-	if PC.player_instance == null:
+	if CharacterEffects.is_player_dead_or_game_over() or PC.player_instance == null:
 		return
 	var current_time = Time.get_ticks_msec() / 1000.0
 	var cooldown_elapsed = current_time - last_charge_start_time
@@ -209,7 +196,7 @@ func try_start_charge_skill():
 
 func _on_charge_warning_finished():
 	clear_charge_warning()
-	if is_dead:
+	if is_dead or CharacterEffects.is_player_dead_or_game_over():
 		is_charge_warning = false
 		is_charging = false
 		return

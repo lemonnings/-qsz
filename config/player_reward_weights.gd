@@ -27,8 +27,8 @@ const C_BASE_WEIGHTS: Dictionary = {
 	"Live": 30.0,
 	"Debuff": 15.0,
 	"Summon": 20.0,
-	"Lucky": 15.0,
-	"Six": 15.0
+	"Lucky": 20.0,
+	"Six": 30.0
 }
 
 # 需要修习树解锁的武器派系 → 对应的 Global 解锁变量名
@@ -44,12 +44,19 @@ const STUDY_UNLOCK_MAP: Dictionary = {
 	"Xuanwu": "study_unlock_xuanwu",
 }
 
+const HERO_UNLOCK_MAP: Dictionary = {
+	"Lightbullet": "unlock_noam",
+	"Ice": "unlock_kansel",
+}
+
 func _init():
 	print("PlayerRewardWeights initialized.")
 	reset_all_weights()
 
 # 检查某武器派系是否已通过修习树解锁（不在映射表中的武器默认已解锁）
 func is_faction_study_unlocked(faction: String) -> bool:
+	if HERO_UNLOCK_MAP.has(faction):
+		return Global.get(HERO_UNLOCK_MAP[faction]) == true
 	if not STUDY_UNLOCK_MAP.has(faction):
 		return true
 	return Global.get(STUDY_UNLOCK_MAP[faction]) == true
@@ -166,13 +173,19 @@ func get_level_up_weights(rarity: String) -> Dictionary:
 		if weapon_count <= 1:
 			weapon_upgrade_total = 5.0
 		elif weapon_count == 2:
-			weapon_upgrade_total = 10.0
+			weapon_upgrade_total = 11.0
 		elif weapon_count == 3:
-			weapon_upgrade_total = 15.0
+			weapon_upgrade_total = 17.5
 		elif weapon_count == 4:
-			weapon_upgrade_total = 20.0
+			weapon_upgrade_total = 23.5
 		else:
-			weapon_upgrade_total = 25.0
+			weapon_upgrade_total = 31
+		# 铸匠之魂：武器升级概率提升（加算）
+		if PC.lingwu_weapon_upgrade_bonus > 0:
+			var bonus = weapon_upgrade_total * PC.lingwu_weapon_upgrade_bonus
+			weapon_upgrade_total += bonus
+		# 宝器之魂：天命升级概率提升（加算，影响Lucky权重）
+		# 唤灵之魂：召唤升级概率提升（加算，影响Summon权重）
 		other_total = 100.0 - weapon_upgrade_total
 
 	# 权重B：已有武器平分武器升级总权重
@@ -194,6 +207,7 @@ func get_level_up_weights(rarity: String) -> Dictionary:
 
 	# 权重C：直接使用动态权重归一化到 other_total
 	# red级别：Normal权重 *2.5，Six权重归零
+	# 宝器之魂/唤灵之魂：对应C类权重提升
 	var c_sum: float = 0.0
 	for faction in C_FACTIONS:
 		var weight: float = get_faction_weight(rarity, faction)
@@ -201,6 +215,15 @@ func get_level_up_weights(rarity: String) -> Dictionary:
 			weight *= 2.5
 		if rarity == "red" and faction == "Six":
 			weight = 0.0
+		# 宝器之魂：Lucky权重提升
+		if faction == "Lucky" and PC.lingwu_lucky_upgrade_bonus > 0:
+			weight *= (1.0 + PC.lingwu_lucky_upgrade_bonus)
+		# 唤灵之魂：Summon权重提升
+		if faction == "Summon" and PC.lingwu_summon_upgrade_bonus > 0:
+			weight *= (1.0 + PC.lingwu_summon_upgrade_bonus)
+		# 存续之魂：Live权重提升
+		if faction == "Live" and PC.lingwu_live_upgrade_bonus > 0:
+			weight *= (1.0 + PC.lingwu_live_upgrade_bonus)
 		c_sum += weight
 	if c_sum > 0.0:
 		for faction in C_FACTIONS:
@@ -209,6 +232,12 @@ func get_level_up_weights(rarity: String) -> Dictionary:
 				weight *= 2.5
 			if rarity == "red" and faction == "Six":
 				weight = 0.0
+			if faction == "Lucky" and PC.lingwu_lucky_upgrade_bonus > 0:
+				weight *= (1.0 + PC.lingwu_lucky_upgrade_bonus)
+			if faction == "Summon" and PC.lingwu_summon_upgrade_bonus > 0:
+				weight *= (1.0 + PC.lingwu_summon_upgrade_bonus)
+			if faction == "Live" and PC.lingwu_live_upgrade_bonus > 0:
+				weight *= (1.0 + PC.lingwu_live_upgrade_bonus)
 			result[faction] = weight / c_sum * other_total
 
 	return result

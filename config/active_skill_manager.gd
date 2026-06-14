@@ -373,6 +373,7 @@ const DODGE_SHAKE_INTENSITY: float = 2.2
 const DODGE_SHAKE_DURATION: float = 0.18
 const DODGE_SLOW_TIME_SCALE: float = 0.35
 const DODGE_SLOW_DURATION: float = 0.35
+const DODGE_BOUNDARY_MARGIN: float = 10.0
 # 用请求编号防止旧的慢动作恢复逻辑把新的状态覆盖掉。
 # 虽然闪避本身有冷却，正常不太会重叠，
 # 但这样写更稳，后面即使你调整冷却或做特殊连闪，也不容易出问题。
@@ -586,6 +587,7 @@ func execute_skill(skill: ActiveSkill):
 
 func execute_heal_hot_skill(skill: HealHotSkill):
 	"""执行疗愈技能"""
+	SEManager.play("64")
 	var scene = load("res://Scenes/player/heal_hot.tscn")
 	if scene:
 		var instance = scene.instantiate()
@@ -596,7 +598,7 @@ func execute_heal_hot_skill(skill: HealHotSkill):
 
 func execute_water_shield_skill(skill: WaterShieldSkill):
 	"""执行水幕护体技能"""
-	SEManager.play("21")
+	SEManager.play("65")
 	var scene = load("res://Scenes/player/water_sheild.tscn")
 	if scene:
 		var instance = scene.instantiate()
@@ -607,7 +609,7 @@ func execute_water_shield_skill(skill: WaterShieldSkill):
 
 func execute_holy_fire_skill(skill: HolyFireSkill):
 	"""执行神圣灼烧技能"""
-	SEManager.play("19")
+	SEManager.play("66")
 	var scene = load("res://Scenes/player/holy_fire.tscn")
 	if scene:
 		var instance = scene.instantiate()
@@ -691,6 +693,7 @@ func execute_magical_ice_skill(skill: MagicalIceSkill):
 		target_pos = indicator.get_target_position()
 		indicator.freeze_and_fade(0.3)
 	# 在目标位置释放玄冰阵
+	SEManager.play("69")
 	var scene = load("res://Scenes/player/magical_ice.tscn")
 	if scene:
 		var instance = scene.instantiate()
@@ -744,6 +747,7 @@ func execute_magic_skill(skill: MagicSkill):
 	"""执行魔纹阵技能：立即在脚下展开魔纹阵，刷新其他技能冷却"""
 	if not player:
 		return
+	SEManager.play("68")
 	# 立即刷新所有其他主动技能的冷却
 	for sid in mastered_skills.keys():
 		if sid == "magic":
@@ -833,7 +837,7 @@ func execute_dodge_skill(dodge_skill: DodgeSkill):
 	var dash_direction = get_dash_direction()
 	
 	# 计算目标位置
-	var target_position = player.global_position + dash_direction * dodge_skill.dash_distance
+	var target_position = _clamp_dodge_target_position(player.global_position + dash_direction * dodge_skill.dash_distance)
 	
 	# 闪避手感增强：
 	# 1. 先给一个轻微震屏，强化"蹬地闪开"的瞬间反馈。
@@ -915,6 +919,7 @@ func execute_beastify_skill(skill: BeastifySkill) -> void:
 	if not player:
 		push_error("玩家节点未初始化")
 		return
+	SEManager.play("63")
 	var scene = get_tree().current_scene
 	if scene and scene is CanvasItem:
 		var t = create_tween()
@@ -966,6 +971,135 @@ func get_dash_direction() -> Vector2:
 		else:
 			return Vector2.RIGHT # 默认向右
 
+func _clamp_dodge_target_position(target_position: Vector2) -> Vector2:
+	var current_scene := get_tree().current_scene
+	if current_scene:
+		var boundary_rect := _get_dodge_scene_boundary_rect(current_scene)
+		if boundary_rect.size.x > 0.0 and boundary_rect.size.y > 0.0:
+			return _clamp_dodge_point_to_rect(target_position, _shrink_dodge_rect(boundary_rect, _get_dodge_boundary_margin()))
+	var camera := _find_player_camera()
+	if camera:
+		var camera_rect := Rect2(
+			Vector2(float(camera.limit_left), float(camera.limit_top)),
+			Vector2(float(camera.limit_right - camera.limit_left), float(camera.limit_bottom - camera.limit_top))
+		)
+		if camera_rect.size.x > 0.0 and camera_rect.size.y > 0.0:
+			return _clamp_dodge_point_to_rect(target_position, _shrink_dodge_rect(camera_rect, _get_dodge_boundary_margin()))
+	return target_position
+
+func _get_dodge_scene_boundary_rect(current_scene: Node) -> Rect2:
+	var boundary_node := current_scene.find_child("Boundry", true, false) as Node2D
+	if boundary_node == null:
+		return Rect2()
+	var bounds := _compute_dodge_boundary_from_static_bodies(boundary_node)
+	if not (bounds.has("min_x") and bounds.has("max_x") and bounds.has("min_y") and bounds.has("max_y")):
+		return Rect2()
+	var min_x := float(bounds["min_x"])
+	var max_x := float(bounds["max_x"])
+	var min_y := float(bounds["min_y"])
+	var max_y := float(bounds["max_y"])
+	if Global.current_stage_id == "cave":
+		min_y += 60.0
+	if min_x >= max_x or min_y >= max_y:
+		return Rect2()
+	return Rect2(Vector2(min_x, min_y), Vector2(max_x - min_x, max_y - min_y))
+
+func _compute_dodge_boundary_from_static_bodies(boundary_node: Node2D) -> Dictionary:
+	var result: Dictionary = {}
+	var margin := 0.15
+	for child in boundary_node.get_children():
+		if not child is StaticBody2D:
+			continue
+		var static_body := child as StaticBody2D
+		var col_shape: CollisionShape2D = null
+		for sub in static_body.get_children():
+			if sub is CollisionShape2D:
+				col_shape = sub
+				break
+		if col_shape == null:
+			continue
+		if col_shape.shape == null or not col_shape.shape is WorldBoundaryShape2D:
+			continue
+		var wb_shape := col_shape.shape as WorldBoundaryShape2D
+		var rot := fposmod(static_body.global_rotation, TAU)
+		if rot > PI:
+			rot -= TAU
+		var abs_rot := absf(rot)
+		var normal := Vector2(0.0, -1.0).rotated(rot)
+		var boundary_pos := col_shape.global_position + normal * wb_shape.distance
+		if abs_rot < margin or absf(abs_rot - PI) < margin:
+			var y_val := boundary_pos.y
+			if abs_rot < margin:
+				if not result.has("max_y") or y_val < result["max_y"]:
+					result["max_y"] = y_val
+			else:
+				if not result.has("min_y") or y_val > result["min_y"]:
+					result["min_y"] = y_val
+		elif absf(abs_rot - PI / 2.0) < margin:
+			var x_val := boundary_pos.x
+			if rot < 0:
+				if not result.has("max_x") or x_val < result["max_x"]:
+					result["max_x"] = x_val
+			else:
+				if not result.has("min_x") or x_val > result["min_x"]:
+					result["min_x"] = x_val
+	return result
+
+func _get_dodge_boundary_margin() -> float:
+	var margin := DODGE_BOUNDARY_MARGIN
+	if not is_instance_valid(player):
+		return margin
+	var col_shape := player.get_node_or_null("CollisionShape2D") as CollisionShape2D
+	if col_shape == null or col_shape.shape == null:
+		return margin
+	var scale_max = max(absf(player.global_scale.x), absf(player.global_scale.y))
+	var local_offset_margin = col_shape.position.length() * scale_max
+	var shape := col_shape.shape
+	if shape is CircleShape2D:
+		margin = max(margin, (shape as CircleShape2D).radius * scale_max + local_offset_margin)
+	elif shape is CapsuleShape2D:
+		var capsule := shape as CapsuleShape2D
+		margin = max(margin, max(capsule.radius, capsule.height * 0.5) * scale_max + local_offset_margin)
+	elif shape is RectangleShape2D:
+		var rectangle := shape as RectangleShape2D
+		margin = max(margin, max(rectangle.size.x, rectangle.size.y) * 0.5 * scale_max + local_offset_margin)
+	return margin
+
+func _shrink_dodge_rect(rect: Rect2, margin: float) -> Rect2:
+	var left := rect.position.x + margin
+	var top := rect.position.y + margin
+	var right := rect.position.x + rect.size.x - margin
+	var bottom := rect.position.y + rect.size.y - margin
+	if left > right:
+		var center_x := rect.position.x + rect.size.x * 0.5
+		left = center_x
+		right = center_x
+	if top > bottom:
+		var center_y := rect.position.y + rect.size.y * 0.5
+		top = center_y
+		bottom = center_y
+	return Rect2(Vector2(left, top), Vector2(max(1.0, right - left), max(1.0, bottom - top)))
+
+func _clamp_dodge_point_to_rect(point: Vector2, rect: Rect2) -> Vector2:
+	return Vector2(
+		clamp(point.x, rect.position.x, rect.position.x + rect.size.x),
+		clamp(point.y, rect.position.y, rect.position.y + rect.size.y)
+	)
+
+func _find_player_camera() -> Camera2D:
+	if is_instance_valid(player):
+		var camera := player.get_node_or_null("Camera2D") as Camera2D
+		if camera:
+			return camera
+		camera = player.find_child("*Camera*", true, false) as Camera2D
+		if camera:
+			return camera
+	if get_tree().current_scene:
+		var cameras := get_tree().current_scene.find_children("*Camera*", "Camera2D")
+		if not cameras.is_empty():
+			return cameras[0] as Camera2D
+	return null
+
 func start_dash(target_position: Vector2, dodge_skill: DodgeSkill):
 	"""开始冲刺"""
 	SEManager.play("60")
@@ -976,7 +1110,8 @@ func start_dash(target_position: Vector2, dodge_skill: DodgeSkill):
 	_set_player_ghost_effect(true)
 	
 	# 计算冲刺时间
-	var dash_time = dodge_skill.dash_distance / (player.move_speed * dodge_skill.dash_speed_multiplier)
+	var actual_distance := player.global_position.distance_to(target_position)
+	var dash_time = max(0.03, actual_distance / max(player.move_speed * dodge_skill.dash_speed_multiplier, 1.0))
 	
 	# 启动残影效果
 	_start_afterimage_effect(dash_time)

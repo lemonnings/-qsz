@@ -23,7 +23,7 @@ var target_position: Vector2 # 用于存储移动目标位置
 var update_move_timer: Timer # 移动模式计时器
 
 var speed: float = SettingMoster.slime_blue("speed") * 0.75 # Boss移动速度，可以调整
-var hpMax: float = SettingMoster.slime_blue("hp") * 20 # Boss最大生命值，可以调整
+var hpMax: float = SettingMoster.slime_blue("hp") * 12 # Boss最大生命值，可以调整
 #var hpMax : float = SettingMoster.slime("hp") * 0.1 # Boss最大生命值，可以调整
 var hp: float = hpMax # Boss当前生命值
 var atk: float = SettingMoster.slime_blue("atk") * 0.9 # Boss攻击力，可以调整
@@ -80,7 +80,7 @@ const DETOX_BUFF_ID := "boss_a_detox"
 const DEEP_METEOR_SIZE_MULTIPLIER: float = 1.35
 const CORE_PETAL_SPEED_MULTIPLIER: float = 1.25
 const GOLDEN_PETAL_CHANCE: float = 0.06
-const GOLDEN_PETAL_SCALE_MULTIPLIER: float = 1.35
+const GOLDEN_PETAL_SCALE_MULTIPLIER: float = 1.485
 const POETRY_BARRAGE_DENSITY_MULTIPLIER: float = 1.3
 const POETRY_EXTRA_METEOR_MIN_COUNT: int = 7
 const POETRY_EXTRA_METEOR_MAX_COUNT: int = 11
@@ -95,18 +95,16 @@ func _ready():
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
 	hpMax *= _get_difficulty_hp_multiplier()
 	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 6
+	var dps_multiplier := 9
 	match Global.current_stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 8
+			dps_multiplier = 12
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 10
-		Global.STAGE_DIFFICULTY_POETRY:
-			dps_multiplier = 10
-	hpMax += Global.get_current_dps() * dps_multiplier
-	# 诗想难度下Boss生命额外提升40倍
+			dps_multiplier = 15
 	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
-		hpMax *= 40
+		hpMax = Global.get_poetry_boss_max_hp("boss_a", hpMax)
+	else:
+		hpMax += Global.get_current_dps() * dps_multiplier
 	print("[BossA] DPS加成HP: +", Global.get_current_dps() * dps_multiplier, "  最终hpMax: ", hpMax)
 	
 	# 防止boss升级期间打人
@@ -116,10 +114,6 @@ func _ready():
 	# 浅层难度下Boss只造成50%伤害
 	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
 		atk *= 0.5
-	# 诗想难度下Boss攻击额外提升50%
-	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
-		atk *= 1.75
-	
 	setup_monster_base()
 	use_debuff_take_damage_multiplier = false
 	check_action_disabled_on_body_entered = false
@@ -202,7 +196,9 @@ func _get_petal_spawn_count() -> int:
 		count += 2
 	if _is_poetry():
 		count += 1 + max(0, petal_use_count - 1)
-	return count
+		if petal_use_count == 1:
+			count -= 2
+	return maxi(1, count)
 
 
 func _get_petal_speed_multiplier() -> float:

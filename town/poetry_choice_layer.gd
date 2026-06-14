@@ -28,6 +28,7 @@ extends CanvasLayer
 
 const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 const VERSION = 1
+const TOOLTIP_POSITION_OFFSET := Vector2(20, 20)
 
 var available_weapons = []
 var updating_ui = false
@@ -55,6 +56,8 @@ func show_layer(stage_path: String, stage_id: String, main_town):
 	target_stage_path = stage_path
 	target_stage_id = stage_id
 	main_town_ref = main_town
+	if is_instance_valid(main_town_ref) and main_town_ref.levelChangeLayer != null and main_town_ref.levelChangeLayer.has_method("suppress_stage_tooltips"):
+		main_town_ref.levelChangeLayer.suppress_stage_tooltips(true)
 	
 	# 恢复上次出战的备战码（静默模式，不弹提示）
 	if line_edit and Global.poetry_last_code != "":
@@ -67,6 +70,8 @@ func show_layer(stage_path: String, stage_id: String, main_town):
 
 func _on_exit_pressed():
 	_hide_tooltip()
+	if is_instance_valid(main_town_ref) and main_town_ref.levelChangeLayer != null and main_town_ref.levelChangeLayer.has_method("suppress_stage_tooltips"):
+		main_town_ref.levelChangeLayer.suppress_stage_tooltips(false)
 	var tween = create_tween()
 	tween.tween_property($Panel, "modulate:a", 0.0, 0.3)
 	tween.tween_callback(func(): self.visible = false)
@@ -131,6 +136,8 @@ func _on_ok_pressed():
 	tween.tween_property($Panel, "modulate:a", 0.0, 0.3)
 	tween.tween_callback(func():
 		self.visible = false
+		if is_instance_valid(main_town_ref) and main_town_ref.levelChangeLayer != null and main_town_ref.levelChangeLayer.has_method("suppress_stage_tooltips"):
+			main_town_ref.levelChangeLayer.suppress_stage_tooltips(false)
 		if is_instance_valid(main_town_ref):
 			main_town_ref._do_enter_stage(target_stage_path, target_stage_id, Global.STAGE_DIFFICULTY_POETRY)
 	)
@@ -206,7 +213,8 @@ func _ready():
 	all_dropdowns.append_array(adv_dropdowns_3)
 	for dd in all_dropdowns:
 		if dd:
-			dd.get_popup().popup_hide.connect(_hide_tooltip)
+			var popup: PopupMenu = dd.get_popup()
+			popup.popup_hide.connect(_hide_tooltip)
 	# 保存所有下拉框引用给 _input 悬停检测用
 	_all_dropdowns.clear()
 	for dd in all_dropdowns:
@@ -330,7 +338,8 @@ func _update_weapon_icons():
 				if dd.selected > 0:
 					w_id = dd.get_item_metadata(dd.selected)
 				if w_id != "":
-					var icon_name = WeapDataExport.WEAPON_ICONS.get(w_id, "")
+					var reward = LvUp.get_reward_by_id(w_id)
+					var icon_name = reward.icon if reward != null else ""
 					if icon_name != "" and LvUp.has_method("get_icon_path"):
 						var icon_path = LvUp.get_icon_path(icon_name)
 						if icon_path != "" and ResourceLoader.exists(icon_path):
@@ -597,8 +606,7 @@ func _process(_delta: float) -> void:
 	if any_popup_visible:
 		_check_popup_hover()
 
-func _get_vp_scale() -> Vector2:
-	"""计算窗口像素坐标到视口坐标的缩放因子"""
+func _get_window_to_viewport_scale() -> Vector2:
 	var vp_size = get_viewport().get_visible_rect().size
 	var win_size = Vector2(DisplayServer.window_get_size())
 	return Vector2(
@@ -607,10 +615,8 @@ func _get_vp_scale() -> Vector2:
 	)
 
 func _check_popup_hover() -> void:
-	# 统一使用视口坐标系（1366x768），避免 DPI/分辨率缩放导致坐标不匹配
 	var viewport = get_viewport()
 	var mouse_vp = viewport.get_mouse_position()
-	var scale = _get_vp_scale()
 	
 	for dd in _all_dropdowns:
 		if not is_instance_valid(dd):
@@ -619,10 +625,11 @@ func _check_popup_hover() -> void:
 		if not popup:
 			continue
 		if popup.visible:
-			# popup.position/size 是窗口像素坐标，除以缩放因子转为视口坐标
-			var popup_vp_pos = Vector2(popup.position) / scale
-			var popup_vp_size = Vector2(popup.size) / scale
-			var popup_rect = Rect2(popup_vp_pos, popup_vp_size)
+			var popup_rect := _get_popup_rect_containing_mouse(popup, mouse_vp)
+			if not popup_rect.has_point(mouse_vp):
+				continue
+			var popup_vp_pos = popup_rect.position
+			var popup_vp_size = popup_rect.size
 			if popup_rect.has_point(mouse_vp):
 				_active_popup = popup
 				_active_dropdown = dd
@@ -649,6 +656,16 @@ func _check_popup_hover() -> void:
 		_active_popup = null
 		_active_dropdown = null
 		_last_hovered_item_idx = -1
+
+func _get_popup_rect_containing_mouse(popup: PopupMenu, mouse_vp: Vector2) -> Rect2:
+	var raw_rect := Rect2(Vector2(popup.position), Vector2(popup.size))
+	if raw_rect.has_point(mouse_vp):
+		return raw_rect
+	var scale := _get_window_to_viewport_scale()
+	var scaled_rect := Rect2(raw_rect.position / scale, raw_rect.size / scale)
+	if scaled_rect.has_point(mouse_vp):
+		return scaled_rect
+	return raw_rect
 
 func _on_popup_item_hovered(item_index: int, dropdown: OptionButton) -> void:
 	# index 0 通常是 "---" 占位符
@@ -692,17 +709,13 @@ func _show_tooltip_near_popup() -> void:
 	_tooltip_panel.size = Vector2(panel_width, panel_height)
 	_tooltip_desc_label.size = Vector2(panel_width - 20, content_size.y)
 	
-	# 定位到 popup 菜单的右侧，统一使用视口坐标
-	var popup = _tooltip_dropdown.get_popup()
-	var scale = _get_vp_scale()
-	var popup_vp_pos = Vector2(popup.position) / scale
-	var popup_vp_size = Vector2(popup.size) / scale
-	var tip_pos = Vector2(popup_vp_pos.x + popup_vp_size.x + 8, popup_vp_pos.y)
+	var dropdown_rect := _tooltip_dropdown.get_global_rect()
+	var tip_pos = Vector2(dropdown_rect.position.x + dropdown_rect.size.x + 12, dropdown_rect.position.y)
 
 	# 确保不超出 viewport
 	var viewport_size = get_viewport().get_visible_rect().size
 	if tip_pos.x + panel_width > viewport_size.x:
-		tip_pos.x = popup_vp_pos.x - panel_width - 8
+		tip_pos.x = dropdown_rect.position.x - panel_width - 12
 	if tip_pos.y + panel_height > viewport_size.y:
 		tip_pos.y = viewport_size.y - panel_height - 10
 	if tip_pos.x < 0:
@@ -710,6 +723,7 @@ func _show_tooltip_near_popup() -> void:
 	if tip_pos.y < 0:
 		tip_pos.y = 10
 	
+	tip_pos += TOOLTIP_POSITION_OFFSET
 	_tooltip_panel.position = tip_pos
 	_tooltip_panel.visible = true
 	# 渐入动画，打断上一次

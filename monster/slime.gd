@@ -11,7 +11,6 @@ var hp: float = SettingMoster.slime_green("hp")
 var atk: float = SettingMoster.slime_green("atk")
 var get_point: int = SettingMoster.slime_green("point")
 var get_exp: int = SettingMoster.slime_green("exp")
-var get_mechanism: int = SettingMoster.slime_green("mechanism")
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 
@@ -21,6 +20,8 @@ const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 func _ready():
 	setup_monster_base(is_elite)
 	speed = base_speed # Initialize speed
+	var shadow = CharacterEffects.create_shadow(self , 22.0, 6.0, 10.0)
+	shadow.scale = Vector2(0.86, 0.86)
 
 func _physics_process(delta: float) -> void:
 	if hp <= 0:
@@ -29,11 +30,9 @@ func _physics_process(delta: float) -> void:
 			$AnimatedSprite2D.stop()
 			$AnimatedSprite2D.play("death")
 			var point_gain = int(get_point * Faze.get_point_multiplier())
-			get_tree().current_scene.point += point_gain
-			Global.total_points += point_gain
+			grant_kill_point_rewards(point_gain)
 			var exp_gain = int(get_exp * Faze.get_exp_multiplier())
 			Global.emit_signal("drop_exp_orb", exp_gain, global_position, is_elite)
-			Global.emit_signal("monster_mechanism_gained", get_mechanism)
 			var change = randf()
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
 				# Release a round of sword Qi in (90°)(270°) and other all directions
@@ -72,22 +71,25 @@ func _physics_process(delta: float) -> void:
 			get_tree().current_scene.add_child(poison_circle)
 			await get_tree().create_timer(0.35).timeout
 			queue_free()
-		
+
 	# 更新离屏缓存
 	update_offscreen_status()
-	
+
 	# 血条显示（离屏时跳过）
 	if not _is_offscreen and hp < hpMax and hp > 0:
 		show_health_bar()
 	
-	if debuff_manager.is_action_disabled():
+	if should_skip_actions_for_debuff():
 		return
 	
 	# 推挤效果（离屏时跳过，无人看到重叠）
 	if not is_dead and not _is_offscreen:
 		CharacterEffects.apply_separation(self , 10.0, 12.0)
-	
+
 	if not is_dead:
+		if hp > 0 and CharacterEffects.is_player_dead_or_game_over():
+			move_away_from_dead_player(delta, base_speed, sprite)
+			return
 		if move_direction == 0:
 			position += Vector2(speed, 0) * delta
 			if not _is_offscreen:
@@ -98,12 +100,12 @@ func _physics_process(delta: float) -> void:
 				sprite.flip_h = false
 		if move_direction >= 2:
 			if PC.player_instance != null:
-				var player_pos = PC.player_instance.global_position
-				var direction_to_player = (player_pos - global_position).normalized()
-				speed = get_effective_move_speed(base_speed)
-				position += direction_to_player * speed * delta
-				if not _is_offscreen:
-					sprite.flip_h = direction_to_player.x > 0
+				var direction_to_player = CharacterEffects.get_tracking_direction_to_player(self)
+				if direction_to_player != Vector2.ZERO:
+					speed = get_effective_move_speed(base_speed)
+					position += direction_to_player * speed * delta
+					if not _is_offscreen:
+						sprite.flip_h = direction_to_player.x > 0
 	
 	if move_direction == 0 and position.x <= -534:
 		free_health_bar()

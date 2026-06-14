@@ -1,5 +1,7 @@
 extends Area2D
 
+const MAX_LIFETIME: float = 3.0
+
 @export var bullet_speed: float = 460
 @export var bullet_range: float = PC.swordQi_range # 子弹射程
 @export var penetration_count: int = 1 # 穿透次数，默认为1
@@ -14,6 +16,7 @@ var traveled_distance: float = 0.0 # 已飞行距离
 var is_fading: bool = false # 是否正在渐隐
 var fade_timer: float = 0.0 # 渐隐计时器
 var fade_duration: float = 0.1 # 渐隐持续时间（秒）
+var lifetime_timer: float = 0.0
 
 @export var sprite: Sprite2D # 获取精灵节点引用
 @export var sprite_summon: Sprite2D # 获取精灵节点引用
@@ -35,6 +38,7 @@ var current_frame: int = -1
 func _ready() -> void:
 	# 记录子弹起始位置
 	start_position = global_position
+	lifetime_timer = 0.0
 	
 	# 初始化子弹伤害和暴击状态
 	initialize_bullet_damage()
@@ -42,16 +46,16 @@ func _ready() -> void:
 	# 初始化碰撞形状大小
 	update_collision_shape_size()
 	
-	# 自动销毁
-	await get_tree().create_timer(3).timeout
-	if !Global.is_level_up:
-		queue_free()
-
 	# 初始化时设置精灵方向
 	sprite_summon.visible = false
 	_update_sprite_rotation()
 
 func _physics_process(delta: float) -> void:
+	lifetime_timer += delta
+	if lifetime_timer >= MAX_LIFETIME:
+		queue_free()
+		return
+	
 	# 子弹始终保持移动（包括渐隐过程中）
 	position += direction * bullet_speed * delta
 	# 更新已飞行距离
@@ -83,8 +87,8 @@ func _physics_process(delta: float) -> void:
 			collision_shape.set_deferred("disabled", true)
 		
 		# 渐隐完成后销毁子弹
-			if fade_progress >= 1.0:
-				queue_free()
+		if fade_progress >= 1.0:
+			queue_free()
 
 # 开始渐隐动画
 func start_fade_out() -> void:

@@ -230,7 +230,7 @@ func start_story() -> void:
 				{
 					"speaker": "乾", "speaker_position": "right",
 					# , "speaker2": "乾",
-					"dialog": "小巽，这次得你来看看了。这幻境虚实难辨，我与我门下弟子皆已尝试过进入其中，但每次都在数息之间就被一股奇力推了出来。",
+					"dialog": "小巽，这次得你来看看了。这幻境……我与我门下弟子皆已尝试过进入其中，但每次都在数息之间就被一股奇力推了出来。",
 					# "illustrationLeft": ill_xun, "illustrationLeftStatus": false,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": true,
@@ -283,7 +283,7 @@ func start_story() -> void:
 			"lines": [
 				{
 					"speaker": "巽", "speaker_position": "left",
-					"dialog": "方才我在外围以灵识探过，这力量不仅不似道修阵法，也不是妖修、魔修、佛修的阵法路数。",
+					"dialog": "方才我在外围以灵识探过，这布阵手法不仅不像道修，也不是妖修、魔修、佛修的阵法路数。",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": true,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": false,
@@ -296,7 +296,14 @@ func start_story() -> void:
 			"lines": [
 				{
 					"speaker": "乾", "speaker_position": "right",
-					"dialog": "这就有些蹊跷了……还有一事，据桃源镇镇长说，不少镇民此前亲眼瞧见天边裂开一道墨色裂隙，随即一座形状怪异的建筑坠落了在龙门山上。",
+					"dialog": "这就有些蹊跷了……",
+					"illustrationLeft": ill_xun, "illustrationLeftStatus": false,
+					"illustrationMiddle": "",
+					"illustrationRight": ill_qian, "illustrationRightStatus": true,
+				},
+				{
+					"speaker": "乾", "speaker_position": "right",
+					"dialog": "对了，还有一事，据桃源镇镇长说，不少镇民此前亲眼瞧见天边裂开一道墨色裂隙，随即一座形状怪异的建筑坠落了在龙门山上。",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": false,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": true,
@@ -308,15 +315,16 @@ func start_story() -> void:
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": true,
 				},
-			]
-		},
-		{
-			"type": "speak_normal",
-			"normal_dialog": normal,
-			"lines": [
 				{
 					"speaker": "巽", "speaker_position": "left",
-					"dialog": "也就是说，幻境是在那裂隙出现之后才展开的……很可能是人为的？那裂隙又是什么？",
+					"dialog": "也就是说，幻境是在那裂隙出现之后才展开的……？",
+					"illustrationLeft": ill_xun, "illustrationLeftStatus": true,
+					"illustrationMiddle": "",
+					"illustrationRight": ill_qian, "illustrationRightStatus": false,
+				},
+				{
+					"speaker": "巽", "speaker_position": "left",
+					"dialog": "这样一来，这个幻境很可能是人为的？那裂隙又是什么？里面出现的奇异建筑和异兽都去了哪里？",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": true,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": false,
@@ -328,12 +336,6 @@ func start_story() -> void:
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": false,
 				},
-			]
-		},
-		{
-			"type": "speak_normal",
-			"normal_dialog": normal,
-			"lines": [
 				{
 					"speaker": "乾", "speaker_position": "right",
 					"dialog": "嗯，万事小心。",
@@ -428,7 +430,7 @@ func start_story() -> void:
 			"lines": [
 				{
 					"speaker": "巽", "speaker_position": "left",
-					"dialog": "有些难办了。方才我已将轻功提至极限，本以为能勉强抗衡，谁知那股推力简直不讲道理，硬生生将我震退出来。这等霸道的拒斥之力，我还是头一回见。",
+					"dialog": "有些难办……方才我已将轻功提至极限，谁知那股推力简直不讲道理，直接就把我震退了出来。这等霸道的拒斥之力，我还是头一回见。",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": true,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": false,
@@ -461,21 +463,21 @@ func start_story() -> void:
 				},
 				{
 					"speaker": "巽", "speaker_position": "left",
-					"dialog": "我第二次入阵时试着攻击了幻境边缘，若是为了入侵的阵法，必定会有攻击机制在，但这幻境只是加大了推拒之力，并没有什么实质性的攻击。",
+					"dialog": "我第二次入阵时试着攻击了幻境边缘，但这幻境只是加大了推拒之力，并没有什么实质性的攻击手段。",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": true,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": false,
 				},
 				{
 					"speaker": "巽", "speaker_position": "left",
-					"dialog": "。",
+					"dialog": "幻境外围我已经铺设了一圈传送道标，外围倒是看起来没什么危险，只是越往深处走，真气浓度就越高。。",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": true,
-					"illustrationMiddle": "幻境外围我已经铺设了一圈传送道标，外围倒是看起来没什么危险，只是越往深处走，真气浓度就越高。",
+					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": false,
 				},
 				{
 					"speaker": "巽", "speaker_position": "left",
-					"dialog": "我隐约的感觉到，这幻境应该并不是推拒所有人，更像是在挑选着某种东西。",
+					"dialog": "我隐约的感觉到，这幻境更像是在挑选着某些符合条件的人，就像那些远古大能留下来的秘境。",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": true,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": false,
@@ -492,7 +494,7 @@ func start_story() -> void:
 			"lines": [
 				{
 					"speaker": "乾", "speaker_position": "right",
-					"dialog": "既是如此，我看幻境外围也没什么危险，不妨让你门下弟子也来试试？",
+					"dialog": "你这么一说，倒确实有些相似……既是如此，我看幻境外围也没什么危险，不妨让你门下弟子也来试试？",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": false,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": true,
@@ -633,6 +635,7 @@ func start_story() -> void:
 				},
 			]
 		},
+		{"type": "face", "char": char_moning, "facing": "left"},
 		{
 			"type": "speak_normal",
 			"normal_dialog": normal,
@@ -640,9 +643,9 @@ func start_story() -> void:
 				{
 					"speaker": "墨宁", "speaker_position": "left",
 					"dialog": "是啊，言秋你要是出了什么事……",
-					"illustrationLeft": ill_moning, "illustrationLeftStatus": true,
+					"illustrationLeft": ill_yiqiu, "illustrationLeftStatus": true,
 					"illustrationMiddle": "",
-					"illustrationRight": ill_yiqiu, "illustrationRightStatus": false,
+					"illustrationRight": ill_moning, "illustrationRightStatus": true,
 				},
 			]
 		},
@@ -662,7 +665,6 @@ func start_story() -> void:
 		# 言秋转向左侧
 		{"type": "face", "char": char_yiqiu, "facing": "left"},
 		{"type": "wait", "duration": 0.8},
-		{"type": "face", "char": char_moning, "facing": "left"},
 		{"type": "face", "char": char_xun, "facing": "left"},
 		{"type": "face", "char": char_qian, "facing": "left"},
 		# 墨宁、乾均显示 emote speechless
@@ -714,7 +716,7 @@ func start_story() -> void:
 			"lines": [
 				{
 					"speaker": "乾", "speaker_position": "right",
-					"dialog": "言教主，有失远迎，这个幻境现在只有墨宁和言秋能够进入，其他人只要进入就会被强烈的拒斥之力弹出。",
+					"dialog": "言教主，有失远迎，这个幻境有着和秘境相似的筛选机制，现在只有墨宁和言秋能够进入，其他人只要进入就会被强烈的拒斥之力弹出。",
 					"illustrationLeft": ill_yanlie, "illustrationLeftStatus": false,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": true,

@@ -5,6 +5,7 @@ extends Node
 # item_name: 道具名
 # item_stack_max: 最大堆叠数量
 # item_type: 物品类型 ("immediate"（拾取后直接使用，例如血药）, "equip"（法宝）, "material"（材料），"consumable"（消耗品），"special"（特殊的不可使用的物品，如钥匙）
+# sort: 背包排序字段。丹药类从10001开始，素材类从20001开始，特殊类从30001开始。
 # item_icon: 图标路径 (String)
 # item_price: 价格 (Int/Float)
 # item_use_condition: 使用条件 (String)，为1个函数,一般都是空的，只有满足特殊条件才能使用的consumable才需要加上这个
@@ -17,9 +18,20 @@ extends Node
 #   - random_stats: 随机属性（副词条）
 #   - enhance_level: 强化等级
 #   属性字段包括：pc_atk(攻击), pc_atk_speed(攻速), crit_chance(暴击率), crit_damage_multi(暴击伤害), 
-#   pc_final_atk(最终伤害), point_multi(真气获取), exp_multi(经验获取), drop_multi(掉落率),
+#   pc_final_atk(最终伤害), point_multi(真气获取), spirit_multi(精魄获取), exp_multi(经验获取), drop_multi(掉落率),
 #   attack_range(攻击范围), damage_reduction_rate(减伤率), pc_hp(HP), pc_speed(移速), tianming(天命)
 #   每个属性包含：value(当前值), base_value(原始值)
+
+const ITEM_SORT_DEFAULT := 999999
+const ITEM_SORT_START_BY_TYPE := {
+	"consumable": 10001,
+	"material": 20001,
+	"special": 30001,
+	"equip": 40001,
+	"immediate": 90001
+}
+
+var _item_sort_ready := false
 
 var items_data = {
 	"item_001": {
@@ -1178,6 +1190,90 @@ var items_data = {
 			"item_rare": "legendary",
 			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
 		},
+		"item_103": {
+			"item_name": "下品真气丹",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/zhenqi1.png",
+			"item_price": 500,
+			"item_source": "活动、商店或战斗奖励获得",
+			"item_use_condition": "",
+			"item_detail": "丹力温和的真气丹，服用后可立即获得5000真气。",
+			"item_rare": "common",
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_104": {
+			"item_name": "中品真气丹",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/zhenqi2.png",
+			"item_price": 2000,
+			"item_source": "活动、商店或战斗奖励获得",
+			"item_use_condition": "",
+			"item_detail": "灵息凝练的真气丹，服用后可立即获得20000真气。",
+			"item_rare": "rare",
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_105": {
+			"item_name": "上品真气丹",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/zhenqi3.png",
+			"item_price": 5000,
+			"item_source": "活动、商店或战斗奖励获得",
+			"item_use_condition": "",
+			"item_detail": "药性充盈的上品丹药，服用后可立即获得50000真气。",
+			"item_rare": "epic",
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
+		"item_106": {
+			"item_name": "极品真气丹",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/zhenqi4.png",
+			"item_price": 20000,
+			"item_source": "活动、商店或战斗奖励获得",
+			"item_use_condition": "",
+			"item_detail": "真气浓郁至极的极品丹药，服用后可立即获得200000真气。",
+			"item_rare": "legendary",
+			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
+		},
+		"item_107": {
+			"item_name": "小型材料包",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/cailiao1.png",
+			"item_price": 300,
+			"item_source": "活动、商店或战斗奖励获得",
+			"item_use_condition": "",
+			"item_detail": "收纳基础灵材的小包，打开后从怪物掉落的白色材料中随机获得一种，数量为5。",
+			"item_rare": "common",
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_108": {
+			"item_name": "中型材料包",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/cailiao2.png",
+			"item_price": 900,
+			"item_source": "活动、商店或战斗奖励获得",
+			"item_use_condition": "",
+			"item_detail": "分量充足的材料包，打开后从怪物掉落的白色材料中随机获得一种，数量为15。",
+			"item_rare": "rare",
+			"item_anime": "res://assets/animations/item_pickup_common.tres"
+		},
+		"item_109": {
+			"item_name": "大型材料包",
+			"item_stack_max": 99,
+			"item_type": "consumable",
+			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/cailiao3.png",
+			"item_price": 3000,
+			"item_source": "活动、商店或战斗奖励获得",
+			"item_use_condition": "",
+			"item_detail": "沉甸甸的大型材料包，打开后从怪物掉落的白色材料中随机获得一种，数量为50。",
+			"item_rare": "epic",
+			"item_anime": "res://assets/animations/item_pickup_rare.tres"
+		},
 		# ============== 特殊物品 ==============
 		"item_059": {
 
@@ -1269,8 +1365,38 @@ var usable_items = {
 	"item_093": true, # 上级噬敌秘丹
 	"item_094": true, # 下级形体秘丹
 	"item_095": true, # 中级形体秘丹
-	"item_096": true # 上级形体秘丹
+	"item_096": true, # 上级形体秘丹
+	"item_103": true, # 下品真气丹
+	"item_104": true, # 中品真气丹
+	"item_105": true, # 上品真气丹
+	"item_106": true, # 极品真气丹
+	"item_107": true, # 小型材料包
+	"item_108": true, # 中型材料包
+	"item_109": true # 大型材料包
 }
+
+const ZHENQI_PILL_REWARDS := {
+	"item_103": 5000,
+	"item_104": 20000,
+	"item_105": 50000,
+	"item_106": 200000
+}
+
+const MATERIAL_PACK_REWARDS := {
+	"item_107": 5,
+	"item_108": 15,
+	"item_109": 50
+}
+
+const COMMON_MONSTER_DROP_MATERIAL_IDS := [
+	"item_002", # 凝胶
+	"item_003", # 灵液
+	"item_011", # 宣纸
+	"item_023", # 仙木
+	"item_044", # 晶核
+	"item_045", # 草药
+	"item_046" # 兽骨
+]
 
 # 丹药效果配置表：item_id -> {"var": 全局变量名, "bonus": 每次加成, "max_uses": 最大使用次数}
 var pill_config = {
@@ -1334,8 +1460,33 @@ var pill_config = {
 	"item_096": {"effects": {"body_size": - 0.0075, "attack_range": 0.0075}, "tier": "upper"}
 }
 
+func _ready() -> void:
+	_ensure_item_sort_values()
+
+
+func _ensure_item_sort_values() -> void:
+	if _item_sort_ready:
+		return
+
+	var item_ids = items_data.keys()
+	item_ids.sort()
+
+	var type_counts := {}
+	for item_id in item_ids:
+		var item_info: Dictionary = items_data[item_id]
+		var item_type := str(item_info.get("item_type", ""))
+		var sort_start := int(ITEM_SORT_START_BY_TYPE.get(item_type, ITEM_SORT_DEFAULT))
+		var sort_offset := int(type_counts.get(item_type, 0))
+		if not item_info.has("sort"):
+			item_info["sort"] = sort_start + sort_offset
+		type_counts[item_type] = sort_offset + 1
+
+	_item_sort_ready = true
+
+
 # 根据物品ID获取该物品的所有数据
 func get_item_all_data(item_id: String) -> Dictionary:
+	_ensure_item_sort_values()
 	if items_data.has(item_id):
 		return items_data[item_id]
 	else:
@@ -1344,6 +1495,7 @@ func get_item_all_data(item_id: String) -> Dictionary:
 
 # 根据物品ID和属性名获取特定属性值
 func get_item_property(item_id: String, property_name: String):
+	_ensure_item_sort_values()
 	if items_data.has(item_id):
 		var item_info = items_data[item_id]
 		if item_info.has(property_name):
@@ -1355,20 +1507,46 @@ func get_item_property(item_id: String, property_name: String):
 		printerr("Item not found: ", item_id)
 		return null
 
+
+func get_item_sort(item_id: String) -> int:
+	_ensure_item_sort_values()
+	if not items_data.has(item_id):
+		printerr("Item not found: ", item_id)
+		return ITEM_SORT_DEFAULT
+	return int(items_data[item_id].get("sort", ITEM_SORT_DEFAULT))
+
+func get_limited_pill_use_info(item_id: String) -> Dictionary:
+	if !pill_config.has(item_id):
+		return {}
+	
+	var cfg = pill_config[item_id]
+	var max_uses = _get_pill_max_uses(cfg)
+	if max_uses <= 0:
+		return {}
+	
+	return {
+		"used": int(Global.pill_used_counts.get(item_id, 0)),
+		"max_uses": max_uses
+	}
+
 # 野果拾取函数
 var _heal_aura_buff_timer: SceneTreeTimer = null # 治愈灵气临时buff计时器
 var _heal_aura_applied_speed: float = 0.0 # 当前已施加的移速加成
 var _heal_aura_applied_dr: float = 0.0 # 当前已施加的减伤加成
 
-func _on_item_001_picked_up(_player, _item_id := ""):
+func _on_item_001_picked_up(_player, _item_id := "", force_pickup := false):
 	if PC.is_game_over:
 		# victory 结算吸取阶段：无条件拾取（物品消失），但不实际回血
 		if Global.victory_collecting:
 			return true
 		return false
+	if PC.pc_max_hp <= 0:
+		return false
+	if not force_pickup and float(PC.pc_hp) / float(PC.pc_max_hp) > 0.9:
+		return false
 	var base_heal = PC.pc_max_hp * 0.2
 	# 修习树特殊篇 study_heal_aura_recovery_bonus 增加回复量
-	var final_heal = base_heal * (1 + PC.heal_multi + Global.fruit_heal_multi + Global.study_heal_aura_recovery_bonus)
+	var final_heal = base_heal * (1 + PC.heal_multi + Global.fruit_heal_multi + Global.study_heal_aura_recovery_bonus) * Global.get_heal_shield_effect_multiplier()
 	PC.pc_hp += int(final_heal)
 	# 防止生命值超过上限
 	if PC.pc_hp > PC.pc_max_hp:
@@ -1406,11 +1584,14 @@ func on_item_picked_up(_player, item_id: String) -> bool:
 
 
 func _add_to_inventory(item_id: String) -> bool:
-	if !Global.player_inventory.has(item_id):
-		Global.player_inventory[item_id] = 1
-	else:
-		Global.player_inventory[item_id] += 1
+	_add_inventory_item(item_id, 1)
 	return true
+
+
+func _add_inventory_item(item_id: String, amount: int) -> void:
+	if amount <= 0:
+		return
+	Global.player_inventory[item_id] = int(Global.player_inventory.get(item_id, 0)) + amount
 
 
 # 使用物品（主要用于解锁配方）
@@ -1483,6 +1664,22 @@ func _apply_effect_pill(cfg: Dictionary, actual: int) -> void:
 			else:
 				PC.set(stat_name, next_value)
 
+
+func _use_zhenqi_pill(item_id: String, count: int) -> bool:
+	Global.total_points += int(ZHENQI_PILL_REWARDS[item_id]) * count
+	return true
+
+
+func _use_material_pack(item_id: String, count: int) -> bool:
+	if COMMON_MONSTER_DROP_MATERIAL_IDS.is_empty():
+		return false
+	var amount_per_pack := int(MATERIAL_PACK_REWARDS[item_id])
+	for i in range(count):
+		var material_id := str(COMMON_MONSTER_DROP_MATERIAL_IDS[randi() % COMMON_MONSTER_DROP_MATERIAL_IDS.size()])
+		_add_inventory_item(material_id, amount_per_pack)
+	return true
+
+
 # 执行物品使用效果
 func _execute_item_use_effect(item_id: String, count: int) -> bool:
 	# 丹药类：通过 pill_config 数据驱动处理
@@ -1500,6 +1697,10 @@ func _execute_item_use_effect(item_id: String, count: int) -> bool:
 			Global.set(cfg["var"], Global.get(cfg["var"]) + cfg.bonus * actual)
 		Global.pill_used_counts[item_id] = used + actual
 		return true
+	if ZHENQI_PILL_REWARDS.has(item_id):
+		return _use_zhenqi_pill(item_id, count)
+	if MATERIAL_PACK_REWARDS.has(item_id):
+		return _use_material_pack(item_id, count)
 	# 非丹药类物品
 	match item_id:
 		"item_008":
@@ -1525,5 +1726,19 @@ func can_use_item(item_id: String) -> bool:
 # 获取物品使用描述
 func get_item_use_description(item_id: String) -> String:
 	match item_id:
+		"item_103":
+			return "使用后获得5000真气。"
+		"item_104":
+			return "使用后获得20000真气。"
+		"item_105":
+			return "使用后获得50000真气。"
+		"item_106":
+			return "使用后获得200000真气。"
+		"item_107":
+			return "使用后随机获得一种怪物掉落的白色材料5个。"
+		"item_108":
+			return "使用后随机获得一种怪物掉落的白色材料15个。"
+		"item_109":
+			return "使用后随机获得一种怪物掉落的白色材料50个。"
 		_:
 			return "未知效果"

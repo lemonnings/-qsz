@@ -206,7 +206,7 @@ func fire_heal_bullet(_color: Color) -> void:
 		return
 	# 计算治疗量：攻击力 * heal_ratio，并受召唤物增伤（用于“增强其他召唤物的治疗/伤害提升”）影响
 	# 修习树领悟篇：唤灵系伤害提升加成
-	var heal_amount: int = int(PC.pc_atk * heal_ratio * (1.0 + PC.summon_damage_multiplier + Global.study_summon_damage_bonus) * (1.0 + PC.heal_multi))
+	var heal_amount: int = int(PC.pc_atk * heal_ratio * (1.0 + PC.summon_damage_multiplier + Global.study_summon_damage_bonus + Global.get_achievement_summon_damage_bonus()) * (1.0 + PC.heal_multi) * Global.get_heal_shield_effect_multiplier())
 	if heal_amount == 0:
 		heal_amount = 1
 	PC.pc_hp += heal_amount
@@ -240,7 +240,7 @@ func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1
 	
 	# 设置子弹属性
 	# 修习树领悟篇：唤灵系伤害提升加成
-	var final_damage = PC.pc_atk * base_damage * (1.0 + PC.summon_damage_multiplier + Global.study_summon_damage_bonus)
+	var final_damage = PC.pc_atk * base_damage * (1.0 + PC.summon_damage_multiplier + Global.study_summon_damage_bonus + Global.get_achievement_summon_damage_bonus())
 	bullet.summon_damage = final_damage
 	bullet.is_summon_bullet = true
 	bullet.penetration_count = 1 # 设置穿透次数
@@ -273,7 +273,7 @@ func create_sword_spirit_bullet(direction: Vector2) -> void:
 	bullet.direction = direction
 	bullet.rotation = direction.angle()
 	# 修习树领悟篇：唤灵系伤害提升加成
-	var final_damage = PC.pc_atk * damage_multiplier * (1.0 + PC.summon_damage_multiplier + Global.study_summon_damage_bonus)
+	var final_damage = PC.pc_atk * damage_multiplier * (1.0 + PC.summon_damage_multiplier + Global.study_summon_damage_bonus + Global.get_achievement_summon_damage_bonus())
 	bullet.summon_damage = final_damage
 	var bullet_size = Global.get_attack_range_multiplier() * PC.summon_bullet_size_multiplier
 	bullet.set_bullet_scale(Vector2(bullet_size, bullet_size))

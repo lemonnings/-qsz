@@ -60,12 +60,15 @@ func _process(delta: float) -> void:
 	# 20阶御灵法则：召唤物数量动态加成
 	if PC.faze_summon_level >= 20:
 		_update_summon_count_bonus()
-	# 生灵法则 9阶：每 20 秒触发神圣光辉
-	if PC.faze_life_level >= 9 and not Global.in_menu and not Global.in_town:
+	# 生灵法则 9阶：每隔一段时间触发神圣光辉，25阶缩短触发间隔。
+	if PC.faze_life_level >= 9 and _can_trigger_life_sacred_light():
+		life_sacred_light_interval = _get_life_sacred_light_interval()
 		life_sacred_light_timer += delta
 		if life_sacred_light_timer >= life_sacred_light_interval:
-			life_sacred_light_timer = 0.0
+			life_sacred_light_timer -= life_sacred_light_interval
 			_trigger_sacred_light()
+	elif PC.faze_life_level < 9:
+		life_sacred_light_timer = 0.0
 		
 	if PC.faze_blood_level < 4:
 		return
@@ -77,19 +80,24 @@ func _process(delta: float) -> void:
 func _on_life_level_up_trigger() -> void:
 	if PC.faze_life_level < 9:
 		return
-	if PC.is_game_over or Global.in_menu or Global.in_town:
+	if not _can_trigger_life_sacred_light():
 		return
 	# 升级时重置计时器并立即触发一次
 	life_sacred_light_timer = 0.0
 	_trigger_sacred_light()
+
+func _can_trigger_life_sacred_light() -> bool:
+	return not PC.is_game_over and not Global.in_menu and not Global.in_town
+
+func _get_life_sacred_light_interval() -> float:
+	return 4.0 if PC.faze_life_level >= 25 else 20.0
 
 func _trigger_sacred_light() -> void:
 	if not faze_light_scene:
 		return
 	if not player or not is_instance_valid(player):
 		return
-	# 25阶：触发时间缩短至 4 秒
-	life_sacred_light_interval = 4.0 if PC.faze_life_level >= 25 else 20.0
+	life_sacred_light_interval = _get_life_sacred_light_interval()
 	FazeLight.fire_skill(faze_light_scene, player.global_position, get_tree())
 
 func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String) -> void:
@@ -114,24 +122,14 @@ func _fire_heal_bullet(amount: float, is_heal: bool) -> void:
 		return
 	if PC.is_game_over:
 		return
-	
-	# Find nearest enemy
-	var enemies = PC.player_instance.get_tree().get_nodes_in_group("enemies")
-	if enemies.size() == 0:
+	if not PC.player_instance or not is_instance_valid(PC.player_instance):
 		return
-		
-	var nearest_enemy = null
-	var min_dist = INF
-	var player_pos = PC.player_instance.global_position
 	
-	for enemy in enemies:
-		if not is_instance_valid(enemy) or enemy.is_dead:
-			continue
-		var dist = player_pos.distance_to(enemy.global_position)
-		if dist < min_dist:
-			min_dist = dist
-			nearest_enemy = enemy
-			
+	var tree = PC.player_instance.get_tree()
+	if tree == null or tree.current_scene == null:
+		return
+	var player_pos = PC.player_instance.global_position
+	var nearest_enemy = _find_nearest_heal_bullet_target(tree, player_pos)
 	if nearest_enemy == null:
 		return
 
@@ -163,9 +161,43 @@ func _fire_heal_bullet(amount: float, is_heal: bool) -> void:
 
 	SEManager.play("36")
 	var bullet = faze_heal_bullet_scene.instantiate()
-	PC.player_instance.get_tree().current_scene.add_child(bullet)
+	tree.current_scene.add_child(bullet)
 	bullet.global_position = player_pos
 	bullet.setup(nearest_enemy, final_damage, is_crit)
+
+func _find_nearest_heal_bullet_target(tree: SceneTree, from_position: Vector2) -> Node2D:
+	var targets: Array = []
+	targets.append_array(tree.get_nodes_in_group("enemies"))
+	targets.append_array(tree.get_nodes_in_group("boss"))
+	var checked := {}
+	var nearest_target: Node2D = null
+	var min_dist = INF
+
+	for candidate in targets:
+		if not _is_valid_heal_bullet_target(candidate):
+			continue
+		var candidate_id = candidate.get_instance_id()
+		if checked.has(candidate_id):
+			continue
+		checked[candidate_id] = true
+		var target_node := candidate as Node2D
+		var dist = from_position.distance_to(target_node.global_position)
+		if dist < min_dist:
+			min_dist = dist
+			nearest_target = target_node
+
+	return nearest_target
+
+func _is_valid_heal_bullet_target(candidate: Node) -> bool:
+	if not is_instance_valid(candidate):
+		return false
+	if not (candidate is Node2D):
+		return false
+	if not candidate.has_method("take_damage"):
+		return false
+	if candidate.get("is_dead") == true:
+		return false
+	return candidate.is_in_group("enemies") or candidate.is_in_group("boss")
 
 func _trigger_electrified(source: String = "unknown") -> void:
 	assert(player != null, "faze.gd: player is null")
@@ -653,6 +685,19 @@ static func add_bagua_progress(amount: int, is_elite_boss: bool = false) -> void
 	# 更新Buff显示
 	_update_bagua_buff_display()
 
+static func add_bagua_hit_progress(target: Node, was_alive_before_hit: bool, hit_amount: int = 1, kill_amount: int = 5) -> void:
+	if not was_alive_before_hit:
+		return
+	if not is_instance_valid(target):
+		return
+	var is_elite_boss = target.is_in_group("elite") or target.is_in_group("boss")
+	add_bagua_progress(hit_amount, is_elite_boss)
+	if target.get("hp") <= 0:
+		if target.has_meta("bagua_kill_progress_rewarded"):
+			return
+		target.set_meta("bagua_kill_progress_rewarded", true)
+		add_bagua_progress(kill_amount, is_elite_boss)
+
 static func _update_bagua_buff_display() -> void:
 	# 更新Buff描述
 	BuffManager.update_bagua_progress_description()
@@ -680,8 +725,6 @@ static func on_wind_weapon_hit() -> void:
 
 static func get_bagua_damage_multiplier() -> float:
 	var multiplier = 1.0 + PC.faze_bagua_damage_bonus
-	# 每层推衍完成提升4%
-	multiplier += PC.faze_bagua_completed_layers * 0.04
 	return multiplier
 
 static func get_wide_damage_multiplier(base_range_bonus: float) -> float:
@@ -983,9 +1026,9 @@ static func get_chaos_final_damage_multiplier(level: int) -> float:
 		bonus += 0.15
 	if level >= 5:
 		bonus += 0.30
-	if level >= 7:
+	if level >= 8:
 		bonus += 0.60
-	if level >= 9:
+	if level >= 11:
 		bonus += 1.20
 	return 1.0 + bonus
 
@@ -995,9 +1038,9 @@ static func get_chaos_exp_multiplier(level: int) -> float:
 		bonus += 0.15
 	if level >= 5:
 		bonus += 0.30
-	if level >= 7:
+	if level >= 8:
 		bonus += 0.60
-	if level >= 9:
+	if level >= 11:
 		bonus += 1.20
 	return 1.0 + bonus
 
@@ -1007,15 +1050,15 @@ static func get_chaos_point_multiplier(level: int) -> float:
 		bonus += 0.15
 	if level >= 5:
 		bonus += 0.25
-	if level >= 7:
+	if level >= 8:
 		bonus += 0.40
-	if level >= 9:
+	if level >= 11:
 		bonus += 0.80
 	return 1.0 + bonus
 
 static func get_final_damage_multiplier() -> float:
 	# 修习树团队篇：最终伤害百分比加成
-	return (1.0 + PC.pc_final_atk) * get_chaos_final_damage_multiplier(PC.faze_chaos_level) * (1.0 + Global.study_final_damage_bonus)
+	return (1.0 + PC.pc_final_atk) * get_chaos_final_damage_multiplier(PC.faze_chaos_level) * (1.0 + Global.study_final_damage_bonus) * Global.get_poetry_player_final_damage_multiplier()
 
 static func get_point_multiplier() -> float:
 	return get_chaos_point_multiplier(PC.faze_chaos_level)

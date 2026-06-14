@@ -49,12 +49,12 @@ func _ready() -> void:
 		is_giant_moyan = true
 		moyan_count = 0
 		bullet_damage *= 2.2 # 1.8 + 0.4 (额外40%伤害)
-		sprite.modulate = Color(1, 0.5, 0.5) # 红色滤镜
+		sprite.modulate = Color(1, 0.75, 0.75) # 红色滤镜
 	elif PC.selected_rewards.has("Moyan3") and moyan_count >= 3:
 		is_giant_moyan = true
 		moyan_count = 0
 		bullet_damage *= 1.8
-		sprite.modulate = Color(1, 0.5, 0.5) # 红色滤镜
+		sprite.modulate = Color(1, 0.75, 0.75) # 红色滤镜
 	
 	# 初始化时设置精灵方向
 	_update_sprite_rotation()

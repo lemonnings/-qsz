@@ -91,6 +91,8 @@ func _is_inside_rounded_rect(x: int, y: int, w: int, h: int, r: int) -> bool:
 	return true
 
 func _process(delta: float) -> void:
+	if is_paused:
+		return
 	if cooldown_time <= 0.0:
 		return
 	$Label.text = "%.2f" % $Timer.time_left

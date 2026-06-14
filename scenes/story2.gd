@@ -149,14 +149,8 @@ func _setup_scene() -> void:
 	add_child(dialog_layer)
 	normal.visible = false
 
-	# skip_button 另起 CanvasLayer 避免被 DialogLayer / 其他 UI 遮挡
-	var skip_canvas := CanvasLayer.new()
-	skip_canvas.name = "SkipCanvas"
-	skip_canvas.layer = 190
-	var skip_pos = skip_button.position
-	skip_button.reparent(skip_canvas)
-	skip_button.position = skip_pos
-	add_child(skip_canvas)
+	# skip_button_layer 提高层级，避免被 DialogLayer / 其他 UI 遮挡
+	skip_button_layer.layer = 190
 
 	# 打字速度
 	char_qian.type_speed = 0.04
@@ -167,16 +161,20 @@ func _setup_scene() -> void:
 
 
 func start_story() -> void:
-	# 字幕出现的同时，黑屏渐出
-	# 先启动黑屏渐出（不等待完成），然后立即显示字幕
+	# 第一行字幕开始播放 0.5 秒后，渐出开场黑屏（参考 story1 模式）
 	if _black_overlay:
-		var tw = create_tween()
-		tw.tween_property(_black_overlay, "color:a", 0.0, 1.5)
-		tw.tween_callback(_black_overlay.queue_free)
-	
-	# 显示 skip_button_layer
-	_show_skip_button_layer()
-	
+		get_tree().create_timer(0.5).timeout.connect(func():
+			if _black_overlay:
+				var tw = create_tween()
+				tw.tween_property(_black_overlay, "color:a", 0.0, 0.5)
+				await tw.finished
+				_black_overlay.queue_free()
+				_black_overlay = null
+
+			# 黑屏渐出后，显示 skip_button_layer 并渐变出现
+			_show_skip_button_layer()
+		)
+
 	# 显示字幕：墨宁、言秋通过巽长老的传送符，成功返回了桃源镇……
 	await director.show_subtitle(
 		"墨宁、言秋通过巽长老的传送符，成功返回了桃源镇……",
@@ -205,8 +203,22 @@ func start_story() -> void:
 					"illustrationMiddle": "",
 				},
 				{
+					"speaker": "墨宁", "speaker_position": "right",
+					"dialog": "幻境里的真气不知为何非常狂暴，桃林里不少树叶和桃花都化作了精怪攻击我们。",
+					"illustrationLeft": ill_xun, "illustrationLeftStatus": false,
+					"illustrationMiddle": "",
+					"illustrationRight": ill_moning, "illustrationRightStatus": true,
+				},
+				{
+					"speaker": "巽", "speaker_position": "left",
+					"dialog": "嗯，这我们也注意到了，不过桃林里还没什么特别强大的精怪，很适合你们稍作锻炼。",
+					"illustrationLeft": ill_xun, "illustrationLeftStatus": true,
+					"illustrationMiddle": "",
+					"illustrationRight": ill_moning, "illustrationRightStatus": true,
+				},
+				{
 					"speaker": "言秋", "speaker_position": "right",
-					"dialog": "好险啊！我们探索的越深入，精怪们就越强大！",
+					"dialog": "真、真的吗？刚才好险啊！我们探索的越深入，精怪们就越强大！",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": false,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_yiqiu, "illustrationRightStatus": true,
@@ -237,14 +249,14 @@ func start_story() -> void:
 				"lines": [
 					{
 						"speaker": "言秋", "speaker_position": "right",
-						"dialog": "那是，我们可是击败了桃林的桃树精王呢！",
+						"dialog": "嘿嘿，那是，我们可是击败了桃林的桃树精王呢！",
 						"illustrationLeft": ill_yanlie, "illustrationLeftStatus": false,
 						"illustrationMiddle": "",
 						"illustrationRight": ill_yiqiu, "illustrationRightStatus": true,
 					},
 					{
 						"speaker": "乾", "speaker_position": "left",
-						"dialog": "初次进入幻境就取得这般佳绩，做的不错！",
+						"dialog": "嗯……初次进入幻境就取得这般佳绩，做的不错！",
 						"illustrationLeft": ill_qian, "illustrationLeftStatus": true,
 						"illustrationMiddle": "",
 						"illustrationRight": ill_yiqiu, "illustrationRightStatus": false,
@@ -372,7 +384,7 @@ func start_story() -> void:
 					"illustrationLeft": ill_qian, "illustrationLeftStatus": true,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_moning, "illustrationRightStatus": false,
-				},{
+				}, {
 					"speaker": "墨宁", "speaker_position": "left",
 					"dialog": "那接下来……我和言秋先熟悉一下这桃源镇吧？",
 					"illustrationLeft": ill_qian, "illustrationLeftStatus": false,

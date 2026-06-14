@@ -12,8 +12,9 @@ var touch_points: Dictionary = {} # 存储触摸点信息
 @onready var camera: Camera2D # 需要从外部传入Camera2D节点
 
 func _input(event: InputEvent) -> void:
-	# 在合成界面时禁用缩放
-	if Global.in_synthesis:
+	if Global.is_camera_zoom_locked():
+		touch_points.clear()
+		is_pinching = false
 		return
 	# 处理触摸输入
 	if event is InputEventScreenTouch:

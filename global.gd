@@ -13,6 +13,10 @@ var is_debug: bool = true
 # 战斗速度倍率（由速度切换按钮控制）
 var game_speed: float = 1.0
 
+func reset_game_speed() -> void:
+	game_speed = 1.0
+	Engine.time_scale = 1.0
+
 # 保存指示器相关
 const SAVE_INDICATOR_SCENE := preload("res://Scenes/global/loading_anime.tscn")
 var _save_indicator_layer: CanvasLayer
@@ -36,6 +40,58 @@ const STAGE_DIFFICULTY_LIST := [
 # 这里只先接你当前提出的 4 个正式关卡。
 const STAGE_ID_LIST := ["peach_grove", "ruin", "cave", "forest"]
 
+const CORE_DEPTH_MIN := 1
+const CORE_DEPTH_MAX := 10
+const CORE_DEPTH_STAT_STEP := 0.08
+const DEEP_DIFFICULTY_STAT_MULTIPLIER := 1.25
+const CORE_DIFFICULTY_BASE_STAT_MULTIPLIER := 1.5
+const SHALLOW_DIFFICULTY_QI_GAIN_MULTIPLIER := 1.0
+const DEEP_DIFFICULTY_QI_GAIN_MULTIPLIER := 1.2
+const CORE_DIFFICULTY_BASE_QI_GAIN_MULTIPLIER := 1.4
+const CORE_DEPTH_QI_GAIN_STEP := 0.1
+const POETRY_BATTLE_START_TIME_SECONDS := 480.0
+const POETRY_BOSS_DAMAGE_BASE_BONUS := 0.9
+const POETRY_BOSS_DAMAGE_XUANYUAN_STEP := 0.005
+const POETRY_BOSS_DAMAGE_HUTI_STEP := 0.01
+const POETRY_BOSS_DAMAGE_RAMP_END_TIME := 570.0
+const POETRY_BOSS_DAMAGE_INITIAL_CORRECTION := -0.40
+const POETRY_BOSS_DAMAGE_CORRECTION_STEP := 0.2
+const POETRY_MODIFIER_STEP_SECONDS := 10.0
+const POETRY_PLAYER_FINAL_DAMAGE_STEP := 0.15
+const POETRY_HEAL_SHIELD_STEP_PENALTY := 0.05
+const POETRY_BOSS_HP_OUTPUT_SCALE := 2200.0
+const POETRY_BOSS_HP_FACTORS := {
+	"boss_a": 1.0,
+	"boss_stone": 0.7,
+	"boss_cansel": 0.6,
+	"boss_stele": 1.4
+}
+const DEFAULT_START_WEAPON_BY_HERO := {
+	"moning": "Qigong",
+	"yiqiu": "Swordqi",
+	"noam": "Lightbullet",
+	"kansel": "Ice"
+}
+const FAZE_LEVEL_PROPERTIES := [
+	"faze_blood_level",
+	"faze_sword_level",
+	"faze_thunder_level",
+	"faze_heal_level",
+	"faze_summon_level",
+	"faze_shield_level",
+	"faze_fire_level",
+	"faze_destroy_level",
+	"faze_life_level",
+	"faze_bullet_level",
+	"faze_wide_level",
+	"faze_bagua_level",
+	"faze_treasure_level",
+	"faze_chaos_level",
+	"faze_skill_level",
+	"faze_sixsense_level",
+	"faze_wind_level"
+]
+
 # 各关卡在不同难度下的属性倍率。
 const STAGE_DIFFICULTY_MULTIPLIERS := {
 	"peach_grove": {
@@ -45,27 +101,44 @@ const STAGE_DIFFICULTY_MULTIPLIERS := {
 		STAGE_DIFFICULTY_POETRY: 1.63 * 1.52
 	},
 	"ruin": {
-		STAGE_DIFFICULTY_SHALLOW: 1.0, # 45
-		STAGE_DIFFICULTY_DEEP: 1.39, # 65
-		STAGE_DIFFICULTY_CORE: 1.39 * 1.52, # 110
-		STAGE_DIFFICULTY_POETRY: 1.39 * 1.52
+		STAGE_DIFFICULTY_SHALLOW: 0.8, # 削弱20%
+		STAGE_DIFFICULTY_DEEP: 1.39 * 1.1, # 深层+10%
+		STAGE_DIFFICULTY_CORE: 1.39 * 1.52 * 1.2, # 核心+20%
+		STAGE_DIFFICULTY_POETRY: 1.39 * 1.52 * 1.2
 	},
 	"cave": {
-		STAGE_DIFFICULTY_SHALLOW: 1.0, # 80
-		STAGE_DIFFICULTY_DEEP: 1.4625, # 125
-		STAGE_DIFFICULTY_CORE: 1.4625 * 1.2416, # 155
-		STAGE_DIFFICULTY_POETRY: 1.4625 * 1.2416
+		STAGE_DIFFICULTY_SHALLOW: 0.7, # 削弱30%
+		STAGE_DIFFICULTY_DEEP: 1.4625 * 1.1, # 深层+10%
+		STAGE_DIFFICULTY_CORE: 1.4625 * 1.2416 * 1.2, # 核心+20%
+		STAGE_DIFFICULTY_POETRY: 1.4625 * 1.2416 * 1.2
 	},
 	"forest": {
-		STAGE_DIFFICULTY_SHALLOW: 1.0, # 140
-		STAGE_DIFFICULTY_DEEP: 1.1843, # 170
-		STAGE_DIFFICULTY_CORE: 1.1843 * 1.069, # 185
-		STAGE_DIFFICULTY_POETRY: 1.1843 * 1.069
+		STAGE_DIFFICULTY_SHALLOW: 0.6, # 削弱40%
+		STAGE_DIFFICULTY_DEEP: 1.1843 * 1.08, # 深层+8%
+		STAGE_DIFFICULTY_CORE: 1.1843 * 1.069 * 1.16, # 核心+16%
+		STAGE_DIFFICULTY_POETRY: 1.1843 * 1.069 * 1.16
 	}
 }
 
 # 合成界面状态 - 用于禁用缩放等操作
 var in_synthesis: bool = false
+var _camera_zoom_lock_sources: Dictionary = {}
+
+func lock_camera_zoom(source: String = "ui") -> void:
+	if source.is_empty():
+		source = "ui"
+	_camera_zoom_lock_sources[source] = true
+
+func unlock_camera_zoom(source: String = "ui") -> void:
+	if source.is_empty():
+		source = "ui"
+	_camera_zoom_lock_sources.erase(source)
+
+func reset_camera_zoom_locks() -> void:
+	_camera_zoom_lock_sources.clear()
+
+func is_camera_zoom_locked() -> bool:
+	return in_synthesis or not _camera_zoom_lock_sources.is_empty()
 
 # Victory结算吸取阶段标志 - 物品自动飞向玩家时不实际回血
 var victory_collecting: bool = false
@@ -170,13 +243,24 @@ var shop_saved_items: Array = []
 	}
 }
 
+# 每个关卡已通关的最高核心进阶层数。0 表示尚未通关核心进阶。
+@export var core_depth_clear_progress: Dictionary = {
+	"peach_grove": 0,
+	"ruin": 0,
+	"cave": 0,
+	"forest": 0
+}
+
 # 当前在关卡选择界面里选中的难度
 var selected_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
+var selected_core_depth: int = CORE_DEPTH_MIN
 
 # 当前真正进入战斗的关卡ID与难度
 # 怪物配置会读这里，决定本次战斗应该套用哪一个倍率
 var current_stage_id: String = ""
 var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
+var current_core_depth: int = CORE_DEPTH_MIN
+var corrupted_elite_enabled: bool = false
 
 @export var recipe_unlock_progress: Dictionary = {
 	"recipe_001": true,
@@ -195,7 +279,7 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 @export var blue_p: float = 70
 
 # 刷新次数
-@export var refresh_max_num: int = 999
+@export var refresh_max_num: int = 5
 
 # 修炼解锁进度Cultivation
 @export var cultivation_unlock_progress: int = 0
@@ -417,6 +501,10 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 	"kansel": {"space": {"name": "dodge"}, "q": {"name": "magical_fire"}, "e": {"name": ""}}
 }
 
+@export var selected_start_weapon: String = "Swordqi"
+@export var selected_start_weapons_by_hero: Dictionary = {}
+@export var available_start_weapons: Array[String] = ["Swordqi", "Qigong"]
+
 # 世界等级
 @export var world_level_multiple: float = 1
 @export var world_level_reward_multiple: float = 1
@@ -429,13 +517,39 @@ var current_stage_difficulty: String = STAGE_DIFFICULTY_SHALLOW
 @export var has_visited_town: bool = false
 @export var is_first_game: bool = true
 @export var has_seen_battle_tutorial: bool = false
+@export var has_seen_town_tutorial: bool = false
 @export var has_seen_peach_grove_dialogue: bool = false
 @export var has_seen_peach_grove_boss: bool = false
 @export var has_seen_peach_grove_boss_charge: bool = false
-@export var has_defeated_peach_grove_boss: bool = false  # 是否击败了桃林boss
+@export var has_defeated_peach_grove_boss: bool = false # 是否击败了桃林boss
 
 # 全局失败次数计数
 @export var total_defeat_count: int = 0
+
+# 首次离开peach_grove后进入story_2
+@export var has_seen_story_2: bool = false
+
+# 累计失败2次后进入story_3（炼丹炉解锁剧情）
+@export var has_seen_story_3: bool = false
+
+# 累计失败3次后进入story_4（神秘商铺解锁剧情）
+@export var has_seen_story_4: bool = false
+
+# 炼丹炉教程（看完story3回到main_town后触发）
+@export var has_seen_liandan_tutorial: bool = false
+
+# 神秘商铺教程（看完story4回到main_town后触发）
+@export var has_seen_shop_tutorial: bool = false
+
+# 诗想难度教程（看完story8回到main_town后触发）
+@export var has_seen_poem_tutorial: bool = false
+
+# 首次通关ruin后进入story_5（诺姆解锁剧情）
+@export var has_seen_story_5: bool = false
+
+# 首次通关cave后进入story_7（坎塞尔解锁剧情）
+@export var has_seen_story_7: bool = false
+@export var has_seen_story_8: bool = false
 
 # 信号定义
 @warning_ignore("unused_signal")
@@ -459,7 +573,6 @@ signal player_heal(heal_value: float, world_position: Vector2)
 @warning_ignore("unused_signal")
 signal monster_damage
 @warning_ignore("unused_signal")
-signal monster_mechanism_gained
 @warning_ignore("unused_signal")
 signal monster_killed
 @warning_ignore("unused_signal")
@@ -579,8 +692,10 @@ signal teammate_dialogue(speaker: String, text: String)
 
 # --------------------------
 # --- DPS 计数逻辑 ---
-var dps_damage_records = [] # [{"damage": float, "time": float, "weapon": String}]
+const DPS_WINDOW_SECONDS: int = 30
+var dps_damage_buckets: Array = []
 @export var current_dps: float = 0.0
+var highest_dps: float = 0.0
 var weapon_dps: Dictionary = {}
 var dps_timer: Timer
 
@@ -588,10 +703,25 @@ var dps_timer: Timer
 @export var damage_show_type: int = 2
 @export var damage_show_enabled: bool = true
 @export var particle_enable: bool = true
+@export var moretip: bool = true
 @export var screen_shake_enabled: bool = true
 
-const MAX_DAMAGE_LABELS: int = 500
+const MORETIP_OUTLINE_TARGET_GROUP := "moretip_outline_targets"
+
+func set_moretip_enabled(enabled: bool) -> void:
+	moretip = enabled
+	var tree := get_tree()
+	if tree == null:
+		return
+	for node in tree.get_nodes_in_group(MORETIP_OUTLINE_TARGET_GROUP):
+		if is_instance_valid(node) and node.has_method("set_outline_enabled"):
+			node.set_outline_enabled(enabled)
+
+const MAX_DAMAGE_LABELS: int = 120
+const MAX_DAMAGE_LABELS_PER_FRAME: int = 12
 var _active_damage_label_count: int = 0
+var _damage_label_frame: int = -1
+var _damage_label_count_this_frame: int = 0
 var _damage_label_scene = preload("res://Scenes/global/damage.tscn")
 
 # 对象池 —— 减少高频 instantiate/queue_free 的 GC 开销
@@ -600,11 +730,13 @@ var rain_bullet_pool: ObjectPool
 var light_bullet_pool: ObjectPool
 var ice_flower_pool: ObjectPool
 var branch_pool: ObjectPool
+var frog_attack_pool: ObjectPool
 var debuff_burn_pool: ObjectPool
 var faze_thunder_pool: ObjectPool
 var faze_destory_pool: ObjectPool
 
 func _init_dps_counter() -> void:
+	_reset_dps_buckets()
 	dps_timer = Timer.new()
 	dps_timer.wait_time = 1.0
 	dps_timer.timeout.connect(_calculate_dps)
@@ -612,26 +744,54 @@ func _init_dps_counter() -> void:
 	add_child(dps_timer)
 
 func record_damage_for_dps(damage: float, weapon_name: String = "Unknown") -> void:
-	var current_time = Time.get_ticks_msec() / 1000.0
-	dps_damage_records.append({"damage": damage, "time": current_time, "weapon": weapon_name})
+	if damage <= 0.0:
+		return
+	var current_second := int(Time.get_ticks_msec() / 1000)
+	_ensure_dps_buckets()
+	var bucket_index := current_second % DPS_WINDOW_SECONDS
+	var bucket: Dictionary = dps_damage_buckets[bucket_index]
+	if int(bucket.get("second", -1)) != current_second:
+		bucket["second"] = current_second
+		bucket["total"] = 0.0
+		bucket["weapons"] = {}
+	bucket["total"] = float(bucket.get("total", 0.0)) + damage
+	var weapons: Dictionary = bucket.get("weapons", {})
+	weapons[weapon_name] = float(weapons.get(weapon_name, 0.0)) + damage
+	bucket["weapons"] = weapons
 
 func _calculate_dps() -> void:
-	var current_time = Time.get_ticks_msec() / 1000.0
+	var current_second := int(Time.get_ticks_msec() / 1000)
+	var first_second := current_second - DPS_WINDOW_SECONDS + 1
 	var total_damage = 0.0
 	var weapon_totals = {}
-	for i in range(dps_damage_records.size() - 1, -1, -1):
-		var record = dps_damage_records[i]
-		if current_time - record["time"] > 30.0:
-			dps_damage_records.remove_at(i)
-		else:
-			total_damage += record["damage"]
-			var w_name = record["weapon"]
-			weapon_totals[w_name] = weapon_totals.get(w_name, 0.0) + record["damage"]
-	current_dps = total_damage / 30.0
+	_ensure_dps_buckets()
+	for bucket in dps_damage_buckets:
+		var bucket_second := int(bucket.get("second", -1))
+		if bucket_second < first_second or bucket_second > current_second:
+			continue
+		total_damage += float(bucket.get("total", 0.0))
+		var weapons: Dictionary = bucket.get("weapons", {})
+		for w_name in weapons:
+			weapon_totals[w_name] = weapon_totals.get(w_name, 0.0) + float(weapons[w_name])
+	current_dps = total_damage / float(DPS_WINDOW_SECONDS)
+	highest_dps = max(highest_dps, current_dps)
 	weapon_dps.clear()
 	for w_name in weapon_totals:
-		weapon_dps[w_name] = weapon_totals[w_name] / 30.0
+		weapon_dps[w_name] = weapon_totals[w_name] / float(DPS_WINDOW_SECONDS)
 	emit_signal("dps_updated", current_dps, weapon_dps)
+
+func refresh_dps_counter() -> void:
+	_calculate_dps()
+
+func _ensure_dps_buckets() -> void:
+	if dps_damage_buckets.size() == DPS_WINDOW_SECONDS:
+		return
+	_reset_dps_buckets()
+
+func _reset_dps_buckets() -> void:
+	dps_damage_buckets.clear()
+	for i in range(DPS_WINDOW_SECONDS):
+		dps_damage_buckets.append({"second": - 1, "total": 0.0, "weapons": {}})
 
 # ---------------------------------
 
@@ -666,6 +826,8 @@ func _init_object_pools() -> void:
 	add_child(ice_flower_pool)
 	branch_pool = ObjectPool.new(preload("res://Scenes/branch.tscn"), 20)
 	add_child(branch_pool)
+	frog_attack_pool = ObjectPool.new(preload("res://Scenes/moster/frog_attack.tscn"), 40)
+	add_child(frog_attack_pool)
 	debuff_burn_pool = ObjectPool.new(preload("res://Scenes/player/debuff_burn.tscn"), 10)
 	add_child(debuff_burn_pool)
 	faze_thunder_pool = ObjectPool.new(preload("res://Scenes/player/faze_thunder.tscn"), 5)
@@ -741,10 +903,34 @@ func _debug_command_f9() -> void:
 	pass
 
 func _debug_command_f10() -> void:
-	pass
+	_normalize_stage_difficulty_clear_progress()
+	for stage_id in STAGE_ID_LIST:
+		var stage_progress = stage_difficulty_clear_progress.get(stage_id, {})
+		if typeof(stage_progress) != TYPE_DICTIONARY:
+			stage_progress = {}
+		for difficulty_id in STAGE_DIFFICULTY_LIST:
+			stage_progress[difficulty_id] = true
+		stage_difficulty_clear_progress[stage_id] = stage_progress
+		core_depth_clear_progress[stage_id] = CORE_DEPTH_MAX
+	selected_core_depth = CORE_DEPTH_MAX
+	save_game()
+	_refresh_debug_resource_views()
+	_show_debug_command_feedback("调试指令 F10：全部难度与核心进阶10层已解锁")
 
 func _debug_command_f11() -> void:
-	pass
+	var entries := StudyTreeConfig.get_all_entries()
+	for id in entries.keys():
+		var entry: Dictionary = entries[id]
+		var max_level := int(entry.get("max_level", "1"))
+		player_study_tree[String(id)] = max(1, max_level)
+	SettingStudyTreeUp.apply_all()
+	SettingStudyTreeSkill.apply_all()
+	SettingStudyTreeLearn.apply_all()
+	SettingStudyTreeTeam.apply_all()
+	SettingStudyTreeSpecial.apply_all()
+	save_game()
+	_refresh_debug_resource_views()
+	_show_debug_command_feedback("调试指令 F11：全部天赋已激活并升至满级")
 
 var _debug_console: CanvasLayer = null
 
@@ -758,8 +944,13 @@ func _refresh_debug_resource_views() -> void:
 	var current_scene := get_tree().current_scene
 	if current_scene == null:
 		return
+	if "levelChangeLayer" in current_scene and current_scene.levelChangeLayer != null and current_scene.levelChangeLayer.has_method("prepare_for_open"):
+		current_scene.levelChangeLayer.prepare_for_open()
 	if current_scene.has_method("refresh_point"):
 		current_scene.refresh_point()
+	var study_layer := current_scene.get_node_or_null("StudyLayer")
+	if study_layer != null and study_layer.has_method("refresh_study_tree_view"):
+		study_layer.refresh_study_tree_view()
 	var battle_layer := current_scene.get_node_or_null("CanvasLayer")
 	if battle_layer != null and battle_layer.has_method("update_score_display"):
 		battle_layer.update_score_display(total_points)
@@ -853,11 +1044,226 @@ func _normalize_stage_difficulty_clear_progress() -> void:
 			stage_difficulty_clear_progress[stage_id] = {}
 		var stage_progress: Dictionary = stage_difficulty_clear_progress[stage_id]
 		for difficulty_id in [STAGE_DIFFICULTY_SHALLOW, STAGE_DIFFICULTY_DEEP, STAGE_DIFFICULTY_CORE, STAGE_DIFFICULTY_POETRY]:
-			stage_progress[difficulty_id] = bool(stage_progress.get(difficulty_id, false))
+			stage_progress[difficulty_id] = stage_progress.get(difficulty_id, false) == true
 		stage_difficulty_clear_progress[stage_id] = stage_progress
+	_normalize_core_depth_clear_progress()
+
+func _normalize_core_depth_clear_progress() -> void:
+	if typeof(core_depth_clear_progress) != TYPE_DICTIONARY:
+		core_depth_clear_progress = {}
+	for stage_id in STAGE_ID_LIST:
+		var cleared_depth := int(core_depth_clear_progress.get(stage_id, 0))
+		var stage_progress = stage_difficulty_clear_progress.get(stage_id, {})
+		if typeof(stage_progress) == TYPE_DICTIONARY and stage_progress.get(STAGE_DIFFICULTY_CORE, false) == true:
+			cleared_depth = max(cleared_depth, CORE_DEPTH_MIN)
+		core_depth_clear_progress[stage_id] = clampi(cleared_depth, 0, CORE_DEPTH_MAX)
+	selected_core_depth = clamp_core_depth(selected_core_depth)
+	current_core_depth = clamp_core_depth(current_core_depth)
 
 func set_selected_stage_difficulty(difficulty_id: String) -> void:
 	selected_stage_difficulty = validate_stage_difficulty_id(difficulty_id)
+
+func clamp_core_depth(depth: int) -> int:
+	return clampi(depth, CORE_DEPTH_MIN, CORE_DEPTH_MAX)
+
+func set_selected_core_depth(depth: int) -> void:
+	selected_core_depth = clamp_core_depth(depth)
+
+func get_stage_core_depth_cleared(stage_id: String) -> int:
+	_normalize_core_depth_clear_progress()
+	if not core_depth_clear_progress.has(stage_id):
+		return 0
+	return clampi(int(core_depth_clear_progress.get(stage_id, 0)), 0, CORE_DEPTH_MAX)
+
+func get_stage_max_unlocked_core_depth(stage_id: String) -> int:
+	if STAGE_ID_LIST.find(stage_id) == -1:
+		return 0
+	var cleared_depth := get_stage_core_depth_cleared(stage_id)
+	if cleared_depth >= CORE_DEPTH_MAX:
+		return CORE_DEPTH_MAX
+	if cleared_depth > 0:
+		return cleared_depth + 1
+	if is_stage_difficulty_cleared(stage_id, STAGE_DIFFICULTY_DEEP):
+		return CORE_DEPTH_MIN
+	return 0
+
+func get_global_max_unlocked_core_depth() -> int:
+	_normalize_core_depth_clear_progress()
+	var max_depth := 0
+	for stage_id in STAGE_ID_LIST:
+		max_depth = maxi(max_depth, get_stage_max_unlocked_core_depth(stage_id))
+	return clampi(max_depth, 0, CORE_DEPTH_MAX)
+
+func can_enter_core_depth(stage_id: String, depth: int) -> bool:
+	var target_depth := clamp_core_depth(depth)
+	return get_stage_max_unlocked_core_depth(stage_id) >= target_depth
+
+func mark_stage_core_depth_cleared(stage_id: String, depth: int) -> void:
+	_normalize_stage_difficulty_clear_progress()
+	if STAGE_ID_LIST.find(stage_id) == -1:
+		return
+	var cleared_depth: int = maxi(get_stage_core_depth_cleared(stage_id), clamp_core_depth(depth))
+	core_depth_clear_progress[stage_id] = cleared_depth
+	var stage_progress = stage_difficulty_clear_progress.get(stage_id, {})
+	if typeof(stage_progress) != TYPE_DICTIONARY:
+		stage_progress = {}
+	stage_progress[STAGE_DIFFICULTY_CORE] = true
+	stage_difficulty_clear_progress[stage_id] = stage_progress
+
+func is_current_core_difficulty() -> bool:
+	return validate_stage_difficulty_id(current_stage_difficulty) == STAGE_DIFFICULTY_CORE
+
+func get_current_core_depth() -> int:
+	if not is_current_core_difficulty():
+		return CORE_DEPTH_MIN
+	return clamp_core_depth(current_core_depth)
+
+func get_core_depth_stat_multiplier(depth: int = -1) -> float:
+	var resolved_depth := current_core_depth if depth < CORE_DEPTH_MIN else depth
+	return 1.0 + float(clamp_core_depth(resolved_depth)) * CORE_DEPTH_STAT_STEP
+
+func get_core_stat_bonus_percent(depth: int = -1) -> int:
+	var resolved_depth := current_core_depth if depth < CORE_DEPTH_MIN else depth
+	return int(round(float(clamp_core_depth(resolved_depth)) * CORE_DEPTH_STAT_STEP * 100.0))
+
+func get_core_qi_gain_multiplier(depth: int = -1) -> float:
+	var resolved_depth := current_core_depth if depth < CORE_DEPTH_MIN else depth
+	return CORE_DIFFICULTY_BASE_QI_GAIN_MULTIPLIER + float(clamp_core_depth(resolved_depth)) * CORE_DEPTH_QI_GAIN_STEP
+
+func get_core_qi_gain_bonus_percent(depth: int = -1) -> int:
+	return int(round((get_core_qi_gain_multiplier(depth) - 1.0) * 100.0))
+
+func is_core_modifier_active(required_depth: int) -> bool:
+	return is_current_core_difficulty() and get_current_core_depth() >= required_depth
+
+func get_core_enemy_move_speed_multiplier() -> float:
+	if is_core_modifier_active(10):
+		return 1.25
+	if is_core_modifier_active(2):
+		return 1.15
+	return 1.0
+
+func get_core_attack_growth_multiplier() -> float:
+	if is_core_modifier_active(10):
+		return 1.30
+	if is_core_modifier_active(5):
+		return 1.20
+	return 1.0
+
+func get_core_required_exp_multiplier() -> float:
+	if is_core_modifier_active(10):
+		return 1.25
+	if is_core_modifier_active(6):
+		return 1.20
+	return 1.0
+
+func get_qi_vortex_cost_multiplier() -> float:
+	return 1.25 if is_core_modifier_active(4) else 1.0
+
+func get_heal_shield_effect_multiplier() -> float:
+	var multiplier := 1.0
+	if is_core_modifier_active(9):
+		multiplier *= 0.70
+	if is_current_poetry_difficulty():
+		multiplier *= get_poetry_heal_shield_multiplier()
+	return maxf(multiplier, 0.0)
+
+func is_current_poetry_difficulty() -> bool:
+	return validate_stage_difficulty_id(current_stage_difficulty) == STAGE_DIFFICULTY_POETRY
+
+func get_battle_display_time(real_time: float) -> float:
+	if not is_current_poetry_difficulty():
+		return real_time
+	return maxf(0.0, real_time - POETRY_BATTLE_START_TIME_SECONDS)
+
+func get_poetry_elapsed_time(real_time: float = -1.0) -> float:
+	var resolved_time := real_time
+	if resolved_time < 0.0 and typeof(PC) != TYPE_NIL:
+		resolved_time = PC.real_time
+	return maxf(0.0, resolved_time - POETRY_BATTLE_START_TIME_SECONDS)
+
+func get_poetry_modifier_step_count(real_time: float = -1.0) -> int:
+	if not is_current_poetry_difficulty():
+		return 0
+	return maxi(0, int(floor(get_poetry_elapsed_time(real_time) / POETRY_MODIFIER_STEP_SECONDS)))
+
+func get_poetry_player_final_damage_multiplier(real_time: float = -1.0) -> float:
+	var step_count := get_poetry_modifier_step_count(real_time)
+	return 1.0 + float(step_count) * POETRY_PLAYER_FINAL_DAMAGE_STEP
+
+func get_poetry_heal_shield_multiplier(real_time: float = -1.0) -> float:
+	var step_count := get_poetry_modifier_step_count(real_time)
+	return maxf(0.0, 1.0 - float(step_count) * POETRY_HEAL_SHIELD_STEP_PENALTY)
+
+func get_poetry_boss_damage_correction(real_time: float = -1.0) -> float:
+	if not is_current_poetry_difficulty():
+		return 0.0
+	var resolved_time := real_time
+	if resolved_time < 0.0 and typeof(PC) != TYPE_NIL:
+		resolved_time = PC.real_time
+	if resolved_time <= POETRY_BOSS_DAMAGE_RAMP_END_TIME:
+		var ramp_duration := POETRY_BOSS_DAMAGE_RAMP_END_TIME - POETRY_BATTLE_START_TIME_SECONDS
+		var progress := clampf((resolved_time - POETRY_BATTLE_START_TIME_SECONDS) / ramp_duration, 0.0, 1.0)
+		return lerpf(POETRY_BOSS_DAMAGE_INITIAL_CORRECTION, 0.0, progress)
+	var step_count := int(floor((resolved_time - POETRY_BOSS_DAMAGE_RAMP_END_TIME) / POETRY_MODIFIER_STEP_SECONDS))
+	return float(maxi(0, step_count)) * POETRY_BOSS_DAMAGE_CORRECTION_STEP
+
+func get_poetry_boss_damage_multiplier(real_time: float = -1.0) -> float:
+	if not is_current_poetry_difficulty():
+		return 1.0
+	return maxf(0.0, 1.0 + POETRY_BOSS_DAMAGE_BASE_BONUS + get_poetry_boss_damage_correction(real_time) + get_poetry_boss_cultivation_damage_bonus())
+
+func get_poetry_boss_cultivation_damage_bonus() -> float:
+	var xuanyuan_bonus := float(maxi(0, cultivation_xuanyuan_level)) * POETRY_BOSS_DAMAGE_XUANYUAN_STEP
+	var huti_bonus := float(maxi(0, cultivation_huti_level)) * POETRY_BOSS_DAMAGE_HUTI_STEP
+	return xuanyuan_bonus + huti_bonus
+
+func is_poetry_boss_damage_source(attacker: Node) -> bool:
+	if not is_current_poetry_difficulty():
+		return false
+	if attacker == null or not is_instance_valid(attacker):
+		return false
+	var node := attacker
+	while node != null and is_instance_valid(node):
+		if node.is_in_group("boss") or node.is_in_group("boss_bullet") or node.is_in_group("boss_projectile") or node.is_in_group("boss_a_petal") or node.is_in_group("boss_a_poison_circle"):
+			return true
+		node = node.get_parent()
+	return false
+
+func get_poetry_total_faze_overflow(threshold: int = 17) -> int:
+	if typeof(PC) == TYPE_NIL:
+		return 0
+	var overflow := 0
+	for property_name in FAZE_LEVEL_PROPERTIES:
+		overflow += maxi(0, int(PC.get(property_name)) - threshold)
+	return overflow
+
+func get_poetry_boss_expected_output() -> float:
+	if typeof(PC) == TYPE_NIL:
+		return 0.0
+	var crit_chance := clampf(PC.crit_chance, 0.0, 1.0)
+	var crit_expected_multiplier := 1.0 + crit_chance * maxf(0.0, PC.crit_damage_multi - 1.0)
+	var attack_speed_multiplier := maxf(0.01, 1.0 + PC.pc_atk_speed)
+	var final_damage_multiplier := Faze.get_final_damage_multiplier()
+	return maxf(0.0, float(PC.pc_atk) * crit_expected_multiplier * attack_speed_multiplier * final_damage_multiplier)
+
+func get_poetry_boss_max_hp(boss_id: String, fallback_hp: float = 1.0) -> float:
+	if not is_current_poetry_difficulty():
+		return maxf(fallback_hp, 1.0)
+	var expected_output := get_poetry_boss_expected_output()
+	var faze_overflow_multiplier := 1.0 + float(get_poetry_total_faze_overflow()) * 0.10
+	var boss_factor := float(POETRY_BOSS_HP_FACTORS.get(boss_id, 1.0))
+	var hp_value := expected_output * POETRY_BOSS_HP_OUTPUT_SCALE * faze_overflow_multiplier * boss_factor
+	return maxf(hp_value, 1.0)
+
+func should_use_reduced_qi_vortex_times() -> bool:
+	return is_core_modifier_active(8)
+
+func is_core_missile_enabled() -> bool:
+	return is_core_modifier_active(7)
+
+func is_corrupted_elite_enabled() -> bool:
+	return is_core_modifier_active(3)
 
 func is_stage_difficulty_cleared(stage_id: String, difficulty_id: String) -> bool:
 	_normalize_stage_difficulty_clear_progress()
@@ -866,7 +1272,7 @@ func is_stage_difficulty_cleared(stage_id: String, difficulty_id: String) -> boo
 	var stage_progress = stage_difficulty_clear_progress.get(stage_id, {})
 	if typeof(stage_progress) != TYPE_DICTIONARY:
 		return false
-	return bool(stage_progress.get(validate_stage_difficulty_id(difficulty_id), false))
+	return stage_progress.get(validate_stage_difficulty_id(difficulty_id), false) == true
 
 func is_stage_cleared(stage_id: String) -> bool:
 	for difficulty_id in [STAGE_DIFFICULTY_SHALLOW, STAGE_DIFFICULTY_DEEP, STAGE_DIFFICULTY_CORE, STAGE_DIFFICULTY_POETRY]:
@@ -935,12 +1341,15 @@ func mark_stage_difficulty_cleared(stage_id: String, difficulty_id: String) -> v
 	var stage_progress = stage_difficulty_clear_progress.get(stage_id, {})
 	if typeof(stage_progress) != TYPE_DICTIONARY:
 		stage_progress = {}
-	stage_progress[validate_stage_difficulty_id(difficulty_id)] = true
+	var valid_difficulty := validate_stage_difficulty_id(difficulty_id)
+	stage_progress[valid_difficulty] = true
 	stage_difficulty_clear_progress[stage_id] = stage_progress
+	if valid_difficulty == STAGE_DIFFICULTY_CORE:
+		mark_stage_core_depth_cleared(stage_id, current_core_depth)
 
 # 取得某个关卡在某个难度下的倍率。
 # 如果不传参数，就默认读取"当前已进入关卡"的上下文。
-func get_stage_difficulty_stat_multiplier(stage_id: String = "", difficulty_id: String = "") -> float:
+func get_stage_difficulty_stat_multiplier(stage_id: String = "", difficulty_id: String = "", core_depth: int = 0) -> float:
 	var resolved_stage_id := stage_id
 	if resolved_stage_id.is_empty():
 		resolved_stage_id = current_stage_id
@@ -953,10 +1362,43 @@ func get_stage_difficulty_stat_multiplier(stage_id: String = "", difficulty_id: 
 	var stage_multiplier_data = STAGE_DIFFICULTY_MULTIPLIERS.get(resolved_stage_id, {})
 	if typeof(stage_multiplier_data) != TYPE_DICTIONARY:
 		return 1.0
-	return float(stage_multiplier_data.get(resolved_difficulty_id, 1.0))
+	var shallow_multiplier: float = maxf(float(stage_multiplier_data.get(STAGE_DIFFICULTY_SHALLOW, 1.0)), 1.0)
+	match resolved_difficulty_id:
+		STAGE_DIFFICULTY_DEEP:
+			return shallow_multiplier * DEEP_DIFFICULTY_STAT_MULTIPLIER
+		STAGE_DIFFICULTY_CORE:
+			var resolved_core_depth := core_depth
+			if resolved_core_depth < CORE_DEPTH_MIN:
+				resolved_core_depth = current_core_depth if resolved_stage_id == current_stage_id else selected_core_depth
+			return shallow_multiplier * CORE_DIFFICULTY_BASE_STAT_MULTIPLIER * get_core_depth_stat_multiplier(resolved_core_depth)
+		STAGE_DIFFICULTY_POETRY:
+			return float(stage_multiplier_data.get(STAGE_DIFFICULTY_POETRY, shallow_multiplier * CORE_DIFFICULTY_BASE_STAT_MULTIPLIER))
+		_:
+			return shallow_multiplier
 
 func get_current_stage_stat_multiplier() -> float:
-	return get_stage_difficulty_stat_multiplier(current_stage_id, current_stage_difficulty)
+	return get_stage_difficulty_stat_multiplier(current_stage_id, current_stage_difficulty, current_core_depth)
+
+func get_stage_difficulty_qi_gain_multiplier(difficulty_id: String = "", core_depth: int = 0) -> float:
+	var resolved_difficulty_id := difficulty_id
+	if resolved_difficulty_id.is_empty():
+		resolved_difficulty_id = current_stage_difficulty
+	resolved_difficulty_id = validate_stage_difficulty_id(resolved_difficulty_id)
+	match resolved_difficulty_id:
+		STAGE_DIFFICULTY_DEEP:
+			return DEEP_DIFFICULTY_QI_GAIN_MULTIPLIER
+		STAGE_DIFFICULTY_CORE:
+			var resolved_core_depth := core_depth
+			if resolved_core_depth < CORE_DEPTH_MIN:
+				resolved_core_depth = current_core_depth
+			return get_core_qi_gain_multiplier(resolved_core_depth)
+		STAGE_DIFFICULTY_POETRY:
+			return CORE_DIFFICULTY_BASE_QI_GAIN_MULTIPLIER
+		_:
+			return SHALLOW_DIFFICULTY_QI_GAIN_MULTIPLIER
+
+func get_current_stage_qi_gain_multiplier() -> float:
+	return get_stage_difficulty_qi_gain_multiplier(current_stage_difficulty, current_core_depth)
 
 # 推荐修为固定值配置（关卡 × 难度 → 修为值）
 const STAGE_RECOMMENDED_POWER := {
@@ -994,7 +1436,11 @@ func get_stage_recommended_power(stage_id: String, difficulty_id: String) -> int
 	var stage_data = STAGE_RECOMMENDED_POWER.get(stage_id, {})
 	if typeof(stage_data) != TYPE_DICTIONARY:
 		return 0
-	return int(stage_data.get(valid_difficulty, 0))
+	var base_power := int(stage_data.get(valid_difficulty, 0))
+	if valid_difficulty == STAGE_DIFFICULTY_CORE:
+		var depth_ratio := get_core_depth_stat_multiplier(selected_core_depth) / get_core_depth_stat_multiplier(CORE_DEPTH_MIN)
+		return int(ceil(float(base_power) * depth_ratio))
+	return base_power
 
 func _get_effective_normal_monster_bonus() -> float:
 	if typeof(PC) != TYPE_NIL:
@@ -1069,6 +1515,18 @@ func apply_enemy_damage_bonus(damage: float, target: Node) -> float:
 		return damage
 	return damage * get_enemy_damage_bonus_multiplier(target)
 
+func get_achievement_weapon_damage_bonus(weapon_tag: String) -> float:
+	var achievement_manager = get_node_or_null("/root/AchievementManager")
+	if achievement_manager != null and achievement_manager.has_method("get_category_damage_bonus_by_weapon_tag"):
+		return float(achievement_manager.get_category_damage_bonus_by_weapon_tag(weapon_tag))
+	return 0.0
+
+func get_achievement_summon_damage_bonus() -> float:
+	var achievement_manager = get_node_or_null("/root/AchievementManager")
+	if achievement_manager != null and achievement_manager.has_method("get_summon_damage_bonus"):
+		return float(achievement_manager.get_summon_damage_bonus())
+	return 0.0
+
 ## 显示保存指示器动画（右下角，渐进渐出，持续2秒）
 # ===== 角色独立键位配置辅助 =====
 
@@ -1078,6 +1536,149 @@ func get_current_active_skills() -> Dictionary:
 	if not player_now_active_skill.has(hero):
 		player_now_active_skill[hero] = _default_skill_config()
 	return player_now_active_skill[hero]
+
+func get_available_start_weapons() -> Array[Dictionary]:
+	sync_available_start_weapons()
+	var weapon_config := _get_start_weapon_config()
+	var weapons: Array[Dictionary] = []
+	for weapon_id in available_start_weapons:
+		var normalized_id := normalize_start_weapon_id(weapon_id)
+		if weapon_config.has(normalized_id):
+			weapons.append(weapon_config[normalized_id])
+	return weapons
+
+func _get_start_weapon_config() -> Dictionary:
+	return {
+		"Swordqi": {"id": "Swordqi", "display_name": "剑气诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianqi.png", "faze_levels": {"faze_sword_level": 3, "faze_bullet_level": 3}, "faze_text": "刀剑法则+3，弹雨法则+3"},
+		"Qigong": {"id": "Qigong", "display_name": "气功波", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/qigong.png", "faze_levels": {"faze_wind_level": 3, "faze_wide_level": 3}, "faze_text": "啸风法则+3，广域法则+3"},
+		"Lightbullet": {"id": "Lightbullet", "display_name": "光弹", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/guangdan.png", "faze_levels": {"faze_life_level": 3, "faze_bullet_level": 3}, "faze_text": "生灵法则+3，弹雨法则+3"},
+		"Ice": {"id": "Ice", "display_name": "冰刺术", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/binghua.png", "faze_levels": {"faze_destroy_level": 3, "faze_bullet_level": 3}, "faze_text": "破坏法则+3，弹雨法则+3"},
+		"Xunfeng": {"id": "Xunfeng", "display_name": "巽风诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunfeng.png", "faze_levels": {"faze_wind_level": 3, "faze_bullet_level": 3}, "faze_text": "啸风法则+3，弹雨法则+3"},
+		"Genshan": {"id": "Genshan", "display_name": "艮山诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/genshan.png", "faze_levels": {"faze_bagua_level": 3, "faze_shield_level": 3}, "faze_text": "八卦法则+3，护佑法则+3"},
+		"Bloodwave": {"id": "Bloodwave", "display_name": "血气波", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xueqibo.png", "faze_levels": {"faze_wide_level": 3, "faze_blood_level": 3}, "faze_text": "广域法则+3，浴血法则+3"},
+		"Xuanwu": {"id": "Xuanwu", "display_name": "玄武盾", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xuanwu.png", "faze_levels": {"faze_destroy_level": 3, "faze_treasure_level": 3}, "faze_text": "破坏法则+3，宝器法则+3"},
+		"Water": {"id": "Water", "display_name": "坎水诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/kanshui.png", "faze_levels": {"faze_life_level": 3, "faze_bagua_level": 3}, "faze_text": "生灵法则+3，八卦法则+3"},
+		"Holylight": {"id": "Holylight", "display_name": "圣光术", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png", "faze_levels": {"faze_life_level": 3, "faze_heal_level": 3}, "faze_text": "生灵法则+3，愈疗法则+3"},
+		"Branch": {"id": "Branch", "display_name": "仙枝", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xianzhi.png", "faze_levels": {"faze_treasure_level": 3, "faze_bullet_level": 3}, "faze_text": "宝器法则+3，弹雨法则+3"},
+		"Thunder": {"id": "Thunder", "display_name": "震雷诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/thunder.png", "faze_levels": {"faze_bagua_level": 3, "faze_thunder_level": 3}, "faze_text": "八卦法则+3，鸣雷法则+3"},
+		"Thunderbreak": {"id": "Thunderbreak", "display_name": "天雷破", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/tianleipo2.png", "faze_levels": {"faze_thunder_level": 3, "faze_destroy_level": 3}, "faze_text": "鸣雷法则+3，破坏法则+3"},
+		"Moyan": {"id": "Moyan", "display_name": "爆炎诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/moyan.png", "faze_levels": {"faze_fire_level": 3, "faze_destroy_level": 3}, "faze_text": "炽焰法则+3，破坏法则+3"},
+		"Qiankun": {"id": "Qiankun", "display_name": "乾坤双剑", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/qiankun.png", "faze_levels": {"faze_sword_level": 3, "faze_bagua_level": 3}, "faze_text": "刀剑法则+3，八卦法则+3"},
+		"Bloodboardsword": {"id": "Bloodboardsword", "display_name": "饮血刀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yinxue.png", "faze_levels": {"faze_sword_level": 3, "faze_blood_level": 3}, "faze_text": "刀剑法则+3，浴血法则+3"},
+	}
+
+func get_start_weapon_faze_levels(weapon_id: String = "") -> Dictionary:
+	var resolved_id := normalize_start_weapon_id(weapon_id)
+	if resolved_id.is_empty():
+		resolved_id = get_selected_start_weapon()
+	var weapon_config := _get_start_weapon_config()
+	if not weapon_config.has(resolved_id):
+		return {}
+	return (weapon_config[resolved_id].get("faze_levels", {}) as Dictionary).duplicate(true)
+
+func get_start_weapon_faze_text(weapon_id: String = "") -> String:
+	var resolved_id := normalize_start_weapon_id(weapon_id)
+	if resolved_id.is_empty():
+		resolved_id = get_selected_start_weapon()
+	var weapon_config := _get_start_weapon_config()
+	if not weapon_config.has(resolved_id):
+		return ""
+	return str(weapon_config[resolved_id].get("faze_text", ""))
+
+func sync_available_start_weapons() -> void:
+	var normalized_weapons: Array[String] = []
+	for weapon_id in available_start_weapons:
+		var normalized_id := normalize_start_weapon_id(str(weapon_id))
+		if not normalized_weapons.has(normalized_id):
+			normalized_weapons.append(normalized_id)
+	for default_weapon in ["Swordqi", "Qigong"]:
+		if not normalized_weapons.has(default_weapon):
+			normalized_weapons.append(default_weapon)
+	if unlock_noam and not normalized_weapons.has("Lightbullet"):
+		normalized_weapons.append("Lightbullet")
+	if unlock_kansel and not normalized_weapons.has("Ice"):
+		normalized_weapons.append("Ice")
+	var achievement_manager = get_node_or_null("/root/AchievementManager")
+	if achievement_manager != null and achievement_manager.has_method("get_unlocked_start_weapons"):
+		for weapon_id in achievement_manager.get_unlocked_start_weapons():
+			var normalized_id := normalize_start_weapon_id(str(weapon_id))
+			if not normalized_weapons.has(normalized_id):
+				normalized_weapons.append(normalized_id)
+	available_start_weapons = normalized_weapons
+
+func is_start_weapon_available(weapon_id: String) -> bool:
+	for weapon in get_available_start_weapons():
+		if str(weapon.get("id", "")) == weapon_id:
+			return true
+	return false
+
+func _get_current_start_weapon_hero(hero_name: String = "") -> String:
+	var hero := hero_name.strip_edges()
+	if hero.is_empty() and typeof(PC) != TYPE_NIL and PC != null:
+		hero = PC.player_name
+	if hero.is_empty():
+		hero = "yiqiu"
+	return hero
+
+func normalize_start_weapon_id(weapon_id: String) -> String:
+	match weapon_id:
+		"SwordQi":
+			return "Swordqi"
+		"LightBullet":
+			return "Lightbullet"
+		"ThunderBreak":
+			return "Thunderbreak"
+		_:
+			return weapon_id
+
+func get_default_start_weapon_for_hero(hero_name: String = "") -> String:
+	var hero := _get_current_start_weapon_hero(hero_name)
+	var weapon_id := normalize_start_weapon_id(str(DEFAULT_START_WEAPON_BY_HERO.get(hero, "Swordqi")))
+	if is_start_weapon_available(weapon_id):
+		return weapon_id
+	return _get_first_available_start_weapon_id()
+
+func _get_first_available_start_weapon_id() -> String:
+	var available_weapons := get_available_start_weapons()
+	if available_weapons.is_empty():
+		return "Swordqi"
+	return str(available_weapons[0].get("id", "Swordqi"))
+
+func get_selected_start_weapon(hero_name: String = "") -> String:
+	var hero := _get_current_start_weapon_hero(hero_name)
+	var resolved_id := ""
+	if selected_start_weapons_by_hero.has(hero):
+		resolved_id = normalize_start_weapon_id(str(selected_start_weapons_by_hero[hero]))
+		if not is_start_weapon_available(resolved_id):
+			selected_start_weapons_by_hero.erase(hero)
+			resolved_id = ""
+	if resolved_id.is_empty():
+		resolved_id = get_default_start_weapon_for_hero(hero)
+	selected_start_weapon = resolved_id
+	return resolved_id
+
+func set_selected_start_weapon(weapon_id: String, hero_name: String = "") -> void:
+	var hero := _get_current_start_weapon_hero(hero_name)
+	var normalized_id := normalize_start_weapon_id(weapon_id)
+	if not is_start_weapon_available(normalized_id):
+		normalized_id = get_default_start_weapon_for_hero(hero)
+	if normalized_id == get_default_start_weapon_for_hero(hero):
+		selected_start_weapons_by_hero.erase(hero)
+	else:
+		selected_start_weapons_by_hero[hero] = normalized_id
+	selected_start_weapon = normalized_id
+
+func _normalize_selected_start_weapon_overrides() -> void:
+	var normalized_overrides: Dictionary = {}
+	for hero_name in selected_start_weapons_by_hero.keys():
+		var hero := str(hero_name)
+		var weapon_id := normalize_start_weapon_id(str(selected_start_weapons_by_hero[hero_name]))
+		if weapon_id.is_empty():
+			continue
+		if is_start_weapon_available(weapon_id):
+			normalized_overrides[hero] = weapon_id
+	selected_start_weapons_by_hero = normalized_overrides
+	selected_start_weapon = get_selected_start_weapon()
 
 func _default_skill_config() -> Dictionary:
 	return {
@@ -1156,6 +1757,7 @@ func _show_save_indicator() -> void:
 func save_game():
 	# 显示保存指示器动画
 	_show_save_indicator()
+	_normalize_selected_start_weapon_overrides()
 
 	var config = ConfigFile.new()
 	var data = {
@@ -1188,15 +1790,27 @@ func save_game():
 		"shop_battle_refresh_count": shop_battle_refresh_count,
 		"shop_lingshi_unit_price": shop_lingshi_unit_price,
 		"has_seen_battle_tutorial": has_seen_battle_tutorial,
+		"has_seen_town_tutorial": has_seen_town_tutorial,
 		"has_seen_peach_grove_dialogue": has_seen_peach_grove_dialogue,
 		"has_seen_peach_grove_boss": has_seen_peach_grove_boss,
 		"has_seen_peach_grove_boss_charge": has_seen_peach_grove_boss_charge,
 		"total_defeat_count": total_defeat_count,
+		"has_seen_story_2": has_seen_story_2,
+		"has_seen_story_3": has_seen_story_3,
+		"has_seen_story_4": has_seen_story_4,
+		"has_seen_story_5": has_seen_story_5,
+		"has_seen_story_7": has_seen_story_7,
+		"has_seen_story_8": has_seen_story_8,
+		"has_seen_liandan_tutorial": has_seen_liandan_tutorial,
+		"has_seen_shop_tutorial": has_seen_shop_tutorial,
+		"has_seen_poem_tutorial": has_seen_poem_tutorial,
 		"shop_first_entered": shop_first_entered,
 		"shop_saved_items": shop_saved_items,
 		"has_visited_town": has_visited_town,
 		"is_first_game": is_first_game,
 		"stage_difficulty_clear_progress": stage_difficulty_clear_progress,
+		"core_depth_clear_progress": core_depth_clear_progress,
+		"selected_core_depth": selected_core_depth,
 		"recipe_unlock_progress": recipe_unlock_progress,
 
 
@@ -1324,6 +1938,9 @@ func save_game():
 		"study_chiyan_enhance_damage_bonus": study_chiyan_enhance_damage_bonus,
 		"player_active_skill_data": player_active_skill_data,
 		"player_now_active_skill": player_now_active_skill,
+		"available_start_weapons": available_start_weapons,
+		"selected_start_weapons_by_hero": selected_start_weapons_by_hero,
+		"achievement_data": get_node_or_null("/root/AchievementManager").export_save_data() if get_node_or_null("/root/AchievementManager") != null else {},
 		"max_main_skill_num": max_main_skill_num,
 		"max_weapon_num": max_weapon_num,
 		"emblem_slots_max": emblem_slots_max,
@@ -1337,6 +1954,7 @@ func save_game():
 		"damage_show_enabled": damage_show_enabled,
 		"damage_show_type": damage_show_type,
 		"particle_enable": particle_enable,
+		"moretip": moretip,
 		"screen_shake_enabled": screen_shake_enabled,
 		"time_slow_enabled": time_slow_enabled,
 		"is_test": is_test,
@@ -1391,14 +2009,24 @@ func load_game():
 	shop_level = clampi(int(config.get_value("save", "shop_level", shop_level)), 1, 8)
 	shop_battle_refresh_count = clampi(int(config.get_value("save", "shop_battle_refresh_count", shop_battle_refresh_count)), 0, refresh_max_num)
 	shop_lingshi_unit_price = max(int(config.get_value("save", "shop_lingshi_unit_price", shop_lingshi_unit_price)), 50)
-	shop_first_entered = bool(config.get_value("save", "shop_first_entered", shop_first_entered))
-	has_visited_town = bool(config.get_value("save", "has_visited_town", false))
-	is_first_game = bool(config.get_value("save", "is_first_game", true))
-	has_seen_battle_tutorial = bool(config.get_value("save", "has_seen_battle_tutorial", false))
-	has_seen_peach_grove_dialogue = bool(config.get_value("save", "has_seen_peach_grove_dialogue", false))
-	has_seen_peach_grove_boss = bool(config.get_value("save", "has_seen_peach_grove_boss", false))
-	has_seen_peach_grove_boss_charge = bool(config.get_value("save", "has_seen_peach_grove_boss_charge", false))
+	shop_first_entered = config.get_value("save", "shop_first_entered", shop_first_entered) == true
+	has_visited_town = config.get_value("save", "has_visited_town", false) == true
+	is_first_game = config.get_value("save", "is_first_game", true) == true
+	has_seen_battle_tutorial = config.get_value("save", "has_seen_battle_tutorial", false) == true
+	has_seen_town_tutorial = config.get_value("save", "has_seen_town_tutorial", false) == true
+	has_seen_peach_grove_dialogue = config.get_value("save", "has_seen_peach_grove_dialogue", false) == true
+	has_seen_peach_grove_boss = config.get_value("save", "has_seen_peach_grove_boss", false) == true
+	has_seen_peach_grove_boss_charge = config.get_value("save", "has_seen_peach_grove_boss_charge", false) == true
 	total_defeat_count = int(config.get_value("save", "total_defeat_count", 0))
+	has_seen_story_2 = config.get_value("save", "has_seen_story_2", false) == true
+	has_seen_story_3 = config.get_value("save", "has_seen_story_3", false) == true
+	has_seen_story_4 = config.get_value("save", "has_seen_story_4", false) == true
+	has_seen_story_5 = config.get_value("save", "has_seen_story_5", false) == true
+	has_seen_story_7 = config.get_value("save", "has_seen_story_7", false) == true
+	has_seen_story_8 = config.get_value("save", "has_seen_story_8", false) == true
+	has_seen_liandan_tutorial = config.get_value("save", "has_seen_liandan_tutorial", false) == true
+	has_seen_shop_tutorial = config.get_value("save", "has_seen_shop_tutorial", false) == true
+	has_seen_poem_tutorial = config.get_value("save", "has_seen_poem_tutorial", false) == true
 	var loaded_shop_items = config.get_value("save", "shop_saved_items", [])
 	if typeof(loaded_shop_items) == TYPE_ARRAY:
 		shop_saved_items = (loaded_shop_items as Array).duplicate(true)
@@ -1409,6 +2037,12 @@ func load_game():
 		stage_difficulty_clear_progress = (loaded_stage_clear_progress as Dictionary).duplicate(true)
 	else:
 		stage_difficulty_clear_progress = stage_difficulty_clear_progress.duplicate(true)
+	var loaded_core_depth_clear_progress = config.get_value("save", "core_depth_clear_progress", core_depth_clear_progress)
+	if typeof(loaded_core_depth_clear_progress) == TYPE_DICTIONARY:
+		core_depth_clear_progress = (loaded_core_depth_clear_progress as Dictionary).duplicate(true)
+	else:
+		core_depth_clear_progress = core_depth_clear_progress.duplicate(true)
+	selected_core_depth = clamp_core_depth(int(config.get_value("save", "selected_core_depth", selected_core_depth)))
 	_normalize_stage_difficulty_clear_progress()
 	if player_inventory.has(LINGSHI_ITEM_ID):
 		lingshi += int(player_inventory[LINGSHI_ITEM_ID])
@@ -1423,7 +2057,7 @@ func load_game():
 	unlock_yiqiu = config.get_value("save", "unlock_yiqiu", true)
 	unlock_noam = config.get_value("save", "unlock_noam", false)
 	unlock_kansel = config.get_value("save", "unlock_kansel", false)
-	refresh_max_num = config.get_value("save", "refresh_max_num", 3)
+	refresh_max_num = config.get_value("save", "refresh_max_num", 5)
 	cultivation_unlock_progress = config.get_value("save", "cultivation_unlock_progress", 0)
 	cultivation_poxu_level = config.get_value("save", "cultivation_poxu_level", 0)
 	cultivation_xuanyuan_level = config.get_value("save", "cultivation_xuanyuan_level", 0)
@@ -1569,6 +2203,34 @@ func load_game():
 		if player_active_skill_data.has(_sid):
 			player_active_skill_data[_sid]["icon"] = _skill_icon_table[_sid]
 	player_now_active_skill = config.get_value("save", "player_now_active_skill", player_now_active_skill)
+	var loaded_start_weapons = config.get_value("save", "available_start_weapons", available_start_weapons)
+	if typeof(loaded_start_weapons) == TYPE_ARRAY:
+		var normalized_start_weapons: Array[String] = []
+		for weapon_id in loaded_start_weapons:
+			normalized_start_weapons.append(normalize_start_weapon_id(str(weapon_id)))
+		available_start_weapons = normalized_start_weapons
+	else:
+		var default_start_weapons: Array[String] = ["Swordqi", "Qigong"]
+		available_start_weapons = default_start_weapons
+	sync_available_start_weapons()
+	var has_selected_start_weapon_overrides := config.has_section_key("save", "selected_start_weapons_by_hero")
+	var loaded_start_weapon_overrides = config.get_value("save", "selected_start_weapons_by_hero", {})
+	selected_start_weapons_by_hero = {}
+	if typeof(loaded_start_weapon_overrides) == TYPE_DICTIONARY:
+		selected_start_weapons_by_hero = (loaded_start_weapon_overrides as Dictionary).duplicate(true)
+	if not has_selected_start_weapon_overrides and config.has_section_key("save", "selected_start_weapon"):
+		var legacy_weapon_id := normalize_start_weapon_id(str(config.get_value("save", "selected_start_weapon", selected_start_weapon)))
+		var current_hero := _get_current_start_weapon_hero()
+		if is_start_weapon_available(legacy_weapon_id) and legacy_weapon_id != get_default_start_weapon_for_hero(current_hero):
+			selected_start_weapons_by_hero[current_hero] = legacy_weapon_id
+	_normalize_selected_start_weapon_overrides()
+	var achievement_manager = get_node_or_null("/root/AchievementManager")
+	if achievement_manager != null and achievement_manager.has_method("import_save_data"):
+		var achievement_data = config.get_value("save", "achievement_data", {})
+		if typeof(achievement_data) == TYPE_DICTIONARY:
+			achievement_manager.import_save_data(achievement_data)
+		sync_available_start_weapons()
+		_normalize_selected_start_weapon_overrides()
 	# 旧存档兼容：扁平格式（顶层键含 "space"）→ 迁移为角色嵌套格式
 	if player_now_active_skill.has("space"):
 		var _old_config = player_now_active_skill.duplicate(true)
@@ -1597,6 +2259,7 @@ func load_game():
 	damage_show_enabled = config.get_value("save", "damage_show_enabled", true)
 	damage_show_type = config.get_value("save", "damage_show_type", 2)
 	particle_enable = config.get_value("save", "particle_enable", true)
+	moretip = config.get_value("save", "moretip", true) == true
 	screen_shake_enabled = config.get_value("save", "screen_shake_enabled", true)
 	time_slow_enabled = config.get_value("save", "time_slow_enabled", false)
 	is_test = config.get_value("save", "is_test", is_test)
@@ -1645,15 +2308,18 @@ func _on_monster_damage(damage_type_int: int, damage_value: float, world_positio
 	record_damage_for_dps(damage_value, weapon_name)
 
 func _on_player_heal(heal_value: float, world_position: Vector2):
+	if PC.is_game_over:
+		return
 	emit_signal("player_healed", heal_value)
 	if damage_show_enabled:
 		var lbl = _create_damage_label()
 		if lbl: lbl.show_damage_number(9, heal_value, world_position)
 
 func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, world_position: Vector2, source_name: String = ""):
-	if not damage_show_enabled: return
 	if shield_val > 0:
 		emit_signal("player_shield_damaged", shield_val)
+	if not damage_show_enabled: return
+	if shield_val > 0:
 		var lbl = _create_damage_label()
 		if lbl: lbl.show_damage_number(10, shield_val, world_position, source_name)
 	if damage_val > 0:
@@ -1672,6 +2338,13 @@ func _on_player_hit_ignore_invincible(damage_val: float, shield_val: float, atta
 
 func _create_damage_label() -> Node2D:
 	if _active_damage_label_count >= MAX_DAMAGE_LABELS: return null
+	var frame := Engine.get_process_frames()
+	if frame != _damage_label_frame:
+		_damage_label_frame = frame
+		_damage_label_count_this_frame = 0
+	if _damage_label_count_this_frame >= MAX_DAMAGE_LABELS_PER_FRAME:
+		return null
+	_damage_label_count_this_frame += 1
 	var instance = damage_label_pool.acquire(self )
 	instance.z_index = 100
 	_active_damage_label_count += 1
@@ -1691,11 +2364,15 @@ func get_current_dps() -> float:
 	if poetry_dps_override >= 0.0:
 		return poetry_dps_override
 	return current_dps
+func get_highest_dps() -> float:
+	if poetry_dps_override >= 0.0:
+		return max(highest_dps, poetry_dps_override)
+	return highest_dps
 func get_weapon_dps() -> Dictionary: return weapon_dps
 
 # 兼容旧逻辑函数
 func reset_dps_counter() -> void:
-	dps_damage_records.clear(); current_dps = 0.0; weapon_dps.clear()
+	_reset_dps_buckets(); current_dps = 0.0; highest_dps = 0.0; weapon_dps.clear()
 	poetry_dps_override = -1.0
 	if dps_timer: dps_timer.start()
 func stop_dps_counter() -> void:

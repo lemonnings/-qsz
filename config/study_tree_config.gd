@@ -34,3 +34,8 @@ static func get_entry(id: String) -> Dictionary:
 	if not _loaded:
 		load_data()
 	return _data.get(id, {})
+
+static func get_all_entries() -> Dictionary:
+	if not _loaded:
+		load_data()
+	return _data.duplicate(true)

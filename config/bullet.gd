@@ -7,6 +7,7 @@ extends Area2D
 # 预加载剑痕场景
 const SwordWaveScene = preload("res://Scenes/sword_wave.tscn")
 const BulletScene = preload("res://Scenes/bullet.tscn")
+const MAX_LIFETIME: float = 3.0
 
 # 子弹的伤害和暴击状态（在创建时确定）
 var bullet_damage: float = 0.0
@@ -18,6 +19,7 @@ var traveled_distance: float = 0.0 # 已飞行距离
 var is_fading: bool = false # 是否正在渐隐
 var fade_timer: float = 0.0 # 渐隐计时器
 var fade_duration: float = 0.1 # 渐隐持续时间（秒）
+var lifetime_timer: float = 0.0
 @export var sprite: Sprite2D # 获取精灵节点引用
 @export var sprite_summon: Sprite2D # 获取精灵节点引用
 @export var collision_shape: CollisionShape2D # 获取碰撞形状节点引用
@@ -63,6 +65,7 @@ var has_hit_target: bool = false # 是否已击中目标
 func _ready() -> void:
 	# 记录子弹起始位置
 	start_position = global_position
+	lifetime_timer = 0.0
 	bullet_range = bullet_range * Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
 	
 	# 检查是否启用剑波痕迹
@@ -80,14 +83,16 @@ func _ready() -> void:
 	# 初始化碰撞形状大小
 	update_collision_shape_size()
 	
-	await get_tree().create_timer(3).timeout
-	if !Global.is_level_up:
-		queue_free()
 	# 初始化时设置精灵方向
 	sprite_summon.visible = false
 	_update_sprite_rotation()
 
 func _physics_process(delta: float) -> void:
+	lifetime_timer += delta
+	if lifetime_timer >= MAX_LIFETIME:
+		queue_free()
+		return
+	
 	if if_summon:
 		sprite.visible = false
 		sprite_summon.visible = true
@@ -133,8 +138,8 @@ func _physics_process(delta: float) -> void:
 			collision_shape.set_deferred("disabled", true)
 		
 		# 渐隐完成后销毁子弹
-			if fade_progress >= 1.0:
-				queue_free()
+		if fade_progress >= 1.0:
+			queue_free()
 
 # 开始渐隐动画
 func start_fade_out() -> void:

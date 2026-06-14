@@ -11,6 +11,7 @@ func _setup_stage_config() -> void:
 	STAGE_ID = "forest"
 	SPAWN_INTERVAL_SECONDS = 3.85
 	INITIAL_MONSTER_LIMIT = 39
+	WAVE_SPAWN_INCREASE_STEP = 10
 	DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD = 0.3
 	DYNAMIC_BALANCE_SPAWN_MAX_BONUS = 5.0
 	DYNAMIC_BALANCE_HP_MAX_REDUCTION = 0.3
@@ -29,6 +30,19 @@ func _setup_stage_config() -> void:
 		{"type": "extra", "weight": 3, "blocked_early": false}
 	]
 
+func _get_corrupted_elite_spawn_data(spawn_type: String) -> Dictionary:
+	match spawn_type:
+		"slime":
+			return {"scene": slime_scene, "monster_id": "shen"}
+		"bat":
+			return {"scene": bat_scene, "monster_id": "frog_new"}
+		"frog":
+			return {"scene": frog_scene, "monster_id": "slime"}
+		"extra":
+			return {"scene": extra_scene, "monster_id": "ball"}
+		_:
+			return {}
+
 # ============== 初始化 ==============
 func _ready() -> void:
 	super () # 调用基类 _ready()（含 _setup_stage_config、计时器、信号连接等）
@@ -45,7 +59,7 @@ func _ready() -> void:
 
 # ============== Boss位置（覆盖基类默认值）==============
 func _get_boss_position() -> Vector2:
-	return Vector2(-370, randf_range(185, 259))
+	return Vector2(0, 240)
 
 # ============== 覆盖 _on_warning_finished：stage4 Boss为石碑 ==============
 func _on_warning_finished() -> void:
@@ -114,6 +128,8 @@ func _spawn_wave() -> void:
 
 	# 逐个生成，间隔0.1秒
 	for i in range(spawn_list.size()):
+		if boss_event_triggered:
+			return
 		if current_monster_count >= max_monster_limit:
 			break
 		match spawn_list[i]:
@@ -126,12 +142,14 @@ func _spawn_wave() -> void:
 			"extra":
 				_spawn_single_extra()
 		if i < spawn_list.size() - 1:
-			if not is_inside_tree():
+			if not is_inside_tree() or boss_event_triggered:
 				return
 			await get_tree().create_timer(0.1).timeout
-			if not is_inside_tree():
+			if not is_inside_tree() or boss_event_triggered:
 				return
 
+	if boss_event_triggered:
+		return
 	monster_spawn_timer.start()
 
 # ============== 单体怪物生成 ==============
@@ -153,6 +171,7 @@ func _spawn_single_slime() -> void:
 			spawn_position = Vector2(305, randf_range(-15, 560))
 	slime_node.position = spawn_position
 	get_tree().current_scene.add_child(slime_node)
+	_mark_spirit_enemy_type(slime_node, false)
 	_try_make_elite(slime_node)
 	_apply_dynamic_hp_reduction(slime_node)
 	_apply_late_game_speed_bonus(slime_node)
@@ -179,6 +198,7 @@ func _spawn_single_bat() -> void:
 			spawn_position = Vector2(305, randf_range(-15, 560))
 	bat_node.position = spawn_position
 	get_tree().current_scene.add_child(bat_node)
+	_mark_spirit_enemy_type(bat_node, false)
 	_try_make_elite(bat_node)
 	_apply_dynamic_hp_reduction(bat_node)
 	_apply_late_game_speed_bonus(bat_node)
@@ -206,6 +226,7 @@ func _spawn_single_frog() -> void:
 			spawn_position = Vector2(400, randf_range(15, 650))
 	frog_node.position = spawn_position
 	get_tree().current_scene.add_child(frog_node)
+	_mark_spirit_enemy_type(frog_node, true)
 	_try_make_elite(frog_node)
 	_apply_dynamic_hp_reduction(frog_node)
 	_apply_late_game_speed_bonus(frog_node)
@@ -214,7 +235,7 @@ func _spawn_single_frog() -> void:
 	tween.tween_property(frog_node, "modulate:a", 1.0, 0.7)
 	current_monster_count += 1
 	frog_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
-	frog_node.connect("tree_exiting", func(): other_type_alive = max(0, other_type_alive - 1))
+	frog_node.connect("tree_exiting", Callable(self, "_on_other_type_monster_tree_exiting"))
 
 func _spawn_single_extra() -> void:
 	if not is_inside_tree() or get_tree().current_scene == null:
@@ -234,6 +255,7 @@ func _spawn_single_extra() -> void:
 			spawn_position = Vector2(400, randf_range(15, 650))
 	extra_node.position = spawn_position
 	get_tree().current_scene.add_child(extra_node)
+	_mark_spirit_enemy_type(extra_node, true)
 	_try_make_elite(extra_node)
 	_apply_dynamic_hp_reduction(extra_node)
 	_apply_late_game_speed_bonus(extra_node)
@@ -242,4 +264,4 @@ func _spawn_single_extra() -> void:
 	tween.tween_property(extra_node, "modulate:a", 1.0, 0.7)
 	current_monster_count += 1
 	extra_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
-	extra_node.connect("tree_exiting", func(): other_type_alive = max(0, other_type_alive - 1))
+	extra_node.connect("tree_exiting", Callable(self, "_on_other_type_monster_tree_exiting"))

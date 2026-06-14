@@ -26,8 +26,10 @@ func _ready():
 	var tween = create_tween()
 	tween.tween_property(self , "modulate:a", 0.65, FADE_IN_TIME)
 
-	body_entered.connect(_on_body_entered)
-	body_exited.connect(_on_body_exited)
+	if not body_entered.is_connected(_on_body_entered):
+		body_entered.connect(_on_body_entered)
+	if not body_exited.is_connected(_on_body_exited):
+		body_exited.connect(_on_body_exited)
 
 func _process(delta: float) -> void:
 	life_timer += delta

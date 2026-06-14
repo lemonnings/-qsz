@@ -6,9 +6,11 @@ extends CanvasLayer
 @export var about_button: Button
 @export var background: Sprite2D
 @export var settings_layer: CanvasLayer
+@export var about: Panel
+@export var about_exit: Button
 
 ## 背景动态动画参数
-const BG_ANIM_DURATION := 5.0 ## 每次动画持续秒数
+const BG_ANIM_DURATION := 10.0 ## 每次动画持续秒数
 const BG_SCALE_RANGE := 0.1 ## 缩放变化范围（±0.1倍）
 const BG_MOVE_RANGE_MIN := 10.0 ## 移动最小像素
 const BG_MOVE_RANGE_MAX := 15.0 ## 移动最大像素
@@ -107,7 +109,25 @@ func _on_exit_setting() -> void:
 		)
 
 func _on_about_pressed() -> void:
-	_show_tip("该功能暂未制作")
+	if not about:
+		return
+	about.visible = true
+	about.modulate.a = 0.0
+	var tween = create_tween()
+	tween.tween_property(about, "modulate:a", 1.0, 0.2)
+	if about_exit:
+		if not about_exit.pressed.is_connected(_on_about_exit_pressed):
+			about_exit.pressed.connect(_on_about_exit_pressed)
+
+func _on_about_exit_pressed() -> void:
+	if not about:
+		return
+	var tween = create_tween()
+	tween.tween_property(about, "modulate:a", 0.0, 0.2)
+	tween.tween_callback(func():
+		about.visible = false
+		about.modulate.a = 1.0
+	)
 
 func _show_tip(msg: String) -> void:
 	Tip.start_animation(msg, 0.5)

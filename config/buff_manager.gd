@@ -91,7 +91,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_bagua.png",
 		BuffType.PERMANENT,
 		9999,
-		"已完成推衍的层数，每层提升4%的八卦类武器伤害加成与经验获取"
+		"已完成推衍的层数，每层提升4%的经验获取"
 	)
 	
 	buff_configs["huanfeng"] = BuffData.new(
@@ -119,6 +119,15 @@ static func _init_buff_configs():
 		BuffType.TEMPORARY,
 		1,
 		"持续恢复体力"
+	)
+
+	buff_configs["pain_relief"] = BuffData.new(
+		"pain_relief",
+		"痛楚减弱",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanghen.png",
+		BuffType.TEMPORARY,
+		1,
+		"受伤后持续恢复体力"
 	)
 
 	buff_configs["water_sheild"] = BuffData.new(
@@ -256,13 +265,67 @@ static func _init_buff_configs():
 		"每移动200米，治愈精华掉落率+1%"
 	)
 	
+	buff_configs["move_armor_sr77"] = BuffData.new(
+		"move_armor_sr77",
+		"苦修·佑",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/fangyu.png",
+		BuffType.PERMANENT,
+		9999,
+		"每移动300米，护甲+1"
+	)
+	
+	buff_configs["move_exp_sr72"] = BuffData.new(
+		"move_exp_sr72",
+		"苦修·悟",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunbu.png",
+		BuffType.PERMANENT,
+		9999,
+		"每移动300米，经验获取率+1%"
+	)
+	
+	buff_configs["move_drop_sr73"] = BuffData.new(
+		"move_drop_sr73",
+		"苦修·缘",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunbu.png",
+		BuffType.PERMANENT,
+		9999,
+		"每移动300米，治愈精华掉落率+1%"
+	)
+	
+	buff_configs["move_lucky_sr74"] = BuffData.new(
+		"move_lucky_sr74",
+		"苦修·道",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunbu.png",
+		BuffType.PERMANENT,
+		9999,
+		"每移动450米，天命+1"
+	)
+	
+	buff_configs["move_lucky_ssr75"] = BuffData.new(
+		"move_lucky_ssr75",
+		"行修·道",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunbu.png",
+		BuffType.PERMANENT,
+		9999,
+		"每移动300米，天命+1"
+	)
+	
+	buff_configs["move_armor_ssr78"] = BuffData.new(
+		"move_armor_ssr78",
+		"行修·佑",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/fangyu.png",
+		BuffType.PERMANENT,
+		9999,
+		"每移动200米，护甲+1"
+	)
+	
 	buff_configs["xianqi"] = BuffData.new(
 		"xianqi",
 		"仙气凝聚",
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xianqiningju.png",
 		BuffType.PERMANENT,
 		9999,
-		"仙气凝聚中，每移动200米汇聚1点仙气"
+		"仙气凝聚中，通过领悟可以获取更多仙气"
 	)
 	
 	buff_configs["xianli"] = BuffData.new(

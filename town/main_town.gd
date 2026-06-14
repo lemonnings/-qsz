@@ -50,17 +50,29 @@ var ui_states: Dictionary = {}
 var player: CharacterBody2D
 const SHOP_LAYER_SCENE := preload("res://Scenes/town/shop_layer.tscn")
 const JC_LAYER_SCENE := preload("res://Scenes/town/jc_layer.tscn")
+const ACHIEVEMENT_LAYER_SCENE := preload("res://Scenes/town/achievement‌_layer.tscn")
 var jcLayerInstance: CanvasLayer
+var achievementLayerInstance: CanvasLayer
 const CHICK_SCENE := preload("res://Scenes/town/animal/chick.tscn")
 const RABBIT_SCENE := preload("res://Scenes/town/animal/rabbit.tscn")
 var shopLayer: CanvasLayer
 
+const CAMERA_ZOOM_LOCK_ACHIEVEMENT := "achievement"
+const CAMERA_ZOOM_LOCK_SHOP := "shop"
+const CAMERA_ZOOM_LOCK_HERO := "hero"
+const CAMERA_ZOOM_LOCK_LEVEL_SELECT := "level_select"
+const CAMERA_ZOOM_LOCK_CULTIVATION := "cultivation"
+const CAMERA_ZOOM_LOCK_STUDY := "study"
+
 
 func _ready() -> void:
+	Global.reset_game_speed()
 	# 设置音效使用SFX总线
 	setup_audio_buses()
 	player = $Player
 	Global.load_game()
+	Global.reset_camera_zoom_locks()
+	Global.in_synthesis = false
 	
 	# 重置玩家属性
 	PC.reset_player_attr()
@@ -84,6 +96,80 @@ func _ready() -> void:
 
 	# 随机生成小动物
 	_spawn_animals()
+
+	# 按顺序检查并触发教程
+	_check_and_trigger_tutorials()
+
+## 首次进入城镇触发城镇教程
+func _trigger_town_tutorial() -> void:
+	await get_tree().create_timer(0.75).timeout
+	if not is_inside_tree() or get_tree() == null:
+		return
+	if Global.has_seen_town_tutorial:
+		return
+	var tutorial_scene = load("res://Scenes/town/town_tutorial.tscn")
+	if tutorial_scene:
+		var tutorial = tutorial_scene.instantiate()
+		add_child(tutorial)
+	Global.has_seen_town_tutorial = true
+	Global.save_game()
+
+## 按顺序检查并触发待显示的教程
+func _check_and_trigger_tutorials() -> void:
+	# 首次进入城镇教程
+	if not Global.has_seen_town_tutorial:
+		await _trigger_town_tutorial()
+	# 看完story3后触发炼丹炉教程
+	if Global.has_seen_story_3 and not Global.has_seen_liandan_tutorial:
+		await _trigger_liandan_tutorial()
+	# 看完story4后触发神秘商铺教程
+	if Global.has_seen_story_4 and not Global.has_seen_shop_tutorial:
+		await _trigger_shop_tutorial()
+	# 看完story8后触发诗想难度教程
+	if Global.has_seen_story_8 and not Global.has_seen_poem_tutorial:
+		await _trigger_poem_tutorial()
+
+## 看完story3后触发炼丹炉教程
+func _trigger_liandan_tutorial() -> void:
+	await get_tree().create_timer(0.75).timeout
+	if not is_inside_tree() or get_tree() == null:
+		return
+	if Global.has_seen_liandan_tutorial:
+		return
+	var tutorial_scene = load("res://Scenes/town/liandan_tutorial.tscn")
+	if tutorial_scene:
+		var tutorial = tutorial_scene.instantiate()
+		add_child(tutorial)
+	Global.has_seen_liandan_tutorial = true
+	Global.save_game()
+
+## 看完story8后触发诗想难度教程
+func _trigger_poem_tutorial() -> void:
+	await get_tree().create_timer(0.75).timeout
+	if not is_inside_tree() or get_tree() == null:
+		return
+	if Global.has_seen_poem_tutorial:
+		return
+	var tutorial_scene = load("res://Scenes/town/poem_tutorial.tscn")
+	if tutorial_scene:
+		var tutorial = tutorial_scene.instantiate()
+		add_child(tutorial)
+	Global.has_seen_poem_tutorial = true
+	Global.save_game()
+
+## 看完story4后触发神秘商铺教程
+func _trigger_shop_tutorial() -> void:
+	await get_tree().create_timer(0.75).timeout
+	if not is_inside_tree() or get_tree() == null:
+		return
+	if Global.has_seen_shop_tutorial:
+		return
+	var tutorial_scene = load("res://Scenes/town/shop_tutorial.tscn")
+	if tutorial_scene:
+		var tutorial = tutorial_scene.instantiate()
+		add_child(tutorial)
+	Global.has_seen_shop_tutorial = true
+	Global.save_game()
 
 ## 随机生成小动物（1~2只小鸡和1~2只兔子）
 func _spawn_animals() -> void:
@@ -122,8 +208,6 @@ func _apply_feature_unlocks() -> void:
 	var danlu_unlocked = Global.total_defeat_count >= 2
 	if danlu:
 		danlu.visible = danlu_unlocked
-		if danlu_unlocked:
-			_create_npc_shadow(danlu)
 	
 	# 坎(神秘商铺)：全局第3次失败后解锁
 	var merchant_unlocked = Global.total_defeat_count >= 3
@@ -148,17 +232,21 @@ func _apply_feature_unlocks() -> void:
 
 ## 为初始可见的NPC添加脚底阴影
 func _setup_npc_shadows() -> void:
-	for npc in [cystal, levelUpMan, portal]:
+	for npc in [levelUpMan]:
 		if npc:
 			_create_npc_shadow(npc)
+	# 乾长老体型较大，阴影偏移y=40
+	if cystal:
+		_create_npc_shadow(cystal, 34.0)
+	if portal:
+		return
 
 ## 为NPC创建脚底阴影
-## NPC纹理128x128，居中后脚底约在本地y=+55处
 ## 阴影需在脚底下方，使用show_behind_parent确保绘制在NPC后面
-func _create_npc_shadow(npc: AnimatedSprite2D) -> void:
+func _create_npc_shadow(npc: AnimatedSprite2D, offset_y: float = 21.0) -> void:
 	if npc.has_node("Shadow"):
 		return
-	var shadow = CharacterEffects.create_shadow(npc, 40.0, 14.0, 55.0)
+	var shadow = CharacterEffects.create_shadow(npc, 40.0, 14.0, offset_y)
 	shadow.z_index = 0
 	shadow.z_as_relative = true
 	shadow.show_behind_parent = true
@@ -230,15 +318,10 @@ func setup_audio_buses() -> void:
 	Global.connect("press_h", Callable(self , "press_interact3"))
 	heroLayer.exit_button.pressed.connect(_on_exit_pressed)
 	_ensure_shop_layer()
-	# 连接 JC 按钮
-	defaultLayer.jc_button.pressed.connect(_on_jc_button_pressed)
-	
-	# 首次进入城镇自动打开教程
-	if not Global.has_visited_town:
-		Global.has_visited_town = true
-		Global.save_game()
-		# 稍作延迟，等场景完全初始化后再打开
-		get_tree().create_timer(0.3).timeout.connect(_on_jc_button_pressed)
+	_ensure_achievement_layer()
+	if defaultLayer.has_signal("achievement_pressed") and not defaultLayer.achievement_pressed.is_connected(_on_achievement_button_pressed):
+		defaultLayer.achievement_pressed.connect(_on_achievement_button_pressed)
+	call_deferred("_play_pending_achievement_unlocks")
 
 func _ensure_jc_layer() -> void:
 	if is_instance_valid(jcLayerInstance):
@@ -262,9 +345,51 @@ func _on_jc_button_pressed() -> void:
 		ui_tweens["dark_overlay"] = create_tween()
 		dark_overlay.visible = true
 		dark_overlay.modulate.a = 0.0
-		ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
+		ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 0.55, 0.15)
 	if jcLayerInstance.has_method("open_layer"):
 		jcLayerInstance.open_layer()
+
+func _ensure_achievement_layer() -> void:
+	if is_instance_valid(achievementLayerInstance):
+		return
+	achievementLayerInstance = ACHIEVEMENT_LAYER_SCENE.instantiate()
+	if canvasLayer != null:
+		achievementLayerInstance.layer = canvasLayer.layer + 1
+	achievementLayerInstance.visible = false
+	add_child(achievementLayerInstance)
+	if achievementLayerInstance.has_signal("exit_requested") and not achievementLayerInstance.exit_requested.is_connected(_on_exit_pressed):
+		achievementLayerInstance.exit_requested.connect(_on_exit_pressed)
+
+func _on_achievement_button_pressed() -> void:
+	_ensure_achievement_layer()
+	PC.movement_disabled = true
+	if defaultLayer.has_method("set_achievement_layer_open"):
+		defaultLayer.set_achievement_layer_open(true)
+	defaultLayer.visible = false
+	Global.lock_camera_zoom(CAMERA_ZOOM_LOCK_ACHIEVEMENT)
+	if dark_overlay:
+		if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
+			ui_tweens["dark_overlay"].kill()
+		ui_tweens["dark_overlay"] = create_tween()
+		dark_overlay.visible = true
+		dark_overlay.modulate.a = 0.0
+		ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 0.55, 0.15)
+	if ui_tweens.has("achievementLayer") and ui_tweens["achievementLayer"]:
+		ui_tweens["achievementLayer"].kill()
+	ui_tweens["achievementLayer"] = create_tween()
+	ui_tweens["achievementLayer"].set_parallel(true)
+	if achievementLayerInstance.has_method("open_layer"):
+		achievementLayerInstance.open_layer()
+	var achievement_panel := achievementLayerInstance.get_node_or_null("Panel")
+	if achievement_panel and achievement_panel.has_method("set_modulate"):
+		achievement_panel.modulate.a = 0.0
+		ui_tweens["achievementLayer"].tween_property(achievement_panel, "modulate:a", 1.0, 0.15).set_delay(0.15)
+
+func _play_pending_achievement_unlocks() -> void:
+	await get_tree().create_timer(1.0).timeout
+	if not is_inside_tree():
+		return
+	AchievementManager.show_pending_popups()
 
 # UI动画处理函数
 func _ensure_shop_layer() -> void:
@@ -280,6 +405,7 @@ func _open_shop_layer() -> void:
 	_ensure_shop_layer()
 	PC.movement_disabled = true
 	defaultLayer.visible = false
+	Global.lock_camera_zoom(CAMERA_ZOOM_LOCK_SHOP)
 	if dark_overlay:
 		if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
 			ui_tweens["dark_overlay"].kill()
@@ -405,6 +531,7 @@ func press_interact():
 	if player.global_position.distance_to(cystal.global_position) < interaction_distance:
 		PC.movement_disabled = true
 		defaultLayer.visible = false
+		Global.lock_camera_zoom(CAMERA_ZOOM_LOCK_HERO)
 		if dark_overlay:
 			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
 				ui_tweens["dark_overlay"].kill()
@@ -432,6 +559,7 @@ func press_interact():
 	if player.global_position.distance_to(portal.global_position) < interaction_distance + 20:
 		PC.movement_disabled = true
 		defaultLayer.visible = false
+		Global.lock_camera_zoom(CAMERA_ZOOM_LOCK_LEVEL_SELECT)
 		if dark_overlay:
 			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
 				ui_tweens["dark_overlay"].kill()
@@ -459,6 +587,7 @@ func press_interact():
 
 	if player.global_position.distance_to(levelUpMan.global_position) < interaction_distance - 5:
 		PC.movement_disabled = true
+		Global.lock_camera_zoom(CAMERA_ZOOM_LOCK_CULTIVATION)
 		
 		if dark_overlay:
 			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
@@ -487,6 +616,7 @@ func press_interact():
 
 	if player.global_position.distance_to(danlu.global_position) < interaction_distance + 20 and danlu.visible:
 		PC.movement_disabled = true
+		Global.lock_camera_zoom("synthesis")
 		
 		if dark_overlay:
 			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
@@ -517,6 +647,7 @@ func press_interact():
 		
 	if player.global_position.distance_to(levelUpMan2.global_position) < interaction_distance - 5 and levelUpMan2.visible:
 		PC.movement_disabled = true
+		Global.lock_camera_zoom(CAMERA_ZOOM_LOCK_STUDY)
 		
 		if dark_overlay:
 			if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
@@ -576,6 +707,8 @@ func _on_exit_pressed() -> void:
 	defaultLayer.visible = true
 	defaultLayer.unlock_setting_button()
 	defaultLayer.close_setting_panel()
+	if defaultLayer.has_method("refresh_entry_buttons_enabled"):
+		defaultLayer.refresh_entry_buttons_enabled()
 	
 	var exit_tween = create_tween()
 	exit_tween.set_parallel(true)
@@ -595,6 +728,7 @@ func _on_exit_pressed() -> void:
 		exit_tween.tween_callback(func():
 			if is_instance_valid(levelChangeLayer):
 				levelChangeLayer.visible = false
+				Global.unlock_camera_zoom(CAMERA_ZOOM_LOCK_LEVEL_SELECT)
 				# 重置子节点透明度
 				for child in levelChangeLayer.get_children():
 					if child.has_method("set_modulate"):
@@ -609,6 +743,7 @@ func _on_exit_pressed() -> void:
 		exit_tween.tween_callback(func():
 			if is_instance_valid(cultivationLayer):
 				cultivationLayer.visible = false
+				Global.unlock_camera_zoom(CAMERA_ZOOM_LOCK_CULTIVATION)
 				# 重置子节点透明度
 				for child in cultivationLayer.get_children():
 					if child.has_method("set_modulate"):
@@ -619,6 +754,7 @@ func _on_exit_pressed() -> void:
 	if is_instance_valid(synthesisLayer) and synthesisLayer.visible:
 		# 退出合成界面时，重置合成状态标志
 		Global.in_synthesis = false
+		Global.unlock_camera_zoom("synthesis")
 		for child in synthesisLayer.get_children():
 			if child.has_method("set_modulate"):
 				exit_tween.tween_property(child, "modulate:a", 0.0, 0.1)
@@ -638,6 +774,7 @@ func _on_exit_pressed() -> void:
 		exit_tween.tween_callback(func():
 			if is_instance_valid(heroLayer):
 				heroLayer.visible = false
+				Global.unlock_camera_zoom(CAMERA_ZOOM_LOCK_HERO)
 				for child in heroLayer.get_children():
 					if child.has_method("set_modulate"):
 						child.modulate.a = 1.0
@@ -652,9 +789,28 @@ func _on_exit_pressed() -> void:
 		exit_tween.tween_callback(func():
 			if is_instance_valid(shopLayer):
 				shopLayer.visible = false
+				Global.unlock_camera_zoom(CAMERA_ZOOM_LOCK_SHOP)
 				for child in shopLayer.get_children():
 					if child.has_method("set_modulate"):
 						child.modulate.a = 1.0
+		).set_delay(0.2)
+
+	if is_instance_valid(achievementLayerInstance) and achievementLayerInstance.visible:
+		var achievement_panel := achievementLayerInstance.get_node_or_null("Panel")
+		if achievement_panel and achievement_panel.has_method("set_modulate"):
+			exit_tween.tween_property(achievement_panel, "modulate:a", 0.0, 0.2)
+		exit_tween.tween_callback(func():
+			if is_instance_valid(achievementLayerInstance):
+				if achievementLayerInstance.has_method("close_layer"):
+					achievementLayerInstance.close_layer(false)
+				else:
+					achievementLayerInstance.visible = false
+				Global.unlock_camera_zoom(CAMERA_ZOOM_LOCK_ACHIEVEMENT)
+				var panel := achievementLayerInstance.get_node_or_null("Panel")
+				if panel and panel.has_method("set_modulate"):
+					panel.modulate.a = 1.0
+				if defaultLayer.has_method("set_achievement_layer_open"):
+					defaultLayer.set_achievement_layer_open(false)
 		).set_delay(0.2)
 
 	# 渐出修习界面
@@ -665,6 +821,7 @@ func _on_exit_pressed() -> void:
 		exit_tween.tween_callback(func():
 			if is_instance_valid(studyLayer):
 				studyLayer.visible = false
+				Global.unlock_camera_zoom(CAMERA_ZOOM_LOCK_STUDY)
 				for child in studyLayer.get_children():
 					if child.has_method("set_modulate"):
 						child.modulate.a = 1.0
@@ -674,6 +831,8 @@ func _on_exit_pressed() -> void:
 	if is_instance_valid(jcLayerInstance) and jcLayerInstance.visible:
 		if jcLayerInstance.has_method("_close_layer"):
 			jcLayerInstance._close_layer()
+	if defaultLayer.has_method("refresh_entry_buttons_enabled"):
+		exit_tween.tween_callback(Callable(defaultLayer, "refresh_entry_buttons_enabled")).set_delay(0.25)
 	
 var poetry_choice_layer_scene = preload("res://Scenes/town/poetry_choice_layer.tscn")
 var current_poetry_layer = null
@@ -688,10 +847,20 @@ func _enter_stage(stage_scene_path: String, stage_id: String) -> void:
 		
 	var diff = Global.validate_stage_difficulty_id(Global.selected_stage_difficulty)
 	if diff == Global.STAGE_DIFFICULTY_POETRY:
+		if levelChangeLayer != null:
+			if levelChangeLayer.has_method("suppress_stage_tooltips"):
+				levelChangeLayer.suppress_stage_tooltips(true)
+			elif levelChangeLayer.has_method("reset_stage_tooltip_state"):
+				levelChangeLayer.reset_stage_tooltip_state()
 		if not is_instance_valid(current_poetry_layer):
 			current_poetry_layer = poetry_choice_layer_scene.instantiate()
 			add_child(current_poetry_layer)
-		current_poetry_layer.show_layer(stage_scene_path, stage_id, self)
+		if not current_poetry_layer.has_method("show_layer"):
+			push_error("PoetryChoiceLayer missing show_layer; script=%s" % [current_poetry_layer.get_script()])
+			if tip != null and tip.has_method("start_animation"):
+				tip.start_animation("诗想备战界面加载失败", 0.5)
+			return
+		current_poetry_layer.show_layer(stage_scene_path, stage_id, self )
 		return
 		
 	_do_enter_stage(stage_scene_path, stage_id, diff, false)
@@ -699,6 +868,12 @@ func _enter_stage(stage_scene_path: String, stage_id: String) -> void:
 func _do_enter_stage(stage_scene_path: String, stage_id: String, diff: String, skip_reset: bool = false) -> void:
 	Global.current_stage_id = stage_id
 	Global.current_stage_difficulty = diff
+	if diff == Global.STAGE_DIFFICULTY_CORE:
+		Global.current_core_depth = Global.clamp_core_depth(Global.selected_core_depth)
+	else:
+		Global.current_core_depth = Global.CORE_DEPTH_MIN
+	Global.reset_camera_zoom_locks()
+	Global.in_synthesis = false
 	Global.in_town = false
 	PC.movement_disabled = false
 	if not skip_reset:
@@ -718,7 +893,7 @@ func _on_stage_4_pressed() -> void:
 	_enter_stage(battle_scene_stage4, "forest")
 	
 func refresh_point() -> void:
-	point_label.text = "真气 " + str(Global.total_points)
+	point_label.text = str(Global.total_points)
 
 # 修炼配置数据
 var cultivation_configs = {
@@ -780,6 +955,7 @@ func _on_cmp(cultivation_key: String) -> void:
 		
 		tip.start_animation(config["name"] + "修炼成功！当前等级：" + str(Global.get(config["level_var"])) + " / " + str(max_level), 0.5)
 
+		AchievementManager.scan_meta_progress(false)
 		Global.save_game()
 		refresh_point()
 		

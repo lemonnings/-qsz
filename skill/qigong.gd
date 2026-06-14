@@ -188,6 +188,7 @@ func _on_area_entered(area: Area2D) -> void:
 func _trigger_explosion(direct_hit_target: Area2D) -> void:
 	is_exploding = true
 	velocity = Vector2.ZERO
+	SEManager.play("3")
 	
 	# 隐藏飞行子弹
 	if sprite:

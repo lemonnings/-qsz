@@ -39,6 +39,10 @@ var _dialogue_scene: PackedScene = null
 var _initialized: bool = false
 
 
+# 是否正在处理信号（防止 push_dialogue 发信号时重复处理）
+var _signal_guard: bool = false
+
+
 func _ready() -> void:
 	Global.connect("teammate_dialogue", Callable(self , "_on_teammate_dialogue"))
 
@@ -86,14 +90,20 @@ func _process(delta: float) -> void:
 
 ## 接收信号回调
 func _on_teammate_dialogue(speaker: String, text: String) -> void:
+	if _signal_guard:
+		return
 	var msg := {"speaker": speaker, "text": text}
 	_enqueue_message(msg)
 
 
 ## 程序化推送一条对话（供外部直接调用）
+## 会发出 teammate_dialogue 信号，以便 BattleChat 等系统重置闲聊计时器
 func push_dialogue(speaker: String, text: String) -> void:
+	_signal_guard = true
 	var msg := {"speaker": speaker, "text": text}
 	_enqueue_message(msg)
+	Global.emit_signal("teammate_dialogue", speaker, text)
+	_signal_guard = false
 
 
 ## 批量推送对话序列（带间隔）
@@ -240,7 +250,7 @@ func _get_portrait(speaker: String) -> Texture2D:
 		"坎塞尔", "kansel":
 			texture_path = "res://AssetBundle/Sprites/town/kansel.png"
 		"":
-			return null  # 系统消息无头像
+			return null # 系统消息无头像
 		_:
 			push_warning("TeammateDialogueManager: 未知说话人 '%s'" % speaker)
 			return null

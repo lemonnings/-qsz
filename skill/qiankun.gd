@@ -369,10 +369,9 @@ func _on_area_entered(area: Area2D) -> void:
 			final_damage *= qiankun_final_damage_multi
 			
 		if area.has_method("take_damage"):
+			var was_alive_for_bagua = area.get("hp") > 0 and not area.get("is_dead")
 			area.take_damage(int(final_damage), is_crit, false, "qiankun")
 			Faze.on_sword_weapon_hit(area)
 			
 			# 八卦法则推衍度
-			Faze.add_bagua_progress(1, area.is_in_group("elite") or area.is_in_group("boss"))
-			if not is_instance_valid(area) or area.hp <= 0:
-				Faze.add_bagua_progress(5, area.is_in_group("elite") or area.is_in_group("boss"))
+			Faze.add_bagua_hit_progress(area, was_alive_for_bagua)

@@ -175,14 +175,13 @@ func _on_area_entered(area: Area2D) -> void:
 			if area.is_in_group("elite") or area.is_in_group("boss"):
 				final_damage = final_damage * Faze.get_wind_elite_boss_multiplier(PC.faze_wind_level, PC.wind_huanfeng_stacks)
 				
+			var was_alive_for_bagua = area.get("hp") > 0 and not area.get("is_dead")
 			area.take_damage(int(final_damage), _is_crit, false, "xunfeng")
 			# 击中粒子崩散特效
 			HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "xunfeng")
 			Faze.on_wind_weapon_hit()
 			
-			Faze.add_bagua_progress(1, area.is_in_group("elite") or area.is_in_group("boss"))
-			if not is_instance_valid(area) or area.hp <= 0:
-				Faze.add_bagua_progress(5, area.is_in_group("elite") or area.is_in_group("boss"))
+			Faze.add_bagua_hit_progress(area, was_alive_for_bagua)
 				
 			# 击退效果 (Xunfeng1)
 			

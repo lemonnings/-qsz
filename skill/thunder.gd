@@ -63,7 +63,7 @@ func _apply_damage_and_chain() -> void:
 	if chain_left > 0 and target_enemy:
 		var target_position = target_enemy.global_position
 		var excluded_id = target_enemy.get_instance_id()
-		await get_tree().create_timer(0.12).timeout
+		await get_tree().create_timer(0.12, false).timeout
 		var next_enemy = _find_nearest_enemy(target_position, excluded_id)
 		if next_enemy:
 			var next_damage = thunder_damage * (1.0 - damage_decay)
@@ -71,7 +71,7 @@ func _apply_damage_and_chain() -> void:
 			get_tree().current_scene.add_child(thunder_instance)
 			thunder_instance.setup_thunder(target_position, next_enemy.global_position, next_enemy, next_damage, chain_left - 1, damage_decay, chain_range, paralyze_duration, boss_extra_damage, final_damage_multiplier, null)
 	
-	await get_tree().create_timer(duration).timeout
+	await get_tree().create_timer(duration, false).timeout
 	queue_free()
 
 func _apply_damage_to_enemy(enemy: Node) -> void:
@@ -91,13 +91,12 @@ func _apply_damage_to_enemy(enemy: Node) -> void:
 	if is_boss and boss_extra_damage > 0.0:
 		final_damage *= (1.0 + boss_extra_damage)
 	final_damage *= final_damage_multiplier
+	var was_alive_for_bagua = enemy.get("hp") > 0 and not enemy.get("is_dead")
 	enemy.take_damage(int(final_damage), false, false, "thunder")
 	HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "thunder")
 	
 	# 八卦法则推衍度
-	Faze.add_bagua_progress(1, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
-	if not is_instance_valid(enemy) or enemy.hp <= 0:
-		Faze.add_bagua_progress(5, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
+	Faze.add_bagua_hit_progress(enemy, was_alive_for_bagua)
 	
 	if not is_boss and paralyze_duration > 0.0:
 		# 使用 debuff 系统管理麻痹状态，计时器挂在敌人的 debuff_manager 上

@@ -37,6 +37,7 @@ var base_font_size: int = 10
 var base_outline_size: int = 2
 var _current_tween: Tween = null
 var _canvas_layer: CanvasLayer = null
+static var _shared_canvas_layer: CanvasLayer = null
 
 # 伤害层级
 # 层级计算：数值 >= 1000 时，每多一个0层级+1
@@ -50,13 +51,10 @@ func _ready():
 	# 初始时可以隐藏Label
 	damage_label.visible = false
 
-	# 创建 CanvasLayer 用于屏幕空间渲染（不受 Camera2D zoom 影响，避免像素模糊）
-	_canvas_layer = CanvasLayer.new()
-	_canvas_layer.name = "DamageCanvasLayer"
-	_canvas_layer.layer = 10
-	add_child(_canvas_layer)
-	# 将 Label 移至 CanvasLayer 下，使其在屏幕空间渲染
-	damage_label.reparent(_canvas_layer)
+	# 伤害数字共用一个 CanvasLayer，避免高命中频率时创建大量独立 CanvasLayer。
+	_canvas_layer = _get_shared_canvas_layer()
+	if damage_label.get_parent() != _canvas_layer:
+		damage_label.reparent(_canvas_layer)
 
 # 信号处理函数
 # damage_type: 使用 DamageType 枚举的值
@@ -199,6 +197,19 @@ func reset_for_pool() -> void:
 		damage_label.add_theme_constant_override("outline_size", base_outline_size)
 	modulate.a = 1.0
 	global_position = Vector2.ZERO
+
+static func _get_shared_canvas_layer() -> CanvasLayer:
+	if is_instance_valid(_shared_canvas_layer):
+		return _shared_canvas_layer
+	_shared_canvas_layer = CanvasLayer.new()
+	_shared_canvas_layer.name = "DamageCanvasLayer"
+	_shared_canvas_layer.layer = 10
+	Global.add_child(_shared_canvas_layer)
+	return _shared_canvas_layer
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE and is_instance_valid(damage_label):
+		damage_label.queue_free()
 
 # 根据 Global.damage_show_type 对伤害数字进行格式化
 # 返回字典: {"text": 显示文本, "font_bonus": 字号加成（小单位+2，大单位+4）}

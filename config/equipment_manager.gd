@@ -87,6 +87,7 @@ func calculate_total_equipment_stats() -> Dictionary:
 		"crit_damage_multi": 0.0,
 		"pc_final_atk": 0.0,
 		"point_multi": 0.0,
+		"spirit_multi": 0.0,
 		"exp_multi": 0.0,
 		"drop_multi": 0.0,
 		"bullet_size": 0.0,

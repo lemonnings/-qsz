@@ -7,12 +7,16 @@ class_name BattleChat
 ## 触发条件：
 ## 1. 低体力：HP ≤ 20% 最大体力时，50% 概率触发，每局最多 2 次
 ## 2. 击杀里程碑：100/500/2000 只怪时，从已解锁角色中随机一个发言
-## 3. 随机闲聊：30 秒无对话后触发（诗想难度不触发），根据解锁角色和关卡筛选
+## 3. 随机闲聊：20 秒无对话后触发（诗想难度不触发）
+##
+## 闲聊计时器规则：
+## - 任何剧情/条件对话出现时，重置闲聊计时器
+## - 闲聊序列完整结束后，才重新开始计时
 
 # === 常量 ===
-const BASE_DURATION: float = 1.0
+const BASE_DURATION: float = 1.5
 const DURATION_PER_CHAR: float = 0.15
-const IDLE_CHAT_INTERVAL: float = 30.0
+const IDLE_CHAT_INTERVAL: float = 20.0
 const LOW_HP_THRESHOLD: float = 0.2
 const LOW_HP_CHANCE: float = 0.5
 const MAX_LOW_HP_TRIGGERS: int = 2
@@ -47,7 +51,7 @@ var _idle_chats: Array = []
 
 
 func _ready() -> void:
-	Global.connect("teammate_dialogue", Callable(self, "_on_any_teammate_dialogue"))
+	Global.connect("teammate_dialogue", Callable(self , "_on_any_teammate_dialogue"))
 	_build_idle_chats()
 
 
@@ -271,17 +275,20 @@ func _build_idle_chats() -> void:
 	_idle_chats = [
 		# ── 基础闲聊（仅需言秋、墨宁）──
 		{
-			"lines": [{"speaker": "言秋", "text": "剑意似乎更纯粹了一些！"}],
+			"lines": [ {"speaker": "言秋", "text": "嘿嘿，本少主的剑意似乎更纯粹了一些！"}],
 		},
 		{
 			"lines": [
 				{"speaker": "言秋", "text": "墨宁，来聊聊天嘛，你不无聊吗？"},
-				{"speaker": "墨宁", "text": "精神集中些，别松懈！"},
-				{"speaker": "言秋", "text": "切，真无聊……"},
+				{"speaker": "墨宁", "text": "还好吧？平时修炼的时候不是更无聊吗？"},
+				{"speaker": "言秋", "text": "切，也就是你总喜欢一天到晚的修炼了。"},
+				{"speaker": "墨宁", "text": "……有实力才能保护其他人啊。"},
+				{"speaker": "言秋", "text": "咦，墨宁你突然变得好严肃哦……"},
+				{"speaker": "墨宁", "text": "没事没事，想起了什么不太好的事情罢了。"},
 			],
 		},
 		{
-			"lines": [{"speaker": "墨宁", "text": "不知道外面的天色如何了……"}],
+			"lines": [ {"speaker": "墨宁", "text": "不知道外面的天色如何了……"}],
 		},
 		{
 			"lines": [
@@ -291,7 +298,7 @@ func _build_idle_chats() -> void:
 			],
 		},
 		{
-			"lines": [{"speaker": "言秋", "text": "吃我一刀！看招看招！"}],
+			"lines": [ {"speaker": "言秋", "text": "吃我一刀！看招看招！"}],
 		},
 		{
 			"lines": [
@@ -300,10 +307,12 @@ func _build_idle_chats() -> void:
 			],
 		},
 		{
-			"lines": [{"speaker": "言秋", "text": "哎呀，差点就砍歪了……"}],
+			"lines": [ {"speaker": "言秋", "text": "哎呀，差点就砍歪了！"},
+				{"speaker": "墨宁", "text": "你那一刀差点打到我身上……"},
+			],
 		},
 		{
-			"lines": [{"speaker": "言秋", "text": "怎么还没打完啊，胳膊都酸了。"}],
+			"lines": [ {"speaker": "言秋", "text": "怎么还没打完啊，胳膊都酸了。"}],
 		},
 		{
 			"lines": [
@@ -314,9 +323,9 @@ func _build_idle_chats() -> void:
 		},
 		{
 			"lines": [
-				{"speaker": "墨宁", "text": "不知道镇子上的小雀怎么样了……"},
+				{"speaker": "墨宁", "text": "不知道我的小雀在镇子上怎么样了……"},
 				{"speaker": "言秋", "text": "它不会自己飞跑吗？"},
-				{"speaker": "墨宁", "text": "不会的，它灵智初开，会主动找我的。"},
+				{"speaker": "墨宁", "text": "不会的，它灵智已经初开，会主动找我的。"},
 				{"speaker": "言秋", "text": "哇，我也想养一只！"},
 				{"speaker": "墨宁", "text": "你可以喊它也跟你一块玩嘛，不过别伤着它就好……"},
 				{"speaker": "言秋", "text": "知道知道，我一定小心！"},
@@ -335,6 +344,7 @@ func _build_idle_chats() -> void:
 				{"speaker": "墨宁", "text": "就是天衍宗弟子的信物啊。"},
 				{"speaker": "言秋", "text": "那长老们怎么有的人没带？"},
 				{"speaker": "墨宁", "text": "……可能是觉得不好看？"},
+				{"speaker": "言秋", "text": "这么随便的理由吗！"},
 			],
 		},
 		{
@@ -343,6 +353,17 @@ func _build_idle_chats() -> void:
 				{"speaker": "言秋", "text": "那是狼，是狼！"},
 				{"speaker": "墨宁", "text": "不是一只大黑狗吗？"},
 				{"speaker": "言秋", "text": "哪里像狗了？我打你哦！"},
+			],
+		},
+		{
+			"lines": [
+				{"speaker": "墨宁", "text": "也不知道这些精怪到底有没有自己的意识……"},
+				{"speaker": "言秋", "text": "怎么在想这个？"},
+				{"speaker": "墨宁", "text": "嗯……可能是有些不忍心？"},
+				{"speaker": "言秋", "text": "你不忍心他们不会不忍心啊！受了重伤可不好！"},
+				{"speaker": "言秋", "text": "我们最终的目标应该是拆掉这个幻境嘛。"},
+				{"speaker": "言秋", "text": "这样他们就不会受到控制了呀。"},
+				{"speaker": "墨宁", "text": "嗯……是我多想了。"},
 			],
 		},
 
@@ -365,22 +386,30 @@ func _build_idle_chats() -> void:
 		{
 			"lines": [
 				{"speaker": "诺姆", "text": "墨宁，你的气功波的真气运作方式和白魔法里的风魔法真的很像哎！"},
-				{"speaker": "墨宁", "text": "是有一些殊途同归。"},
+				{"speaker": "墨宁", "text": "嗯，是有一些殊途同归。"},
 				{"speaker": "诺姆", "text": "属兔……通规？什么意思？"},
 				{"speaker": "墨宁", "text": "……就是虽然方法不同，最后结果相似。"},
 				{"speaker": "诺姆", "text": "哦哦，你们的语言真是太复杂了……"},
 			],
 		},
 		{
-			"lines": [{"speaker": "诺姆", "text": "打的衣服都脏了……好想回去洗衣服洗个澡……"}],
+			"lines": [ {"speaker": "诺姆", "text": "打的衣服都脏了……好想回去洗衣服洗个澡……"}],
+		},
+		{
+			"lines": [
+				{"speaker": "诺姆", "text": "这里的怪物跟我们那边的差异好大啊……"},
+				{"speaker": "墨宁", "text": "诺姆那边的精怪都长什么样？"},
+				{"speaker": "诺姆", "text": "比如黏糊糊的史莱姆，挂着腐肉的骷髅人之类的？"},
+				{"speaker": "言秋", "text": "噫，好恶心……"},
+			],
 		},
 
 		# ── 坎塞尔解锁后新增 ──
 		{
-			"lines": [{"speaker": "坎塞尔", "text": "吸收了这么多以太，黑魔法的力量都变强了，这种感觉有点令人着迷……"}],
+			"lines": [ {"speaker": "坎塞尔", "text": "吸收了这么多以太，黑魔法的力量都变强了，这种感觉有点令人着迷……"}],
 		},
 		{
-			"lines": [{"speaker": "坎塞尔", "text": "在幻境里的魔法力量居然提升的这么快，掌控这么强大的力量的感觉真是危险……"}],
+			"lines": [ {"speaker": "坎塞尔", "text": "在幻境里的魔法力量居然提升的这么快，掌控这么强大的力量的感觉真是危险……"}],
 		},
 		{
 			"lines": [
@@ -394,11 +423,11 @@ func _build_idle_chats() -> void:
 
 		# ── 桃林关卡专属 ──
 		{
-			"lines": [{"speaker": "言秋", "text": "喂！那边的树叶精，看什么看！"}],
+			"lines": [ {"speaker": "言秋", "text": "喂！那边的树叶精，看什么看！"}],
 			"peach_grove_only": true,
 		},
 		{
-			"lines": [{"speaker": "墨宁", "text": "这些精怪的动作都有规律，看仔细了。"}],
+			"lines": [ {"speaker": "墨宁", "text": "这些精怪的动作都有规律，看仔细了。"}],
 			"peach_grove_only": true,
 		},
 		{

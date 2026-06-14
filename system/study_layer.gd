@@ -624,6 +624,18 @@ func _update_level_label(btn: Button) -> void:
 			lbl.add_theme_color_override("font_color", Color.WHITE)
 
 
+func refresh_study_tree_view() -> void:
+	for path in [STUDY_TREE_PATH, STUDY_TREE_SKILL_PATH, STUDY_TREE_LEARN_PATH, STUDY_TREE_TEAM_PATH, STUDY_TREE_SPECIAL_PATH]:
+		var study_tree = get_node_or_null(path)
+		if not study_tree:
+			continue
+		for child in study_tree.get_children():
+			if child is Button and _btn_level_labels.has(child.name):
+				_update_level_label(child)
+	if _hovered_study_btn and is_instance_valid(_hovered_study_btn):
+		_show_study_tooltip(_hovered_study_btn)
+
+
 func _on_study_btn_entered(btn: Button) -> void:
 	_hovered_study_btn = btn
 	_show_study_tooltip(btn)
@@ -864,6 +876,7 @@ func _try_upgrade(btn: Button) -> void:
 	SettingStudyTreeLearn.apply_all()
 	SettingStudyTreeTeam.apply_all()
 	SettingStudyTreeSpecial.apply_all()
+	AchievementManager.scan_meta_progress(false)
 	Global.save_game()
 
 	_cancel_hold()

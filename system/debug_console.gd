@@ -95,8 +95,8 @@ func _execute(cmd: String) -> void:
 		_log_append("[color=yellow]addfaze_xxx_y[/color]   — 给 xxx 法则 +y 层数")
 		_log_append("  例: [color=white]addfaze_destory_3[/color] → PC.faze_destroy_level += 3")
 		_log_append("")
-		_log_append("[color=yellow]additem_xxx_y[/color]   — 添加物品 id=xxx 的 y 个")
-		_log_append("  例: [color=white]additem_item_001_5[/color] → 添加 item_001 × 5")
+		_log_append("[color=yellow]additem_xxx_y[/color]   — 添加物品 id=xxx 的 y 个（也可用 itemadd_）")
+		_log_append("  例: [color=white]additem_1_5[/color] → 添加 id=1 的物品 × 5")
 		_log_append("")
 		_log_append("[color=yellow]mapmech_max[/color]     — 将关卡进度提升到最大值")
 		_log_append("[color=yellow]mapmech_min[/color]     — 将关卡进度重置为 0")
@@ -155,12 +155,12 @@ func _execute(cmd: String) -> void:
 			_log_append("[color=red]未找到变量 PC.%s[/color]" % var_name)
 		return
 
-	# --- additem_xxx_y : 添加物品 ---
-	if cmd.begins_with("additem_"):
-		var rest = cmd.substr(8) # 去掉 "additem_"
+	# --- additem_xxx_y / itemadd_xxx_y : 添加物品 ---
+	if cmd.begins_with("additem_") or cmd.begins_with("itemadd_"):
+		var rest = cmd.substr(cmd.find("_") + 1) # 去掉前缀
 		var last_underscore = rest.rfind("_")
 		if last_underscore <= 0:
-			_log_append("[color=red]用法: additem_xxx_y（如 additem_item_001_5）[/color]")
+			_log_append("[color=red]用法: additem_xxx_y 或 itemadd_xxx_y（如 additem_1_5）[/color]")
 			return
 		var item_id = rest.substr(0, last_underscore)
 		var count_str = rest.substr(last_underscore + 1)

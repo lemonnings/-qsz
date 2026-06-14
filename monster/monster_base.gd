@@ -3,17 +3,23 @@ class_name MonsterBase
 
 const HEALTH_BAR_SCENE = preload("res://Scenes/global/hp_bar.tscn")
 const ROUND_SWORD_QI_BULLET_SCENE = preload("res://Scenes/bullet.tscn")
+const MONSTER_FIREBALL_SCENE = preload("res://Scenes/moster/frog_attack.tscn")
+const CORRUPTED_ELITE_DEFAULT_DROP_ID: String = "item_102"
+const CORRUPTED_SPREAD_ANGLE_DEGREES: float = 35.0
 
 var debuff_manager: EnemyDebuffManager
 var is_dead: bool = false
 var is_elite: bool = false
 var drop_rate_multiplier: float = 1.0
+var _corrupted_elite_drop_emitted: bool = false
 
 var health_bar_shown: bool = false
 var health_bar: Node2D
 var progress_bar: ProgressBar
 var health_bar_offset: Vector2 = Vector2(-15, -10)
 var health_bar_tween_duration: float = 0.3
+var _health_bar_tween: Tween = null
+var _health_bar_tween_target: float = -1.0
 
 var player_hit_emit_self: bool = false
 var use_debuff_take_damage_multiplier: bool = true
@@ -34,6 +40,10 @@ var _hit_flash_tween: Tween = null
 var _hit_flash_frame: int = -1
 var _hit_flash_base_modulate: Color = Color.WHITE
 var _spawn_protection_active: bool = false
+
+const HIT_FLASH_MAX_PER_FRAME: int = 12
+static var _hit_flash_budget_frame: int = -1
+static var _hit_flash_budget_count: int = 0
 
 signal debuff_applied(debuff_id: String)
 
@@ -114,6 +124,125 @@ func get_effective_move_speed(base_speed_value: float, extra_multiplier: float =
 func apply_debuff_effect(debuff_id: String):
 	emit_signal("debuff_applied", debuff_id)
 
+func grant_kill_point_rewards(point_gain: int) -> void:
+	_emit_corrupted_elite_guaranteed_drop_once()
+	var current_scene = get_tree().current_scene
+	if current_scene != null and current_scene.has_method("add_kill_rewards"):
+		current_scene.add_kill_rewards(self, point_gain)
+		return
+	if current_scene != null:
+		for property_info in current_scene.get_property_list():
+			if String(property_info.get("name", "")) == "point":
+				current_scene.set("point", int(current_scene.get("point")) + point_gain)
+				break
+	Global.total_points += point_gain
+
+func is_corrupted_elite_monster() -> bool:
+	return get_meta("is_corrupted_elite", false) == true or is_in_group("core_corrupted_elite")
+
+func _emit_corrupted_elite_guaranteed_drop_once() -> void:
+	if _corrupted_elite_drop_emitted:
+		return
+	if not is_corrupted_elite_monster():
+		return
+	_corrupted_elite_drop_emitted = true
+	var drop_id := str(get_meta("corrupted_elite_guaranteed_drop_id", CORRUPTED_ELITE_DEFAULT_DROP_ID))
+	if drop_id.is_empty():
+		drop_id = CORRUPTED_ELITE_DEFAULT_DROP_ID
+	Global.emit_signal("drop_out_item", drop_id, 1, global_position)
+
+func fire_monster_projectile(direction: Vector2, spawn_position: Vector2 = Vector2.INF) -> Area2D:
+	if direction.length_squared() <= 0.001 or get_tree() == null:
+		return null
+	var projectile_parent := _get_projectile_parent()
+	if projectile_parent == null:
+		return null
+	var resolved_spawn_position := global_position if spawn_position == Vector2.INF else spawn_position
+	var projectile: Area2D = null
+	if Global.frog_attack_pool:
+		projectile = Global.frog_attack_pool.acquire(projectile_parent) as Area2D
+	else:
+		projectile = MONSTER_FIREBALL_SCENE.instantiate() as Area2D
+	if projectile == null:
+		return null
+	var damage_value = get("atk")
+	var projectile_atk: float = SettingMoster.frog("atk")
+	if damage_value != null:
+		projectile_atk = float(damage_value)
+	if projectile.has_method("setup_projectile"):
+		projectile.setup_projectile(resolved_spawn_position, direction.normalized(), projectile_atk)
+	else:
+		if projectile.get_parent() == null:
+			projectile_parent.add_child(projectile)
+		projectile.global_position = resolved_spawn_position
+		if projectile.get("atk") != null:
+			projectile.set("atk", projectile_atk)
+		if projectile.has_method("set_direction"):
+			projectile.set_direction(direction.normalized())
+		if projectile.has_method("play_animation"):
+			projectile.play_animation("fire")
+	return projectile
+
+func _get_projectile_parent() -> Node:
+	var tree := get_tree()
+	if tree == null:
+		return null
+	if tree.current_scene != null:
+		return tree.current_scene
+	var parent := get_parent()
+	if parent != null:
+		return parent
+	return tree.root
+
+func fire_corrupted_spread_burst(base_direction: Vector2, repeat_delay: float = 0.5) -> void:
+	if base_direction.length_squared() <= 0.001:
+		return
+	var shoot_direction := base_direction.normalized()
+	_fire_corrupted_three_way(shoot_direction)
+	var tree := get_tree()
+	if tree == null:
+		return
+	tree.create_timer(repeat_delay).timeout.connect(Callable(self, "_fire_corrupted_three_way_if_alive").bind(shoot_direction), CONNECT_ONE_SHOT)
+
+func fire_corrupted_perpendicular_rounds(charge_direction: Vector2, rounds: int = 3, interval: float = 0.2) -> void:
+	if charge_direction.length_squared() <= 0.001:
+		return
+	var shoot_direction := charge_direction.normalized()
+	for round_index in range(maxi(1, rounds)):
+		if round_index == 0:
+			_fire_corrupted_perpendicular_pair(shoot_direction)
+			continue
+		var tree := get_tree()
+		if tree == null:
+			return
+		tree.create_timer(interval * float(round_index)).timeout.connect(Callable(self, "_fire_corrupted_perpendicular_pair_if_alive").bind(shoot_direction), CONNECT_ONE_SHOT)
+
+func fire_corrupted_radial_bullet_ring(count: int = 8) -> void:
+	var bullet_count := maxi(1, count)
+	for i in range(bullet_count):
+		var direction := Vector2.RIGHT.rotated(TAU * float(i) / float(bullet_count))
+		fire_monster_projectile(direction)
+
+func _fire_corrupted_three_way(base_direction: Vector2) -> void:
+	fire_monster_projectile(base_direction.rotated(deg_to_rad(-CORRUPTED_SPREAD_ANGLE_DEGREES)))
+	fire_monster_projectile(base_direction)
+	fire_monster_projectile(base_direction.rotated(deg_to_rad(CORRUPTED_SPREAD_ANGLE_DEGREES)))
+
+func _fire_corrupted_perpendicular_pair(charge_direction: Vector2) -> void:
+	var perpendicular := charge_direction.orthogonal().normalized()
+	fire_monster_projectile(perpendicular)
+	fire_monster_projectile(-perpendicular)
+
+func _fire_corrupted_three_way_if_alive(base_direction: Vector2) -> void:
+	if is_dead:
+		return
+	_fire_corrupted_three_way(base_direction)
+
+func _fire_corrupted_perpendicular_pair_if_alive(charge_direction: Vector2) -> void:
+	if is_dead:
+		return
+	_fire_corrupted_perpendicular_pair(charge_direction)
+
 func apply_knockback(direction: Vector2, force: float):
 	var tween = create_tween()
 	tween.tween_property(self , "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -137,19 +266,52 @@ func show_health_bar() -> void:
 	if progress_bar and progress_bar.is_inside_tree():
 		progress_bar.position = global_position + health_bar_offset
 		var target_value_hp = get_health_bar_percentage()
-		if progress_bar.value != target_value_hp:
-			var tween = create_tween()
-			tween.tween_property(progress_bar, "value", target_value_hp, health_bar_tween_duration)
+		if abs(_health_bar_tween_target - target_value_hp) < 0.01:
+			return
+		_health_bar_tween_target = target_value_hp
+		if _health_bar_tween != null and _health_bar_tween.is_valid():
+			_health_bar_tween.kill()
+		_health_bar_tween = create_tween()
+		_health_bar_tween.tween_property(progress_bar, "value", target_value_hp, health_bar_tween_duration)
 
 func free_health_bar() -> void:
+	if _health_bar_tween != null and _health_bar_tween.is_valid():
+		_health_bar_tween.kill()
+	_health_bar_tween = null
+	_health_bar_tween_target = -1.0
 	if health_bar != null and is_instance_valid(health_bar) and health_bar.is_inside_tree():
 		health_bar.queue_free()
 	health_bar = null
 	progress_bar = null
 	health_bar_shown = false
 
+func is_alive_for_action_logic() -> bool:
+	if is_dead:
+		return false
+	if _has_property("hp") and float(get("hp")) <= 0.0:
+		return false
+	return true
+
+func should_skip_actions_for_debuff() -> bool:
+	if not is_alive_for_action_logic():
+		return false
+	return debuff_manager != null and is_instance_valid(debuff_manager) and debuff_manager.is_action_disabled()
+
+func move_away_from_dead_player(delta: float, base_speed_value: float, sprite_node: Node = null, flip_h_when_moving_right: bool = true, extra_multiplier: float = 1.0) -> bool:
+	if not CharacterEffects.is_player_dead_or_game_over():
+		return false
+	var scatter_direction := CharacterEffects.get_player_death_scatter_direction(self)
+	if scatter_direction == Vector2.ZERO:
+		return false
+	var scatter_speed := get_effective_move_speed(base_speed_value, extra_multiplier)
+	position += scatter_direction * scatter_speed * delta
+	if sprite_node != null and is_instance_valid(sprite_node):
+		var flip_value := (scatter_direction.x > 0.0) if flip_h_when_moving_right else (scatter_direction.x < 0.0)
+		sprite_node.set("flip_h", flip_value)
+	return true
+
 func handle_common_body_entered(body: Node2D) -> void:
-	if check_action_disabled_on_body_entered and debuff_manager != null and is_instance_valid(debuff_manager) and debuff_manager.is_action_disabled():
+	if check_action_disabled_on_body_entered and should_skip_actions_for_debuff():
 		return
 	# 出场保护期间不对玩家造成碰撞伤害
 	if _spawn_protection_active:
@@ -304,6 +466,8 @@ func _play_hit_flash() -> void:
 	var current_frame = Engine.get_process_frames()
 	if _hit_flash_frame == current_frame:
 		return
+	if not _consume_hit_flash_budget(current_frame):
+		return
 	_hit_flash_frame = current_frame
 	var sprite = _get_hit_flash_sprite()
 	if sprite == null:
@@ -318,6 +482,15 @@ func _play_hit_flash() -> void:
 	sprite.modulate = Color(3, 3, 3, 1)
 	_hit_flash_tween = create_tween()
 	_hit_flash_tween.tween_property(sprite, "modulate", _hit_flash_base_modulate, 0.25)
+
+static func _consume_hit_flash_budget(frame: int) -> bool:
+	if frame != _hit_flash_budget_frame:
+		_hit_flash_budget_frame = frame
+		_hit_flash_budget_count = 0
+	if _hit_flash_budget_count >= HIT_FLASH_MAX_PER_FRAME:
+		return false
+	_hit_flash_budget_count += 1
+	return true
 
 ## 获取用于闪烁效果的精灵节点，子类可覆盖以适配不同节点名
 func _get_hit_flash_sprite() -> CanvasItem:
@@ -336,7 +509,10 @@ func _get_hit_flash_sprite() -> CanvasItem:
 ## 启动出场保护，在指定时间内不对玩家造成碰撞伤害（Boss专用）
 func start_spawn_protection(duration: float = 1) -> void:
 	_spawn_protection_active = true
-	get_tree().create_timer(duration).timeout.connect(func(): _spawn_protection_active = false)
+	get_tree().create_timer(duration).timeout.connect(Callable(self, "_finish_spawn_protection"), CONNECT_ONE_SHOT)
+
+func _finish_spawn_protection() -> void:
+	_spawn_protection_active = false
 
 ## 子弹命中闪烁回调，由 BulletCalculator.handle_bullet_collision_full 调用
 func on_bullet_hit_response() -> void:

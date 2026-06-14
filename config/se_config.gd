@@ -29,6 +29,16 @@ static func load_data() -> void:
 				_data[id] = entry
 	file.close()
 	_loaded = true
+	# 调试日志：确认加载数据
+	var db_count := 0
+	var pitch_count := 0
+	for id in _data:
+		var e = _data[id]
+		if e.get("db", "") != "":
+			db_count += 1
+		if e.get("random_pitch_range", "") != "":
+			pitch_count += 1
+	print("[SEConfig] 加载完成: 总条目=%d, 有db配置=%d, 有pitch配置=%d" % [_data.size(), db_count, pitch_count])
 
 static func get_entry(id: String) -> Dictionary:
 	if not _loaded:
@@ -49,3 +59,10 @@ static func has_entry(id: String) -> bool:
 	if not _loaded:
 		load_data()
 	return _data.has(id)
+
+static func get_db(id: String) -> float:
+	var entry = get_entry(id)
+	var raw = entry.get("db", "")
+	if raw == "":
+		return 0.0
+	return raw.to_float()

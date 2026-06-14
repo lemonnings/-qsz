@@ -45,11 +45,16 @@ var _auto_next_id: int = 0 ## 计时器唯一标识，用于失效旧回调
 var scale_tween: Tween
 ## sprite的初始缩放基准（从场景读取）
 var _base_scale: Vector2
-## 跳过打字后的防抖标志，防止同一帧的第二次输入事件直接触发翻页
-var _just_skipped: bool = false
+## 点击冷却：上次有效点击的时间戳（毫秒）
+var _last_click_time: int = 0
+## 点击冷却间隔（毫秒）
+const CLICK_COOLDOWN_MS := 1000
+## 初始保护期：前3秒内不接受点击
+var _input_enabled: bool = false
 
 func _ready() -> void:
 	current_page = 0
+	_input_enabled = false
 	_base_scale = start_sprite.scale
 	# 预先加载第一张图，白屏渐变时图片已就位
 	start_sprite.texture = START_TEXTURES[0]
@@ -64,12 +69,14 @@ func _ready() -> void:
 	tw.set_parallel(true)
 	for child in get_children():
 		if child is CanvasItem:
-			tw.tween_property(child, "modulate:a", 1.0, 1)
+			tw.tween_property(child, "modulate:a", 1.0, 3)
 	tw.set_parallel(false)
 	tw.tween_callback(func():
 		subtitle_bg.visible = true
 		_start_scale_anim()
 		_start_typing(START_SUBTITLES[0])
+		_input_enabled = true
+		_last_click_time = Time.get_ticks_msec()
 	)
 
 func _load_page(page: int) -> void:
@@ -151,18 +158,21 @@ func _cancel_auto_next_timer() -> void:
 func _input(event: InputEvent) -> void:
 	if is_animating:
 		return
+	# 初始保护期：3秒渐入完成前不接受任何点击
+	if not _input_enabled:
+		return
 	var is_click = (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT)
 	var is_tap = (event is InputEventScreenTouch and event.pressed)
 	if not (is_click or is_tap):
 		return
 	get_viewport().set_input_as_handled()
-	# 防抖：跳过打字后的同一帧内忽略翻页输入
-	if _just_skipped:
-		_just_skipped = false
+	# 1秒冷却：距上次有效点击不足1秒则忽略
+	var now = Time.get_ticks_msec()
+	if now - _last_click_time < CLICK_COOLDOWN_MS:
 		return
+	_last_click_time = now
 	if is_typing:
 		_skip_typing()
-		_just_skipped = true
 	else:
 		_cancel_auto_next_timer()
 		_next_page()

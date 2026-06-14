@@ -25,10 +25,10 @@ var _skill_queue: Array = [] # 当前循环剩余技能组
 var _combo_step: int = 0 # 落石组合技内部步骤: 0=落石, 1=拍击/掙地, 2=冲锋
 
 # 屏幕边界
-@export var top_boundary: float = -300.0
-@export var bottom_boundary: float = 280.0
-@export var left_boundary: float = 80.0
-@export var right_boundary: float = 550.0
+@export var top_boundary: float = -220.0
+@export var bottom_boundary: float = 740.0
+@export var left_boundary: float = -370.0
+@export var right_boundary: float = 360.0
 
 # 移动
 var move_direction: int = 4
@@ -37,7 +37,7 @@ var update_move_timer: Timer
 
 # 属性 — 基于stone_man基准 × Boss倍率
 var speed: float = SettingMoster.stone_man("speed") * 1.2
-var hpMax: float = SettingMoster.stone_man("hp") * 22
+var hpMax: float = SettingMoster.stone_man("hp") * 13
 var hp: float = hpMax
 var atk: float = SettingMoster.stone_man("atk") * 1.0
 var get_point: int = SettingMoster.stone_man("point") * 30
@@ -55,10 +55,10 @@ const ROLLING_STONE_SPEED: float = 180.0
 const ROLLING_STONE_WIDTH: float = 32.0
 
 # 滚石活动范围（与冲锋边界一致）
-const ROLLING_LEFT: float = -330.0
-const ROLLING_RIGHT: float = 300.0
-const ROLLING_TOP: float = 70.0
-const ROLLING_BOTTOM: float = 560.0
+const ROLLING_LEFT: float = -370.0
+const ROLLING_RIGHT: float = 360.0
+const ROLLING_TOP: float = -220.0
+const ROLLING_BOTTOM: float = 740.0
 
 const CHARGE_COUNT: int = 3
 const CHARGE_SPEED_MULT: float = 14.0
@@ -69,10 +69,10 @@ const CHARGE_WARNING_TIME: float = 1.2
 const CHARGE_DISTANCE: float = 500.0
 
 # 冲锋专用边界（与 Boss 移动边界不同）
-const CHARGE_LEFT: float = -300.0
-const CHARGE_RIGHT: float = 280.0
-const CHARGE_TOP: float = 80.0
-const CHARGE_BOTTOM: float = 550.0
+const CHARGE_LEFT: float = -370.0
+const CHARGE_RIGHT: float = 360.0
+const CHARGE_TOP: float = -220.0
+const CHARGE_BOTTOM: float = 740.0
 
 const FALLING_STONE_RADIUS: float = 50.0
 const FALLING_STONE_WARNING_TIME: float = 1.5
@@ -90,6 +90,7 @@ const MUD_POOL_DURATION: float = 10.0
 const MUD_POOL_DAMAGE_TICK: float = 0.5
 const MUD_POOL_SLOW_RATE: float = 0.5
 const MUD_POOL_FADE_IN: float = 0.6 # 泥潭渐入时间，期间不造成伤害
+const MUD_POOL_TARGET_ALPHA: float = 0.90
 
 const QUAKE_INITIAL_RADIUS: float = 50.0 # 震地第1次半径
 const QUAKE_MAX_RADIUS: float = 180.0 # 震地第3次半径
@@ -131,26 +132,21 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
 	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 6
+	var dps_multiplier := 9
 	match Global.current_stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 8
+			dps_multiplier = 12
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 10
-		Global.STAGE_DIFFICULTY_POETRY:
-			dps_multiplier = 10
-	hpMax += Global.get_current_dps() * dps_multiplier
-	# 诗想难度下Boss生命额外提升40倍
+			dps_multiplier = 15
 	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
-		hpMax *= 30
+		hpMax = Global.get_poetry_boss_max_hp("boss_stone", hpMax)
+	else:
+		hpMax += Global.get_current_dps() * dps_multiplier
 	hp = hpMax
 	
 	# 浅层难度下Boss只造成50%伤害
 	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
 		atk *= 0.5
-	# 诗想难度下Boss攻击额外提升50%
-	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
-		atk *= 2
 
 	# 石甲初始化：浅层2/深层4/核心6/诗想9
 	match stage_difficulty:
@@ -234,7 +230,13 @@ func _move_pattern(delta: float):
 		# 非冲锋时石块阻挡Boss移动
 		if not is_charging:
 			new_pos = _resolve_stone_block_collision(new_pos)
-		global_position = new_pos
+		global_position = _clamp_to_activity_bounds(new_pos)
+
+func _clamp_to_activity_bounds(world_pos: Vector2) -> Vector2:
+	return Vector2(
+		clamp(world_pos.x, left_boundary, right_boundary),
+		clamp(world_pos.y, top_boundary, bottom_boundary)
+	)
 
 ## 解算石块碰撞：将Boss推出与石块重叠的区域
 func _resolve_stone_block_collision(new_pos: Vector2) -> Vector2:
@@ -723,7 +725,7 @@ func _spawn_elliptical_mud_pool(origin: Vector2, radius: float, aspect: float, d
 
 	# 渐入
 	var tw = pool.create_tween()
-	tw.tween_property(pool, "modulate:a", 0.75, 0.4)
+	tw.tween_property(pool, "modulate:a", MUD_POOL_TARGET_ALPHA, 0.4)
 
 	# 用Timer驱动持续伤害，椭圆范围判定
 	_start_elliptical_mud_pool_process(pool, origin, radius, aspect, duration)
@@ -791,6 +793,7 @@ func _attack_falling_stones():
 	# Boss脚下 — 只有伤害和视觉特效，不生成石块
 	var warn_boss = WarnCircleUtil.new()
 	add_child(warn_boss)
+	warn_boss.attacker = self
 	warn_boss.warning_finished.connect(func():
 		if is_instance_valid(warn_boss):
 			warn_boss.cleanup()
@@ -810,6 +813,7 @@ func _attack_falling_stones():
 	var player_target = player_pos
 	var warn_player = WarnCircleUtil.new()
 	add_child(warn_player)
+	warn_player.attacker = self
 	warn_player.warning_finished.connect(func():
 		if is_instance_valid(warn_player):
 			warn_player.cleanup()
@@ -895,6 +899,7 @@ func _attack_slap():
 
 		var warn = WarnSectorUtil.new()
 		add_child(warn)
+		warn.attacker = self
 		warn.warning_finished.connect(func():
 			if is_instance_valid(warn):
 				_spawn_slap_effect(global_position, dir_to_player)
@@ -928,6 +933,7 @@ func _attack_ground_flip():
 	# 扇形预警
 	var warn = WarnSectorUtil.new()
 	add_child(warn)
+	warn.attacker = self
 	var sector_center_dir = dir_to_player
 	warn.warning_finished.connect(func():
 		Global.emit_signal("boss_chant_end")
@@ -989,6 +995,7 @@ func _attack_quake():
 		# 预警圈
 		var warn = WarnCircleUtil.new()
 		add_child(warn)
+		warn.attacker = self
 		warn.source_name = "地震波"
 		warn.start_warning(
 			origin, 1.0, cur_radius,
@@ -1107,7 +1114,7 @@ func _spawn_mud_pool(origin: Vector2, direction: Vector2, radius: float, angle_d
 
 	# 渐入
 	var tw = pool.create_tween()
-	tw.tween_property(pool, "modulate:a", 0.75, 0.4)
+	tw.tween_property(pool, "modulate:a", MUD_POOL_TARGET_ALPHA, 0.4)
 
 	# 用Timer驱动持续伤害，手动判断扇形范围
 	_start_mud_pool_process(pool, origin, center_angle, half_angle_rad, radius)
@@ -1331,6 +1338,7 @@ func _on_rockfall_omen_expired(index: int, buff_id: String):
 	# 2秒红圈预警，与普通落石一致
 	var warn = WarnCircleUtil.new()
 	get_tree().current_scene.add_child(warn)
+	warn.attacker = self
 	warn.warning_finished.connect(func():
 		if is_instance_valid(warn):
 			warn.cleanup()

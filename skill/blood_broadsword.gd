@@ -232,7 +232,7 @@ func _apply_heal(attack_data: Dictionary, hit_result: Dictionary) -> void:
 	if hit_result.hit_bleed:
 		heal_ratio = heal_ratio * (1.0 + attack_data.heal_on_bleed_bonus)
 	
-	var heal_amount = int(ceil(missing_hp * heal_ratio * (1.0 + PC.heal_multi)))
+	var heal_amount = int(ceil(missing_hp * heal_ratio * (1.0 + PC.heal_multi) * Global.get_heal_shield_effect_multiplier()))
 	if heal_amount < attack_data.min_heal:
 		heal_amount = attack_data.min_heal
 	

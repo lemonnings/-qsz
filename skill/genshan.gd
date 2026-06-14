@@ -315,6 +315,7 @@ func _deal_damage(enemy: Area2D) -> void:
 	
 	# 应用伤害
 	if enemy.has_method("take_damage"):
+		var was_alive_for_bagua = enemy.get("hp") > 0 and not enemy.get("is_dead")
 		enemy.take_damage(int(final_damage), is_crit, false, "genshan")
 		# 击中粒子崩散特效
 		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "genshan")
@@ -322,9 +323,7 @@ func _deal_damage(enemy: Area2D) -> void:
 		GU.screen_shake(2.0, 0.1)
 		
 		# 八卦法则推衍度
-		Faze.add_bagua_progress(1, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
-		if not is_instance_valid(enemy) or enemy.hp <= 0:
-			Faze.add_bagua_progress(5, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
+		Faze.add_bagua_hit_progress(enemy, was_alive_for_bagua)
 		
 	# Genshan2 (震山): 施加脆弱
 	if PC.selected_rewards.has("Genshan2"):

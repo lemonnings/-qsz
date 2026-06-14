@@ -1,6 +1,10 @@
 extends Node
 
 var kill_count: int = 0
+var _screen_shake_generation: int = 0
+var _screen_shake_active: bool = false
+var _screen_shake_camera: Camera2D = null
+var _screen_shake_base_offset: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	Global.monster_killed.connect(_on_monster_killed)
@@ -16,6 +20,7 @@ func get_kill_count() -> int:
 
 func _on_monster_killed() -> void:
 	add_kill_count(1)
+	SEManager.play("200")
 
 func parse_rect_from_func_string(rect_str: String) -> Rect2:
 	var clean = rect_str.replace("Rect2(", "").replace(")", "")
@@ -39,18 +44,27 @@ func screen_shake(intensity: float = 6.0, duration: float = 0.3) -> void:
 	var camera = vp.get_camera_2d() if vp else null
 	if not camera:
 		return
-	var original_offset = camera.offset
+	if not _screen_shake_active or _screen_shake_camera != camera or not is_instance_valid(_screen_shake_camera):
+		_screen_shake_base_offset = camera.offset
+		_screen_shake_camera = camera
+	_screen_shake_active = true
+	_screen_shake_generation += 1
+	var generation := _screen_shake_generation
 	var elapsed := 0.0
 	while elapsed < duration:
+		if generation != _screen_shake_generation:
+			return
 		var dt = get_process_delta_time()
 		elapsed += dt
 		if not is_instance_valid(camera):
 			break
 		var strength = intensity * (1.0 - elapsed / duration)
-		camera.offset = original_offset + Vector2(
+		camera.offset = _screen_shake_base_offset + Vector2(
 			randf_range(-strength, strength),
 			randf_range(-strength, strength)
 		)
 		await get_tree().process_frame
-	if is_instance_valid(camera):
-		camera.offset = original_offset
+	if generation == _screen_shake_generation and is_instance_valid(camera):
+		camera.offset = _screen_shake_base_offset
+		_screen_shake_active = false
+		_screen_shake_camera = null

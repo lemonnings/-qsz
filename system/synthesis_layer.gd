@@ -715,6 +715,7 @@ func _on_exit_2_pressed() -> void:
 	# 保存游戏
 	Global.save_game()
 	Global.in_synthesis = false
+	Global.unlock_camera_zoom("synthesis")
 	_transition_to_layer()
 
 # 界面过渡动画

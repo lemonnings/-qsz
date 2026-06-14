@@ -180,10 +180,13 @@ func _update_character_info():
 	
 	# 更新角色动画
 	if now_character:
-		var player = get_tree().current_scene.get_node("Player")
-		var hero_frames = player.get_hero_sprite_frames(PC.player_name)
-		now_character.sprite_frames = hero_frames
-		now_character.play("idle")
+		var current_scene := get_tree().current_scene
+		if current_scene:
+			var player = current_scene.get_node_or_null("Player")
+			if player and player.has_method("get_hero_sprite_frames"):
+				var hero_frames = player.get_hero_sprite_frames(PC.player_name)
+				now_character.sprite_frames = hero_frames
+				now_character.play("idle")
 
 func _refresh_secondary_attr_display() -> void:
 	if !secondary_attr_panel:
@@ -319,34 +322,27 @@ func _get_sorted_items() -> Array:
 			"item_data": item_data
 		})
 	
-	# 排序：灵石优先，其余按类型和 ID
+	# 排序：遵从道具数据中的 sort 字段
 	items.sort_custom(_compare_items)
 	
 	return items
 
 # 物品排序比较函数
 func _compare_items(a: Dictionary, b: Dictionary) -> bool:
-	if a.item_id == Global.LINGSHI_ITEM_ID and b.item_id != Global.LINGSHI_ITEM_ID:
-		return true
-	if b.item_id == Global.LINGSHI_ITEM_ID and a.item_id != Global.LINGSHI_ITEM_ID:
-		return false
-	
-	var type_order = {
-		"consumable": 0,
-		"immediate": 1,
-		"material": 2,
-		"special": 3,
-		"equip": 4
-	}
-	
-	var order_a = type_order.get(a.item_type, 5)
-	var order_b = type_order.get(b.item_type, 5)
-	
-	if order_a != order_b:
-		return order_a < order_b
-	
-	# 相同类型按ID排序
-	return a.item_id < b.item_id
+	var sort_a := _get_item_sort_from_entry(a)
+	var sort_b := _get_item_sort_from_entry(b)
+	if sort_a != sort_b:
+		return sort_a < sort_b
+
+	return str(a.get("item_id", "")) < str(b.get("item_id", ""))
+
+
+func _get_item_sort_from_entry(item_entry: Dictionary) -> int:
+	var item_data = item_entry.get("item_data", {})
+	if item_data is Dictionary and item_data.has("sort"):
+		return int(item_data.get("sort", ItemManager.ITEM_SORT_DEFAULT))
+
+	return ItemManager.get_item_sort(str(item_entry.get("item_id", "")))
 
 # 设置格子显示
 func _setup_slot(slot: Panel, item_data: Dictionary):
@@ -442,7 +438,7 @@ func _wrap_item_name_every_four_chars(item_name: String) -> String:
 	var start_index := 0
 	while start_index < item_name.length():
 		if not wrapped_name.is_empty():
-			wrapped_name += "\n"+" "
+			wrapped_name += "\n" + " "
 		wrapped_name += item_name.substr(start_index, 4)
 		start_index += 4
 	return wrapped_name
@@ -622,8 +618,14 @@ func _show_tooltip(slot_index: int, request_id: int):
 	var detail = item_info.get("item_detail", "")
 	var source = item_info.get("item_source", "")
 	var full_desc = detail
+	var pill_use_info = ItemManager.get_limited_pill_use_info(item_data.item_id)
+	if !pill_use_info.is_empty():
+		full_desc += "\n已使用次数: %s/%s" % [
+			int(pill_use_info.get("used", 0)),
+			int(pill_use_info.get("max_uses", 0))
+		]
 	if source != "":
-		full_desc += "\n\n[\u6765\u6e90] \n" + source
+		full_desc += "\n[\u6765\u6e90] \n" + source
 	desc_label.text = full_desc
 	
 	# 设置售价
@@ -673,6 +675,33 @@ func _hide_tooltip():
 	if tooltip_panel:
 		tooltip_panel.visible = false
 	tooltip_visible = false
+
+func _is_mouse_over_slot(slot_index: int) -> bool:
+	if slot_index < 0 or slot_index >= bag_slots.size():
+		return false
+	var slot = bag_slots[slot_index]
+	if !slot:
+		return false
+	return slot.get_global_rect().has_point(get_viewport().get_mouse_position())
+
+func _refresh_hovered_tooltip(fallback_slot_index: int = -1):
+	var target_slot_index := hovered_slot_index
+	if target_slot_index < 0 and _is_mouse_over_slot(fallback_slot_index):
+		target_slot_index = fallback_slot_index
+		hovered_slot_index = fallback_slot_index
+	
+	if target_slot_index < 0 or target_slot_index >= bag_slots.size():
+		_hide_tooltip()
+		return
+	
+	var slot = bag_slots[target_slot_index]
+	if !slot or !slot.has_meta("item_data"):
+		_hide_tooltip()
+		return
+	
+	tooltip_request_id += 1
+	var request_id = tooltip_request_id
+	_show_tooltip(target_slot_index, request_id)
 
 # 获取品质颜色
 func _get_rare_color(rare: String) -> Color:
@@ -746,7 +775,7 @@ func _on_slot_double_click(slot_index: int):
 		# 刷新显示
 		_update_items_display()
 		_refresh_character_panels()
-		_hide_tooltip()
+		_refresh_hovered_tooltip(slot_index)
 
 	else:
 		_show_message(result.message)
@@ -805,6 +834,7 @@ func _handle_exit():
 func _switch_layers():
 	# 隐藏当前层
 	visible = false
+	Global.unlock_camera_zoom("bag")
 	# 重置所有子节点的透明度
 	for child in get_children():
 		if child.has_method("set_modulate"):
@@ -816,6 +846,9 @@ func _switch_layers():
 	# 恢复玩家控制和游戏状态
 	PC.movement_disabled = false
 	get_tree().paused = false
+	var default_layer = get_node_or_null("../DefaultLayer")
+	if default_layer and default_layer.has_method("refresh_entry_buttons_enabled"):
+		default_layer.refresh_entry_buttons_enabled()
 
 # 刷新背包显示（供外部调用）
 func refresh_bag():

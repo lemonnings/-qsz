@@ -6,6 +6,12 @@ var all_rewards_list: Array[Reward] = []
 # 记录最近一次升级选择的奖励派系（用于Summon权重衰减判断）
 var _last_applied_reward_faction: String = ""
 
+const REWARD_CONTEXT_LEVEL_UP := "level_up"
+const REWARD_CONTEXT_QI_VORTEX_SHOP := "qi_vortex_shop"
+const LEVEL_UP_BASE_ATK_FLAT_BONUS: int = 5
+const LEVEL_UP_BASE_ATK_RATE: float = 0.10
+var reward_apply_context: String = REWARD_CONTEXT_LEVEL_UP
+
 # 定义奖励数据结构
 class Reward: # Reward 类定义了单个奖励所包含的所有属性。
 	var id: String
@@ -36,6 +42,9 @@ signal player_lv_up_over
 
 @warning_ignore("unused_signal")
 signal lucky_level_up
+
+@warning_ignore("unused_signal")
+signal qi_vortex_shop_reward_selected
 
 func _ready():
 	# CSV文件路径，根据实际项目结构可能需要调整。
@@ -152,7 +161,15 @@ func _get_rewards_by_rarity_str(rarity_str: String, main_skill_name: String) -> 
 	return filtered_rewards
 	
 
+func begin_qi_vortex_shop_reward_context() -> void:
+	reward_apply_context = REWARD_CONTEXT_QI_VORTEX_SHOP
+
+func clear_reward_context() -> void:
+	reward_apply_context = REWARD_CONTEXT_LEVEL_UP
+
 func _level_up_action():
+	var context := reward_apply_context
+	reward_apply_context = REWARD_CONTEXT_LEVEL_UP
 	# 升级后Summon派系权重衰减处理
 	if _last_applied_reward_faction == "Summon":
 		PlayerRewardWeights.on_faction_selected("Summon")
@@ -161,7 +178,8 @@ func _level_up_action():
 	
 	all_rewards_list = []
 	_load_rewards_from_csv("res://Config/reward.csv")
-	global_level_up()
+	if context == REWARD_CONTEXT_LEVEL_UP:
+		global_level_up()
 	
 	# 更新技能攻击速度（当攻速属性改变时）
 	var player = get_tree().get_first_node_in_group("player")
@@ -170,20 +188,24 @@ func _level_up_action():
 		# 发射信号通知技能攻速更新
 		Global.emit_signal("skill_attack_speed_updated")
 	
-	get_tree().set_pause(false)
-	
-	Global.is_level_up = false
-	Global.emit_signal("level_up_selection_complete")
+	if context == REWARD_CONTEXT_QI_VORTEX_SHOP:
+		qi_vortex_shop_reward_selected.emit()
+	else:
+		get_tree().set_pause(false)
+		Global.is_level_up = false
+		Global.emit_signal("level_up_selection_complete")
 	
 	# 更新法则属性加成
 	if Faze.manager_instance:
 		Faze.manager_instance.check_and_apply_law_bonuses()
+	AchievementManager.scan_runtime_progress(false)
 	
 	# 宝器法则：升级后根据当前天命值给予额外刷新次数
-	var extra_refresh = Faze.get_treasure_extra_refresh_count(PC.faze_treasure_level, PC.lucky)
-	if extra_refresh > 0:
-		PC.refresh_num += extra_refresh
-		print("[宝器法则] 本次升级获得额外刷新次数：", extra_refresh)
+	if context == REWARD_CONTEXT_LEVEL_UP:
+		var extra_refresh = Faze.get_treasure_extra_refresh_count(PC.faze_treasure_level, PC.lucky)
+		if extra_refresh > 0:
+			PC.refresh_num += extra_refresh
+			print("[宝器法则] 本次升级获得额外刷新次数：", extra_refresh)
 	
 	
 func _select_PC_main_skill_lv(main_skill_name: String) -> int:
@@ -1547,14 +1569,12 @@ func reward_LightBullet5():
 	PC.selected_rewards.append("LightBullet5")
 	PC.faze_bullet_level += 2
 	PC.faze_life_level += 2
-	PC.main_skill_light_bullet_damage += 0.1
 	_level_up_action()
 
 func reward_LightBullet11():
 	PC.selected_rewards.append("LightBullet11")
 	PC.faze_bullet_level += 2
 	PC.faze_life_level += 2
-	PC.main_skill_light_bullet_damage += 0.1
 	_level_up_action()
 
 func reward_LightBullet22():
@@ -3302,15 +3322,20 @@ func reward_Qigong():
 # 全局升级效果处理函数 (当选择某些特定被动后，升级时会触发额外属性转换)
 func global_level_up():
 	# 基础属性成长
-	PC.pc_atk += 5
-	PC.pc_start_atk += 5
-	PC.pc_atk = int(PC.pc_atk * 1.1)
-	PC.pc_start_atk = int(PC.pc_start_atk * 1.1)
+	PC.pc_atk += LEVEL_UP_BASE_ATK_FLAT_BONUS
+	PC.pc_start_atk += LEVEL_UP_BASE_ATK_FLAT_BONUS
+	var atk_growth_multiplier := 1.0 + LEVEL_UP_BASE_ATK_RATE * (1.0 + PC.lingwu_atk_bonus)
+	PC.pc_atk = int(PC.pc_atk * atk_growth_multiplier)
+	PC.pc_start_atk = int(PC.pc_start_atk * atk_growth_multiplier)
+	# 每级基础+1天命
+	PC.now_lunky_level += 1
+	Global.emit_signal("lucky_level_up", 1)
 	PC.pc_max_hp += 20
 	PC.pc_start_max_hp += 20
 	PC.pc_hp += 20 # 升级时也恢复一点HP
-	# 每级额外提升2%生命上限
-	var lv_hp_bonus = int(PC.pc_start_max_hp * 0.02)
+	# 每级额外提升2%生命上限；体质领悟只强化这段等级成长，避免按总血量重复大幅膨胀。
+	var lv_hp_bonus_rate = 0.02 * (1.0 + PC.lingwu_hp_bonus)
+	var lv_hp_bonus = int(PC.pc_start_max_hp * lv_hp_bonus_rate)
 	PC.pc_max_hp += lv_hp_bonus
 	PC.pc_start_max_hp += lv_hp_bonus
 
@@ -3318,6 +3343,37 @@ func global_level_up():
 	if PC.xuji_remaining > 0:
 		PC.pc_atk = int(PC.pc_atk * 1.05)
 		PC.xuji_remaining -= 1
+
+	# 每级护甲+1
+	PC.pc_armor += 1
+	# 护御领悟：每级额外护甲
+	if PC.lingwu_armor_bonus > 0:
+		PC.pc_armor += PC.lingwu_armor_bonus
+
+	# 敏捷领悟：每级额外攻速
+	if PC.lingwu_atk_speed_bonus > 0:
+		PC.pc_atk_speed += PC.lingwu_atk_speed_bonus
+	# 速度领悟：每级额外移速
+	if PC.lingwu_speed_bonus > 0:
+		PC.pc_speed += PC.lingwu_speed_bonus
+	# 威压领悟：每级额外最终伤害
+	if PC.lingwu_final_dmg_bonus > 0:
+		PC.pc_final_atk += PC.lingwu_final_dmg_bonus
+	# 天命领悟：每级额外天命（根据类型不同计算）
+	# R71：每2级+1 → 当前等级是2的倍数时+1
+	# SR71：每3级中后2级+1 → 当前等级不是(3k+1)时+1
+	# SSR71：每级+1
+	if PC.selected_rewards.has("R71"):
+		if PC.pc_lv % 2 == 0:
+			PC.now_lunky_level += 1
+			Global.emit_signal("lucky_level_up", 1)
+	if PC.selected_rewards.has("SR71"):
+		if PC.pc_lv % 3 != 1:
+			PC.now_lunky_level += 1
+			Global.emit_signal("lucky_level_up", 1)
+	if PC.selected_rewards.has("SSR71"):
+		PC.now_lunky_level += 1
+		Global.emit_signal("lucky_level_up", 1)
 
 	# 更新上次属性记录，用于下次比较变化
 	PC.last_lunky_level = PC.now_lunky_level
@@ -3915,13 +3971,13 @@ func reward_SSR58():
 func reward_SSR59():
 	# 行修·悟：每移动200米，经验获取率+1%
 	PC.selected_rewards.append("SSR59")
-	# 实际效果由 player_action._check_distance_buffs() 处理
+	PC.distance_buff_offsets["SSR59"] = PC.total_distance_moved / 10.0
 	_level_up_action()
 
 func reward_SSR60():
 	# 行修·缘：每移动200米，治愈精华掉落率+1%
 	PC.selected_rewards.append("SSR60")
-	# 实际效果由 player_action._check_distance_buffs() 处理
+	PC.distance_buff_offsets["SSR60"] = PC.total_distance_moved / 10.0
 	_level_up_action()
 
 # ================= 仙气凝聚系列 =================
@@ -4147,4 +4203,488 @@ func reward_UR54():
 	PC.selected_rewards.append("UR54")
 	PC.damage_reduction_rate = max(PC.damage_reduction_rate - 0.15, 0.0)
 	PC.pc_final_atk += 0.35
+	_level_up_action()
+
+# ================= R63-SSR70 领悟系列 =================
+
+# 力量领悟：因等级提升获取的攻击提升
+func reward_R63():
+	PC.selected_rewards.append("R63")
+	PC.lingwu_atk_bonus += 0.10
+	_level_up_action()
+
+func reward_SR63():
+	PC.selected_rewards.append("SR63")
+	PC.lingwu_atk_bonus += 0.13
+	_level_up_action()
+
+func reward_SSR63():
+	PC.selected_rewards.append("SSR63")
+	PC.lingwu_atk_bonus += 0.18
+	_level_up_action()
+
+# 体质领悟：因等级提升获取的体力上限提升
+func reward_R64():
+	PC.selected_rewards.append("R64")
+	PC.lingwu_hp_bonus += 0.15
+	_level_up_action()
+
+func reward_SR64():
+	PC.selected_rewards.append("SR64")
+	PC.lingwu_hp_bonus += 0.19
+	_level_up_action()
+
+func reward_SSR64():
+	PC.selected_rewards.append("SSR64")
+	PC.lingwu_hp_bonus += 0.26
+	_level_up_action()
+
+# 敏捷领悟：每升一级额外获取攻速
+func reward_R65():
+	PC.selected_rewards.append("R65")
+	PC.lingwu_atk_speed_bonus += 0.015
+	_level_up_action()
+
+func reward_SR65():
+	PC.selected_rewards.append("SR65")
+	PC.lingwu_atk_speed_bonus += 0.018
+	_level_up_action()
+
+func reward_SSR65():
+	PC.selected_rewards.append("SSR65")
+	PC.lingwu_atk_speed_bonus += 0.025
+	_level_up_action()
+
+# 速度领悟：每升一级额外获取移速
+func reward_R66():
+	PC.selected_rewards.append("R66")
+	PC.lingwu_speed_bonus += 0.02
+	_level_up_action()
+
+func reward_SR66():
+	PC.selected_rewards.append("SR66")
+	PC.lingwu_speed_bonus += 0.025
+	_level_up_action()
+
+func reward_SSR66():
+	PC.selected_rewards.append("SSR66")
+	PC.lingwu_speed_bonus += 0.033
+	_level_up_action()
+
+# 威压领悟：每升一级额外获取最终伤害
+func reward_R67():
+	PC.selected_rewards.append("R67")
+	PC.lingwu_final_dmg_bonus += 0.012
+	_level_up_action()
+
+func reward_SR67():
+	PC.selected_rewards.append("SR67")
+	PC.lingwu_final_dmg_bonus += 0.014
+	_level_up_action()
+
+func reward_SSR67():
+	PC.selected_rewards.append("SSR67")
+	PC.lingwu_final_dmg_bonus += 0.017
+	_level_up_action()
+
+# 铸匠之魂：最终伤害+5%/7%/10%，武器升级概率+15%/20%/25%
+func reward_R68():
+	PC.selected_rewards.append("R68")
+	PC.pc_final_atk += 0.05
+	PC.lingwu_weapon_upgrade_bonus += 0.15
+	_level_up_action()
+
+func reward_SR68():
+	PC.selected_rewards.append("SR68")
+	PC.pc_final_atk += 0.07
+	PC.lingwu_weapon_upgrade_bonus += 0.20
+	_level_up_action()
+
+func reward_SSR68():
+	PC.selected_rewards.append("SSR68")
+	PC.pc_final_atk += 0.10
+	PC.lingwu_weapon_upgrade_bonus += 0.25
+	_level_up_action()
+
+# 宝器之魂：天命+3/4/6，天命升级概率+15%/20%/25%
+func reward_R69():
+	PC.selected_rewards.append("R69")
+	PC.now_lunky_level += 3
+	PC.lucky = PC.now_lunky_level + Global.study_initial_lucky
+	PC.lingwu_lucky_upgrade_bonus += 0.15
+	_level_up_action()
+
+func reward_SR69():
+	PC.selected_rewards.append("SR69")
+	PC.now_lunky_level += 4
+	PC.lucky = PC.now_lunky_level + Global.study_initial_lucky
+	PC.lingwu_lucky_upgrade_bonus += 0.20
+	_level_up_action()
+
+func reward_SSR69():
+	PC.selected_rewards.append("SSR69")
+	PC.now_lunky_level += 6
+	PC.lucky = PC.now_lunky_level + Global.study_initial_lucky
+	PC.lingwu_lucky_upgrade_bonus += 0.25
+	_level_up_action()
+
+# 唤灵之魂：召唤物伤害+10%/13%/16%，唤灵升级概率+15%/20%/25%
+func reward_R70():
+	PC.selected_rewards.append("R70")
+	PC.summon_damage_multiplier += 0.10
+	PC.lingwu_summon_upgrade_bonus += 0.15
+	_level_up_action()
+
+func reward_SR70():
+	PC.selected_rewards.append("SR70")
+	PC.summon_damage_multiplier += 0.13
+	PC.lingwu_summon_upgrade_bonus += 0.20
+	_level_up_action()
+
+func reward_SSR70():
+	PC.selected_rewards.append("SSR70")
+	PC.summon_damage_multiplier += 0.16
+	PC.lingwu_summon_upgrade_bonus += 0.25
+	_level_up_action()
+
+# ================= 天命领悟系列 =================
+
+# 天命领悟R71：每2级额外+1天命（等效0.5/级）
+func reward_R71():
+	PC.selected_rewards.append("R71")
+	_level_up_action()
+
+# 天命领悟SR71：每3级中第2、3级+1天命（等效0.667/级）
+func reward_SR71():
+	PC.selected_rewards.append("SR71")
+	_level_up_action()
+
+# 天命领悟SSR71：每级额外+1天命
+func reward_SSR71():
+	PC.selected_rewards.append("SSR71")
+	_level_up_action()
+
+# ================= 苦修系列（紫色，基于移动距离） =================
+
+# 苦修·悟：每移动300米，经验获取率+1%
+func reward_SR72():
+	PC.selected_rewards.append("SR72")
+	PC.distance_buff_offsets["SR72"] = PC.total_distance_moved / 10.0
+	_level_up_action()
+
+# 苦修·缘：每移动300米，治愈精华掉落率+1%
+func reward_SR73():
+	PC.selected_rewards.append("SR73")
+	PC.distance_buff_offsets["SR73"] = PC.total_distance_moved / 10.0
+	_level_up_action()
+
+# 苦修·道：每移动450米，天命+1（需要苦修·悟或苦修·缘）
+func reward_SR74():
+	PC.selected_rewards.append("SR74")
+	PC.distance_buff_offsets["SR74"] = PC.total_distance_moved / 10.0
+	_level_up_action()
+
+# 行修·道：每移动300米，天命+1
+func reward_SSR75():
+	PC.selected_rewards.append("SSR75")
+	PC.distance_buff_offsets["SSR75"] = PC.total_distance_moved / 10.0
+	_level_up_action()
+
+# ================= 法则前置条件检查函数 =================
+# 返回true表示法则等级>=3，允许对应奖励出现
+
+func check_xiaofeng_faze_greater_than_3() -> bool:
+	return PC.faze_wind_level >= 3
+
+func check_huyou_faze_greater_than_3() -> bool:
+	return PC.faze_shield_level >= 3
+
+func check_yuliao_faze_greater_than_3() -> bool:
+	return PC.faze_heal_level >= 3
+
+func check_guangyu_faze_greater_than_3() -> bool:
+	return PC.faze_wide_level >= 3
+
+func check_danyu_faze_greater_than_3() -> bool:
+	return PC.faze_bullet_level >= 3
+
+func check_pohuai_faze_greater_than_3() -> bool:
+	return PC.faze_destroy_level >= 3
+
+func check_SR72_or_SR73() -> bool:
+	return PC.selected_rewards.has("SR72") or PC.selected_rewards.has("SR73")
+
+# ================= 护御领悟系列 =================
+
+# 护御领悟R76：每升一级，额外获取1点护甲
+func reward_R76():
+	PC.selected_rewards.append("R76")
+	PC.lingwu_armor_bonus += 1.0
+	_level_up_action()
+
+# 护御领悟SR76：每升一级，额外获取1.5点护甲
+func reward_SR76():
+	PC.selected_rewards.append("SR76")
+	PC.lingwu_armor_bonus += 1.5
+	_level_up_action()
+
+# 护御领悟SSR76：每升一级，额外获取2点护甲
+func reward_SSR76():
+	PC.selected_rewards.append("SSR76")
+	PC.lingwu_armor_bonus += 2.0
+	_level_up_action()
+
+# ================= 苦修·佑/行修·佑（移动距离护甲） =================
+
+# 苦修·佑：每移动300米，护甲+1
+func reward_SR77():
+	PC.selected_rewards.append("SR77")
+	PC.distance_buff_offsets["SR77"] = PC.total_distance_moved / 10.0
+	_level_up_action()
+
+# 行修·佑：每移动200米，护甲+1
+func reward_SSR78():
+	PC.selected_rewards.append("SSR78")
+	PC.distance_buff_offsets["SSR78"] = PC.total_distance_moved / 10.0
+	_level_up_action()
+
+# ================= 护身系列 =================
+
+# 护身（蓝）：护甲+12，移动速度-4%
+func reward_R79():
+	PC.selected_rewards.append("R79")
+	PC.pc_armor += 12
+	PC.pc_speed -= 0.04
+	_level_up_action()
+
+# 护身（紫）：护甲+15，移动速度-5%
+func reward_SR79():
+	PC.selected_rewards.append("SR79")
+	PC.pc_armor += 15
+	PC.pc_speed -= 0.05
+	_level_up_action()
+
+# 护身（金）：护甲+20，移动速度-6%
+func reward_SSR79():
+	PC.selected_rewards.append("SSR79")
+	PC.pc_armor += 20
+	PC.pc_speed -= 0.06
+	_level_up_action()
+
+# ================= 攻守兼备系列 =================
+
+# 攻守兼备（蓝）：攻击+4%，护甲+8
+func reward_R80():
+	PC.selected_rewards.append("R80")
+	PC.pc_atk = int(PC.pc_atk * 1.04)
+	PC.pc_armor += 8
+	_level_up_action()
+
+# 攻守兼备（紫）：攻击+5%，护甲+10
+func reward_SR80():
+	PC.selected_rewards.append("SR80")
+	PC.pc_atk = int(PC.pc_atk * 1.05)
+	PC.pc_armor += 10
+	_level_up_action()
+
+# 攻守兼备（金）：攻击+7%，护甲+14
+func reward_SSR80():
+	PC.selected_rewards.append("SSR80")
+	PC.pc_atk = int(PC.pc_atk * 1.07)
+	PC.pc_armor += 14
+	_level_up_action()
+
+# ================= 自愈系列 =================
+
+# 自愈（蓝）：生命恢复+1.8%
+func reward_R81():
+	PC.selected_rewards.append("R81")
+	PC.pc_hp_regen += 1.8
+	_level_up_action()
+
+# 自愈（紫）：生命恢复+2.4%
+func reward_SR81():
+	PC.selected_rewards.append("SR81")
+	PC.pc_hp_regen += 2.4
+	_level_up_action()
+
+# 自愈（金）：生命恢复+3%
+func reward_SSR81():
+	PC.selected_rewards.append("SSR81")
+	PC.pc_hp_regen += 3.0
+	_level_up_action()
+
+# ================= 抵抗系列 =================
+
+# 抵抗（蓝）：护甲+5，生命恢复+1%
+func reward_R82():
+	PC.selected_rewards.append("R82")
+	PC.pc_armor += 5
+	PC.pc_hp_regen += 1.0
+	_level_up_action()
+
+# 抵抗（紫）：护甲+6，生命恢复+1.2%
+func reward_SR82():
+	PC.selected_rewards.append("SR82")
+	PC.pc_armor += 6
+	PC.pc_hp_regen += 1.2
+	_level_up_action()
+
+# 抵抗（金）：护甲+8，生命恢复+1.5%
+func reward_SSR82():
+	PC.selected_rewards.append("SSR82")
+	PC.pc_armor += 8
+	PC.pc_hp_regen += 1.5
+	_level_up_action()
+
+# ================= 痛楚/精魄/存续领悟系列 =================
+
+func reward_R83():
+	PC.selected_rewards.append("R83")
+	_level_up_action()
+
+func reward_SR83():
+	PC.selected_rewards.append("SR83")
+	_level_up_action()
+
+func reward_SSR83():
+	PC.selected_rewards.append("SSR83")
+	_level_up_action()
+
+func reward_R84():
+	PC.selected_rewards.append("R84")
+	_level_up_action()
+
+func reward_SR84():
+	PC.selected_rewards.append("SR84")
+	_level_up_action()
+
+func reward_SSR84():
+	PC.selected_rewards.append("SSR84")
+	_level_up_action()
+
+func reward_R85():
+	PC.selected_rewards.append("R85")
+	_level_up_action()
+
+func reward_SR85():
+	PC.selected_rewards.append("SR85")
+	_level_up_action()
+
+func reward_SSR85():
+	PC.selected_rewards.append("SSR85")
+	_level_up_action()
+
+func _apply_layered_armor(reward_id: String, flat_armor: float, armor_ratio: float) -> void:
+	PC.selected_rewards.append(reward_id)
+	PC.pc_armor += flat_armor
+	PC.pc_armor += ceil(PC.pc_armor * armor_ratio)
+	_level_up_action()
+
+func reward_R86():
+	_apply_layered_armor("R86", 8.0, 0.04)
+
+func reward_SR86():
+	_apply_layered_armor("SR86", 10.0, 0.05)
+
+func reward_SSR86():
+	_apply_layered_armor("SSR86", 13.0, 0.06)
+
+func reward_SR87():
+	PC.selected_rewards.append("SR87")
+	_level_up_action()
+
+func reward_SSR87():
+	PC.selected_rewards.append("SSR87")
+	_level_up_action()
+
+func _apply_toughness(reward_id: String, hp_regen_bonus: float, damage_reduction_penalty: float) -> void:
+	PC.selected_rewards.append(reward_id)
+	PC.pc_hp_regen += hp_regen_bonus
+	PC.damage_reduction_rate = max(PC.damage_reduction_rate - damage_reduction_penalty, 0.0)
+	_level_up_action()
+
+func reward_R88():
+	_apply_toughness("R88", 2.4, 0.005)
+
+func reward_SR88():
+	_apply_toughness("SR88", 3.0, 0.006)
+
+func reward_SSR88():
+	_apply_toughness("SSR88", 4.0, 0.008)
+
+func _apply_survival_soul(reward_id: String, armor_bonus: float, live_weight_bonus: float) -> void:
+	PC.selected_rewards.append(reward_id)
+	PC.pc_armor += armor_bonus
+	PC.lingwu_live_upgrade_bonus += live_weight_bonus
+	_level_up_action()
+
+func reward_R89():
+	_apply_survival_soul("R89", 6.0, 0.15)
+
+func reward_SR89():
+	_apply_survival_soul("SR89", 8.0, 0.20)
+
+func reward_SSR89():
+	_apply_survival_soul("SSR89", 12.0, 0.25)
+
+func reward_R90():
+	PC.selected_rewards.append("R90")
+	PC.update_spirit_reward_bonuses()
+	_level_up_action()
+
+func reward_SR90():
+	PC.selected_rewards.append("SR90")
+	PC.update_spirit_reward_bonuses()
+	_level_up_action()
+
+func reward_SSR90():
+	PC.selected_rewards.append("SSR90")
+	PC.update_spirit_reward_bonuses()
+	_level_up_action()
+
+func reward_R91():
+	PC.selected_rewards.append("R91")
+	PC.update_spirit_reward_bonuses()
+	_level_up_action()
+
+func reward_SR91():
+	PC.selected_rewards.append("SR91")
+	PC.update_spirit_reward_bonuses()
+	_level_up_action()
+
+func reward_SSR91():
+	PC.selected_rewards.append("SSR91")
+	PC.update_spirit_reward_bonuses()
+	_level_up_action()
+
+# ================= UR红色领悟 =================
+
+# 生生不息：生命恢复+5%，最大体力-10%
+func reward_UR55():
+	PC.selected_rewards.append("UR55")
+	PC.pc_hp_regen += 5.0
+	var hp_reduce = int(PC.pc_max_hp * 0.10)
+	PC.pc_max_hp -= hp_reduce
+	PC.pc_start_max_hp -= hp_reduce
+	if PC.pc_hp > PC.pc_max_hp:
+		PC.pc_hp = PC.pc_max_hp
+	_level_up_action()
+
+# 最终壁垒：护甲+40，最大体力+20%，最终伤害-15%
+func reward_UR56():
+	PC.selected_rewards.append("UR56")
+	PC.pc_armor += 40
+	var hp_bonus = int(PC.pc_max_hp * 0.20)
+	PC.pc_max_hp += hp_bonus
+	PC.pc_start_max_hp += hp_bonus
+	PC.pc_hp += hp_bonus
+	PC.pc_final_atk -= 0.15
+	_level_up_action()
+
+# 深仁厚泽：生命恢复+4%，生命恢复间隔从5秒降低至4秒
+func reward_UR57():
+	PC.selected_rewards.append("UR57")
+	PC.pc_hp_regen += 4.0
+	PC.hp_regen_interval = 4.0
 	_level_up_action()

@@ -17,7 +17,7 @@ var update_move_timer: Timer
 
 # 属性
 var speed: float = SettingMoster.stone_man("speed") * 1.2
-var hpMax: float = SettingMoster.stone_man("hp") * 15 # 正式版50
+var hpMax: float = SettingMoster.stone_man("hp") * 13 
 var hp: float = hpMax
 var atk: float = SettingMoster.stone_man("atk") * 0.75
 var get_point: int = SettingMoster.stone_man("point") * 50
@@ -87,6 +87,9 @@ const POETRY_CHAIN_CHANT_PAIRS := [
 	[1, 5], # 炽炎+十字火
 ]
 
+func _create_skill_timer(duration: float) -> SceneTreeTimer:
+	return get_tree().create_timer(duration, false)
+
 func _ready():
 	add_to_group("boss")
 	process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -98,26 +101,21 @@ func _ready():
 		sprite.material.set_shader_parameter("outline_color", Color.RED)
 		sprite.material.set_shader_parameter("outline_width", 1.0)
 	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 6
+	var dps_multiplier := 9
 	match Global.current_stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 8
+			dps_multiplier = 12
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 10
-		Global.STAGE_DIFFICULTY_POETRY:
-			dps_multiplier = 10
-	hpMax += Global.get_current_dps() * dps_multiplier
-	# 诗想难度下Boss生命额外提升40倍
+			dps_multiplier = 15
 	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
-		hpMax *= 32
+		hpMax = Global.get_poetry_boss_max_hp("boss_cansel", hpMax)
+	else:
+		hpMax += Global.get_current_dps() * dps_multiplier
 	hp = hpMax
 	
 	# 浅层难度下Boss只造成50%伤害
 	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
 		atk *= 0.5
-	# 诗想难度下Boss攻击额外提升50%
-	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
-		atk *= 1.75
 
 	setup_monster_base()
 	player_hit_emit_self = true
@@ -126,7 +124,7 @@ func _ready():
 
 	CharacterEffects.create_shadow(self , 50.0, 16.0, 24.0)
 
-	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "坎塞尔")
+	Global.emit_signal("boss_hp_bar_initialize", hpMax, hp, 12, "神秘人")
 	Global.emit_signal("boss_hp_bar_show")
 
 	update_move_timer = Timer.new()
@@ -362,7 +360,7 @@ func _execute_combo_pair(pair: Array):
 	
 	# 组合咏唱
 	Global.emit_signal("boss_chant_start", "组合咏唱", 0.3)
-	await get_tree().create_timer(0.1).timeout
+	await _create_skill_timer(0.1).timeout
 	if not is_instance_valid(self ) or is_dead:
 		_combo_mode = false
 		return
@@ -421,7 +419,7 @@ func _finish_skill():
 					child.queue_free()
 				# 诗想组合咏唱：组间间隔0.5秒
 				if _is_poetry():
-					await get_tree().create_timer(0.5).timeout
+					await _create_skill_timer(0.5).timeout
 					if not is_instance_valid(self ) or is_dead: return
 				_choose_attack()
 		else:
@@ -602,7 +600,7 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, _direction: Vector2):
 	bullet_tween.tween_callback(func():
 		for body in bullet.get_overlapping_bodies():
 			trigger_damage.call(body)
-		var timer = get_tree().create_timer(45.0)
+		var timer = _create_skill_timer(45.0)
 		timer.timeout.connect(func():
 			if is_instance_valid(bullet):
 				bullet.queue_free()
@@ -746,7 +744,7 @@ func _attack_blazing_fire():
 	var chant_time = 1.0 if is_chain_chanting else 2.0
 	if not _combo_mode:
 		Global.emit_signal("boss_chant_start", "爆炎", chant_time)
-		await get_tree().create_timer(chant_time).timeout
+		await _create_skill_timer(chant_time).timeout
 		if not is_instance_valid(self ) or is_dead: return
 	
 	var player_pos = PC.player_instance.global_position if is_instance_valid(PC.player_instance) else global_position
@@ -839,11 +837,11 @@ func _attack_ring_thunder():
 	
 	if _combo_mode:
 		# 组合模式：使用回调代替await，确保与另一个技能同时启动不被阻塞
-		var _timer = get_tree().create_timer(delay)
+		var _timer = _create_skill_timer(delay)
 		_timer.timeout.connect(_apply_ring_thunder_effect.bind(boss_pos, ring_warn))
 		return
 	
-	await get_tree().create_timer(delay).timeout
+	await _create_skill_timer(delay).timeout
 	_apply_ring_thunder_effect(boss_pos, ring_warn)
 
 func _apply_ring_thunder_effect(boss_pos: Vector2, ring_warn: Node2D):
@@ -1002,7 +1000,7 @@ class _DirectionArrowIndicator extends Node2D:
 func _attack_ground_fire():
 	SEManager.play("133")
 	Global.emit_signal("boss_chant_start", "耀星", 1.5)
-	await get_tree().create_timer(1.5).timeout
+	await _create_skill_timer(1.5).timeout
 	if not is_instance_valid(self ) or is_dead: return
 	Global.emit_signal("boss_chant_end")
 	
@@ -1096,7 +1094,7 @@ func _run_ground_fire_rounds():
 		_spawn_ground_fire_line(start_pos1, dir, step_dist, int(count), size_scale, cached_atk)
 		_spawn_ground_fire_line(start_pos2, dir, step_dist, int(count), size_scale, cached_atk)
 		
-		await get_tree().create_timer(1.3).timeout
+		await _create_skill_timer(1.3).timeout
 	
 	_ground_fire_running = false
 
@@ -1131,7 +1129,7 @@ func _spawn_ground_fire_line(start_pos: Vector2, direction: Vector2, step_dist: 
 		arrow.warn_duration = warn_duration
 		warn.add_child(arrow)
 		
-		await get_tree().create_timer(1.25).timeout
+		await _create_skill_timer(1.25).timeout
 		current_pos += direction * step_dist
 
 func _attack_cross_fire():
@@ -1160,7 +1158,7 @@ func _attack_cross_fire():
 	warn2.start_warning(boss_pos + Vector2(0, -600), boss_pos + Vector2(0, 600), cross_width, warn_dur, atk * 2.0, "炽焰十字")
 	
 	if _combo_mode:
-		var _timer = get_tree().create_timer(warn_dur)
+		var _timer = _create_skill_timer(warn_dur)
 		_timer.timeout.connect(func():
 			if not is_instance_valid(self ) or is_dead: return
 			_hide_symbol()
@@ -1170,7 +1168,7 @@ func _attack_cross_fire():
 		)
 		return
 	
-	await get_tree().create_timer(chant_time).timeout
+	await _create_skill_timer(chant_time).timeout
 	_hide_symbol()
 	_spawn_cross_particles(boss_pos, [Color(0.76, 0.6, 0.22), Color(0.55, 0.0, 0.0), Color(1.0, 0.5, 0.0)], 160, 600.0)
 	GU.screen_shake(4.0, 0.2)
@@ -1204,7 +1202,7 @@ func _attack_x_ice():
 	warn2.start_warning(boss_pos + Vector2(-500, 500), boss_pos + Vector2(500, -500), x_width, warn_dur, atk * 2.0, "霜牙交错")
 	
 	if _combo_mode:
-		var _timer = get_tree().create_timer(warn_dur)
+		var _timer = _create_skill_timer(warn_dur)
 		_timer.timeout.connect(func():
 			if not is_instance_valid(self ) or is_dead: return
 			_hide_symbol()
@@ -1214,7 +1212,7 @@ func _attack_x_ice():
 		)
 		return
 	
-	await get_tree().create_timer(chant_time).timeout
+	await _create_skill_timer(chant_time).timeout
 	_hide_symbol()
 	_spawn_x_particles(boss_pos, [Color(0.0, 0.15, 0.55), Color(0.4, 0.7, 1.0), Color(0.53, 0.81, 0.98)], 160, 600.0)
 	GU.screen_shake(4.0, 0.2)
@@ -1247,7 +1245,7 @@ func _attack_ice_spike():
 		
 		Global.emit_signal("boss_chant_start", "冰刺术" + str(round_idx + 1), round_delay)
 		
-		await get_tree().create_timer(round_delay).timeout
+		await _create_skill_timer(round_delay).timeout
 		if not is_instance_valid(self ) or is_dead: return
 		Global.emit_signal("boss_chant_end")
 		
@@ -1304,7 +1302,7 @@ func _attack_ice_spike():
 		GU.screen_shake(3.0, 0.3)
 	
 	# 最后一轮冰刺延迟后射出
-	await get_tree().create_timer(1.0).timeout
+	await _create_skill_timer(1.0).timeout
 	if not is_instance_valid(self ) or is_dead: return
 	if rounds.size() >= total_rounds:
 		_launch_ice_spikes(rounds[total_rounds - 1], fly_speed)
@@ -1379,7 +1377,7 @@ func _attack_poetry_ultimate():
 		# 阶段1：蓄力读条 2.5秒（无滤镜）
 		_show_symbol("fire")
 		Global.emit_signal("boss_chant_start", charge_name, 2.5)
-		await get_tree().create_timer(2.5).timeout
+		await _create_skill_timer(2.5).timeout
 		if not is_instance_valid(self ) or is_dead: return
 		Global.emit_signal("boss_chant_end")
 		
@@ -1387,7 +1385,7 @@ func _attack_poetry_ultimate():
 		overlay = _create_screen_overlay(Color(1.0, 0.0, 0.0))
 		_fade_in_overlay(overlay, release_time)
 		Global.emit_signal("boss_chant_start", release_name, release_time)
-		await get_tree().create_timer(release_time).timeout
+		await _create_skill_timer(release_time).timeout
 		if not is_instance_valid(self ) or is_dead:
 			_clear_overlay(overlay)
 			return
@@ -1420,7 +1418,7 @@ func _attack_poetry_ultimate():
 		# 阶段1：蓄力读条 2.5秒（无滤镜）
 		_show_symbol("ice")
 		Global.emit_signal("boss_chant_start", charge_name, 2.5)
-		await get_tree().create_timer(2.5).timeout
+		await _create_skill_timer(2.5).timeout
 		if not is_instance_valid(self ) or is_dead: return
 		Global.emit_signal("boss_chant_end")
 		
@@ -1428,13 +1426,14 @@ func _attack_poetry_ultimate():
 		overlay = _create_screen_overlay(Color(0.0, 0.3, 1.0))
 		_fade_in_overlay(overlay, release_time)
 		Global.emit_signal("boss_chant_start", release_name, release_time)
-		await get_tree().create_timer(release_time).timeout
+		await _create_skill_timer(release_time).timeout
 		if not is_instance_valid(self ) or is_dead:
 			_clear_overlay(overlay)
 			return
 		Global.emit_signal("boss_chant_end")
 		
 		# 判定：全屏特效 + 伤害 + 额外粒子
+		SEManager.play("139")
 		GU.screen_shake(15.0, 0.5)
 		# 玄冰原有蓝色粒子 + 冰封类型三色粒子（数量+50% = 240）
 		_spawn_particles(global_position, Color(0.0, 0.5, 1.0), 180, 600.0)
@@ -1527,7 +1526,7 @@ func _attack_chain_chant():
 				tw2.tween_property(icon2, "modulate:a", 1.0, 0.3)
 				tw2.tween_property(icon2, "position:y", 0.0, 0.3).set_ease(Tween.EASE_OUT)
 			
-			await get_tree().create_timer(symbol_interval).timeout
+			await _create_skill_timer(symbol_interval).timeout
 	else:
 		# 非诗想：原有顺序逻辑
 		var combo_pool = CHAIN_CHANT_COMBINATIONS
@@ -1551,9 +1550,9 @@ func _attack_chain_chant():
 				tw.tween_property(mini_symbol, "modulate:a", 1.0, 0.3)
 				tw.tween_property(mini_symbol, "position:y", 0.0, 0.3).set_ease(Tween.EASE_OUT)
 			
-			await get_tree().create_timer(symbol_interval).timeout
+			await _create_skill_timer(symbol_interval).timeout
 	
-	await get_tree().create_timer(1.0).timeout
+	await _create_skill_timer(1.0).timeout
 	Global.emit_signal("boss_chant_end")
 	_hide_symbol()
 	

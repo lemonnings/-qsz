@@ -156,6 +156,7 @@ static func get_total_damage_bonus(weapon_tag: String) -> float:
 		var var_name: String = CATEGORY_BONUS_MAP.get(cat, "")
 		if var_name != "":
 			bonus += float(Global.get(var_name))
+	bonus += Global.get_achievement_weapon_damage_bonus(weapon_tag)
 	return bonus
 
 

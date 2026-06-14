@@ -1,6 +1,9 @@
 extends Node
 
 const DroppedItemScene = preload("res://Scenes/global/drop_normal.tscn") # 请替换为实际路径
+const HEAL_AURA_ITEM_ID := "item_001"
+const MAX_HEAL_AURA_DROP_COUNT := 8
+const MAX_TOTAL_DROP_ITEM_COUNT := 200
 const DROP_DISTANCE_MIN := 20.0
 const DROP_DISTANCE_MAX := 50.0
 const DROP_MULTI_INITIAL_OFFSET_MIN := 4.0
@@ -17,11 +20,21 @@ var _cached_boundary: Dictionary = {}
 var _cached_boundary_scene: Node = null
 
 func _ready():
+	stop_victory_collect()
 	# 连接到全局信号
 	if Global.has_signal("drop_out_item"):
 		Global.drop_out_item.connect(_on_drop_out_item)
 	else:
 		printerr("Global signal 'drop_out_item' not found!")
+
+func _exit_tree() -> void:
+	stop_victory_collect()
+
+func stop_victory_collect() -> void:
+	_victory_collect_request_id += 1
+	victory_attracting = false
+	victory_player = null
+	Global.victory_collecting = false
 
 func _process(delta: float) -> void:
 	if not victory_attracting:
@@ -61,6 +74,8 @@ func start_victory_collect(player: Node2D, speed: float = 100.0, delay: float = 
 	Global.victory_collecting = true
 
 func _on_drop_out_item(item_id: String, quantity: int, drop_position: Vector2):
+	if not _can_accept_drop_item(item_id):
+		return
 	_pending_drop_entries.append({
 		"item_id": item_id,
 		"quantity": max(1, quantity),
@@ -108,6 +123,9 @@ func _spawn_drop_group(group_entries: Array) -> void:
 			})
 	if spawn_jobs.is_empty():
 		return
+	spawn_jobs = _apply_drop_item_limits(spawn_jobs)
+	if spawn_jobs.is_empty():
+		return
 	var spread_data = _build_drop_spread_data(spawn_jobs.size())
 	for i in range(spawn_jobs.size()):
 		var spawn_job = spawn_jobs[i]
@@ -132,6 +150,46 @@ func _spawn_drop_group(group_entries: Array) -> void:
 				name_label.label_settings = label_settings
 		current_scene.add_child(dropped_item_instance)
 		apply_drop_animation(dropped_item_instance, drop_data)
+
+func _can_accept_drop_item(item_id: String) -> bool:
+	var counts := _get_live_drop_item_counts()
+	if int(counts["total"]) >= MAX_TOTAL_DROP_ITEM_COUNT:
+		return false
+	if item_id == HEAL_AURA_ITEM_ID and int(counts["heal_aura"]) >= MAX_HEAL_AURA_DROP_COUNT:
+		return false
+	return true
+
+func _apply_drop_item_limits(spawn_jobs: Array) -> Array:
+	var counts := _get_live_drop_item_counts()
+	var total_count := int(counts["total"])
+	var heal_aura_count := int(counts["heal_aura"])
+	var limited_jobs: Array = []
+	for spawn_job in spawn_jobs:
+		if total_count >= MAX_TOTAL_DROP_ITEM_COUNT:
+			break
+		var item_id := str(spawn_job.get("item_id", ""))
+		if item_id == HEAL_AURA_ITEM_ID and heal_aura_count >= MAX_HEAL_AURA_DROP_COUNT:
+			continue
+		limited_jobs.append(spawn_job)
+		total_count += 1
+		if item_id == HEAL_AURA_ITEM_ID:
+			heal_aura_count += 1
+	return limited_jobs
+
+func _get_live_drop_item_counts() -> Dictionary:
+	var counts := {
+		"total": 0,
+		"heal_aura": 0
+	}
+	if get_tree() == null:
+		return counts
+	for item in get_tree().get_nodes_in_group("drop_item"):
+		if not is_instance_valid(item) or item.is_queued_for_deletion():
+			continue
+		counts["total"] += 1
+		if str(item.get("item_id")) == HEAL_AURA_ITEM_ID:
+			counts["heal_aura"] += 1
+	return counts
 
 func _get_item_drop_name_color(item_data: Dictionary) -> Color:
 	var rare_color = _get_rare_color(str(item_data.get("item_rare", "common")))
@@ -216,8 +274,11 @@ func _clamp_position_to_scene_bounds(pos: Vector2) -> Vector2:
 	# 优先从场景中的 Boundry 节点获取实际可移动边界（StaticBody2D 圈定的范围）
 	var bounds = _get_scene_boundary(current_scene)
 	if bounds.has("min_x") and bounds.has("max_x") and bounds.has("min_y") and bounds.has("max_y"):
+		var top_offset = 10
+		if Global.current_stage_id == "cave":
+			top_offset = 60  # cave顶部边界下移30像素
 		pos.x = clamp(pos.x, bounds["min_x"] + 10, bounds["max_x"] - 10)
-		pos.y = clamp(pos.y, bounds["min_y"] + 10, bounds["max_y"] - 10)
+		pos.y = clamp(pos.y, bounds["min_y"] + top_offset, bounds["max_y"] - 10)
 		return pos
 	
 	# 回退：从 Camera2D 获取边界

@@ -18,11 +18,23 @@ class EmblemData:
 
 # 纹章配置字典
 var emblem_configs: Dictionary = {}
-const CHARACTER_BASE_WEAPON_MAP := {
-	"moning": {"skill_id": "qigong", "display_name": "气功波"},
-	"yiqiu": {"skill_id": "swordqi", "display_name": "剑气诀"},
-	"noam": {"skill_id": "light bullet", "display_name": "光弹"},
-	"kansel": {"skill_id": "ice", "display_name": "冰刺术"},
+const START_WEAPON_MAP := {
+	"Swordqi": {"skill_id": "swordqi", "display_name": "剑气诀"},
+	"Qigong": {"skill_id": "qigong", "display_name": "气功波"},
+	"Lightbullet": {"skill_id": "light bullet", "display_name": "光弹"},
+	"Ice": {"skill_id": "ice", "display_name": "冰刺术"},
+	"Xunfeng": {"skill_id": "xunfeng", "display_name": "巽风诀"},
+	"Genshan": {"skill_id": "genshan", "display_name": "艮山诀"},
+	"Bloodwave": {"skill_id": "bloodwave", "display_name": "血气波"},
+	"Xuanwu": {"skill_id": "xuanwu", "display_name": "玄武盾"},
+	"Water": {"skill_id": "water", "display_name": "坎水诀"},
+	"Holylight": {"skill_id": "holylight", "display_name": "圣光术"},
+	"Branch": {"skill_id": "branch", "display_name": "仙枝"},
+	"Thunder": {"skill_id": "thunder", "display_name": "震雷诀"},
+	"Thunderbreak": {"skill_id": "thunder_break", "display_name": "天雷破"},
+	"Moyan": {"skill_id": "moyan", "display_name": "爆炎诀"},
+	"Qiankun": {"skill_id": "qiankun", "display_name": "乾坤双剑"},
+	"Bloodboardsword": {"skill_id": "bloodboardsword", "display_name": "饮血刀"},
 }
 
 func _ready():
@@ -137,33 +149,34 @@ func _initialize_emblem_configs():
 		"当前每拥有一个纹章，提升2*层数%最终伤害。"
 	)
 
-func _get_current_player_name() -> String:
+func _get_current_start_weapon_id() -> String:
 	if typeof(PC) != TYPE_NIL and PC != null:
-		return str(PC.player_name)
-	return ""
+		return Global.get_selected_start_weapon()
+	return "Swordqi"
 
-func get_base_weapon_info(player_name: String = "") -> Dictionary:
-	var resolved_player_name := player_name.strip_edges()
-	if resolved_player_name.is_empty():
-		resolved_player_name = _get_current_player_name()
-	if CHARACTER_BASE_WEAPON_MAP.has(resolved_player_name):
-		return CHARACTER_BASE_WEAPON_MAP[resolved_player_name]
+func get_base_weapon_info(start_weapon_id: String = "") -> Dictionary:
+	var resolved_start_weapon_id := start_weapon_id.strip_edges()
+	if resolved_start_weapon_id.is_empty():
+		resolved_start_weapon_id = _get_current_start_weapon_id()
+	resolved_start_weapon_id = Global.normalize_start_weapon_id(resolved_start_weapon_id)
+	if START_WEAPON_MAP.has(resolved_start_weapon_id):
+		return START_WEAPON_MAP[resolved_start_weapon_id]
 	return {}
 
-func get_base_weapon_skill_id(player_name: String = "") -> String:
-	var weapon_info := get_base_weapon_info(player_name)
+func get_base_weapon_skill_id(start_weapon_id: String = "") -> String:
+	var weapon_info := get_base_weapon_info(start_weapon_id)
 	return str(weapon_info.get("skill_id", ""))
 
-func get_base_weapon_display_name(player_name: String = "") -> String:
-	var weapon_info := get_base_weapon_info(player_name)
+func get_base_weapon_display_name(start_weapon_id: String = "") -> String:
+	var weapon_info := get_base_weapon_info(start_weapon_id)
 	return str(weapon_info.get("display_name", "基础武器"))
 
-func get_base_weapon_description(player_name: String = "") -> String:
-	var weapon_info := get_base_weapon_info(player_name)
+func get_base_weapon_description(start_weapon_id: String = "") -> String:
+	var weapon_info := get_base_weapon_info(start_weapon_id)
 	if weapon_info.is_empty():
 		return "基础武器"
 	return "%s" % [
-		get_base_weapon_display_name(player_name)
+		get_base_weapon_display_name(start_weapon_id)
 	]
 
 func _resolve_emblem_description(emblem_id: String, description: String, player_name: String = "") -> String:

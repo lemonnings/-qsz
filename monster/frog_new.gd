@@ -1,4 +1,4 @@
-﻿extends "res://Script/monster/monster_base.gd"
+extends "res://Script/monster/monster_base.gd"
 
 @onready var sprite = $AnimatedSprite2D
 
@@ -13,7 +13,6 @@ var hp: float = SettingMoster.frog_new("hp")
 var atk: float = SettingMoster.frog_new("atk")
 var get_point: int = SettingMoster.frog_new("point")
 var get_exp: int = SettingMoster.frog_new("exp")
-var get_mechanism: int = SettingMoster.frog_new("mechanism")
 var target_position: Vector2 # 用于存储移动目标位置
 var attack_cooldown_timer: Timer # 攻击间隔计时器 (替换旧的 attack_timer)
 var action_timer: Timer # 用于攻击前摇和逃跑计时
@@ -36,7 +35,7 @@ func _ready() -> void:
 	health_bar_tween_duration = 0.15
 	setup_monster_base(is_elite)
 	speed = base_speed # Initialize speed
-	
+
 	# 创建脚底阴影
 	CharacterEffects.create_shadow(self , 20.0, 7.0, 13.0)
 
@@ -93,20 +92,17 @@ func _fire_fireball():
 	_enter_state(State.FIRING)
 
 func _spawn_fireball():
-	var fireball_scene = preload("res://Scenes/moster/frog_attack.tscn")
-	var fireball = fireball_scene.instantiate()
-	get_parent().add_child(fireball)
-	fireball.global_position = global_position # 火球从青蛙当前位置发射
-
 	# 使用锁定的攻击方向
+	var shoot_direction: Vector2
 	if locked_attack_direction != Vector2.ZERO:
-		fireball.set_direction(locked_attack_direction)
+		shoot_direction = locked_attack_direction
 	else:
 		# 如果没有锁定方向，使用当前面向
-		var default_direction = Vector2.LEFT if sprite.flip_h else Vector2.RIGHT
-		fireball.set_direction(default_direction)
-	
-	fireball.play_animation("fire") # 假设 frog_attack.gd 有 play_animation 方法
+		shoot_direction = Vector2.LEFT if sprite.flip_h else Vector2.RIGHT
+	if is_corrupted_elite_monster():
+		fire_corrupted_spread_burst(shoot_direction)
+		return
+	fire_monster_projectile(shoot_direction, global_position)
 
 func _determine_flee_target():
 	if not PC.player_instance:
@@ -126,10 +122,14 @@ func _determine_flee_target():
 func _on_flee_timeout():
 	if is_dead:
 		return
+	if hp > 0 and CharacterEffects.is_player_dead_or_game_over():
+		return
 	_enter_state(State.SEEKING_PLAYER)
 
 func _update_target_position_seeking():
-	if PC.player_instance:
+	if hp > 0 and CharacterEffects.is_player_dead_or_game_over():
+		target_position = global_position + CharacterEffects.get_player_death_scatter_direction(self) * max(speed, base_speed) * FLEE_DURATION
+	elif PC.player_instance:
 		target_position = PC.player_instance.global_position
 
 func _move_pattern(delta: float):
@@ -162,12 +162,21 @@ func _physics_process(delta: float) -> void:
 	
 	# 更新离屏缓存
 	update_offscreen_status()
-	
-	if debuff_manager.is_action_disabled():
+
+	if should_skip_actions_for_debuff():
 		action_timer.paused = true
 		return
 	if action_timer.paused:
 		action_timer.paused = false
+
+	if hp > 0 and CharacterEffects.is_player_dead_or_game_over():
+		if action_timer.time_left > 0.0:
+			action_timer.stop()
+		is_direction_locked = false
+		current_state = State.SEEKING_PLAYER
+		$AnimatedSprite2D.play("run")
+		move_away_from_dead_player(delta, base_speed, sprite, false)
+		return
 
 	# 处理推挤效果（攻击和发射状态不推挤，离屏时跳过）
 	if not _is_offscreen and current_state != State.ATTACKING and current_state != State.FIRING:
@@ -179,11 +188,9 @@ func _physics_process(delta: float) -> void:
 			$AnimatedSprite2D.stop()
 			$AnimatedSprite2D.play("death")
 			var point_gain = int(get_point * Faze.get_point_multiplier())
-			get_tree().current_scene.point += point_gain
-			Global.total_points += point_gain
+			grant_kill_point_rewards(point_gain)
 			var exp_gain = int(get_exp * Faze.get_exp_multiplier())
 			Global.emit_signal("drop_exp_orb", exp_gain, global_position, is_elite)
-			Global.emit_signal("monster_mechanism_gained", get_mechanism)
 			var change = randf()
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
 				Global.emit_signal("_fire_ring_bullets")

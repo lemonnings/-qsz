@@ -7,7 +7,7 @@ var is_attacking: bool = false
 
 # 属性配置
 var speed: float = 0.0 # 石碑不移动
-var hpMax: float = SettingMoster.stone_man("hp") * 24
+var hpMax: float = SettingMoster.stone_man("hp") * 14
 var hp: float = hpMax
 var atk: float = SettingMoster.stone_man("atk") * 0.85
 var get_point: int = SettingMoster.stone_man("point") * 75
@@ -80,26 +80,21 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
 	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 6
+	var dps_multiplier := 9
 	match Global.current_stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 8
+			dps_multiplier = 12
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 10
-		Global.STAGE_DIFFICULTY_POETRY:
-			dps_multiplier = 10
-	hpMax += Global.get_current_dps() * dps_multiplier
-	# 诗想难度下Boss生命额外提升30倍
+			dps_multiplier = 15
 	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
-		hpMax *= 30
+		hpMax = Global.get_poetry_boss_max_hp("boss_stele", hpMax)
+	else:
+		hpMax += Global.get_current_dps() * dps_multiplier
 	hp = hpMax
 	
 	# 浅层难度下Boss只造成50%伤害
 	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
 		atk *= 0.5
-	# 诗想难度下Boss攻击额外提升50%
-	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
-		atk *= 1.75
 
 	setup_monster_base()
 	player_hit_emit_self = true

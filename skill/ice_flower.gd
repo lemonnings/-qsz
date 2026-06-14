@@ -5,7 +5,7 @@ class_name IceFlower
 @export var collision_shape: CollisionShape2D
 @export var rotation_offset: float = 0.0
 
-static var main_skill_ice_damage: float = 0.65
+static var main_skill_ice_damage: float = 0.60
 static var ice_flower_range: float = 132.0
 static var ice_flower_penetration_count: int = 0
 static var ice_flower_pierce_decay: float = 0.0
@@ -16,7 +16,7 @@ static var ice_flower_small_scale_ratio: float = 0.65
 static var ice_flower_base_scale: float = 1.0
 
 static func reset_data() -> void:
-	main_skill_ice_damage = 0.65
+	main_skill_ice_damage = 0.60
 	ice_flower_range = 132.0
 	ice_flower_penetration_count = 0
 	ice_flower_pierce_decay = 0.0
@@ -117,49 +117,45 @@ static func _build_data() -> Dictionary:
 	
 	# 根据升级修正属性
 	if PC.selected_rewards.has("Ice1"):
-		damage_multiplier += 0.3
+		damage_multiplier -= 0.05
 		spread_angle += 79.0
 		small_count += 5
 	
 	if PC.selected_rewards.has("Ice2"):
-		damage_multiplier += 0.3
 		small_damage_ratio = 0.3 # 提升至30%
 		
 	if PC.selected_rewards.has("Ice3"):
-		damage_multiplier += 0.2
+		damage_multiplier -= 0.05
 		small_count += 8
 		
 	if PC.selected_rewards.has("Ice4"):
-		damage_multiplier += 0.2
 		local_penetration_count += 1
 		local_pierce_decay = 0.7 # 衰减70%
 		
 	if PC.selected_rewards.has("Ice5"):
-		damage_multiplier += 0.4
+		damage_multiplier += 0.10
 		base_scale += 0.35
 		small_scale_ratio += 0.15
 		
 	if PC.selected_rewards.has("Ice11"):
-		damage_multiplier += 0.2
+		damage_multiplier -= 0.05
 		spread_angle += 79.0
 		small_count += 8
 		
 	if PC.selected_rewards.has("Ice22"):
-		damage_multiplier += 0.2
+		damage_multiplier -= 0.05
 		small_damage_ratio = 0.4 # 提升至40%
 		
 	if PC.selected_rewards.has("Ice33"):
-		damage_multiplier += 0.2
 		local_pierce_decay = max(0.0, local_pierce_decay - 0.1) # 每次伤害衰减降低10%
 		
 	if PC.selected_rewards.has("Ice44"):
-		damage_multiplier += 0.7
+		damage_multiplier -= 0.05
 		spread_angle += 79.0
 		base_scale += 0.2
 		small_count += 5
 		
 	if PC.selected_rewards.has("Ice55"):
-		damage_multiplier += 0.6
 		local_penetration_count += 2
 		local_pierce_decay = max(0.0, local_pierce_decay - 0.05)
 	

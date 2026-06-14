@@ -62,7 +62,7 @@ func _setup_ui():
 	stack_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var custom_font = load("res://AssetBundle/Uranus_Pixel_11Px.ttf")
 	stack_label.add_theme_font_override("font", custom_font)
-	stack_label.add_theme_font_size_override("font_size", 20)
+	stack_label.add_theme_font_size_override("font_size", 15)
 	stack_label.add_theme_color_override("font_color", Color.WHITE)
 	stack_label.add_theme_color_override("font_shadow_color", Color.SLATE_GRAY)
 	stack_label.add_theme_constant_override("shadow_offset_x", 1)
@@ -79,7 +79,7 @@ func _setup_ui():
 	timer_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	timer_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	timer_label.add_theme_font_override("font", custom_font)
-	timer_label.add_theme_font_size_override("font_size", 20)
+	timer_label.add_theme_font_size_override("font_size", 15)
 	timer_label.add_theme_color_override("font_color", Color.WHITE)
 	timer_label.add_theme_color_override("font_shadow_color", Color.SLATE_GRAY)
 	timer_label.add_theme_constant_override("shadow_offset_x", 1)

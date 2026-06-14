@@ -11,7 +11,6 @@ var hp: float = SettingMoster.paper("hp")
 var atk: float = SettingMoster.paper("atk")
 var get_point: int = SettingMoster.paper("point")
 var get_exp: int = SettingMoster.paper("exp")
-var get_mechanism: int = SettingMoster.paper("mechanism")
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 
@@ -29,11 +28,9 @@ func _physics_process(delta: float) -> void:
 			$AnimatedSprite2D.stop()
 			$AnimatedSprite2D.play("death")
 			var point_gain = int(get_point * Faze.get_point_multiplier())
-			get_tree().current_scene.point += point_gain
-			Global.total_points += point_gain
+			grant_kill_point_rewards(point_gain)
 			var exp_gain = int(get_exp * Faze.get_exp_multiplier())
 			Global.emit_signal("drop_exp_orb", exp_gain, global_position, is_elite)
-			Global.emit_signal("monster_mechanism_gained", get_mechanism)
 			var change = randf()
 			if PC.selected_rewards.has("SplitSwordQi13") and change <= 0.05:
 				Global.emit_signal("_fire_ring_bullets")
@@ -68,7 +65,7 @@ func _physics_process(delta: float) -> void:
 	if hp < hpMax and hp > 0:
 		show_health_bar()
 	
-	if debuff_manager.is_action_disabled():
+	if should_skip_actions_for_debuff():
 		return
 	
 	# 处理推挤效果（防止怪物重叠）
@@ -76,6 +73,9 @@ func _physics_process(delta: float) -> void:
 		CharacterEffects.apply_separation(self , 10.0, 12.0)
 		
 	if not is_dead:
+		if hp > 0 and CharacterEffects.is_player_dead_or_game_over():
+			move_away_from_dead_player(delta, base_speed, sprite)
+			return
 		if move_direction == 0:
 			position += Vector2(speed, 0) * delta
 			sprite.flip_h = true;
@@ -85,32 +85,15 @@ func _physics_process(delta: float) -> void:
 		if move_direction >= 2:
 			# 靠近角色的移动方式
 			if PC.player_instance != null:
-				var player_pos = PC.player_instance.global_position
-				var direction_to_player = (player_pos - global_position).normalized()
-				speed = get_effective_move_speed(base_speed)
-				position += direction_to_player * speed * delta
-				# 根据移动方向设置精灵翻转
-				if direction_to_player.x > 0:
-					sprite.flip_h = true
-				else:
-					sprite.flip_h = false
-	
-	
-	# 处理敌人之间的碰撞 - 直接防止重叠
-	if monitoring:
-		var overlapping_bodies = get_overlapping_areas()
-		
-		for body in overlapping_bodies:
-			if body.is_in_group("enemies") and !body.is_in_group("fly") and body != self:
-				var distance = global_position.distance_to(body.global_position)
-				var min_distance = 12.0 # 最小允许距离
-				
-				# 如果距离太近，直接调整位置
-				if distance < min_distance and distance > 0.1:
-					var direction_away = (global_position - body.global_position).normalized()
-					var overlap = min_distance - distance
-					# 两个物体各自移动一半的重叠距离
-					position += direction_away * (overlap * 0.5)
+				var direction_to_player = CharacterEffects.get_tracking_direction_to_player(self)
+				if direction_to_player != Vector2.ZERO:
+					speed = get_effective_move_speed(base_speed)
+					position += direction_to_player * speed * delta
+					# 根据移动方向设置精灵翻转
+					if direction_to_player.x > 0:
+						sprite.flip_h = true
+					else:
+						sprite.flip_h = false
 	
 	if move_direction == 0 and position.x <= -534:
 		free_health_bar()

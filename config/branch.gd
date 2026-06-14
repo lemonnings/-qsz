@@ -62,7 +62,7 @@ func activate_bullet() -> void:
 func _physics_process(delta: float) -> void:
 	# 生命周期计时
 	_life_timer += delta
-	if _life_timer >= LIFE_DURATION and not Global.is_level_up:
+	if _life_timer >= LIFE_DURATION:
 		ObjectPool.recycle(self )
 		return
 	
@@ -135,8 +135,8 @@ func _physics_process(delta: float) -> void:
 			collision_shape.set_deferred("disabled", true)
 		
 		# 渐隐完成后回收子弹
-			if fade_progress >= 1.0:
-				ObjectPool.recycle(self )
+		if fade_progress >= 1.0:
+			ObjectPool.recycle(self )
 
 # 开始渐隐动画
 func start_fade_out() -> void:

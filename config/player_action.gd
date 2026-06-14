@@ -113,6 +113,8 @@ func _ready() -> void:
 	
 	# 进入关卡时整体缩放至100%（包括阴影）
 	scale = Vector2(1, 1)
+	if camera:
+		camera.scale = Vector2.ONE
 	
 	# 创建脚底阴影
 	CharacterEffects.create_shadow(self , 22.0, 9.0, 7.5)
@@ -134,7 +136,7 @@ func _ready() -> void:
 	update_skill_attack_speeds()
 	
 	_set_active_hero(PC.player_name)
-	_update_active_skill_timers(PC.player_name)
+	_update_start_weapon_timers()
 	_cache_beastify_hitbox()
 
 	Global.connect("_fire_ring_bullets", Callable(self , "_fire_ring_bullets"))
@@ -185,7 +187,7 @@ func _ready() -> void:
 
 func change_hero(hero_key: String) -> void:
 	_set_active_hero(hero_key)
-	_update_active_skill_timers(hero_key)
+	_update_start_weapon_timers()
 
 func get_hero_sprite_frames(hero_key: String) -> SpriteFrames:
 	var hero_sprite = _get_hero_sprite(hero_key)
@@ -228,32 +230,58 @@ func _get_hero_sprite(hero_key: String) -> AnimatedSprite2D:
 	assert(false, "未知角色: " + hero_key)
 	return yiqiu_sprite
 
-func _update_active_skill_timers(hero_key: String) -> void:
-	if hero_key == "moning":
-		if fire_speed: fire_speed.stop()
-		if light_bullet_fire_speed: light_bullet_fire_speed.stop()
-		if ice_flower_fire_speed: ice_flower_fire_speed.stop()
-		if qigong_fire_speed: qigong_fire_speed.start()
-		return
-	if hero_key == "yiqiu":
-		if fire_speed: fire_speed.start()
-		if light_bullet_fire_speed: light_bullet_fire_speed.stop()
-		if ice_flower_fire_speed: ice_flower_fire_speed.stop()
-		if qigong_fire_speed: qigong_fire_speed.stop()
-		return
-	if hero_key == "noam":
-		if fire_speed: fire_speed.stop()
-		if light_bullet_fire_speed: light_bullet_fire_speed.start()
-		if ice_flower_fire_speed: ice_flower_fire_speed.stop()
-		if qigong_fire_speed: qigong_fire_speed.stop()
-		return
-	if hero_key == "kansel":
-		if fire_speed: fire_speed.stop()
-		if light_bullet_fire_speed: light_bullet_fire_speed.stop()
-		if ice_flower_fire_speed: ice_flower_fire_speed.start()
-		if qigong_fire_speed: qigong_fire_speed.stop()
-		return
-	assert(false, "未知角色: " + hero_key)
+func _update_start_weapon_timers() -> void:
+	if fire_speed: fire_speed.stop()
+	if branch_fire_speed: branch_fire_speed.stop()
+	if moyan_fire_speed: moyan_fire_speed.stop()
+	if thunder_fire_speed: thunder_fire_speed.stop()
+	if bloodwave_fire_speed: bloodwave_fire_speed.stop()
+	if bloodboardsword_fire_speed: bloodboardsword_fire_speed.stop()
+	if light_bullet_fire_speed: light_bullet_fire_speed.stop()
+	if ice_flower_fire_speed: ice_flower_fire_speed.stop()
+	if qigong_fire_speed: qigong_fire_speed.stop()
+	if thunder_break_fire_speed: thunder_break_fire_speed.stop()
+	if water_fire_speed: water_fire_speed.stop()
+	if qiankun_fire_speed: qiankun_fire_speed.stop()
+	if xuanwu_fire_speed: xuanwu_fire_speed.stop()
+	if xunfeng_fire_speed: xunfeng_fire_speed.stop()
+	if genshan_fire_speed: genshan_fire_speed.stop()
+	if holy_light_fire_speed: holy_light_fire_speed.stop()
+	match Global.get_selected_start_weapon():
+		"Swordqi":
+			if fire_speed: fire_speed.start()
+		"Qigong":
+			if qigong_fire_speed: qigong_fire_speed.start()
+		"Lightbullet":
+			if light_bullet_fire_speed: light_bullet_fire_speed.start()
+		"Ice":
+			if ice_flower_fire_speed: ice_flower_fire_speed.start()
+		"Xunfeng":
+			if xunfeng_fire_speed: xunfeng_fire_speed.start()
+		"Genshan":
+			if genshan_fire_speed: genshan_fire_speed.start()
+		"Bloodwave":
+			if bloodwave_fire_speed: bloodwave_fire_speed.start()
+		"Xuanwu":
+			if xuanwu_fire_speed: xuanwu_fire_speed.start()
+		"Water":
+			if water_fire_speed: water_fire_speed.start()
+		"Holylight":
+			if holy_light_fire_speed: holy_light_fire_speed.start()
+		"Branch":
+			if branch_fire_speed: branch_fire_speed.start()
+		"Thunder":
+			if thunder_fire_speed: thunder_fire_speed.start()
+		"Thunderbreak":
+			if thunder_break_fire_speed: thunder_break_fire_speed.start()
+		"Moyan":
+			if moyan_fire_speed: moyan_fire_speed.start()
+		"Qiankun":
+			if qiankun_fire_speed: qiankun_fire_speed.start()
+		"Bloodboardsword":
+			if bloodboardsword_fire_speed: bloodboardsword_fire_speed.start()
+		_:
+			if fire_speed: fire_speed.start()
 
 func setup_audio_buses() -> void:
 	# 设置所有音效使用SFX总线
@@ -328,7 +356,7 @@ func _input(event: InputEvent) -> void:
 		return # Event was handled by a module，或当前由Boss击败镜头接管
 
 	# Keep mouse wheel zoom if not handled by pinch_zoom_module or for non-touch devices
-	if event is InputEventMouseButton and not Global.in_synthesis:
+	if event is InputEventMouseButton and not Global.is_camera_zoom_locked():
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_zoom_camera(zoom_speed)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
@@ -437,6 +465,18 @@ func play_boss_defeat_camera_focus(boss_position: Vector2, focus_duration: float
 	boss_defeat_camera_tween = null
 
 func _physics_process(_delta: float) -> void:
+	_process_pain_relief(_delta)
+	
+	# 生命恢复计时：每隔hp_regen_interval秒，恢复pc_hp_regen%的最大体力
+	if PC.pc_hp_regen > 0 and not PC.is_game_over and PC.pc_hp < PC.pc_max_hp:
+		PC.hp_regen_timer += _delta
+		if PC.hp_regen_timer >= PC.hp_regen_interval:
+			PC.hp_regen_timer -= PC.hp_regen_interval
+			var heal_amount = int(PC.pc_max_hp * PC.pc_hp_regen / 100.0)
+			if heal_amount < 1:
+				heal_amount = 1
+			_heal_and_emit(heal_amount)
+	
 	var missing_hp_ratio = float(PC.pc_max_hp - PC.pc_hp) / float(PC.pc_max_hp)
 	var bloodwave_heal_bonus = missing_hp_ratio * BloodWave.bloodwave_missing_hp_heal_bonus * 100.0
 	PC.heal_multi = Global.heal_multi + bloodwave_heal_bonus
@@ -528,17 +568,19 @@ func _physics_process(_delta: float) -> void:
 			animator.pause()
 
 
-# 检查移动距离buff（每200米=2000像素触发1层）
+# 检查移动距离buff（每个buff从获取时的距离开始计算）
 func _check_distance_buffs() -> void:
 	var meters = PC.total_distance_moved / 10.0 # 像素转米
-	var layers = int(meters / 200.0) # 每200米1层
 	
-	# 移动经验buff（只有金色，selected_rewards中有SSR59才生效）
+	# 移动经验buff - 行修·悟(SSR59)：每200米经验获取率+1%
 	if PC.selected_rewards.has("SSR59"):
+		var offset = PC.distance_buff_offsets.get("SSR59", 0.0)
+		var effective_meters = max(meters - offset, 0.0)
+		var ssr59_layers = int(effective_meters / 200.0)
 		var current_stack = 0
 		if BuffManager.has_buff("move_exp"):
 			current_stack = BuffManager.get_buff_stack("move_exp")
-		var new_stack = mini(layers, 9999)
+		var new_stack = mini(ssr59_layers, 9999)
 		if new_stack != current_stack:
 			PC.exp_multi = PC.exp_multi - current_stack * 0.01 + new_stack * 0.01
 			if new_stack > 0:
@@ -547,12 +589,15 @@ func _check_distance_buffs() -> void:
 				else:
 					Global.emit_signal("buff_stack_changed", "move_exp", new_stack)
 	
-	# 移动掉落buff（只有金色，selected_rewards中有SSR60才生效）
+	# 移动掉落buff - 行修·缘(SSR60)：每200米治愈精华掉落率+1%
 	if PC.selected_rewards.has("SSR60"):
+		var offset = PC.distance_buff_offsets.get("SSR60", 0.0)
+		var effective_meters = max(meters - offset, 0.0)
+		var ssr60_layers = int(effective_meters / 200.0)
 		var current_stack = 0
 		if BuffManager.has_buff("move_drop"):
 			current_stack = BuffManager.get_buff_stack("move_drop")
-		var new_stack = mini(layers, 9999)
+		var new_stack = mini(ssr60_layers, 9999)
 		if new_stack != current_stack:
 			PC.drop_multi = PC.drop_multi - current_stack * 0.01 + new_stack * 0.01
 			if new_stack > 0:
@@ -560,6 +605,114 @@ func _check_distance_buffs() -> void:
 					Global.emit_signal("buff_added", "move_drop", 0.0, new_stack)
 				else:
 					Global.emit_signal("buff_stack_changed", "move_drop", new_stack)
+	
+	# 移动经验buff - 苦修·悟(SR72)：每300米经验获取率+1%
+	if PC.selected_rewards.has("SR72"):
+		var offset = PC.distance_buff_offsets.get("SR72", 0.0)
+		var effective_meters = max(meters - offset, 0.0)
+		var sr72_layers = int(effective_meters / 300.0)
+		var current_stack = 0
+		if BuffManager.has_buff("move_exp_sr72"):
+			current_stack = BuffManager.get_buff_stack("move_exp_sr72")
+		var new_stack = mini(sr72_layers, 9999)
+		if new_stack != current_stack:
+			PC.exp_multi = PC.exp_multi - current_stack * 0.01 + new_stack * 0.01
+			if new_stack > 0:
+				if current_stack == 0:
+					Global.emit_signal("buff_added", "move_exp_sr72", 0.0, new_stack)
+				else:
+					Global.emit_signal("buff_stack_changed", "move_exp_sr72", new_stack)
+	
+	# 移动掉落buff - 苦修·缘(SR73)：每300米治愈精华掉落率+1%
+	if PC.selected_rewards.has("SR73"):
+		var offset = PC.distance_buff_offsets.get("SR73", 0.0)
+		var effective_meters = max(meters - offset, 0.0)
+		var sr73_layers = int(effective_meters / 300.0)
+		var current_stack = 0
+		if BuffManager.has_buff("move_drop_sr73"):
+			current_stack = BuffManager.get_buff_stack("move_drop_sr73")
+		var new_stack = mini(sr73_layers, 9999)
+		if new_stack != current_stack:
+			PC.drop_multi = PC.drop_multi - current_stack * 0.01 + new_stack * 0.01
+			if new_stack > 0:
+				if current_stack == 0:
+					Global.emit_signal("buff_added", "move_drop_sr73", 0.0, new_stack)
+				else:
+					Global.emit_signal("buff_stack_changed", "move_drop_sr73", new_stack)
+	
+	# 移动天命buff - 苦修·道(SR74)：每450米天命+1
+	if PC.selected_rewards.has("SR74"):
+		var offset = PC.distance_buff_offsets.get("SR74", 0.0)
+		var effective_meters = max(meters - offset, 0.0)
+		var sr74_layers = int(effective_meters / 450.0)
+		var current_stack = 0
+		if BuffManager.has_buff("move_lucky_sr74"):
+			current_stack = BuffManager.get_buff_stack("move_lucky_sr74")
+		var new_stack = mini(sr74_layers, 9999)
+		if new_stack != current_stack:
+			var delta_lucky = (new_stack - current_stack) * 1
+			PC.now_lunky_level += delta_lucky
+			Global.emit_signal("lucky_level_up", delta_lucky)
+			if new_stack > 0:
+				if current_stack == 0:
+					Global.emit_signal("buff_added", "move_lucky_sr74", 0.0, new_stack)
+				else:
+					Global.emit_signal("buff_stack_changed", "move_lucky_sr74", new_stack)
+	
+	# 移动天命buff - 行修·道(SSR75)：每300米天命+1
+	if PC.selected_rewards.has("SSR75"):
+		var offset = PC.distance_buff_offsets.get("SSR75", 0.0)
+		var effective_meters = max(meters - offset, 0.0)
+		var ssr75_layers = int(effective_meters / 300.0)
+		var current_stack = 0
+		if BuffManager.has_buff("move_lucky_ssr75"):
+			current_stack = BuffManager.get_buff_stack("move_lucky_ssr75")
+		var new_stack = mini(ssr75_layers, 9999)
+		if new_stack != current_stack:
+			var delta_lucky = (new_stack - current_stack) * 1
+			PC.now_lunky_level += delta_lucky
+			Global.emit_signal("lucky_level_up", delta_lucky)
+			if new_stack > 0:
+				if current_stack == 0:
+					Global.emit_signal("buff_added", "move_lucky_ssr75", 0.0, new_stack)
+				else:
+					Global.emit_signal("buff_stack_changed", "move_lucky_ssr75", new_stack)
+
+	# 苦修·佑(SR77)：每300米护甲+1
+	if PC.selected_rewards.has("SR77"):
+		var offset = PC.distance_buff_offsets.get("SR77", 0.0)
+		var effective_meters = max(meters - offset, 0.0)
+		var sr77_layers = int(effective_meters / 300.0)
+		var current_stack = 0
+		if BuffManager.has_buff("move_armor_sr77"):
+			current_stack = BuffManager.get_buff_stack("move_armor_sr77")
+		var new_stack = mini(sr77_layers, 9999)
+		if new_stack != current_stack:
+			var delta_armor = (new_stack - current_stack) * 1
+			PC.pc_armor += delta_armor
+			if new_stack > 0:
+				if current_stack == 0:
+					Global.emit_signal("buff_added", "move_armor_sr77", 0.0, new_stack)
+				else:
+					Global.emit_signal("buff_stack_changed", "move_armor_sr77", new_stack)
+
+	# 行修·佑(SSR78)：每200米护甲+1
+	if PC.selected_rewards.has("SSR78"):
+		var offset = PC.distance_buff_offsets.get("SSR78", 0.0)
+		var effective_meters = max(meters - offset, 0.0)
+		var ssr78_layers = int(effective_meters / 200.0)
+		var current_stack = 0
+		if BuffManager.has_buff("move_armor_ssr78"):
+			current_stack = BuffManager.get_buff_stack("move_armor_ssr78")
+		var new_stack = mini(ssr78_layers, 9999)
+		if new_stack != current_stack:
+			var delta_armor = (new_stack - current_stack) * 1
+			PC.pc_armor += delta_armor
+			if new_stack > 0:
+				if current_stack == 0:
+					Global.emit_signal("buff_added", "move_armor_ssr78", 0.0, new_stack)
+				else:
+					Global.emit_signal("buff_stack_changed", "move_armor_ssr78", new_stack)
 
 
 func game_over():
@@ -580,6 +733,7 @@ func game_over():
 		
 		Global.save_game()
 		$GameOver.play()
+		SEManager.play("201")
 		# 停止所有技能冷却，防止快速重开时技能仍处于冷却中
 		stop_all_skill_cooldowns()
 		# 兽化状态下切换回yiqiu再播放game_over动画
@@ -646,6 +800,28 @@ func stop_all_skill_cooldowns() -> void:
 	holy_light_fire_speed.stop()
 	dragonwind_fire_speed.stop()
 
+func pause_all_skill_cooldowns(pause: bool) -> void:
+	fire_speed.paused = pause
+	branch_fire_speed.paused = pause
+	moyan_fire_speed.paused = pause
+	riyan_fire_speed.paused = pause
+	ringFire_fire_speed.paused = pause
+	thunder_fire_speed.paused = pause
+	bloodwave_fire_speed.paused = pause
+	bloodboardsword_fire_speed.paused = pause
+	ice_flower_fire_speed.paused = pause
+	qigong_fire_speed.paused = pause
+	thunder_break_fire_speed.paused = pause
+	light_bullet_fire_speed.paused = pause
+	water_fire_speed.paused = pause
+	qiankun_fire_speed.paused = pause
+	xuanwu_fire_speed.paused = pause
+	xunfeng_fire_speed.paused = pause
+	genshan_fire_speed.paused = pause
+	duize_fire_speed.paused = pause
+	holy_light_fire_speed.paused = pause
+	dragonwind_fire_speed.paused = pause
+
 
 func _on_fire_idle() -> void:
 	if Global.in_menu or Global.in_town:
@@ -667,7 +843,7 @@ func _on_fire_branch(_skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
-	SEManager.play("5")
+	SEManager.play("24")
 	_on_fire_detail_branch()
 
 func _on_fire_moyan(_skill_id: int) -> void:
@@ -729,7 +905,7 @@ func _on_fire_ice(_skill_id: int = 9) -> void:
 		return
 	if not PC.selected_rewards.has("Ice"):
 		return
-	SEManager.play("3")
+	SEManager.play("4")
 	_on_fire_detail_ice()
 
 func _on_fire_thunder_break(_skill_id: int = 10) -> void:
@@ -745,7 +921,7 @@ func _on_fire_light_bullet(_skill_id: int = 11) -> void:
 		return
 	if PC.is_game_over:
 		return
-	SEManager.play("4")
+	SEManager.play("5")
 	_on_fire_detail_light_bullet()
 
 func _on_fire_detail_light_bullet() -> void:
@@ -756,7 +932,7 @@ func _on_fire_detail_light_bullet() -> void:
 	var spawn_position = global_position
 	var base_direction = Vector2.RIGHT
 	
-	var nearest_enemy = find_nearest_enemy()
+	var nearest_enemy = find_nearest_enemy(_get_light_bullet_target_range(data))
 	if nearest_enemy:
 		base_direction = (nearest_enemy.position - position).normalized()
 	else:
@@ -961,6 +1137,11 @@ func _build_light_bullet_data() -> Dictionary:
 		"extra_ring_shot": extra_ring_shot
 	}
 
+func _get_light_bullet_target_range(data: Dictionary) -> float:
+	var life_range_multiplier = Faze.get_life_range_multiplier(PC.faze_life_level)
+	var bullet_range_multiplier = Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
+	return float(data.range) * life_range_multiplier * bullet_range_multiplier * Global.get_attack_range_multiplier() + 15.0
+
 func _on_fire_water(_skill_id: int = 12) -> void:
 	if Global.in_menu or Global.in_town:
 		return
@@ -1135,9 +1316,9 @@ func _on_fire_detail() -> void:
 		if PC.selected_rewards.has("rebound"): back_bullet.is_rebound = false
 		get_tree().current_scene.add_child(back_bullet)
 	
-func _get_base_weapon_direction() -> Vector2:
+func _get_base_weapon_direction(max_range: float = -1.0) -> Vector2:
 	var base_direction = Vector2.RIGHT
-	var nearest_enemy = find_nearest_enemy()
+	var nearest_enemy = find_nearest_enemy(max_range)
 	if nearest_enemy:
 		base_direction = (nearest_enemy.position - position).normalized()
 	elif not sprite_direction_right:
@@ -1184,7 +1365,7 @@ func _fire_extra_light_bullet_attack(damage_multiplier: float) -> void:
 	SEManager.play("4")
 	instance.setup_light_bullet(
 		global_position,
-		_get_base_weapon_direction(),
+		_get_base_weapon_direction(_get_light_bullet_target_range(data)),
 		data.damage * damage_multiplier,
 		data.range,
 		data.penetration_count,
@@ -1798,6 +1979,8 @@ func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, _wor
 	if PC.is_game_over:
 		return
 
+	_handle_damage_taken_rewards(int(damage_val))
+	
 	if EmblemManager.has_emblem("tiegu"):
 		var post_reduction_damage = max(0.0, damage_val + shield_val)
 		var damage_reduction_rate = clampf(PC.damage_reduction_rate, 0.0, 0.95)
@@ -1824,10 +2007,97 @@ func _on_player_hit(damage_val: float, shield_val: float, attacker: Node2D, _wor
 func _on_player_hit_ignore_invincible(damage_val: float, shield_val: float, attacker: Node2D, _world_position: Vector2, _source_name: String) -> void:
 	if PC.is_game_over:
 		return
+	_handle_damage_taken_rewards(int(damage_val))
 	# 播放音效和闪烁，但不触发无敌
 	if PC.pc_hp > 0:
 		$HitSound.play()
 		sprite.modulate = Color(1, 0.5, 0.5)
+
+func _handle_damage_taken_rewards(actual_damage: int) -> void:
+	if actual_damage <= 0:
+		return
+	var spirit_gain: int = PC.get_pain_spirit_gain()
+	if spirit_gain > 0:
+		_add_spirit_to_stage(spirit_gain)
+	var exp_ratio: float = PC.get_pain_exp_ratio()
+	if exp_ratio > 0.0:
+		PC.pc_exp += int(ceil(_get_required_lv_up_value_local(PC.pc_lv) * exp_ratio))
+	var relief_ratio: float = PC.get_pain_relief_ratio()
+	if relief_ratio <= 0.0:
+		return
+	if PC.pain_relief_active or BuffManager.has_buff("pain_relief"):
+		return
+	var total_heal := int(ceil(float(actual_damage) * relief_ratio))
+	if total_heal <= 0:
+		return
+	PC.pain_relief_active = true
+	PC.pain_relief_remaining_heal = float(total_heal)
+	PC.pain_relief_remaining_time = 5.0
+	PC.pain_relief_tick_accumulator = 0.0
+	Global.emit_signal("buff_added", "pain_relief", 5.0, 1)
+
+func _process_pain_relief(delta: float) -> void:
+	if not PC.pain_relief_active:
+		return
+	if PC.is_game_over:
+		_clear_pain_relief()
+		return
+	PC.pain_relief_remaining_time = max(0.0, PC.pain_relief_remaining_time - delta)
+	PC.pain_relief_tick_accumulator += delta
+	while PC.pain_relief_tick_accumulator >= 1.0 and PC.pain_relief_remaining_heal > 0.0:
+		PC.pain_relief_tick_accumulator -= 1.0
+		var remaining_ticks: int = maxi(1, int(ceil(float(PC.pain_relief_remaining_time))) + 1)
+		var heal_amount: int = int(ceil(float(PC.pain_relief_remaining_heal) / float(remaining_ticks)))
+		_heal_and_emit(heal_amount)
+		PC.pain_relief_remaining_heal = max(0.0, PC.pain_relief_remaining_heal - float(heal_amount))
+	Global.emit_signal("buff_updated", "pain_relief", PC.pain_relief_remaining_time, 1)
+	if PC.pain_relief_remaining_time <= 0.0:
+		_clear_pain_relief()
+
+func _clear_pain_relief() -> void:
+	PC.pain_relief_active = false
+	PC.pain_relief_remaining_heal = 0.0
+	PC.pain_relief_tick_accumulator = 0.0
+	PC.pain_relief_remaining_time = 0.0
+	if BuffManager.has_buff("pain_relief"):
+		BuffManager.remove_buff("pain_relief")
+
+func _heal_and_emit(amount: int) -> int:
+	if amount <= 0 or PC.is_game_over:
+		return 0
+	amount = int(ceil(float(amount) * Global.get_heal_shield_effect_multiplier()))
+	if amount <= 0:
+		return 0
+	var before_hp: int = PC.pc_hp
+	PC.pc_hp = min(PC.pc_hp + amount, PC.pc_max_hp)
+	var actual_heal: int = PC.pc_hp - before_hp
+	if actual_heal > 0:
+		Global.emit_signal("player_heal", float(actual_heal), global_position)
+	return actual_heal
+
+func _add_spirit_to_stage(amount: int) -> void:
+	if amount <= 0:
+		return
+	var current_scene := get_tree().current_scene
+	if current_scene != null and current_scene.has_method("add_spirit"):
+		current_scene.call("add_spirit", amount)
+	else:
+		PC.add_spirit(amount)
+
+func _get_required_lv_up_value_local(level: int) -> float:
+	var value: float = 1200.0
+	for i in range(level):
+		value = value + 1000.0 + 13.0 * float(i + 1) * float(i)
+	if level >= 65:
+		value *= 5.0
+	elif level >= 55:
+		value *= 3.0
+	elif level >= 45:
+		value *= 1.5
+	if level <= 10:
+		value *= 0.5
+	value *= clampf(1.0 - Global.study_exp_reduction, 0.2, 1.0)
+	return value
 
 func _on_player_instakill(attacker: Node2D, _world_position: Vector2, _source_name: String) -> void:
 	if PC.is_game_over:
@@ -1860,15 +2130,16 @@ func remove_invalid_summons() -> void:
 			active_summons.remove_at(i)
 
 # 寻找最近的敌人
-func find_nearest_enemy() -> Node2D:
+func find_nearest_enemy(max_range: float = -1.0) -> Node2D:
 	var nearest_enemy = null
 	var nearest_distance = INF
+	var search_range = max_range if max_range > 0.0 else PC.swordQi_range + 15
 	
 	# 获取场景中的所有敌人
 	var enemies = get_tree().get_nodes_in_group("enemies")
 	for enemy in enemies:
 		var distance = position.distance_to(enemy.position)
-		if distance > PC.swordQi_range + 15:
+		if distance > search_range:
 			continue
 		if enemy and is_instance_valid(enemy):
 			# 计算距离
@@ -1891,11 +2162,16 @@ func stop_invincible() -> void:
 	sprite.modulate = Color(1, 1, 1)
 	PC.invincible = false
 
-func heal(amount: int) -> void:
+func heal(amount: int) -> int:
+	amount = int(ceil(float(amount) * Global.get_heal_shield_effect_multiplier()))
+	if amount <= 0:
+		return 0
+	var before_hp := PC.pc_hp
 	var new_hp = PC.pc_hp + amount
 	if new_hp > PC.pc_max_hp:
 		new_hp = PC.pc_max_hp
 	PC.pc_hp = new_hp
+	return PC.pc_hp - before_hp
 
 func _on_player_healed(_amount: float) -> void:
 	if PC.is_game_over:
@@ -2256,6 +2532,7 @@ func _on_fire_qigong(_skill_id: int = 19) -> void:
 	if not PC.selected_rewards.has("Qigong"):
 		return
 	SEManager.play("2")
+	_on_fire_detail_qigong()
 	_on_fire_detail_qigong()
 
 func _on_fire_detail_qigong() -> void:

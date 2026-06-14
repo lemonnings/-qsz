@@ -301,12 +301,44 @@ func _reset_state():
 
 
 ## ── 输入处理 ──────────────────────────────────
+func _is_visible_control_under_mouse(control: Control) -> bool:
+	return control.is_visible_in_tree() and control.get_global_rect().has_point(control.get_global_mouse_position())
+
+
+func _is_story_skip_mouse_event(event: InputEvent) -> bool:
+	if not (event is InputEventMouseButton \
+		and event.button_index == MOUSE_BUTTON_LEFT \
+		and event.pressed):
+		return false
+
+	var scene = get_tree().current_scene
+	if scene == null:
+		return false
+
+	var skip_layer = scene.get_node_or_null("skipLayer")
+	if skip_layer != null and skip_layer.get("visible") == true:
+		return true
+
+	var skip_button = scene.get("skip_button")
+	if skip_button is Control and _is_visible_control_under_mouse(skip_button):
+		return true
+
+	var skip_button_layer = scene.get_node_or_null("skip_button_layer")
+	if skip_button_layer == null:
+		return false
+
+	var child_skip_button = skip_button_layer.get_node_or_null("skip")
+	return child_skip_button is Control and _is_visible_control_under_mouse(child_skip_button)
+
+
 func _unhandled_input(event: InputEvent):
 	if not _is_panel_active:
 		return
 	if not (event is InputEventMouseButton \
 		and event.button_index == MOUSE_BUTTON_LEFT \
 		and event.pressed):
+		return
+	if _is_story_skip_mouse_event(event):
 		return
 
 	if _is_typing:

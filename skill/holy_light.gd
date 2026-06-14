@@ -175,8 +175,8 @@ func setup(pos: Vector2, p_damage: float, p_heal_base: int, p_heal_ratio: float,
 	monitoring = true
 	monitorable = true
 	
-	# 倒计时结束前闪烁并消失
-	get_tree().create_timer(duration).timeout.connect(_on_burst)
+	# 倒计时结束前闪烁并消失（process_always=false，暂停时停止计时）
+	get_tree().create_timer(duration, false).timeout.connect(_on_burst)
 
 func _process(delta: float) -> void:
 	# 仅旋转绘制层（十字架），不旋转节点本身，保持椭圆形状固定
@@ -294,6 +294,6 @@ func _apply_end_damage_and_heal() -> void:
 			var heal_val = heal_base + int(PC.pc_max_hp * heal_ratio)
 			var heal_multiplier = 1.0 + PC.heal_multi
 			heal_val = int(ceil(float(heal_val) * heal_multiplier))
-			body.heal(heal_val)
-			if heal_val > 0:
-				Global.emit_signal("player_heal", heal_val, body.global_position)
+			var actual_heal := int(body.heal(heal_val))
+			if actual_heal > 0:
+				Global.emit_signal("player_heal", actual_heal, body.global_position)

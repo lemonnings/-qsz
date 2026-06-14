@@ -269,5 +269,6 @@ func _perform_heal(amount: int) -> void:
 	if PC.is_game_over:
 		return
 	if amount > 0:
-		player_ref.heal(amount)
-		Global.emit_signal("player_heal", amount, player_ref.global_position)
+		var actual_heal := int(player_ref.heal(amount))
+		if actual_heal > 0:
+			Global.emit_signal("player_heal", actual_heal, player_ref.global_position)

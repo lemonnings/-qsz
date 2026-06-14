@@ -6,9 +6,13 @@ class_name HitParticleSpawner
 
 # 像素纹理缓存 —— 全局共享，避免每次击中都重新创建
 static var _pixel_tex: ImageTexture = null
+static var _fade_gradient: Gradient = null
+static var _last_spawn_frame: int = -1
+static var _spawn_count_this_frame: int = 0
 
 # ====== 可调参数 ======
 const DEFAULT_AMOUNT: int = 7 # 默认粒子数量
+const MAX_SPAWNS_PER_FRAME: int = 6
 const PARTICLE_LIFETIME: float = 0.5 # 粒子存活时间(秒)
 const VELOCITY_MIN: float = 210.0 # 初始飞散速度下限
 const VELOCITY_MAX: float = 270.0 # 初始飞散速度上限
@@ -60,6 +64,8 @@ static func spawn(tree: SceneTree, world_pos: Vector2, amount: int = DEFAULT_AMO
 		return
 	if tree == null or tree.current_scene == null:
 		return
+	if not _consume_spawn_budget():
+		return
 
 	var p := CPUParticles2D.new()
 
@@ -95,11 +101,7 @@ static func spawn(tree: SceneTree, world_pos: Vector2, amount: int = DEFAULT_AMO
 
 	# —— 渐隐：前35%保持不透明，之后平滑渐隐至完全透明 ——
 	# 注意：必须先 set_color 设好两端，再 add_point 插入中间点，否则 index 错位导致渐变异常
-	var gradient := Gradient.new()
-	gradient.set_color(0, Color(1, 1, 1, 1.0)) # index 0, offset 0.0: 出生完全不透明
-	gradient.set_color(1, Color(1, 1, 1, 0.0)) # index 1, offset 1.0: 消失完全透明
-	gradient.add_point(0.35, Color(1, 1, 1, 1.0)) # 在 35% 处插入保持不透明点，之后才渐变
-	p.color_ramp = gradient
+	p.color_ramp = _get_fade_gradient()
 
 	# —— 定位与层级 ——
 	p.global_position = world_pos
@@ -124,3 +126,22 @@ static func _get_pixel_texture() -> ImageTexture:
 	img.fill(Color.WHITE)
 	_pixel_tex = ImageTexture.create_from_image(img)
 	return _pixel_tex
+
+static func _get_fade_gradient() -> Gradient:
+	if _fade_gradient != null:
+		return _fade_gradient
+	_fade_gradient = Gradient.new()
+	_fade_gradient.set_color(0, Color(1, 1, 1, 1.0))
+	_fade_gradient.set_color(1, Color(1, 1, 1, 0.0))
+	_fade_gradient.add_point(0.35, Color(1, 1, 1, 1.0))
+	return _fade_gradient
+
+static func _consume_spawn_budget() -> bool:
+	var frame := Engine.get_process_frames()
+	if frame != _last_spawn_frame:
+		_last_spawn_frame = frame
+		_spawn_count_this_frame = 0
+	if _spawn_count_this_frame >= MAX_SPAWNS_PER_FRAME:
+		return false
+	_spawn_count_this_frame += 1
+	return true

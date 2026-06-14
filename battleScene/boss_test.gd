@@ -108,6 +108,8 @@ func get_required_lv_up_value(level: int) -> float:
 	var value: float = 1000
 	for i in range(level):
 		value = (value + 300) * 1.09
+	if level <= 10:
+		value *= 0.5
 	return value
 
 func _on_level_up():

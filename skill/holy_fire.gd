@@ -79,7 +79,7 @@ func check_collision():
 		# 计算治疗量
 		var heal_amount = max(1.0, PC.pc_max_hp * heal_ratio)
 		# 治疗加成
-		heal_amount = int(heal_amount * (1.0 + PC.heal_multi))
+		heal_amount = int(heal_amount * (1.0 + PC.heal_multi) * Global.get_heal_shield_effect_multiplier())
 		
 		# 确保 player 引用有效
 		if not player:

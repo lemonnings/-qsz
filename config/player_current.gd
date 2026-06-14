@@ -5,12 +5,21 @@ extends Node
 @export var pc_atk: int = 25 # 局内攻击
 @export var pc_start_atk: int = 25 # 局内攻击
 @export var pc_final_atk: float = 0.0 # 局内最终伤害（例如0.1代表最后结算时伤害为110%）
-@export var pc_hp: int = 50 # 局内HP
+@export var pc_hp: int = 50: # 局内HP
+	get:
+		return _pc_hp_value
+	set(value):
+		var new_value := int(value)
+		if is_game_over and new_value > _pc_hp_value:
+			return
+		_pc_hp_value = new_value
 @export var pc_sheild: Array[Dictionary] = [] # 当前盾量
 @export var pc_lv: int = 1 # 局内等级
 @export var pc_exp: int = 0 # 局内经验
 @export var pc_max_hp: int = 50 # 局内最大hp
 @export var pc_start_max_hp: int = 50 # 进入关卡时的初始HP上限
+
+var _pc_hp_value: int = 50
 
 @export var pc_speed: float = 0 # 局内移速
 @export var pc_atk_speed: float = 0 # 局内攻速加成
@@ -19,6 +28,7 @@ extends Node
 @export var damage_reduction_rate: float = 0.0 # 局内减伤率 (例如0.1代表10%减伤)
 @export var damage_deal_multiplier: float = 1.0 # 最终伤害系数 (1.0代表正常伤害，仅用于暗影拘束，别的情况需要使用pc_final_atk)
 @export var point_multi: float = 0 # 额外真气获取率
+@export var spirit_multi: float = 0.0 # 额外精魄获取率
 @export var exp_multi: float = 0 # 额外exp获取率
 @export var drop_multi: float = 0 # 额外掉落率
 @export var body_size: float = 1 # 体型大小
@@ -37,6 +47,7 @@ extends Node
 @export var enemy_damage_multiplier: float = 1.0 # 关卡内敌人伤害倍率（每次进入关卡重置为1.0）
 
 @export var total_distance_moved: float = 0.0 # 本局累计移动距离（像素，10像素=1米）
+var distance_buff_offsets: Dictionary = {} # 各移动距离buff获取时的距离（米），key=reward_id, value=meters_at_acquisition
 @export var xianqi_points: int = 0 # 仙气凝聚点数（满100触发仙力护体）
 @export var xianli_active: bool = false # 仙力护体是否已激活
 @export var xuji_remaining: int = 0 # 蓄积(UR53)剩余升级次数（每次升级+5%攻击）
@@ -44,6 +55,33 @@ extends Node
 @export var electrification_damage_multi: float = 0.0 # 感电伤害加成倍率（UR51十八层）
 @export var fire_damage_multi: float = 0.0 # 灼烧伤害加成倍率（UR51十八层）
 @export var debuff_cross_damage_multi: float = 0.0 # 异常交叉伤害加成倍率（UR51十八层：有一种异常时其他两异常伤害+100%）
+
+# 护甲与生命恢复
+@export var pc_armor: float = 0.0 # 护甲值（减伤公式: armor/(armor+500)）
+@export var pc_hp_regen: float = 0.0 # 生命恢复（百分比，如5.5代表每次恢复5.5%最大体力）
+@export var hp_regen_interval: float = 5.0 # 生命恢复间隔（秒）
+@export var hp_regen_timer: float = 0.0 # 生命恢复计时器
+@export var spirit: int = 0 # 本局精魄（显示/消费使用向下取整后的整数）
+@export var spirit_raw: float = 0.0 # 本局精魄实际值（保留到小数点后一位）
+@export var spirit_armor_applied_bonus: float = 0.0 # 精魄加护已应用护甲
+@export var spirit_final_damage_applied_bonus: float = 0.0 # 精魄之力已应用最终伤害
+@export var pain_relief_active: bool = false # 痛楚减弱持续恢复中
+@export var pain_relief_remaining_heal: float = 0.0
+@export var pain_relief_tick_accumulator: float = 0.0
+@export var pain_relief_remaining_time: float = 0.0
+
+# 领悟系列：每级额外属性加成
+@export var lingwu_atk_bonus: float = 0.0 # 力量领悟：每级攻击提升百分比
+@export var lingwu_hp_bonus: float = 0.0 # 体质领悟：每级体力上限提升百分比
+@export var lingwu_atk_speed_bonus: float = 0.0 # 敏捷领悟：每级攻速加成
+@export var lingwu_speed_bonus: float = 0.0 # 速度领悟：每级移速加成
+@export var lingwu_final_dmg_bonus: float = 0.0 # 威压领悟：每级最终伤害加成
+@export var lingwu_armor_bonus: float = 0.0 # 护御领悟：每级额外护甲
+# 铸匠/宝器/唤灵之魂：升级概率提升
+@export var lingwu_weapon_upgrade_bonus: float = 0.0 # 铸匠之魂：武器升级概率提升
+@export var lingwu_lucky_upgrade_bonus: float = 0.0 # 宝器之魂：天命升级概率提升
+@export var lingwu_summon_upgrade_bonus: float = 0.0 # 唤灵之魂：召唤升级概率提升
+@export var lingwu_live_upgrade_bonus: float = 0.0 # 存续之魂：生存升级概率提升
 
 @export var faze_blood_level: int = 0
 @export var faze_sword_level: int = 0
@@ -138,6 +176,8 @@ extends Node
 @export var now_darkorchid_p: float = 25.5
 @export var now_blue_p: float = 70
 @export var selected_rewards = []
+
+const RED_CHANCE_PER_LUCKY: float = 0.025
 
 # 诗想难度备战配置（跨场景保持，reset_player_attr不重置此字段）
 var poetry_loadout: Dictionary = {}
@@ -299,7 +339,7 @@ var poetry_loadout: Dictionary = {}
 
 
 # 刷新次数
-@export var refresh_num: int = 3
+@export var refresh_num: int = 5
 # 锁定次数
 @export var lock_num: int = 1
 
@@ -308,11 +348,23 @@ var poetry_loadout: Dictionary = {}
 @export var current_emblems: Dictionary = {} # 当前持有的纹章 {emblem_id: stack}
 @export var xueqi_last_trigger_time: float = -99999.0
 
-const CHARACTER_BASE_WEAPON_RUNTIME_MAP := {
-	"moning": {"skill_id": "qigong", "attack_ids": ["qigong"]},
-	"yiqiu": {"skill_id": "swordqi", "attack_ids": ["swordqi"]},
-	"noam": {"skill_id": "light_bullet", "attack_ids": ["light_bullet", "light bullet"]},
-	"kansel": {"skill_id": "ice", "attack_ids": ["ice_flower", "ice", "ice flower"]},
+const START_WEAPON_RUNTIME_MAP := {
+	"Swordqi": {"skill_id": "swordqi", "reward_id": "Swordqi", "attack_ids": ["swordqi"]},
+	"Qigong": {"skill_id": "qigong", "reward_id": "Qigong", "attack_ids": ["qigong"]},
+	"Lightbullet": {"skill_id": "light_bullet", "reward_id": "Lightbullet", "attack_ids": ["light_bullet", "light bullet"]},
+	"Ice": {"skill_id": "ice", "reward_id": "Ice", "attack_ids": ["ice_flower", "ice", "ice flower"]},
+	"Xunfeng": {"skill_id": "xunfeng", "reward_id": "Xunfeng", "attack_ids": ["xunfeng"]},
+	"Genshan": {"skill_id": "genshan", "reward_id": "Genshan", "attack_ids": ["genshan"]},
+	"Bloodwave": {"skill_id": "bloodwave", "reward_id": "Bloodwave", "attack_ids": ["bloodwave", "blood_wave"]},
+	"Xuanwu": {"skill_id": "xuanwu", "reward_id": "Xuanwu", "attack_ids": ["xuanwu"]},
+	"Water": {"skill_id": "water", "reward_id": "Water", "attack_ids": ["water"]},
+	"Holylight": {"skill_id": "holylight", "reward_id": "Holylight", "attack_ids": ["holylight", "holy_light"]},
+	"Branch": {"skill_id": "branch", "reward_id": "Branch", "attack_ids": ["branch"]},
+	"Thunder": {"skill_id": "thunder", "reward_id": "Thunder", "attack_ids": ["thunder"]},
+	"Thunderbreak": {"skill_id": "thunder_break", "reward_id": "Thunderbreak", "attack_ids": ["thunder_break"]},
+	"Moyan": {"skill_id": "moyan", "reward_id": "Moyan", "attack_ids": ["moyan"]},
+	"Qiankun": {"skill_id": "qiankun", "reward_id": "Qiankun", "attack_ids": ["qiankun"]},
+	"Bloodboardsword": {"skill_id": "bloodboardsword", "reward_id": "Bloodboardsword", "attack_ids": ["bloodboardsword", "blood_broadsword"]},
 }
 
 # active配置字段
@@ -330,7 +382,7 @@ func _ready():
 	Global.connect("lucky_level_up", Callable(self , "_on_lucky_level_up"))
 
 func _on_lucky_level_up(lunky_up: float) -> void:
-	now_red_p = now_red_p + lunky_up * 0.1
+	now_red_p = now_red_p + lunky_up * RED_CHANCE_PER_LUCKY
 	now_gold_p = now_gold_p + lunky_up * 0.5
 	now_darkorchid_p = now_darkorchid_p + lunky_up * 0.6
 	now_blue_p = now_blue_p + lunky_up * 1
@@ -339,15 +391,101 @@ func _on_lucky_level_up(lunky_up: float) -> void:
 func get_reward_acquisition_count(fallback_reward_id: String):
 	return selected_rewards.count(fallback_reward_id)
 
+func get_pain_relief_ratio() -> float:
+	if selected_rewards.has("SSR83"):
+		return 0.12
+	if selected_rewards.has("SR83"):
+		return 0.10
+	if selected_rewards.has("R83"):
+		return 0.08
+	return 0.0
+
+func get_pain_spirit_gain() -> int:
+	if selected_rewards.has("SSR84"):
+		return 18
+	if selected_rewards.has("SR84"):
+		return 13
+	if selected_rewards.has("R84"):
+		return 10
+	return 0
+
+func get_pain_exp_ratio() -> float:
+	if selected_rewards.has("SSR85"):
+		return 0.025
+	if selected_rewards.has("SR85"):
+		return 0.02
+	if selected_rewards.has("R85"):
+		return 0.015
+	return 0.0
+
+func get_kill_spirit_bonus() -> int:
+	if selected_rewards.has("SSR87"):
+		return 3
+	if selected_rewards.has("SR87"):
+		return 2
+	return 0
+
+func get_display_spirit(value: float) -> int:
+	return max(int(floor(value)), 0)
+
+func get_spirit_armor_per_group() -> float:
+	if selected_rewards.has("SSR90"):
+		return 8.0
+	if selected_rewards.has("SR90"):
+		return 6.0
+	if selected_rewards.has("R90"):
+		return 5.0
+	return 0.0
+
+func get_spirit_final_damage_per_group() -> float:
+	if selected_rewards.has("SSR91"):
+		return 0.015
+	if selected_rewards.has("SR91"):
+		return 0.0125
+	if selected_rewards.has("R91"):
+		return 0.01
+	return 0.0
+
+func add_spirit(amount: float) -> void:
+	if amount <= 0:
+		return
+	spirit_raw += floor(amount * 10.0) / 10.0
+	spirit = get_display_spirit(spirit_raw)
+	update_spirit_reward_bonuses()
+	_scan_achievement_runtime_keys(["spirit", "armor", "final_damage"])
+
+func sync_spirit(value: float) -> void:
+	spirit_raw = max(value, 0.0)
+	spirit = get_display_spirit(spirit_raw)
+	update_spirit_reward_bonuses()
+	_scan_achievement_runtime_keys(["spirit", "armor", "final_damage"])
+
+func update_spirit_reward_bonuses() -> void:
+	var spirit_groups := mini(int(floor(float(spirit) / 1000.0)), 50)
+	var armor_target := float(spirit_groups) * get_spirit_armor_per_group()
+	var armor_delta := armor_target - spirit_armor_applied_bonus
+	if not is_equal_approx(armor_delta, 0.0):
+		pc_armor += armor_delta
+		spirit_armor_applied_bonus = armor_target
+
+	var final_damage_target := float(spirit_groups) * get_spirit_final_damage_per_group()
+	var final_damage_delta := final_damage_target - spirit_final_damage_applied_bonus
+	if not is_equal_approx(final_damage_delta, 0.0):
+		pc_final_atk += final_damage_delta
+		spirit_final_damage_applied_bonus = final_damage_target
+
+func _scan_achievement_runtime_keys(keys: Array[String]) -> void:
+	var achievement_manager = get_node_or_null("/root/AchievementManager")
+	if achievement_manager != null and achievement_manager.has_method("scan_runtime_keys"):
+		achievement_manager.scan_runtime_keys(keys, false)
+
 func _normalize_attack_id(attack_id: String) -> String:
 	return attack_id.strip_edges().to_lower().replace(" ", "_")
 
 func get_base_weapon_runtime_info(player_name_override: String = "") -> Dictionary:
-	var resolved_player_name := player_name_override.strip_edges()
-	if resolved_player_name.is_empty():
-		resolved_player_name = player_name
-	if CHARACTER_BASE_WEAPON_RUNTIME_MAP.has(resolved_player_name):
-		return CHARACTER_BASE_WEAPON_RUNTIME_MAP[resolved_player_name]
+	var start_weapon_id := Global.get_selected_start_weapon(player_name_override)
+	if START_WEAPON_RUNTIME_MAP.has(start_weapon_id):
+		return START_WEAPON_RUNTIME_MAP[start_weapon_id]
 	return {}
 
 func get_base_weapon_attack_id(player_name_override: String = "") -> String:
@@ -472,6 +610,8 @@ func reset_player_attr() -> void:
 	PC.damage_reduction_rate = min(0.0 + (Global.cultivation_huti_level * 0.002) + Global.study_damage_reduction_bonus, 0.7) # 基础减伤率 + 局外成长，最高70%
 	PC.damage_deal_multiplier = 1.0
 	PC.pc_final_atk = Global.get_cultivation_final_damage_bonus()
+	var achievement_bonus := _get_achievement_bonus_summary()
+	PC.pc_final_atk += float(achievement_bonus.get("final_damage", 0.0))
 	PC.wind_huanfeng_stacks = 0
 	PC.wind_huanfeng_max_stacks = 0
 	PC.wind_huanfeng_duration = 30.0
@@ -489,10 +629,12 @@ func reset_player_attr() -> void:
 	PC.sixsense_applied_damage_reduction = 0.0
 	PC.sixsense_applied_atk = 0.0
 	# 修习树团队篇：真气获取率百分比加成
-	PC.point_multi = 0 + (Global.cultivation_hualing_level * 0.02) + Global.study_qi_gain_bonus
-	PC.exp_multi = Global.exp_multi + Global.study_exp_bonus # 修习树领悟篇：经验获取提升
+	PC.point_multi = 0 + (Global.cultivation_hualing_level * 0.02) + Global.study_qi_gain_bonus + float(achievement_bonus.get("point", 0.0))
+	var equipment_stats = Global.equipment_manager.calculate_total_equipment_stats()
+	PC.spirit_multi = equipment_stats.get("spirit_multi", 0.0) + float(achievement_bonus.get("spirit", 0.0))
+	PC.exp_multi = Global.exp_multi + Global.study_exp_bonus + float(achievement_bonus.get("exp", 0.0)) # 修习树领悟篇：经验获取提升
 	# 修习树团队篇：掉落率百分比加成
-	PC.drop_multi = Global.drop_multi + Global.study_drop_rate_bonus
+	PC.drop_multi = Global.drop_multi + Global.study_drop_rate_bonus + float(achievement_bonus.get("drop", 0.0))
 	PC.body_size = Global.body_size
 	PC.set_attack_range_value(Global.attack_range)
 	PC.heal_multi = Global.heal_multi
@@ -505,13 +647,37 @@ func reset_player_attr() -> void:
 	PC.enemy_hp_multiplier = 1.0 # 重置敌人体力倍率
 	PC.enemy_damage_multiplier = 1.0 # 重置敌人伤害倍率
 	PC.total_distance_moved = 0.0 # 重置移动距离
+	PC.distance_buff_offsets.clear() # 重置移动距离buff偏移
 	PC.xianqi_points = 0 # 重置仙气凝聚点数
 	PC.xianli_active = false # 重置仙力护体状态
 	PC.xuji_remaining = 0 # 重置蓄积剩余次数
 	PC.bleed_damage_multi = 0.0 # 重置流血伤害加成
 	PC.electrification_damage_multi = 0.0 # 重置感电伤害加成
-	PC.fire_damage_multi = 0.0 # 重置灼烧伤害加成
+	PC.fire_damage_multi = 0.0 # 重置炙烧伤害加成
 	PC.debuff_cross_damage_multi = 0.0 # 重置异常交叉伤害加成
+	PC.pc_armor = float(achievement_bonus.get("armor", 0.0)) # 重置护甲
+	PC.pc_hp_regen = 0.0 # 重置生命恢复
+	PC.hp_regen_interval = 5.0 # 重置生命恢复间隔
+	PC.hp_regen_timer = 0.0 # 重置生命恢复计时器
+	PC.spirit = 0
+	PC.spirit_raw = 0.0
+	PC.spirit_armor_applied_bonus = 0.0
+	PC.spirit_final_damage_applied_bonus = 0.0
+	PC.pain_relief_active = false
+	PC.pain_relief_remaining_heal = 0.0
+	PC.pain_relief_tick_accumulator = 0.0
+	PC.pain_relief_remaining_time = 0.0
+	# 重置领悟系列属性
+	PC.lingwu_atk_bonus = 0.0
+	PC.lingwu_hp_bonus = 0.0
+	PC.lingwu_atk_speed_bonus = 0.0
+	PC.lingwu_speed_bonus = 0.0
+	PC.lingwu_final_dmg_bonus = 0.0
+	PC.lingwu_armor_bonus = 0.0
+	PC.lingwu_weapon_upgrade_bonus = 0.0
+	PC.lingwu_lucky_upgrade_bonus = 0.0
+	PC.lingwu_summon_upgrade_bonus = 0.0
+	PC.lingwu_live_upgrade_bonus = 0.0
 	PC.last_atk_speed = 0
 	PC.last_speed = 0
 	PC.last_lunky_level = 1
@@ -690,8 +856,6 @@ func reset_player_attr() -> void:
 	PC.main_skill_qigong_damage = 1.25
 	
 	PC.refresh_num = Global.refresh_max_num
-	# todo 测试期间增加一些
-	PC.refresh_num = 999
 	PC.lock_num = 1
 	
 	# 重置纹章系统
@@ -709,35 +873,24 @@ func reset_player_attr() -> void:
 
 	# 诗想难度下不添加角色默认武器（由poetry_loadout统一管理），非诗想难度才添加
 	if Global.current_stage_difficulty != Global.STAGE_DIFFICULTY_POETRY:
-		if PC.player_name == "moning":
-			PC.selected_rewards.append("Qigong")
+		var start_weapon_info := PC.get_base_weapon_runtime_info()
+		if not start_weapon_info.is_empty():
+			var start_weapon_id := Global.get_selected_start_weapon()
+			PC.selected_rewards.append(str(start_weapon_info.get("reward_id", "Swordqi")))
 			PC.current_weapon_num += 1
-			PC.faze_wind_level += 3
-			PC.faze_wide_level += 3
-		if PC.player_name == "yiqiu":
-			PC.selected_rewards.append("Swordqi")
-			PC.current_weapon_num += 1
-			PC.faze_sword_level += 3
-			PC.faze_bullet_level += 3
-		if PC.player_name == "noam":
-			PC.selected_rewards.append("Lightbullet")
-			PC.current_weapon_num += 1
-			PC.faze_life_level += 3
-			PC.faze_bullet_level += 3
-		if PC.player_name == "kansel":
-			PC.selected_rewards.append("Ice")
-			PC.current_weapon_num += 1
-			PC.faze_destroy_level += 3
-			PC.faze_bullet_level += 3
+			var faze_levels := Global.get_start_weapon_faze_levels(start_weapon_id)
+			for faze_prop in faze_levels.keys():
+				PC.set(faze_prop, int(PC.get(faze_prop)) + int(faze_levels[faze_prop]))
 	
 
 func add_shield(amount: int, duration: float) -> void:
 	if is_game_over:
 		return
 	var shield_bonus = 1.0 + PC.sheild_multi
-	var final_amount = int(ceil(float(amount) * shield_bonus))
+	var final_amount = int(ceil(float(amount) * shield_bonus * Global.get_heal_shield_effect_multiplier()))
 	var shield = {"value": final_amount, "time_left": duration}
 	pc_sheild.append(shield)
+	_scan_achievement_runtime_keys(["shield_ratio"])
 
 func update_shields(delta: float) -> void:
 	for i in range(pc_sheild.size()):
@@ -755,6 +908,13 @@ func get_total_shield() -> int:
 func player_hit(damage: int, attacker: Node2D = null, source_name: String = "未知") -> int:
 	if is_game_over or invincible:
 		return 0
+	if Global.is_poetry_boss_damage_source(attacker):
+		damage = int(ceil(float(damage) * Global.get_poetry_boss_damage_multiplier()))
+	# 护甲减伤：armor/(armor+500)
+	var armor_reduction = pc_armor / (pc_armor + 500.0) if pc_armor > 0 else 0.0
+	damage = int(damage * (1.0 - armor_reduction))
+	if damage < 1:
+		damage = 1
 	var remaining_damage = damage
 	var absorbed_damage = 0
 	
@@ -792,6 +952,13 @@ func player_hit(damage: int, attacker: Node2D = null, source_name: String = "未
 func player_hit_ignore_invincible(damage: int, attacker: Node2D = null, source_name: String = "未知") -> int:
 	if is_game_over:
 		return 0
+	if Global.is_poetry_boss_damage_source(attacker):
+		damage = int(ceil(float(damage) * Global.get_poetry_boss_damage_multiplier()))
+	# 护甲减伤：armor/(armor+500)
+	var armor_reduction = pc_armor / (pc_armor + 500.0) if pc_armor > 0 else 0.0
+	damage = int(damage * (1.0 - armor_reduction))
+	if damage < 1:
+		damage = 1
 	var remaining_damage = damage
 	var absorbed_damage = 0
 	
@@ -842,8 +1009,8 @@ func _remove_empty_shields() -> void:
 			remain.append(shield)
 		elif float(shield["time_left"]) <= 0 and int(shield["value"]) > 0:
 			# Shield expired, check for heal conversion (Shield Law)
-			if faze_shield_heal_conversion_ratio > 0.0:
-				var heal_amount = int(int(shield["value"]) * faze_shield_heal_conversion_ratio)
+			if faze_shield_heal_conversion_ratio > 0.0 and not is_game_over:
+				var heal_amount = int(ceil(float(int(shield["value"])) * faze_shield_heal_conversion_ratio * Global.get_heal_shield_effect_multiplier()))
 				if heal_amount > 0:
 					pc_hp += heal_amount
 					if pc_hp > pc_max_hp:
@@ -855,14 +1022,22 @@ func _remove_empty_shields() -> void:
 	
 func exec_pc_atk() -> void:
 	# 修习树团队篇：攻击力百分比加成
-	PC.pc_atk = int((25 + int(Global.cultivation_poxu_level * 2)) * (1.0 + Global.study_atk_bonus))
+	var achievement_bonus := _get_achievement_bonus_summary()
+	PC.pc_atk = int((25 + int(Global.cultivation_poxu_level * 2) + int(round(float(achievement_bonus.get("atk", 0.0))))) * (1.0 + Global.study_atk_bonus))
 	PC.pc_start_atk = PC.pc_atk
 	
 func exec_pc_hp() -> void:
 	# 修习树团队篇：HP绝对值加成
-	PC.pc_max_hp = int(500 + int(Global.cultivation_xuanyuan_level * 20)) + Global.study_hp_bonus
+	var achievement_bonus := _get_achievement_bonus_summary()
+	PC.pc_max_hp = int(500 + int(Global.cultivation_xuanyuan_level * 20) + int(round(float(achievement_bonus.get("hp", 0.0))))) + Global.study_hp_bonus
 	PC.pc_start_max_hp = PC.pc_max_hp
 	PC.pc_hp = PC.pc_max_hp
+
+func _get_achievement_bonus_summary() -> Dictionary:
+	var achievement_manager = get_node_or_null("/root/AchievementManager")
+	if achievement_manager != null and achievement_manager.has_method("get_bonus_summary"):
+		return achievement_manager.get_bonus_summary()
+	return {}
 	
 func exec_pc_attack_range() -> void:
 	set_attack_range_value(Global.attack_range)
@@ -879,7 +1054,7 @@ func exec_lucky_level() -> void:
 	# 修习树领悟篇：初始天命提升
 	PC.lucky = PC.now_lunky_level + Global.study_initial_lucky
 	# 修习树领悟篇：逆天/臻境/悟道概率提升
-	PC.now_red_p = Global.red_p + Global.lunky_level * 0.1 + Global.study_red_chance_bonus
+	PC.now_red_p = Global.red_p + Global.lunky_level * RED_CHANCE_PER_LUCKY + Global.study_red_chance_bonus
 	PC.now_gold_p = Global.gold_p + Global.lunky_level * 0.5 + Global.study_gold_chance_bonus
 	PC.now_darkorchid_p = Global.darkorchid_p + Global.lunky_level * 0.6 + Global.study_purple_chance_bonus
 	PC.now_blue_p = Global.blue_p + Global.lunky_level * 1
@@ -908,7 +1083,7 @@ func exec_swordqi_skills() -> void:
 # 角色数据配置 - 用于背包界面显示
 var character_data = {
 	"yiqiu": {
-		"display_name": "奕秋",
+		"display_name": "言秋",
 		"animation_path": "res://AssetBundle/Sprites/idle.png",
 		"animation_name": "idle"
 	},
@@ -961,6 +1136,7 @@ func get_character_attributes_text() -> String:
 	var crit_rate = (0.1 + Global.cultivation_fengrui_level * 0.004 + equipment_stats["crit_chance"]) * 100
 	var crit_damage = (1.5 + Global.cultivation_liejin_level * 0.016 + equipment_stats["crit_damage_multi"]) * 100
 	var point_rate = (1 + Global.cultivation_hualing_level * 0.02 + equipment_stats["point_multi"]) * 100
+	var spirit_rate = (1 + equipment_stats.get("spirit_multi", 0.0)) * 100
 	var exp_rate = (1 + Global.exp_multi + equipment_stats["exp_multi"] + Global.study_exp_bonus) * 100 # 修习树领悟篇：经验获取提升
 	var drop_rate = (1 + Global.drop_multi + equipment_stats["drop_multi"]) * 100
 	
@@ -979,7 +1155,8 @@ func get_character_attributes_text() -> String:
 		final_atk, final_hp, atk_speed, move_speed, damage_reduction,
 		crit_rate, crit_damage, point_rate, exp_rate, drop_rate,
 		bullet_size_val, body_size_val, heal_multi_val, sheild_multi_val,
-		normal_monster_multi_val, boss_multi_val, cooldown_val, active_skill_multi_val
+		normal_monster_multi_val, boss_multi_val, cooldown_val, active_skill_multi_val,
+		spirit_rate
 	)
 	
 	# 计算期望DPS
@@ -1009,6 +1186,10 @@ func get_character_attributes_text() -> String:
 	# attr_text += "[color=#FF6B6B]期望DPS  %.1f[/color]\n" % expected_dps
 	attr_text += "攻击  " + str(final_atk) + "\n"
 	attr_text += "体力  " + str(final_hp) + "\n"
+	# 护甲值及护甲减伤（公式：armor/(armor+500)）
+	var armor_total = PC.pc_armor
+	var armor_reduction_pct = armor_total / (armor_total + 500.0) * 100.0 if armor_total > 0 else 0.0
+	attr_text += "护甲  " + str(int(armor_total)) + "(%.2f%%)\n" % armor_reduction_pct
 	attr_text += "攻击速度  " + _fmt_attr(atk_speed) + "%\n"
 	attr_text += "移动速度  " + _fmt_attr(move_speed) + "%\n"
 	attr_text += "减伤率  " + _fmt_attr(damage_reduction) + "%\n"
@@ -1023,7 +1204,8 @@ func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: floa
 								   damage_reduction: float, crit_rate: float, crit_damage: float,
 								   point_rate: float, exp_rate: float, drop_rate: float,
 								   p_bullet_size: float = 0, p_body_size: float = 0, p_heal_multi: float = 0, p_sheild_multi: float = 0,
-								   p_normal_monster_multi: float = 0, p_boss_multi: float = 0, p_cooldown: float = 0, p_active_skill_multi: float = 0) -> int:
+								   p_normal_monster_multi: float = 0, p_boss_multi: float = 0, p_cooldown: float = 0, p_active_skill_multi: float = 0,
+								   spirit_rate: float = 100.0) -> int:
 	# 攻速实际倍率 = 1 + atk_speed/100
 	var atk_speed_multi = 1.0 + atk_speed / 100.0
 	# 暴击期望 = 1 + 暴击率 * (暴击伤害倍率 - 1)
@@ -1049,6 +1231,8 @@ func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: floa
 	
 	# 掉落率每超出100%的1%加8点
 	var drop_bonus = max(drop_rate - 100, 0) * 12
+	# 精魄获取每超出100%的1%加6点
+	var spirit_bonus = max(spirit_rate - 100, 0) * 6
 	
 	# === 属性额外加成（不参与乘算） ===
 	# 攻速每1%额外加416点修为
@@ -1079,14 +1263,42 @@ func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: floa
 	var cooldown_bonus = p_cooldown * 32.0
 	# 主动技能增伤每1%提升6修为
 	var active_skill_bonus = p_active_skill_multi * 6.0
+	var progression_power_bonus = _get_study_tree_cultivation_power_bonus() + _get_cultivation_level_power_bonus()
 	
 	# 总修为
-	var total_cultivation = atk_part + hp_part + point_part + exp_bonus + drop_bonus \
+	var total_cultivation = atk_part + hp_part + point_part + exp_bonus + drop_bonus + spirit_bonus \
 		+ atk_speed_bonus + move_speed_bonus + crit_rate_bonus + crit_damage_bonus + damage_reduction_bonus \
 		+ bullet_size_bonus + body_size_bonus + heal_multi_bonus + sheild_multi_bonus \
-		+ normal_monster_bonus + boss_bonus + cooldown_bonus + active_skill_bonus - 2750
+		+ normal_monster_bonus + boss_bonus + cooldown_bonus + active_skill_bonus \
+		+ progression_power_bonus - 2750
 	
 	return int(total_cultivation)
+
+func _get_study_tree_cultivation_power_bonus() -> int:
+	var learned_talent_levels := 0
+	for level in Global.player_study_tree.values():
+		learned_talent_levels += max(int(level), 0)
+	return learned_talent_levels * 50
+
+func _get_cultivation_level_power_bonus() -> int:
+	var power_bonus := 0
+	var initial_50_max_cultivations := [
+		"cultivation_poxu_level",
+		"cultivation_xuanyuan_level",
+		"cultivation_hualing_level",
+		"cultivation_liejin_level"
+	]
+	var initial_25_max_cultivations := [
+		"cultivation_liuguang_level",
+		"cultivation_fengrui_level",
+		"cultivation_huti_level",
+		"cultivation_zhuifeng_level"
+	]
+	for level_var in initial_50_max_cultivations:
+		power_bonus += max(int(Global.get(level_var)), 0) * 5
+	for level_var in initial_25_max_cultivations:
+		power_bonus += max(int(Global.get(level_var)), 0) * 10
+	return power_bonus
 
 # 生成修为的BBCode文本（金红过渡色，稍大字号）
 func _get_cultivation_bbcode(cultivation_power: int) -> String:
@@ -1125,6 +1337,7 @@ func get_secondary_attributes_text() -> String:
 	# 计算次要属性
 	var bullet_size_val = (1 + Global.attack_range - 1.0 + equipment_stats["bullet_size"]) * 100 # 攻击范围包含秘丹加成
 	var point_multi_val = (1 + Global.cultivation_hualing_level * 0.02 + equipment_stats["point_multi"]) * 100
+	var spirit_multi_val = (1 + equipment_stats.get("spirit_multi", 0.0)) * 100
 	var exp_multi_val = (1 + Global.exp_multi + equipment_stats["exp_multi"]) * 100
 	var drop_multi_val = (1 + Global.drop_multi + equipment_stats["drop_multi"]) * 100
 	var body_size_val = Global.body_size * 100 # 秘丹加成
@@ -1134,10 +1347,19 @@ func get_secondary_attributes_text() -> String:
 	var boss_multi_val = (Global.boss_multi + equipment_stats.get("boss_multi", 0)) * 100
 	var cooldown_val = equipment_stats.get("cooldown", 0) * 100
 	var active_skill_multi_val = equipment_stats.get("active_skill_multi", 0) * 100
+	var achievement_bonus := _get_achievement_bonus_summary()
+	var final_damage_val = (
+		Global.get_cultivation_final_damage_bonus()
+		+ Global.study_final_damage_bonus
+		+ float(equipment_stats.get("pc_final_atk", 0.0))
+		+ float(achievement_bonus.get("final_damage", 0.0))
+	) * 100
 	
 	var attr_text = ""
+	attr_text += "最终伤害  " + _fmt_attr(final_damage_val) + "%\n"
 	attr_text += "攻击范围  " + _fmt_attr(bullet_size_val) + "%\n"
 	attr_text += "真气获取  " + _fmt_attr(point_multi_val) + "%\n"
+	attr_text += "精魄获取  " + _fmt_attr(spirit_multi_val) + "%\n"
 	attr_text += "经验获取  " + _fmt_attr(exp_multi_val) + "%\n"
 	attr_text += "掉落率  " + _fmt_attr(drop_multi_val) + "%\n"
 	attr_text += "体型大小  " + _fmt_attr(body_size_val) + "%\n"

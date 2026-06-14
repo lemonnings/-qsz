@@ -30,6 +30,8 @@ var lv_up_change_b2: Button
 var lv_up_change_b3: Button
 var layer_ui: CanvasLayer
 var skill_nodes: Array[TextureButton] = []
+var _active_icon_mouse_filters: Dictionary = {}
+var _skip_next_level_up_delay: bool = false
 
 # 初始化升级管理器
 func initialize(p_canvas_layer: CanvasLayer, p_lv_up_change: Control,
@@ -63,11 +65,14 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	else:
 		print("[LvUp] handle_level_up 进化升级(", main_skill_name, "), pending_level_ups = ", pending_level_ups, " (不变)")
 	Global.is_level_up = true
+	SEManager.play("203", true)
+	var skip_open_delay = _skip_next_level_up_delay
+	_skip_next_level_up_delay = false
 	
 	# 初始展示升级界面时才需要延迟（刷新按键点击时不延迟，由调用方管理过渡）
 	# 手动模式由玩家主动点击触发，无需延迟
-	if scene_tree and refresh_id == 0 and PC.instant_level_up:
-		await scene_tree.create_timer(0.25, true, false, true).timeout
+	if scene_tree and refresh_id == 0 and PC.instant_level_up and not skip_open_delay:
+		await scene_tree.create_timer(0.25, false, false, false).timeout
 	
 	# await期间玩家可能已死亡，重新检查
 	if PC.is_game_over:
@@ -75,6 +80,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 		return
 	
 	lv_up_change.visible = true
+	_set_active_skill_icons_interactive(false)
 	# 升级选项出现时关闭Buff悬停提示，避免遮挡按钮
 	BuffManager.set_buffs_interactive(false)
 	BOSS_HP_BAR_SCRIPT.set_boss_buffs_interactive(false)
@@ -273,40 +279,35 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 		# 隐藏第三个按钮
 		lv_up_change_b3.visible = false
 		
-		# 调整前两个按钮的Y轴位置（在原始 offset_top 基础上加偏移）
+		# 调整前两个按钮的Y轴位置，保持场景中配置的当前尺寸不变
 		if reward1 != null:
 			_configure_reward_button(lv_up_change_b1, reward1, rect_ready, rect_off, rect_on, refresh_id, 1)
-			lv_up_change_b1.offset_top = 101.0 + 100.0
-			lv_up_change_b1.offset_bottom = 269.0 + 100.0
+			_set_reward_button_y(lv_up_change_b1, 101.0 + 100.0)
 		else:
 			lv_up_change_b1.visible = false
 		
 		if reward2 != null:
 			_configure_reward_button(lv_up_change_b2, reward2, rect_ready, rect_off, rect_on, refresh_id, 2)
-			lv_up_change_b2.offset_top = 101.0 + 350.0
-			lv_up_change_b2.offset_bottom = 269.0 + 350.0
+			_set_reward_button_y(lv_up_change_b2, 101.0 + 350.0)
 		else:
 			lv_up_change_b2.visible = false
 	else:
 		# 普通升级时，正常配置三个按钮并重置原始位置
 		if reward1 != null:
 			_configure_reward_button(lv_up_change_b1, reward1, rect_ready, rect_off, rect_on, refresh_id, 1)
-			lv_up_change_b1.offset_top = 101.0
-			lv_up_change_b1.offset_bottom = 269.0
+			_set_reward_button_y(lv_up_change_b1, 84.0)
 		elif refresh_id == 0:
 			lv_up_change_b1.visible = false
 		
 		if reward2 != null:
 			_configure_reward_button(lv_up_change_b2, reward2, rect_ready, rect_off, rect_on, refresh_id, 2)
-			lv_up_change_b2.offset_top = 293.0
-			lv_up_change_b2.offset_bottom = 461.0
+			_set_reward_button_y(lv_up_change_b2, 285.0)
 		elif refresh_id == 0:
 			lv_up_change_b2.visible = false
 		
 		if reward3 != null:
 			_configure_reward_button(lv_up_change_b3, reward3, rect_ready, rect_off, rect_on, refresh_id, 3)
-			lv_up_change_b3.offset_top = 485.0
-			lv_up_change_b3.offset_bottom = 653.0
+			_set_reward_button_y(lv_up_change_b3, 486.0)
 		elif refresh_id == 0:
 			lv_up_change_b3.visible = false
 	
@@ -361,6 +362,10 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 		tween.tween_property(lv_up_change_b3, "modulate:a", 1.0, 0.5)
 
 
+func _set_reward_button_y(button: Button, y: float) -> void:
+	button.position = Vector2(button.position.x, y)
+
+
 # 配置奖励按钮的私有函数
 func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_off: Rect2, rect_on: Rect2, _refresh_id: int, button_id: int):
 	# 配置button内部要显示的数据
@@ -378,14 +383,10 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 	lvAdvanceProgress2.visible = false
 	lvAdvanceProgress3.visible = false
 	lvLabel.visible = true
-	lvTitle.size = Vector2(143, 110)
-	lvTitle.position = Vector2(162, 29)
 	
 	# 如果抽取到的是主要技能，则渲染进阶状态
 	if reward.if_main_skill and !reward.if_advance:
 		lvLabel.visible = false
-		lvTitle.size = Vector2(141, 118)
-		lvTitle.position = Vector2(162, 24)
 		lvSkillLv.visible = true
 		lvAdvanceProgress1.visible = true
 		lvAdvanceProgress2.visible = true
@@ -426,6 +427,25 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 		callback.call()
 	button.pressed.connect(wrapped_callback)
 
+func configure_reward_button_for_external(button: Button, reward, button_id: int, selected_callback: Callable) -> void:
+	var rect_ready = Rect2(4, 176, 8, 16)
+	var rect_off = Rect2(20, 176, 8, 16)
+	var rect_on = Rect2(36, 176, 8, 16)
+	_configure_reward_button(button, reward, rect_ready, rect_off, rect_on, 0, button_id)
+	var connect_array = button.pressed.get_connections()
+	if !connect_array.is_empty():
+		for conn in connect_array:
+			button.pressed.disconnect(conn.callable)
+	var reward_faction = reward.faction
+	var wrapped_callback = func():
+		SEManager.play("212")
+		LvUp._last_applied_reward_faction = reward_faction
+		selected_callback.call(reward)
+	button.pressed.connect(wrapped_callback)
+
+func set_external_reward_button_y(button: Button, y: float) -> void:
+	_set_reward_button_y(button, y)
+
 # 检查并处理待升级
 func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport: Viewport = null) -> void:
 	# 战败后不再处理待升级项，直接清理升级UI
@@ -438,10 +458,12 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 	# 清理dark_overlay
 	_cleanup_dark_overlay()
 	
-	# 恢复技能节点状态
-	for skill_node in skill_nodes:
-		if skill_node and skill_node.has_method("set_game_paused"):
-			skill_node.set_game_paused(false)
+	var keep_paused_for_next_popup = _skip_next_level_up_delay
+	if not keep_paused_for_next_popup:
+		# 非连续弹窗入口才恢复技能节点状态；连续升级期间保持暂停。
+		for skill_node in skill_nodes:
+			if skill_node and skill_node.has_method("set_game_paused"):
+				skill_node.set_game_paused(false)
 	
 	var advance_change = int(PC.main_skill_swordQi / 3.0)
 	if PC.main_skill_swordQi != 0 and PC.main_skill_swordQi_advance < advance_change:
@@ -511,8 +533,157 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 		# 清理升级选择时创建的背景变暗效果（仅普通升级时）
 		now_main_skill_name = ""
 
+func pop_next_pending_advance_name() -> String:
+	var advance_change = int(PC.main_skill_swordQi / 3.0)
+	if PC.main_skill_swordQi != 0 and PC.main_skill_swordQi_advance < advance_change:
+		PC.main_skill_swordQi_advance += 1
+		return "Swordqi"
+	if PC.main_skill_branch != 0 and PC.main_skill_branch_advance < int(PC.main_skill_branch / 3.0):
+		PC.main_skill_branch_advance += 1
+		return "Branch"
+	if PC.main_skill_moyan != 0 and PC.main_skill_moyan_advance < int(PC.main_skill_moyan / 3.0):
+		PC.main_skill_moyan_advance += 1
+		return "Moyan"
+	if PC.main_skill_riyan != 0 and PC.main_skill_riyan_advance < int(PC.main_skill_riyan / 3.0):
+		PC.main_skill_riyan_advance += 1
+		return "Riyan"
+	if PC.main_skill_ringFire != 0 and PC.main_skill_ringFire_advance < int(PC.main_skill_ringFire / 3.0):
+		PC.main_skill_ringFire_advance += 1
+		return "Ringfire"
+	if PC.main_skill_thunder != 0 and PC.main_skill_thunder_advance < int(PC.main_skill_thunder / 3.0):
+		PC.main_skill_thunder_advance += 1
+		return "Thunder"
+	if PC.main_skill_bloodwave != 0 and PC.main_skill_bloodwave_advance < int(PC.main_skill_bloodwave / 3.0):
+		PC.main_skill_bloodwave_advance += 1
+		return "Bloodwave"
+	if PC.main_skill_bloodboardsword != 0 and PC.main_skill_bloodboardsword_advance < int(PC.main_skill_bloodboardsword / 3.0):
+		PC.main_skill_bloodboardsword_advance += 1
+		return "Bloodboardsword"
+	if PC.main_skill_ice != 0 and PC.main_skill_ice_advance < int(PC.main_skill_ice / 3.0):
+		PC.main_skill_ice_advance += 1
+		return "Ice"
+	if PC.main_skill_thunder_break != 0 and PC.main_skill_thunder_break_advance < int(PC.main_skill_thunder_break / 3.0):
+		PC.main_skill_thunder_break_advance += 1
+		return "Thunderbreak"
+	if PC.main_skill_light_bullet != 0 and PC.main_skill_light_bullet_advance < int(PC.main_skill_light_bullet / 3.0):
+		PC.main_skill_light_bullet_advance += 1
+		return "Lightbullet"
+	if PC.main_skill_qigong != 0 and PC.main_skill_qigong_advance < int(PC.main_skill_qigong / 3.0):
+		PC.main_skill_qigong_advance += 1
+		return "Qigong"
+	if PC.main_skill_water != 0 and PC.main_skill_water_advance < int(PC.main_skill_water / 3.0):
+		PC.main_skill_water_advance += 1
+		return "Water"
+	if PC.main_skill_qiankun != 0 and PC.main_skill_qiankun_advance < int(PC.main_skill_qiankun / 3.0):
+		PC.main_skill_qiankun_advance += 1
+		return "Qiankun"
+	if PC.main_skill_xuanwu != 0 and PC.main_skill_xuanwu_advance < int(PC.main_skill_xuanwu / 3.0):
+		PC.main_skill_xuanwu_advance += 1
+		return "Xuanwu"
+	if PC.main_skill_xunfeng != 0 and PC.main_skill_xunfeng_advance < int(PC.main_skill_xunfeng / 3.0):
+		PC.main_skill_xunfeng_advance += 1
+		return "Xunfeng"
+	if PC.main_skill_genshan != 0 and PC.main_skill_genshan_advance < int(PC.main_skill_genshan / 3.0):
+		PC.main_skill_genshan_advance += 1
+		return "Genshan"
+	if PC.main_skill_duize != 0 and PC.main_skill_duize_advance < int(PC.main_skill_duize / 3.0):
+		PC.main_skill_duize_advance += 1
+		return "Duize"
+	if PC.main_skill_dragonwind != 0 and PC.main_skill_dragonwind_advance < int(PC.main_skill_dragonwind / 3.0):
+		PC.main_skill_dragonwind_advance += 1
+		return "Dragonwind"
+	if PC.main_skill_holylight != 0 and PC.main_skill_holylight_advance < int(PC.main_skill_holylight / 3.0):
+		PC.main_skill_holylight_advance += 1
+		return "Holylight"
+	return ""
+
+func pop_pending_advance_name_for(main_skill_name: String) -> String:
+	match main_skill_name:
+		"Swordqi":
+			if PC.main_skill_swordQi != 0 and PC.main_skill_swordQi_advance < int(PC.main_skill_swordQi / 3.0):
+				PC.main_skill_swordQi_advance += 1
+				return "Swordqi"
+		"Branch":
+			if PC.main_skill_branch != 0 and PC.main_skill_branch_advance < int(PC.main_skill_branch / 3.0):
+				PC.main_skill_branch_advance += 1
+				return "Branch"
+		"Moyan":
+			if PC.main_skill_moyan != 0 and PC.main_skill_moyan_advance < int(PC.main_skill_moyan / 3.0):
+				PC.main_skill_moyan_advance += 1
+				return "Moyan"
+		"Riyan":
+			if PC.main_skill_riyan != 0 and PC.main_skill_riyan_advance < int(PC.main_skill_riyan / 3.0):
+				PC.main_skill_riyan_advance += 1
+				return "Riyan"
+		"Ringfire":
+			if PC.main_skill_ringFire != 0 and PC.main_skill_ringFire_advance < int(PC.main_skill_ringFire / 3.0):
+				PC.main_skill_ringFire_advance += 1
+				return "Ringfire"
+		"Thunder":
+			if PC.main_skill_thunder != 0 and PC.main_skill_thunder_advance < int(PC.main_skill_thunder / 3.0):
+				PC.main_skill_thunder_advance += 1
+				return "Thunder"
+		"Bloodwave":
+			if PC.main_skill_bloodwave != 0 and PC.main_skill_bloodwave_advance < int(PC.main_skill_bloodwave / 3.0):
+				PC.main_skill_bloodwave_advance += 1
+				return "Bloodwave"
+		"Bloodboardsword":
+			if PC.main_skill_bloodboardsword != 0 and PC.main_skill_bloodboardsword_advance < int(PC.main_skill_bloodboardsword / 3.0):
+				PC.main_skill_bloodboardsword_advance += 1
+				return "Bloodboardsword"
+		"Ice":
+			if PC.main_skill_ice != 0 and PC.main_skill_ice_advance < int(PC.main_skill_ice / 3.0):
+				PC.main_skill_ice_advance += 1
+				return "Ice"
+		"Thunderbreak":
+			if PC.main_skill_thunder_break != 0 and PC.main_skill_thunder_break_advance < int(PC.main_skill_thunder_break / 3.0):
+				PC.main_skill_thunder_break_advance += 1
+				return "Thunderbreak"
+		"Lightbullet":
+			if PC.main_skill_light_bullet != 0 and PC.main_skill_light_bullet_advance < int(PC.main_skill_light_bullet / 3.0):
+				PC.main_skill_light_bullet_advance += 1
+				return "Lightbullet"
+		"Qigong":
+			if PC.main_skill_qigong != 0 and PC.main_skill_qigong_advance < int(PC.main_skill_qigong / 3.0):
+				PC.main_skill_qigong_advance += 1
+				return "Qigong"
+		"Water":
+			if PC.main_skill_water != 0 and PC.main_skill_water_advance < int(PC.main_skill_water / 3.0):
+				PC.main_skill_water_advance += 1
+				return "Water"
+		"Qiankun":
+			if PC.main_skill_qiankun != 0 and PC.main_skill_qiankun_advance < int(PC.main_skill_qiankun / 3.0):
+				PC.main_skill_qiankun_advance += 1
+				return "Qiankun"
+		"Xuanwu":
+			if PC.main_skill_xuanwu != 0 and PC.main_skill_xuanwu_advance < int(PC.main_skill_xuanwu / 3.0):
+				PC.main_skill_xuanwu_advance += 1
+				return "Xuanwu"
+		"Xunfeng":
+			if PC.main_skill_xunfeng != 0 and PC.main_skill_xunfeng_advance < int(PC.main_skill_xunfeng / 3.0):
+				PC.main_skill_xunfeng_advance += 1
+				return "Xunfeng"
+		"Genshan":
+			if PC.main_skill_genshan != 0 and PC.main_skill_genshan_advance < int(PC.main_skill_genshan / 3.0):
+				PC.main_skill_genshan_advance += 1
+				return "Genshan"
+		"Duize":
+			if PC.main_skill_duize != 0 and PC.main_skill_duize_advance < int(PC.main_skill_duize / 3.0):
+				PC.main_skill_duize_advance += 1
+				return "Duize"
+		"Dragonwind":
+			if PC.main_skill_dragonwind != 0 and PC.main_skill_dragonwind_advance < int(PC.main_skill_dragonwind / 3.0):
+				PC.main_skill_dragonwind_advance += 1
+				return "Dragonwind"
+		"Holylight":
+			if PC.main_skill_holylight != 0 and PC.main_skill_holylight_advance < int(PC.main_skill_holylight / 3.0):
+				PC.main_skill_holylight_advance += 1
+				return "Holylight"
+	return ""
+
 # 玩家点击某个奖励按钮时的处理（在奖励效果应用前调用）
 func _on_reward_button_selected(selected_button_id: int) -> void:
+	SEManager.play("212")
 	# 处理当前界面临时锁定
 	if not tentative_locked_rewards.is_empty():
 		if tentative_locked_rewards.has(selected_button_id):
@@ -553,34 +724,46 @@ func _on_level_up_selection_complete(_viewport: Viewport = null) -> void:
 	# 检查是否还有待升级（包括 advance）
 	var has_more = _has_pending_upgrades()
 	print("[LvUp] _on_level_up_selection_complete: pending=", pending_level_ups, " has_more=", has_more, " advance_pending=", _check_any_advance_pending(), " instant=", PC.instant_level_up)
+	if canvas_layer and canvas_layer.has_method("_refresh_faze_ui"):
+		canvas_layer._refresh_faze_ui()
+	if canvas_layer and canvas_layer.has_method("_update_lv_up_start_button_badge"):
+		canvas_layer._update_lv_up_start_button_badge()
 	
-	if has_more and PC.instant_level_up:
-		# 即时模式（PC.instant_level_up=true）：渐出当前界面 0.25s，再自动触发下一次（保持游戏暂停）
+	if has_more:
+		# 连续升级/进阶期间，奖励脚本可能刚解除暂停；这里立刻接管并保持暂停，
+		# 在暂停状态下等待0.25秒后直接弹出下一组选项。
+		Global.is_level_up = true
+		if canvas_layer and canvas_layer.has_method("_update_lv_up_start_button_badge"):
+			canvas_layer._update_lv_up_start_button_badge()
+		if get_tree():
+			get_tree().set_pause(true)
+			_pause_all_animations(get_tree())
+		for skill_node in skill_nodes:
+			if skill_node and skill_node.has_method("set_game_paused"):
+				skill_node.set_game_paused(true)
 		_fade_instant_level_up_button(false)
 		var tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tween.set_ignore_time_scale(true)
 		tween.tween_property(lv_up_change, "modulate:a", 0.0, 0.25)
 		tween.tween_callback(func():
 			lv_up_change.modulate.a = 1.0
-			Global.emit_signal("level_up_selection_complete")
-		)
-	elif has_more:
-		# 手动模式（PC.instant_level_up=false）：保持游戏暂停，渐出当前界面 0.25s，再自动触发下一次升级
-		_fade_instant_level_up_button(false)
-		var tween = create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		tween.tween_property(lv_up_change, "modulate:a", 0.0, 0.25)
-		tween.tween_callback(func():
-			lv_up_change.modulate.a = 1.0
+			_skip_next_level_up_delay = true
 			check_and_process_pending_level_ups(get_tree(), get_viewport())
+			if canvas_layer and canvas_layer.has_method("_update_lv_up_start_button_badge"):
+				canvas_layer._update_lv_up_start_button_badge()
 		)
 	else:
 		# 所有升级完成，隐藏界面
 		lv_up_change.visible = false
+		_set_active_skill_icons_interactive(true)
 		# 恢复Buff悬停提示
 		BuffManager.set_buffs_interactive(true)
 		BOSS_HP_BAR_SCRIPT.set_boss_buffs_interactive(true)
 		# 渐出 instant_level_up_button（与升级选项一同消失）
 		_fade_instant_level_up_button(false)
 		Global.is_level_up = false
+		if canvas_layer and canvas_layer.has_method("_update_lv_up_start_button_badge"):
+			canvas_layer._update_lv_up_start_button_badge()
 		# 恢复技能节点暂停状态
 		for skill_node in skill_nodes:
 			if skill_node and skill_node.has_method("set_game_paused"):
@@ -629,9 +812,19 @@ func set_now_main_skill_name(value: String) -> void:
 # 获取升级所需经验值（升级经验）
 func get_required_lv_up_value(level: int) -> float:
 	# todo 测试期间/10
-	var value: float = 1200
+	var value: float = 700
 	for i in range(level):
-		value = (value + 1000 + 13 * (i + 1) * i)
+		value = (value + 1000 + 12 * (i + 1) * i)
+	if level >= 70:
+		value *= 4.0
+	elif level >= 60:
+		value *= 2.0
+	elif level >= 50:
+		value *= 1.5
+	elif level >= 40:
+		value *= 1.25
+	if level <= 10:
+		value *= 0.5
 	# 修习树领悟篇：升级经验需求降低
 	var reduction_mult = clampf(1.0 - Global.study_exp_reduction, 0.2, 1.0)
 	return value * reduction_mult
@@ -650,11 +843,13 @@ func _force_cleanup_level_up_ui() -> void:
 	if lv_up_change:
 		lv_up_change.visible = false
 		lv_up_change.modulate.a = 1.0
+	_set_active_skill_icons_interactive(true)
 	# 恢复Buff悬停提示
 	BuffManager.set_buffs_interactive(true)
 	BOSS_HP_BAR_SCRIPT.set_boss_buffs_interactive(true)
 	Global.is_level_up = false
 	pending_level_ups = 0
+	_skip_next_level_up_delay = false
 	current_rewards.clear()
 	tentative_locked_rewards.clear()
 	now_main_skill_name = ""
@@ -666,6 +861,28 @@ func _force_cleanup_level_up_ui() -> void:
 	if get_tree():
 		get_tree().set_pause(false)
 	print("[LvUp] _force_cleanup_level_up_ui: 战败后强制清理升级界面")
+
+func pause_battle_for_external_popup(scene_tree: SceneTree) -> void:
+	_set_active_skill_icons_interactive(false)
+	BuffManager.set_buffs_interactive(false)
+	BOSS_HP_BAR_SCRIPT.set_boss_buffs_interactive(false)
+	for skill_node in skill_nodes:
+		if skill_node and skill_node.has_method("set_game_paused"):
+			skill_node.set_game_paused(true)
+	_pause_all_animations(scene_tree)
+	if scene_tree:
+		scene_tree.set_pause(true)
+
+func resume_battle_from_external_popup(scene_tree: SceneTree) -> void:
+	_set_active_skill_icons_interactive(true)
+	BuffManager.set_buffs_interactive(true)
+	BOSS_HP_BAR_SCRIPT.set_boss_buffs_interactive(true)
+	for skill_node in skill_nodes:
+		if skill_node and skill_node.has_method("set_game_paused"):
+			skill_node.set_game_paused(false)
+	if scene_tree:
+		scene_tree.set_pause(false)
+		_resume_all_animations(scene_tree)
 
 # 暂停所有人物和怪物的动画
 func _pause_all_animations(scene_tree: SceneTree) -> void:
@@ -705,6 +922,31 @@ func _resume_all_animations(scene_tree: SceneTree) -> void:
 		var sprite = enemy.get_node_or_null("AnimatedSprite2D")
 		if sprite and sprite is AnimatedSprite2D:
 			sprite.play()
+
+func _set_active_skill_icons_interactive(interactive: bool) -> void:
+	if not canvas_layer:
+		return
+	if not interactive and canvas_layer.has_method("hide_active_skill_label"):
+		canvas_layer.hide_active_skill_label()
+	var active_icons: Array[Control] = [
+		canvas_layer.get("active1") as Control,
+		canvas_layer.get("active2") as Control,
+		canvas_layer.get("active3") as Control
+	]
+	for icon in active_icons:
+		if not icon or not is_instance_valid(icon):
+			continue
+		if interactive:
+			if _active_icon_mouse_filters.has(icon):
+				icon.mouse_filter = int(_active_icon_mouse_filters[icon])
+			else:
+				icon.mouse_filter = Control.MOUSE_FILTER_STOP
+		else:
+			if not _active_icon_mouse_filters.has(icon):
+				_active_icon_mouse_filters[icon] = icon.mouse_filter
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if interactive:
+		_active_icon_mouse_filters.clear()
 
 # ============== 待升级检查 ==============
 

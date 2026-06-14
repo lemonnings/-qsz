@@ -28,14 +28,14 @@ func _ready() -> void:
 		"kansel": hero4
 	}
 	hero_texts = {
-		"moning": "初始武器 气功波\n特殊技能 迷踪步\n身份背景 天衍宗乾长老的得意门生，精通风系法术与轻功。",
-		"yiqiu": "初始武器 剑气诀\n特殊技能 兽化\n身份背景 魔教的小少主，擅使枪剑，体内有着神秘的力量。",
+		"moning": "初始武器 气功波\n特殊技能 迷踪步\n身份背景 天衍宗巽长老的得意门生，精通风系法术与轻功。",
+		"yiqiu": "初始武器 剑气诀\n特殊技能 兽化\n身份背景 魔教自在天的小少主，擅使枪剑，体内有着魔兽的血脉。",
 		"noam": "初始武器 光弹\n特殊技能 神圣灼烧\n身份背景 误入异界的白魔法师，是帝国最年轻的皇家白魔法师。",
 		"kansel": "初始武器 冰刺术\n特殊技能 魔纹阵\n身份背景 误入异界的黑魔法师，是帝国黑魔法研究院首席。"
 	}
 	hero_display_names = {
 		"moning": "墨宁",
-		"yiqiu": "奕秋",
+		"yiqiu": "言秋",
 		"noam": "诺姆",
 		"kansel": "坎塞尔"
 	}
@@ -109,20 +109,32 @@ func _select_hero(hero_key: String) -> void:
 	_update_now_hero(hero_key)
 	var player = get_tree().current_scene.get_node("Player")
 	player.change_hero(hero_key)
-	var bag_layer = get_tree().current_scene.get_node("BagLayer")
-	bag_layer.refresh_character_display()
+	_refresh_bag_character_display()
+
+func _refresh_bag_character_display() -> void:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	var bag_layer := scene.get_node_or_null("BagLayer")
+	if bag_layer == null:
+		return
+	if bag_layer.has_method("refresh_character_display"):
+		bag_layer.refresh_character_display()
+	elif bag_layer.has_method("refresh_bag"):
+		bag_layer.refresh_bag()
 
 func _update_now_hero(hero_key: String) -> void:
 	now_hero.scale = Vector2(3.4, 3.4)
-	# 从玩家身上获取对应角色的精灵帧并播放run动画
+	# 从玩家身上获取对应角色的精灵帧
 	var player = get_tree().current_scene.get_node_or_null("Player")
 	if player:
 		var character_sprite = player.get_node(hero_key) as AnimatedSprite2D
 		if character_sprite:
 			now_hero.sprite_frames = character_sprite.sprite_frames
-	now_hero.play("run")
+	now_hero.play("idle")
 	now_hero_name.text = "当前出战\n" + hero_display_names[hero_key]
 	hero_detail.text = hero_texts[hero_key]
 
 func _on_exit_pressed() -> void:
+	Global.unlock_camera_zoom("hero")
 	visible = false

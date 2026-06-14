@@ -29,6 +29,7 @@ var is_displaying_text: bool = false
 var text_display_speed: float = 0.03 # Seconds per character
 var choices_already_shown: bool = false # 标记选项是否已经显示过
 var is_animating_illustrations: bool = false
+var _advance_cooldown_end: int = 0 # 点击显示全文后的冷却截止时间(ms)
 
 # 颜色
 const COLOR_DIM: Color = Color("#5b5b5b")
@@ -50,6 +51,32 @@ func _ready():
 	change_button_2.pressed.connect(_on_choice_pressed.bind(2))
 	change_button_3.pressed.connect(_on_choice_pressed.bind(3))
 	change_button_4.pressed.connect(_on_choice_pressed.bind(4))
+
+func _is_visible_control_under_mouse(control: Control) -> bool:
+	return control.is_visible_in_tree() and control.get_global_rect().has_point(control.get_global_mouse_position())
+
+func _is_story_skip_mouse_event(event: InputEvent) -> bool:
+	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed):
+		return false
+
+	var scene = get_tree().current_scene
+	if scene == null:
+		return false
+
+	var skip_layer = scene.get_node_or_null("skipLayer")
+	if skip_layer != null and skip_layer.get("visible") == true:
+		return true
+
+	var skip_button = scene.get("skip_button")
+	if skip_button is Control and _is_visible_control_under_mouse(skip_button):
+		return true
+
+	var skip_button_layer = scene.get_node_or_null("skip_button_layer")
+	if skip_button_layer == null:
+		return false
+
+	var child_skip_button = skip_button_layer.get_node_or_null("skip")
+	return child_skip_button is Control and _is_visible_control_under_mouse(child_skip_button)
 
 func _on_start_dialog(dialog_file_path: String):
 	current_dialog_data = _read_dialog_data(dialog_file_path)
@@ -92,7 +119,10 @@ func _read_dialog_data_from_csv(file_path: String) -> Array:
 			headers = csv_line
 			is_first_line = false
 		else:
-			if csv_line.size() != headers.size():
+			if csv_line.size() < headers.size():
+				while csv_line.size() < headers.size():
+					csv_line.append("")
+			elif csv_line.size() > headers.size():
 				printerr("CSV header/row size mismatch in line: ", csv_line, " in file: ", file_path)
 				continue # 跳过格式错误的行或根据需要处理错误
 			var line_dict: Dictionary = {}
@@ -194,9 +224,18 @@ func _process_current_dialog_line():
 	var dialog_content = current_line_data.get("dialog", "")
 	_display_text_typewriter(dialog_content)
 
+func _normalize_resource_path(path: String) -> String:
+	var normalized_path = path.strip_edges().replace("\\", "/")
+	if normalized_path.is_empty():
+		return ""
+	if normalized_path.begins_with("res://") or normalized_path.begins_with("user://"):
+		return normalized_path
+	return "res://" + normalized_path
+
 func _update_illustration(texture_rect: TextureRect, path: String, is_speaking: bool, use_transition: bool = false):
 	var target_modulate = COLOR_NORMAL if is_speaking else COLOR_DIM
-	var should_be_visible = not path.is_empty() and ResourceLoader.exists(path)
+	var normalized_path := _normalize_resource_path(path)
+	var should_be_visible = not normalized_path.is_empty() and ResourceLoader.exists(normalized_path)
 	var transition_duration = 0.2
 
 	# 清除此 TextureRect 上任何现有的补间动画以避免冲突
@@ -223,7 +262,7 @@ func _update_illustration(texture_rect: TextureRect, path: String, is_speaking: 
 				tween.kill() # 不需要动画
 				is_animating_illustrations = false
 		else: # 应该可见
-			var new_texture = load(path)
+			var new_texture = load(normalized_path)
 			if not texture_rect.visible or texture_rect.texture != new_texture:
 				# 如果不可见或纹理更改，则设置新纹理，先设好目标颜色但透明，然后只淡入透明度
 				texture_rect.texture = new_texture
@@ -243,7 +282,7 @@ func _update_illustration(texture_rect: TextureRect, path: String, is_speaking: 
 		if not should_be_visible:
 			texture_rect.visible = false
 		else:
-			texture_rect.texture = load(path)
+			texture_rect.texture = load(normalized_path)
 			texture_rect.visible = true
 			texture_rect.modulate = target_modulate
 		is_animating_illustrations = false
@@ -329,10 +368,11 @@ func _fade_in_node(node: Control, duration: float = 0.15): # 已调整默认持�
 func _animate_illustration_fade_out_if_changing(main_transition_tween: Tween, texture_rect: TextureRect, next_path: String):
 	var current_path = ""
 	if texture_rect.texture:
-		current_path = texture_rect.texture.resource_path
+		current_path = _normalize_resource_path(texture_rect.texture.resource_path)
+	var normalized_next_path := _normalize_resource_path(next_path)
 	
 	var current_is_visible_and_has_texture = texture_rect.visible and not current_path.is_empty() and texture_rect.modulate.a > 0.01
-	var next_will_have_different_texture = next_path.is_empty() or not ResourceLoader.exists(next_path) or (ResourceLoader.exists(next_path) and current_path != next_path)
+	var next_will_have_different_texture = normalized_next_path.is_empty() or not ResourceLoader.exists(normalized_next_path) or current_path != normalized_next_path
 
 	if current_is_visible_and_has_texture and next_will_have_different_texture:
 		main_transition_tween.parallel().tween_property(texture_rect, "modulate:a", 0.0, 0.15)
@@ -443,7 +483,11 @@ func _end_dialog():
 func _input(event: InputEvent): # 确保为此节点设置 process_input(true) 或全局处理输入
 	if not self.visible: return # 如果对话框隐藏，则不处理输入
 
-	if event.is_action_pressed("ui_accept") or (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed):
+	var is_left_click = event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed
+	if is_left_click and _is_story_skip_mouse_event(event):
+		return
+
+	if event.is_action_pressed("ui_accept") or is_left_click:
 		# 如果立绘正在进行动画，则阻止输入
 		if is_animating_illustrations:
 			return
@@ -458,11 +502,16 @@ func _input(event: InputEvent): # 确保为此节点设置 process_input(true) �
 			dialog_text_label.text = current_line_data.dialog
 			dialog_text_label.visible_characters = dialog_text_label.get_total_character_count()
 			is_displaying_text = false
+			# 设置冷却时间，防止快速连点立即跳到下一行
+			_advance_cooldown_end = Time.get_ticks_msec() + 200
 			_check_for_choices()
 			return # 文本显示完成后，等待下一次点击再进入下一行
 		
 		# 只有当文本完全显示后，才允许推进到下一个对话
 		if not is_displaying_text and not _are_choices_visible():
+			# 冷却期内不允许推进，防止快速点击导致跳过对话
+			if Time.get_ticks_msec() < _advance_cooldown_end:
+				return
 			_advance_dialog_line() # 推进时不带特定条件
 
 func _has_choices_in_current_line() -> bool:

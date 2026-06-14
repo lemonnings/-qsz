@@ -1,5 +1,7 @@
 extends CanvasLayer
 
+signal achievement_pressed
+
 @onready var setting: Panel = $Panel
 @onready var setting_button: Button = $Setting
 @onready var bag_button: Button = $Bag
@@ -15,6 +17,7 @@ extends CanvasLayer
 @onready var noborder: CheckButton = $Panel/huamian2/Noborder
 @onready var particle: CheckButton = $Panel/youxi/Particle
 @onready var damage_show: CheckButton = $Panel/youxi/DamageShow
+@onready var moretip: CheckButton = $Panel/youxi/moretip
 
 @onready var time_slow_button: CheckButton = $Panel/youxi/TimeSlow
 @onready var super_test_button: CheckButton = $Panel/youxi/SuperTest
@@ -29,6 +32,12 @@ var setting_tween: Tween
 var dark_overlay_tween: Tween
 var bag_tween: Tween
 var skill_tween: Tween
+var achievement_layer_open: bool = false
+var setting_button_manually_locked: bool = false
+
+const CAMERA_ZOOM_LOCK_SETTING := "settings"
+const CAMERA_ZOOM_LOCK_BAG := "bag"
+const CAMERA_ZOOM_LOCK_SKILL := "skill"
 
 func _ready() -> void:
 	setting.visible = false
@@ -37,12 +46,44 @@ func _ready() -> void:
 	exit_button.pressed.connect(_on_exit_pressed)
 	bag_button.pressed.connect(_on_bag_pressed)
 	skill_button.pressed.connect(_on_skill_pressed)
+	jc_button.pressed.connect(_on_jc_pressed)
+	refresh_entry_buttons_enabled()
+
+func _on_jc_pressed() -> void:
+	if _is_entry_ui_open():
+		return
+	achievement_pressed.emit()
 
 func lock_setting_button() -> void:
-	setting_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	setting_button_manually_locked = true
+	refresh_entry_buttons_enabled()
 
 func unlock_setting_button() -> void:
-	setting_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	setting_button_manually_locked = false
+	refresh_entry_buttons_enabled()
+
+func set_achievement_layer_open(open: bool) -> void:
+	achievement_layer_open = open
+	refresh_entry_buttons_enabled()
+
+func refresh_entry_buttons_enabled() -> void:
+	var entry_ui_open := _is_entry_ui_open()
+	for button in [setting_button, bag_button, skill_button, jc_button]:
+		if button == null:
+			continue
+		var enabled := not entry_ui_open
+		if button == setting_button and setting_button_manually_locked:
+			enabled = false
+		button.disabled = not enabled
+		button.mouse_filter = Control.MOUSE_FILTER_STOP if enabled else Control.MOUSE_FILTER_IGNORE
+
+func _is_entry_ui_open() -> bool:
+	return (
+		setting.visible
+		or (bag_layer != null and bag_layer.visible)
+		or (skill_setting_layer != null and skill_setting_layer.visible)
+		or achievement_layer_open
+	)
 
 func close_setting_panel() -> void:
 	if not setting.visible:
@@ -88,6 +129,9 @@ func setup_settings_ui() -> void:
 
 	particle.set_pressed_no_signal(Global.settings_manager.is_particle_enabled())
 	particle.toggled.connect(_on_particle_toggled)
+
+	moretip.set_pressed_no_signal(Global.moretip)
+	moretip.toggled.connect(_on_moretip_toggled)
 
 	damage_show.set_pressed_no_signal(Global.settings_manager.is_damage_show_enabled())
 	damage_show.toggled.connect(_on_damage_show_toggled)
@@ -139,6 +183,10 @@ func _on_particle_toggled(pressed: bool) -> void:
 	Global.settings_manager.set_particle(pressed)
 	Global.save_game()
 
+func _on_moretip_toggled(pressed: bool) -> void:
+	Global.set_moretip_enabled(pressed)
+	Global.save_game()
+
 func _on_damage_show_toggled(pressed: bool) -> void:
 	Global.settings_manager.set_damage_show(pressed)
 	# 禁用伤害跳字时，同时禁用伤害显示格式选项
@@ -162,10 +210,11 @@ func _on_bg_volume_changed(value: float) -> void:
 	Global.save_game()
 
 func _on_setting_pressed() -> void:
-	if setting.visible:
+	if _is_entry_ui_open():
 		return
 	if PC:
 		PC.movement_disabled = true
+	Global.lock_camera_zoom(CAMERA_ZOOM_LOCK_SETTING)
 	show_dark_overlay()
 	show_setting_panel()
 
@@ -178,7 +227,7 @@ func _on_exit_pressed() -> void:
 	hide_setting_panel()
 
 func _on_bag_pressed() -> void:
-	if bag_layer == null or bag_layer.visible:
+	if bag_layer == null or _is_entry_ui_open():
 		return
 	if PC:
 		PC.movement_disabled = true
@@ -186,7 +235,7 @@ func _on_bag_pressed() -> void:
 	show_bag_layer()
 
 func _on_skill_pressed() -> void:
-	if skill_setting_layer == null or skill_setting_layer.visible:
+	if skill_setting_layer == null or _is_entry_ui_open():
 		return
 	if PC:
 		PC.movement_disabled = true
@@ -215,6 +264,7 @@ func show_setting_panel() -> void:
 	setting_tween = reset_tween(setting_tween)
 	setting_tween.set_parallel(true)
 	setting.visible = true
+	refresh_entry_buttons_enabled()
 	setting.modulate.a = 0.0
 	for child in setting.get_children():
 		child.modulate.a = 0.0
@@ -234,11 +284,15 @@ func reset_setting_visuals() -> void:
 	setting.modulate.a = 1.0
 	for child in setting.get_children():
 		child.modulate.a = 1.0
+	Global.unlock_camera_zoom(CAMERA_ZOOM_LOCK_SETTING)
+	refresh_entry_buttons_enabled()
 
 func show_bag_layer() -> void:
 	bag_tween = reset_tween(bag_tween)
 	bag_tween.set_parallel(true)
 	bag_layer.visible = true
+	refresh_entry_buttons_enabled()
+	Global.lock_camera_zoom(CAMERA_ZOOM_LOCK_BAG)
 	for child in bag_layer.get_children():
 		child.modulate.a = 0.0
 		bag_tween.tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
@@ -247,6 +301,8 @@ func show_skill_layer() -> void:
 	skill_tween = reset_tween(skill_tween)
 	skill_tween.set_parallel(true)
 	skill_setting_layer.visible = true
+	refresh_entry_buttons_enabled()
+	Global.lock_camera_zoom(CAMERA_ZOOM_LOCK_SKILL)
 	if skill_setting_layer.has_method("open_layer"):
 		skill_setting_layer.open_layer()
 	for child in skill_setting_layer.get_children():
@@ -254,6 +310,9 @@ func show_skill_layer() -> void:
 		skill_tween.tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
 
 func hide_skill_layer() -> void:
+	if skill_setting_layer == null or not skill_setting_layer.visible:
+		Global.unlock_camera_zoom(CAMERA_ZOOM_LOCK_SKILL)
+		return
 	skill_tween = reset_tween(skill_tween)
 	skill_tween.set_parallel(true)
 	for child in skill_setting_layer.get_children():
@@ -262,6 +321,8 @@ func hide_skill_layer() -> void:
 		skill_setting_layer.visible = false
 		for child in skill_setting_layer.get_children():
 			child.modulate.a = 1.0
+		Global.unlock_camera_zoom(CAMERA_ZOOM_LOCK_SKILL)
+		refresh_entry_buttons_enabled()
 	).set_delay(0.2)
 
 func reset_tween(tween: Tween) -> Tween:

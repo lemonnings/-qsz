@@ -260,6 +260,7 @@ func _deal_single_damage(enemy: Area2D) -> void:
 		final_damage *= PC.crit_damage_multi
 		
 	if enemy.has_method("take_damage"):
+		var was_alive_for_bagua = enemy.get("hp") > 0 and not enemy.get("is_dead")
 		var _damage_dealt = enemy.take_damage(int(final_damage), is_crit, false, "duize")
 		
 		# 八卦法则推衍度
@@ -270,10 +271,4 @@ func _deal_single_damage(enemy: Area2D) -> void:
 		# "击杀"通常在 enemy.die() 中处理，或者通过全局信号。
 		# 这里我们处理"击中"。
 		
-		Faze.add_bagua_progress(1, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
-		
-		# 如果击杀检测比较困难，先只做击中。
-		# 但题目要求击杀+5。
-		# 可以在 take_damage 后检查 enemy.hp <= 0 ? 
-		if not is_instance_valid(enemy) or enemy.hp <= 0:
-			Faze.add_bagua_progress(5, enemy.is_in_group("elite") or enemy.is_in_group("boss"))
+		Faze.add_bagua_hit_progress(enemy, was_alive_for_bagua)
