@@ -7,6 +7,8 @@ extends CanvasLayer
 @export var tutorial_prev_page_button: Button
 
 var current_page: int = 0
+var _was_tree_paused: bool = false
+var _paused_battle_timers: bool = false
 var pages: Array = [
 	{
 		"title": "教程：战斗基础（1 / 6）：基础操作方式",
@@ -16,17 +18,17 @@ var pages: Array = [
 	{
 		"title": "教程：战斗基础（2 / 6）：武器栏与技能栏",
 		"image": "res://AssetBundle/Sprites/image/study_weapon_and_active.png",
-		"detail": "右侧武器栏：显示当前持有武器及武器下次攻击时间，多把武器的冷却并行计算。\n下方技能栏：当前携带的主动技能，快捷键为空格（Space），Q，E，可以在城镇中自由配置携带的技能以及分配的键位。"
+		"detail": "右侧武器栏：显示持有武器及攻击时间，多把武器冷却并行计算。\n下方技能栏：当前携带的主动技能，快捷键为空格（Space），Q，E，可在城镇中自由配置携带技能、分配键位。"
 	},
 	{
 		"title": "教程 - 战斗基础（3 / 6）：资源栏",
 		"image": "res://AssetBundle/Sprites/image/study_exp_and_mech.png",
-		"detail": "最下面的经验条：在满值后会升级，提升攻击力与最大体力，并进行一次领悟选择。\n领悟从低到高分为四种级别：通明(蓝)、悟道(紫)、臻境(金)、逆天(红)\n右下角为探索深度，击杀敌方或时间流逝可以增加其进度，到达满值后出现关卡首领，战胜后即可通关。\n右上角为已获取的真气，可以在城镇中使用真气进行修炼，凝结灵石。"
+		"detail": "最下面的经验条：在满值后会升级，提升攻击力与最大体力，并进行一次领悟选择。\n领悟从低到高分为四种级别：通明(蓝)、悟道(紫)、臻境(金)、逆天(红)\n右下为探索进度，到达满值后出现首领，战胜后即可通关。\n右上为已获取的真气、精魄。真气可在城镇中进行修炼，精魄可在灵气漩涡中进行领悟。"
 	},
 	{
 		"title": "教程 - 战斗基础（4 / 6）：法则栏",
 		"image": "res://AssetBundle/Sprites/image/study_faze.png",
-		"detail": "法则是局内成长最重要的一环！\n在领悟选择中，有的领悟项会提供法则层数加成。\n每种法则一旦达到指定的数值，便会获得对应法则之力的强大加成。\n近20种法则各具特色，向着最高层法则努力吧！"
+		"detail": "法则是局内成长最重要的一环！\n在领悟选择中，有的领悟项会提供法则层数加成。\n法则一旦达到指定的层数，便会获得对应法则之力的强大加成。\n近20种法则各具特色，向着最高层法则努力吧！"
 	},
 	{
 		"title": "教程 - 战斗基础（5 / 6）：纹章栏",
@@ -57,6 +59,8 @@ func _ready():
 			await get_tree().create_timer(0.5).timeout
 
 	# 暂停游戏
+	_was_tree_paused = get_tree().paused
+	_set_battle_timers_paused(true)
 	get_tree().paused = true
 
 	if tutorial_next_page_button:
@@ -128,7 +132,9 @@ func _on_prev_pressed():
 		update_page()
 
 func _on_tutorial_finish():
-	get_tree().paused = false
+	if _paused_battle_timers and not _was_tree_paused:
+		_set_battle_timers_paused(false)
+	get_tree().paused = _was_tree_paused
 	queue_free()
 
 # 辅助函数：处理节点的渐入渐出
@@ -142,3 +148,17 @@ func _fade_node(node: CanvasItem, target_alpha: float, duration: float, make_vis
 	
 	if not make_visible:
 		tween.tween_callback(func(): node.visible = false)
+
+func _set_battle_timers_paused(pause: bool) -> void:
+	_paused_battle_timers = pause
+	if PC.player_instance and is_instance_valid(PC.player_instance) and PC.player_instance.has_method("pause_all_skill_cooldowns"):
+		PC.player_instance.pause_all_skill_cooldowns(pause)
+	var root := get_tree().current_scene
+	if root == null:
+		root = get_parent()
+	if root == null:
+		return
+	var skill_nodes := root.find_children("", "TextureButton", true, false)
+	for child in skill_nodes:
+		if child.has_method("set_game_paused"):
+			child.set_game_paused(pause)

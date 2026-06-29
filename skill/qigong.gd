@@ -7,11 +7,13 @@ class_name Qigong
 @export var explore_collision: CollisionShape2D
 
 # 静态变量，由升级系统修改
-static var main_skill_qigong_damage: float = 1.25 # 伤害倍率
+const QIGONG_BASE_DAMAGE_MULTIPLIER: float = 1.25
+
+static var main_skill_qigong_damage: float = 0.0 # 额外伤害加成
 static var qigong_splash_damage_ratio: float = 0.3 # 溅射伤害比例
 static var qigong_speed: float = 300.0 # 飞行速度
 static var qigong_range: float = 150.0 # 射程（飞行距离）
-static var qigong_explore_range_scale: float = 1.0 # 爆炸范围缩放
+static var qigong_explore_range_scale: float = 0.9 # 爆炸范围缩放
 static var qigong_knockback: float = 0.0 # 击退力度
 static var qigong_electrified_damage: float = 0.0 # 感电伤害倍率 (0表示无感电)
 static var qigong_electrified_chance: float = 0.0 # 感电概率
@@ -36,6 +38,7 @@ var base_explore_sprite_scale: Vector2 = Vector2.ONE
 var base_explore_collision_scale: Vector2 = Vector2.ONE
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	base_node_scale = scale
 	# 连接区域进入信号
 	connect("area_entered", Callable(self , "_on_area_entered"))
@@ -70,9 +73,10 @@ func setup(start_pos: Vector2, direction: Vector2, base_damage: int, damage_mult
 		chakra_range_bonus = qigong_chakra_count * Qigong.per_chakra_range_rate
 		chakra_size_bonus = qigong_chakra_count * Qigong.per_chakra_size_rate
 	
-	var final_damage_scale = main_skill_qigong_damage + chakra_dmg_bonus
+	var final_damage_scale = QIGONG_BASE_DAMAGE_MULTIPLIER + main_skill_qigong_damage + chakra_dmg_bonus
 	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
 	final_damage_scale += (Faze.get_wind_weapon_damage_multiplier(PC.faze_wind_level) - 1.0) # 风法则
+	final_damage_scale = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(final_damage_scale, "qigong", ["wind"])
 	var resolved_damage = float(base_damage) * final_damage_scale * damage_multiplier
 	damage = int(round(PC.apply_base_weapon_emblem_damage_bonus(resolved_damage, "qigong", is_emblem_extra_attack)))
 	
@@ -95,9 +99,9 @@ static var qigong_electrified_splash_range_bonus: bool = false # 是否启用感
 
 static func sync_reward_modifiers() -> void:
 	# 根据已选择的奖励同步气功波属性
-	main_skill_qigong_damage = 1.0
+	main_skill_qigong_damage = 0.0
 	qigong_splash_damage_ratio = 0.3
-	qigong_explore_range_scale = 1.0
+	qigong_explore_range_scale = 0.9
 	qigong_knockback = 0.0
 	qigong_electrified_chance = 0.0
 	qigong_double_hit_chance = 0.0
@@ -128,7 +132,7 @@ static func sync_reward_modifiers() -> void:
 	if PC.selected_rewards.has("Qigong3"):
 		total_damage_bonus += 0.1
 		qigong_size_scale = 1.3
-		qigong_explore_range_scale = 1.3
+		qigong_explore_range_scale = 1.17
 		qigong_splash_damage_ratio = 0.4
 		
 	if PC.selected_rewards.has("Qigong4"):
@@ -217,6 +221,8 @@ func _trigger_explosion(direct_hit_target: Area2D) -> void:
 		
 		# 计算爆炸范围
 		var current_explore_scale = qigong_explore_range_scale
+		var global_range_bonus = Global.get_attack_range_multiplier() - 1.0
+		var wide_range_bonus = Faze.get_wide_range_multiplier() - 1.0
 		if qigong_chakra_count > 0 and per_chakra_splash_range_rate > 0:
 			var chakra_splash_bonus = 1.0 + qigong_chakra_count * per_chakra_splash_range_rate
 			current_explore_scale = current_explore_scale * chakra_splash_bonus
@@ -224,6 +230,7 @@ func _trigger_explosion(direct_hit_target: Area2D) -> void:
 		# Qigong44: 击中感电目标，溅射范围+30%
 		if qigong_electrified_splash_range_bonus and hit_target_electrified:
 			current_explore_scale *= 1.3
+		current_explore_scale *= 1.0 + global_range_bonus + wide_range_bonus
 		
 		explore_sprite.scale = base_explore_sprite_scale * current_explore_scale
 		
@@ -298,7 +305,7 @@ func _apply_damage(target: Area2D, dmg: int, _is_direct_hit: bool) -> void:
 	target.take_damage(final_dmg, false, false, "qigong")
 	# 击中粒子崩散特效
 	HitParticleSpawner.spawn_by_weapon(get_tree(), target.global_position, "qigong")
-	Faze.on_wind_weapon_hit()
+	Faze.on_wind_weapon_hit(target)
 	
 	# Qigong1: 获得感电效果 (攻击有15%几率使敌人感电)
 	if qigong_electrified_chance > 0:

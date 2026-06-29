@@ -5,6 +5,7 @@ var hit_cooldown: float = 0.3
 var hit_cooldowns: Dictionary = {}
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	# 设置碰撞检测
 	var collision_shape = CollisionShape2D.new()
 	var circle_shape = CircleShape2D.new()
@@ -18,9 +19,14 @@ func _ready() -> void:
 		area_entered.connect(_on_area_entered)
 
 func _physics_process(delta: float) -> void:
+	var player: Node = PC.player_instance
+	if player != null and is_instance_valid(player) and player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("Ringfire"):
+		damage = 0.0
+		return
 	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
 	var damage_multiplier = 0.3 * PC.main_skill_ringFire_damage
 	damage_multiplier += (Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level) - 1.0) # 火焰法则
+	damage_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(damage_multiplier, "ringFire", ["fire"])
 	damage = PC.pc_atk * damage_multiplier
 	
 	if (PC.selected_rewards.has("RingFire22")):
@@ -37,16 +43,21 @@ func _physics_process(delta: float) -> void:
 		hit_cooldowns.erase(enemy)
 
 func _on_area_entered(area: Area2D) -> void:
+	var player: Node = PC.player_instance
+	if player != null and is_instance_valid(player) and player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("Ringfire"):
+		return
 	# 检查是否是敌人
 	if area.is_in_group("enemies"):
 		# 检查该火焰实例是否对这个敌人在冷却中
 		if not hit_cooldowns.has(area) or hit_cooldowns[area] <= 0:
 			# 造成伤害
 			if area.has_method("take_damage"):
+				var was_alive_for_bagua = area.get("hp") > 0 and not area.get("is_dead")
 				var final_damage = damage
 				area.take_damage(final_damage, false, false, "ringFire")
+				Faze.add_bagua_hit_progress(area, was_alive_for_bagua)
 				
-				if PC.selected_rewards.has("RingFire4"):
+				if PC.selected_rewards.has("RingFire4") and randf() < 0.2:
 					if area.has_signal("debuff_applied"):
 						area.emit_signal("debuff_applied", "burn")
 						

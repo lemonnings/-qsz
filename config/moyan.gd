@@ -29,6 +29,7 @@ var base_node_scale: Vector2 = Vector2.ONE
 var current_scale_factor: Vector2 = Vector2.ONE
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self )
 	# 记录子弹起始位置
 	start_position = global_position
 	
@@ -135,7 +136,8 @@ func _play_explosion_and_die_deferred() -> void:
 	var explosion = preload("res://Scenes/player/big_fire_bullet.tscn").instantiate()
 	get_tree().current_scene.add_child(explosion)
 	explosion.global_position = global_position
-	# 在场景原始缩放基础上乘算全局攻击范围倍率与额外成长倍率
+	# 在场景原始缩放基础上乘算全局伤害范围倍率与额外成长倍率
+	explosion.scale = explosion.scale * 1.2
 	explosion.scale = explosion.scale * Global.get_attack_range_multiplier()
 	explosion.scale = explosion.scale * scale_increase_multiplier
 	collision_shape.scale = collision_shape.scale * scale_increase_multiplier
@@ -161,7 +163,7 @@ func _play_explosion_and_die_deferred() -> void:
 	sprite.visible = false
 	
 	#collision_shape.set_deferred("disabled", true)
-	# 已改为根据全局攻击范围倍率调整爆炸动画和碰撞形状的大小
+	# 已改为根据全局伤害范围倍率调整爆炸动画和碰撞形状的大小
 
 	# 正确调整 CircleShape2D 的半径
 	var original_radius = 36.4 # 从 moyan_rectShape.tres 获取的原始半径
@@ -194,10 +196,10 @@ func _play_explosion_and_die_deferred() -> void:
 			# 破坏法则引爆：暴击或击杀
 			var was_killed = area.get("is_dead") == true
 			Faze.on_destroy_weapon_hit(area, is_crit_hit, was_killed)
-			
+
 	# 爆炎诀爆炸震屏
 	GU.screen_shake(3.0, 0.1)
-	
+
 	# 直接销毁子弹
 	queue_free()
 
@@ -244,7 +246,7 @@ func initialize_bullet_damage() -> void:
 
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary:
-	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": false, "weapon_tag": "moyan"}
+	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": false, "weapon_tag": "moyan", "excluded_law_categories": ["destroy", "fire"]}
 
 # 用于防止同一帧内多次处理碰撞
 var collision_processed_this_frame: bool = false

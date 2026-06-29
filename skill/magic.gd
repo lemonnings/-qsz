@@ -70,6 +70,8 @@ func _start_breathing():
 func _process(delta):
 	if _is_fading_out:
 		return
+	if Global.is_battle_time_paused():
+		return
 	duration -= delta
 	
 	if player and is_instance_valid(player):

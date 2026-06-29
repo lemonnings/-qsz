@@ -2,6 +2,13 @@ extends Node2D
 
 const DIALOG_CHAR_SCENE = preload("res://Scenes/global/dialog_character.tscn")
 const NORMAL_DIALOG_SCENE = preload("res://Scenes/global/normal_dialog.tscn")
+const STORY6_MAGIC_CORE_REWARD := {
+	"item_097": 6,
+	"item_098": 6,
+	"item_099": 6,
+	"item_100": 6,
+	"item_101": 6,
+}
 
 @onready var director: DialogDirector = $DialogDirector
 @onready var skip_button: Button = $skip_button_layer/skip
@@ -39,6 +46,7 @@ var ill_noam := "res://AssetBundle/Sprites/npc/noam_full.png"
 
 
 func _ready() -> void:
+	Global.emit_signal("stage_bgm", "town")
 	_setup_scene()
 	skip_layer.visible = false
 	skip_layer.layer = 200
@@ -328,15 +336,27 @@ func start_story() -> void:
 					"illustrationMiddle": "",
 				},
 				{
+					"speaker": "坤", "speaker_position": "left",
+					"dialog": "哦对了，这是几个我从别的秘境里取得的魔核，就先送给你们当见面礼吧。",
+					"illustrationLeft": ill_kun, "illustrationLeftStatus": true,
+					"illustrationMiddle": "",
+				},
+				{
+					"speaker": "坤", "speaker_position": "left",
+					"dialog": "（交给了几人五种魔核各6枚）",
+					"illustrationLeft": ill_kun, "illustrationLeftStatus": true,
+					"illustrationMiddle": "",
+				},
+				{
 					"speaker": "诺姆", "speaker_position": "right",
-					"dialog": "……虽然没听太懂，但是谢谢你们！",
+					"dialog": "嗯……虽然没听太懂都是什么……但是非常感谢！",
 					"illustrationLeft": ill_kun, "illustrationLeftStatus": false,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_noam, "illustrationRightStatus": true,
 				},
 				{
 					"speaker": "乾", "speaker_position": "left",
-					"dialog": "嗯，看你本质不坏，希望你能坚守本心，不要心生歹意，否则墨宁和言秋都不会再手下留情的。",
+					"dialog": "看你本质不坏，希望你能坚守本心，不要心生歹意，否则墨宁和言秋都不会再手下留情的。",
 					"illustrationLeft": ill_qian, "illustrationLeftStatus": true,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_noam, "illustrationRightStatus": false,
@@ -456,6 +476,8 @@ func _cleanup_all_dialog_ui() -> void:
 
 
 func _fade_to_town() -> void:
+	_grant_story6_magic_core_reward_once()
+
 	var overlay := CanvasLayer.new()
 	overlay.layer = 200
 	add_child(overlay)
@@ -477,3 +499,13 @@ func _fade_to_town() -> void:
 	# 切换到 main_town 场景
 	Global.has_visited_town = true
 	SceneChange.change_scene("res://Scenes/main_town.tscn", true)
+
+
+func _grant_story6_magic_core_reward_once() -> void:
+	if Global.has_received_story_6_magic_core_reward:
+		return
+	for item_id in STORY6_MAGIC_CORE_REWARD.keys():
+		Global.add_item_count(item_id, int(STORY6_MAGIC_CORE_REWARD[item_id]))
+	Global.has_seen_story_6 = true
+	Global.has_received_story_6_magic_core_reward = true
+	Global.save_game(true)

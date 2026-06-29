@@ -26,7 +26,7 @@ static func _apply_damage_bonus() -> void:
 
 	# skill1-1  技能伤害提升 — 每级 +3%，上限 3 级
 	# skill2-7  技能伤害提升II — 每级 +3%，上限 3 级
-	Global.study_skill_damage_bonus = t.get("skill1-1", 0) * 0.03 + t.get("skill2-7", 0) * 0.03
+	Global.active_skill_multi = t.get("skill1-1", 0) * 0.03 + t.get("skill2-7", 0) * 0.03
 
 
 # ===================== 技能解锁标记 =====================
@@ -91,7 +91,7 @@ static func _apply_skill_enhancements() -> void:
 	Global.study_shuimu_cd_reduction = t.get("skill2-8-1", 0) * 0.5
 
 	# skill2-8-2  强化闪避 — 无敌时间 每级+0.1秒，冷却减少 每级-0.3秒
-	Global.study_shanbi_invincible_bonus = t.get("skill2-8-2", 0) * 0.1
+	Global.study_shanbi_invincible_bonus = t.get("skill2-8-2", 0) * 0.05
 	Global.study_shanbi_cd_reduction = t.get("skill2-8-2", 0) * 0.3
 
 	# skill2-9-1  强化冥想 — 冷却减少 每级-1.5秒

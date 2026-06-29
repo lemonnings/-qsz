@@ -19,6 +19,7 @@ var _exploded: bool = false
 var _hit_targets: Dictionary = {} # 爆炸已伤害目标
 
 func _ready():
+	CharacterEffects.include_enemy_collision_mask(self)
 	# 初始状态：隐藏爆炸动画和爆炸碗形
 	if explore:
 		explore.visible = false
@@ -85,6 +86,7 @@ func _trigger_explosion() -> void:
 	# 显示爆炸动画
 	if explore:
 		explore.visible = true
+		explore.scale *= (1.0 + Global.study_fengleipo_range_bonus) * Global.get_attack_range_multiplier()
 		explore.frame = 0
 		explore.play("default")
 	
@@ -104,7 +106,7 @@ func _trigger_explosion() -> void:
 func _apply_explosion_damage() -> void:
 	"""基于exploreShape半径，对范围内敌人造成伤害"""
 	# 修习树技能篇：应用技能总伤害加成
-	var base_damage = PC.pc_atk * damage_ratio * (1.0 + Global.study_skill_damage_bonus)
+	var base_damage = PC.pc_atk * damage_ratio * (1.0 + PC.active_skill_multi)
 	var explosion_center = global_position
 	
 	# 从exploreShape获取爆炸半径
@@ -113,6 +115,7 @@ func _apply_explosion_damage() -> void:
 		explosion_radius = (exploreShape.shape as CircleShape2D).radius
 	# 修习树技能篇：风雷破爆炸范围加成
 	explosion_radius *= (1.0 + Global.study_fengleipo_range_bonus)
+	explosion_radius *= Global.get_attack_range_multiplier()
 	
 	# 遍历敌人，距离判定
 	# 注意：不再手动调用 apply_enemy_damage_bonus，因为 take_damage →

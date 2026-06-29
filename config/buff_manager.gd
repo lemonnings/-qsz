@@ -91,7 +91,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_bagua.png",
 		BuffType.PERMANENT,
 		9999,
-		"已完成推衍的层数，每层提升4%的经验获取"
+		"已完成推衍的层数，每层提升 3 %的经验获取与 1 %八卦类武器伤害"
 	)
 	
 	buff_configs["huanfeng"] = BuffData.new(
@@ -109,7 +109,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_mizongbu.png",
 		BuffType.TEMPORARY,
 		1,
-		"移动速度提升50%，减伤40%，造成伤害降低50%"
+		"移动速度提升50%，减伤40%，造成伤害降低20%"
 	)
 
 	buff_configs["heal_hot"] = BuffData.new(
@@ -208,7 +208,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/yuliao.png",
 		BuffType.TEMPORARY,
 		1,
-		"持续4秒，期间触碰 boss_a 的毒圈会将其净化销毁"
+		"持续4秒，期间触碰桃树精王的毒圈会将其净化销毁"
 	)
 
 	buff_configs["tiandao_1"] = BuffData.new(
@@ -325,7 +325,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xianqiningju.png",
 		BuffType.PERMANENT,
 		9999,
-		"仙气凝聚中，通过领悟可以获取更多仙气"
+		"每层提升0.4%最终伤害、0.2%体力上限；30层翻三倍，100层翻五倍"
 	)
 	
 	buff_configs["xianli"] = BuffData.new(
@@ -334,7 +334,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xianqihuti.png",
 		BuffType.PERMANENT,
 		1,
-		"仙气凝聚已满！最终伤害+25%，减伤率+10%，攻击速度+20%，移动速度+30%"
+		"仙气达到100层，仙气凝聚效果翻五倍"
 	)
 
 	# Boss石巨人 — 落石预警debuff

@@ -17,7 +17,7 @@ var update_move_timer: Timer
 
 # 属性
 var speed: float = SettingMoster.stone_man("speed") * 1.2
-var hpMax: float = SettingMoster.stone_man("hp") * 13 
+var hpMax: float = SettingMoster.stone_man("hp") * 13
 var hp: float = hpMax
 var atk: float = SettingMoster.stone_man("atk") * 0.75
 var get_point: int = SettingMoster.stone_man("point") * 50
@@ -100,22 +100,22 @@ func _ready():
 		sprite.material.shader = _get_outline_shader()
 		sprite.material.set_shader_parameter("outline_color", Color.RED)
 		sprite.material.set_shader_parameter("outline_width", 1.0)
-	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 9
-	match Global.current_stage_difficulty:
+# 根据玩家DPS和难度增加Boss HP
+	var dps_multiplier := 25.0
+	match stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 12
+			dps_multiplier *= 1.05
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 15
+			dps_multiplier *= 1.1
 	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
 		hpMax = Global.get_poetry_boss_max_hp("boss_cansel", hpMax)
 	else:
 		hpMax += Global.get_current_dps() * dps_multiplier
 	hp = hpMax
 	
-	# 浅层难度下Boss只造成50%伤害
+	# 浅层难度下Boss只造成75%伤害
 	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
-		atk *= 0.5
+		atk *= 0.75
 
 	setup_monster_base()
 	player_hit_emit_self = true
@@ -233,9 +233,9 @@ func _physics_process(delta: float) -> void:
 	if PC.player_instance and allow_turning:
 		var player_pos = PC.player_instance.global_position
 		if player_pos.x < global_position.x:
-			if sprite: sprite.flip_h = true
+			if sprite: CharacterEffects.set_enemy_flip_h(self, sprite, true)
 		else:
-			if sprite: sprite.flip_h = false
+			if sprite: CharacterEffects.set_enemy_flip_h(self, sprite, false)
 
 	if not is_dead and not is_attacking:
 		_move_pattern(delta)
@@ -556,7 +556,6 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, _direction: Vector2):
 					consumed = true
 				else:
 					# 否则：扣除当前生命30% + 叠加燃烧（正常触发无敌）
-					Global.emit_signal("player_hit", self )
 					var actual_damage = int(PC.pc_hp * 0.3)
 					PC.pc_hp -= actual_damage
 					Global.emit_signal("player_hit", float(actual_damage), 0.0, self , player_pos, "灵火碎片")
@@ -863,7 +862,6 @@ func _apply_ring_thunder_effect(boss_pos: Vector2, ring_warn: Node2D):
 		var effective_threshold = 1.0 + player_radius / 65.0
 		if (norm_x * norm_x + norm_y * norm_y) > effective_threshold * effective_threshold:
 			PC.player_hit(int(atk * 1.5 * (1.0 - PC.damage_reduction_rate)), self , "环雷")
-			Global.emit_signal("player_hit", self )
 	
 	_hide_symbol()
 	_finish_skill()
@@ -1316,7 +1314,6 @@ func _attack_ice_spike():
 func _on_ice_spike_hit(body: Node2D, spike: Node2D):
 	if body is CharacterBody2D and body.is_in_group("player"):
 		PC.player_hit(int(atk * 1.5), self , "冰刺术")
-		Global.emit_signal("player_hit", self )
 		if is_instance_valid(spike):
 			spike.queue_free()
 

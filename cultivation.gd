@@ -38,6 +38,7 @@ var cultivation_level_vars = [
 ]
 
 var transition_tween: Tween
+var _mobile_confirmed_cultivation_index: int = -1
 
 func _ready() -> void:
 	# 设置音效使用SFX总线
@@ -189,6 +190,10 @@ func get_cultivation_bonus_value(type: String, level: int) -> float:
 func _on_cultivation_button_pressed(index: int) -> void:
 	if index >= cultivation_items.size():
 		return
+	if Global.is_mobile_input_mode() and _mobile_confirmed_cultivation_index != index:
+		_mobile_confirmed_cultivation_index = index
+		_show_only_cultivation_label(index)
+		return
 	
 	var item = cultivation_items[index]
 	var is_unlocked = Global.cultivation_unlock_progress >= item["unlock_progress"]
@@ -228,6 +233,7 @@ func _on_cultivation_button_pressed(index: int) -> void:
 		
 		# 更新显示
 		update_single_cultivation_display(index)
+		_mobile_confirmed_cultivation_index = -1
 	else:
 		# Point不足
 		if tip:
@@ -236,11 +242,20 @@ func _on_cultivation_button_pressed(index: int) -> void:
 		if has_node("Buzzer"):
 			$Buzzer.play()
 
+func _show_only_cultivation_label(index: int) -> void:
+	for i in range(cultivation_labels.size()):
+		if cultivation_labels[i]:
+			cultivation_labels[i].visible = i == index
+
 func _on_cultivation_button_mouse_entered(index: int) -> void:
+	if Global.is_mobile_input_mode():
+		return
 	if index < cultivation_labels.size() and cultivation_labels[index]:
 		cultivation_labels[index].visible = true
 
 func _on_cultivation_button_mouse_exited(index: int) -> void:
+	if Global.is_mobile_input_mode():
+		return
 	if index < cultivation_labels.size() and cultivation_labels[index]:
 		cultivation_labels[index].visible = false
 
@@ -255,10 +270,12 @@ func get_total_cultivation_bonus(type: String) -> float:
 
 # 界面切换相关函数
 func show_cultivation_interface() -> void:
+	_mobile_confirmed_cultivation_index = -1
 	if cultivation_layer:
 		_transition_to_layer(cultivation_layer, [])
 
 func hide_cultivation_interface() -> void:
+	_mobile_confirmed_cultivation_index = -1
 	if cultivation_layer:
 		cultivation_layer.visible = false
 

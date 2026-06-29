@@ -32,6 +32,7 @@ var ill_yiqiu := "res://AssetBundle/Sprites/npc/yanqiu_full.png"
 
 
 func _ready() -> void:
+	Global.emit_signal("stage_bgm", "town")
 	_setup_scene()
 	skip_layer.visible = false
 	skip_layer.layer = 200

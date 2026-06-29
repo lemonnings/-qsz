@@ -17,6 +17,7 @@ const BG_BUS = "BG"
 
 # 配置文件路径
 const AUDIO_CONFIG_PATH = "user://audio_config.cfg"
+const SaveCrypto := preload("res://Script/system/save_crypto.gd")
 
 # 信号
 @warning_ignore("unused_signal")
@@ -200,14 +201,14 @@ func save_audio_settings() -> void:
 	config.set_value("audio", "sfx_volume", sfx_volume)
 	config.set_value("audio", "bg_volume", bg_volume)
 	
-	var err = config.save(AUDIO_CONFIG_PATH)
+	var err = SaveCrypto.save_config(config, AUDIO_CONFIG_PATH)
 	if err != OK:
 		print("音频设置保存失败: ", err)
 
 # 加载音频设置
 func load_audio_settings() -> void:
 	var config = ConfigFile.new()
-	var err = config.load(AUDIO_CONFIG_PATH)
+	var err = SaveCrypto.load_config(config, AUDIO_CONFIG_PATH)
 	
 	if err != OK:
 		print("未找到音频配置文件，使用默认设置")

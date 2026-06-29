@@ -13,6 +13,7 @@ var elite_bonus: float = 0.0 # 精英/首领额外伤害倍率
 var hit_targets: Dictionary = {}
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	if not sprite:
 		sprite = get_node_or_null("AnimatedSprite2D")
 	if not collision_shape:
@@ -68,13 +69,11 @@ func _deal_damage(enemy: Area2D) -> void:
 	var is_boss = enemy.is_in_group("boss")
 	
 	var final_damage = damage
+	final_damage += PC.pc_atk * SettingStudyTreeUp.get_total_damage_bonus("faze_thunder_strike")
 	
 	# 精英/首领额外伤害
 	if (is_elite or is_boss) and elite_bonus > 0.0:
 		final_damage *= (1.0 + elite_bonus)
-	
-	# 应用八卦法则加成
-	final_damage *= Faze.get_bagua_damage_multiplier()
 	
 	# 暴击判定
 	var is_crit = false

@@ -50,6 +50,8 @@ var total_attack_distance: float = 0.0 # 攻击总距离
 var moving: bool = false
 var hit_targets: Dictionary = {} # {enemy_id: time_left}
 var hit_cooldown: float = 0.5
+var is_emblem_extra_attack: bool = false
+var pending_emblem_extra_attack_multiplier: float = 0.0
 
 # Static references to instances
 static var qian_instance: Node2D = null
@@ -74,8 +76,22 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 		if kun_instance.has_method("launch"):
 			kun_instance.launch()
 
-static func init_instances(scene: PackedScene, tree: SceneTree, origin_pos: Vector2) -> void:
+static func queue_emblem_extra_attack(damage_multiplier: float) -> void:
+	for instance in [qian_instance, kun_instance]:
+		if instance and is_instance_valid(instance) and instance.has_method("queue_extra_attack_after_return"):
+			instance.queue_extra_attack_after_return(damage_multiplier)
+
+static func init_instances(scene: PackedScene, tree: SceneTree, origin_pos: Vector2, spawn_parent: Node = null) -> void:
 	if Global.in_town:
+		return
+	if not scene:
+		return
+	var parent_node: Node = null
+	if spawn_parent != null and is_instance_valid(spawn_parent):
+		parent_node = spawn_parent
+	elif tree != null and tree.current_scene != null and is_instance_valid(tree.current_scene):
+		parent_node = tree.current_scene
+	if parent_node == null:
 		return
 		
 	# 清理旧实例
@@ -83,15 +99,24 @@ static func init_instances(scene: PackedScene, tree: SceneTree, origin_pos: Vect
 		qian_instance.queue_free()
 	if kun_instance and is_instance_valid(kun_instance):
 		kun_instance.queue_free()
+	qian_instance = null
+	kun_instance = null
 		
 	# Spawn Qian
-	qian_instance = scene.instantiate()
-	tree.current_scene.add_child(qian_instance)
+	qian_instance = scene.instantiate() as Node2D
+	if qian_instance == null:
+		return
+	parent_node.add_child(qian_instance)
 	qian_instance.setup(origin_pos, true)
 	
 	# Spawn Kun
-	kun_instance = scene.instantiate()
-	tree.current_scene.add_child(kun_instance)
+	kun_instance = scene.instantiate() as Node2D
+	if kun_instance == null:
+		if qian_instance != null and is_instance_valid(qian_instance):
+			qian_instance.queue_free()
+		qian_instance = null
+		return
+	parent_node.add_child(kun_instance)
 	kun_instance.setup(origin_pos, false)
 
 
@@ -175,6 +200,7 @@ func _process(delta: float) -> void:
 				state = State.IDLE
 				# 刚回到待机位置时，设置一个初始朝向，然后在 IDLE 状态下插值到目标朝向
 				# rotation = 0 # 这一行删掉，不要强制重置为0
+				_try_launch_pending_emblem_extra_attack()
 			else:
 				global_position += disp.normalized() * step
 				# 返回时朝向目标位置 (需要加上 PI/4 的贴图修正)
@@ -185,6 +211,7 @@ func _process(delta: float) -> void:
 				rotation = lerp_angle(rotation, angle, 10.0 * delta)
 
 func setup(pos: Vector2, _is_qian: bool) -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	global_position = pos
 	is_qian = _is_qian
 	
@@ -211,6 +238,11 @@ func setup(pos: Vector2, _is_qian: bool) -> void:
 		if not is_qian: sprite_kun.play("default")
 		
 	state = State.IDLE
+
+func queue_extra_attack_after_return(damage_multiplier: float) -> void:
+	pending_emblem_extra_attack_multiplier = maxf(pending_emblem_extra_attack_multiplier, damage_multiplier)
+	if state == State.IDLE:
+		_try_launch_pending_emblem_extra_attack()
 
 func update_stats() -> void:
 	# 读取属性
@@ -251,19 +283,26 @@ func update_stats() -> void:
 	if PC.selected_rewards.has("Qiankun33"):
 		crit_on_3_debuffs = true
 	
-	# 八卦法则伤害加成
-	var bagua_mult = Faze.get_bagua_damage_multiplier()
-	damage_multiplier *= bagua_mult
-		
+	damage_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier(damage_multiplier, "qiankun")
 	damage = PC.pc_atk * damage_multiplier * final_damage_multi
 
-func launch() -> void:
+func launch(extra_attack_multiplier: float = 0.0) -> void:
 	if state != State.IDLE and state != State.RETURN:
 		# 如果正在攻击，可以选择忽略，或者重置攻击
 		# 这里我们选择重置并立即开始新一轮攻击
 		pass
-		
+	is_emblem_extra_attack = extra_attack_multiplier > 0.0
+	update_stats()
+	if is_emblem_extra_attack:
+		damage *= extra_attack_multiplier
 	_launch_logic()
+
+func _try_launch_pending_emblem_extra_attack() -> void:
+	if pending_emblem_extra_attack_multiplier <= 0.0:
+		return
+	var multiplier := pending_emblem_extra_attack_multiplier
+	pending_emblem_extra_attack_multiplier = 0.0
+	launch(multiplier)
 
 func _launch_logic() -> void:
 	var tree = get_tree()
@@ -342,7 +381,7 @@ func _on_area_entered(area: Area2D) -> void:
 			
 		hit_targets[id] = hit_cooldown
 		
-		var final_damage = damage
+		var final_damage = PC.apply_base_weapon_emblem_damage_bonus(damage, "qiankun", is_emblem_extra_attack)
 		var is_crit = false
 		if randf() < PC.crit_chance:
 			is_crit = true

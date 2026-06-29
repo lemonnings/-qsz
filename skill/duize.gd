@@ -6,13 +6,14 @@ class_name Duize
 
 static var main_skill_duize_damage: float = 0.24
 static var duize_final_damage_multi: float = 1.0
-static var duize_range: float = 60.0
+const BASE_RANGE: float = 60.0
+static var duize_range: float = BASE_RANGE
 static var duize_slow_ratio: float = 0.2
 
 static func reset_data() -> void:
 	main_skill_duize_damage = 0.24
 	duize_final_damage_multi = 1.0
-	duize_range = 60.0
+	duize_range = BASE_RANGE
 	duize_slow_ratio = 0.2
 
 # 基础属性
@@ -88,20 +89,15 @@ static func _spawn_duize(scene: PackedScene, tree: SceneTree, target_pos: Vector
 	
 	var damage = PC.pc_atk * main_skill_duize_damage * duize_final_damage_multi
 
-	# 应用八卦法则伤害加成
-	damage *= Faze.get_bagua_damage_multiplier()
-
 	# 应用广域法则加成
-	var weapon_range_bonus = (duize_range / 60.0) - 1.0
+	var weapon_range_bonus = (duize_range / BASE_RANGE) - 1.0
 	if weapon_range_bonus < 0: weapon_range_bonus = 0
 
 	var wide_damage_mult = Faze.get_wide_damage_multiplier(weapon_range_bonus)
 	damage *= wide_damage_mult
+	damage += PC.pc_atk * SettingStudyTreeUp.get_total_damage_bonus_excluding("duize", ["wide"])
 
-	var wide_range_mult = Faze.get_wide_range_multiplier()
-	var final_range = duize_range * wide_range_mult
-
-	instance.setup(target_pos, damage, final_range)
+	instance.setup(target_pos, damage, duize_range)
 
 func setup(pos: Vector2, p_damage: float, p_range: float) -> void:
 	# 确保节点引用存在
@@ -134,9 +130,11 @@ func setup(pos: Vector2, p_damage: float, p_range: float) -> void:
 	# 范围缩放
 	# 默认 scale x1.0 y1.285
 	# 默认 collision x3.155 y1.645
-	# 基础范围 60. 现在的 range 已经是计算过加成的 duize_range
-	# 使用传入的 p_range 计算缩放，并叠加全局攻击范围倍率
-	var scale_multiplier = (p_range / 60.0) * 3.0 * Global.get_attack_range_multiplier()
+	# 兑泽自身范围、广域类范围、全局伤害范围加成之间按加算处理。
+	var weapon_range_bonus = (p_range / BASE_RANGE) - 1.0
+	var wide_range_bonus = Faze.get_wide_range_multiplier() - 1.0
+	var global_range_bonus = Global.get_attack_range_multiplier() - 1.0
+	var scale_multiplier = (1.0 + weapon_range_bonus + wide_range_bonus + global_range_bonus) * 3.0
 
 	var target_sprite_scale = base_sprite_scale * scale_multiplier
 	var target_collision_scale = base_collision_scale * scale_multiplier
@@ -171,6 +169,7 @@ func setup(pos: Vector2, p_damage: float, p_range: float) -> void:
 	tween.finished.connect(queue_free)
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self )
 	z_index = -1
 	connect("area_entered", Callable(self , "_on_area_entered"))
 	connect("area_exited", Callable(self , "_on_area_exited"))

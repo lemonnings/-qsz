@@ -45,7 +45,8 @@ const EXCLUSIVE_SKILLS: Dictionary = {
 	"mizongbu": "moning",
 	"beastify": "yiqiu",
 	"holy_fire": "noam",
-	"magic": "kansel"
+	"magic": "kansel",
+	"destructive_hammer": "xueming"
 }
 
 # 角色显示名（用于专属技能提示）
@@ -53,7 +54,8 @@ const HERO_DISPLAY_NAMES: Dictionary = {
 	"moning": "墨宁",
 	"yiqiu": "言秋",
 	"noam": "诺姆",
-	"kansel": "坎塞尔"
+	"kansel": "坎塞尔",
+	"xueming": "雪铭"
 }
 
 var tooltip_panel: Panel
@@ -63,6 +65,8 @@ func _ready() -> void:
 	active_slot_panels = [active_skill1, active_skill2, active_skill3]
 	learned_skill_panels = [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9, skill10, skill11, skill12, skill13, skill14, skill15]
 	_setup_static_ui_input_filter()
+	if not Global.input_device_mode_changed.is_connected(_on_input_device_mode_changed):
+		Global.input_device_mode_changed.connect(_on_input_device_mode_changed)
 	exit_button.pressed.connect(_on_exit_pressed)
 	_setup_panels()
 	_setup_start_weapon_choice()
@@ -81,12 +85,33 @@ func _process(_delta: float) -> void:
 
 func _setup_static_ui_input_filter() -> void:
 	var panel_root = get_node("Panel")
-	var skill_hotkey_label = panel_root.get_node("skill_hotkey") as Control
+	var skill_hotkey_label = panel_root.get_node_or_null("skill_hotkey") as Control
+	var skill_hotkey_mobile_label = panel_root.get_node_or_null("skill_hotkey_mobile") as Control
 	var skill_tip_label = panel_root.get_node("skill_tip") as Control
-	skill_hotkey_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if skill_hotkey_label:
+		skill_hotkey_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if skill_hotkey_mobile_label:
+		skill_hotkey_mobile_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	skill_tip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_update_hotkey_labels_for_device()
+
+func _update_hotkey_labels_for_device() -> void:
+	var panel_root := get_node_or_null("Panel") as Control
+	if panel_root == null:
+		return
+	var skill_hotkey_label := panel_root.get_node_or_null("skill_hotkey") as Control
+	var skill_hotkey_mobile_label := panel_root.get_node_or_null("skill_hotkey_mobile") as Control
+	var use_mobile := Global.is_mobile_input_mode()
+	if skill_hotkey_label:
+		skill_hotkey_label.visible = not use_mobile
+	if skill_hotkey_mobile_label:
+		skill_hotkey_mobile_label.visible = use_mobile
+
+func _on_input_device_mode_changed(_mode: String) -> void:
+	_update_hotkey_labels_for_device()
 
 func open_layer() -> void:
+	_update_hotkey_labels_for_device()
 	_update_character_info()
 	_refresh_start_weapon_choice()
 	_refresh_learned_skill_panels()
@@ -283,6 +308,8 @@ func _get_default_icon_path(skill_id: String) -> String:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mowenzhen.png"
 		"meditation":
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/meditation.png"
+		"destructive_hammer":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/juchui.png"
 		_:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanbi.png"
 
@@ -518,7 +545,7 @@ func _get_skill_display_name(skill_id: String) -> String:
 		"random_strike":
 			return "乱击"
 		"beastify":
-			return "魔化·趋桀"
+			return "兽化"
 		"heal_hot":
 			return "疗愈"
 		"water_sheild":
@@ -535,6 +562,8 @@ func _get_skill_display_name(skill_id: String) -> String:
 			return "魔纹阵"
 		"meditation":
 			return "冥想"
+		"destructive_hammer":
+			return "破坏乱锤"
 		_:
 			return skill_id
 
@@ -564,6 +593,8 @@ func _build_skill_detail_text(skill_id: String, level: int) -> String:
 			return _build_magic_skill_text(level)
 		"meditation":
 			return _build_meditation_skill_text(level)
+		"destructive_hammer":
+			return _build_destructive_hammer_skill_text(level)
 		_:
 			return "暂无描述"
 
@@ -660,7 +691,7 @@ func _build_mizongbu_skill_text(level: int) -> String:
 	for lv in [4, 7, 10, 13]:
 		if level >= lv:
 			duration += 0.3
-	return _format_skill_text("短时间提升移速并减伤，期间伤害降低", [
+	return _format_skill_text("短时间提升移速并减伤，期间造成伤害降低20%", [
 		"减伤率：" + ("%.0f" % dr) + "%",
 		"持续时间：" + ("%.1f" % duration) + "秒",
 		"冷却时间：" + ("%.1f" % cooldown) + "秒"
@@ -703,7 +734,7 @@ func _build_dodge_skill_text(level: int) -> String:
 		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	])
 
-func _build_wind_thunder_skill_text(level: int) -> String:
+func _build_wind_thunder_skill_text(_level: int) -> String:
 	var damage_ratio = 275.0
 	var chant_time = 1.2
 	var cooldown = 15.0
@@ -714,7 +745,7 @@ func _build_wind_thunder_skill_text(level: int) -> String:
 		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	])
 
-func _build_magical_ice_skill_text(level: int) -> String:
+func _build_magical_ice_skill_text(_level: int) -> String:
 	var damage_ratio = 360.0
 	var chant_time = 1.5
 	var cooldown = 15.0
@@ -725,7 +756,7 @@ func _build_magical_ice_skill_text(level: int) -> String:
 		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	])
 
-func _build_magical_fire_skill_text(level: int) -> String:
+func _build_magical_fire_skill_text(_level: int) -> String:
 	var damage_ratio = 220.0
 	var chant_time = 1.2
 	var cooldown = 2.5
@@ -736,7 +767,7 @@ func _build_magical_fire_skill_text(level: int) -> String:
 		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	])
 
-func _build_magic_skill_text(level: int) -> String:
+func _build_magic_skill_text(_level: int) -> String:
 	var duration = 15.0
 	var cooldown = 40.0
 	var final_cooldown = cooldown * (1 - PC.cooldown)
@@ -747,12 +778,22 @@ func _build_magic_skill_text(level: int) -> String:
 		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	])
 
-func _build_meditation_skill_text(level: int) -> String:
+func _build_meditation_skill_text(_level: int) -> String:
 	var cooldown = 60.0
 	var chant_time = 3.0
 	var final_cooldown = cooldown * (1 - PC.cooldown)
 	return _format_skill_text("咏唱后提升1级", [
 		"咏唱时间：" + ("%.1f" % chant_time) + "秒",
+		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
+	])
+
+func _build_destructive_hammer_skill_text(_level: int) -> String:
+	var cooldown := 18.0
+	var final_cooldown := cooldown * (1 - PC.cooldown)
+	return _format_skill_text("连续三次砸下巨锤，对范围内敌人造成伤害", [
+		"前两次锤击：" + "60%攻击力",
+		"第三次锤击：" + "120%攻击力",
+		"施放期间获得40%独立减伤",
 		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	])
 
@@ -803,5 +844,7 @@ func _is_skill_unlocked(skill_id: String) -> bool:
 			return Global.study_unlock_mingxiang
 		"magical_fire":
 			return Global.unlock_kansel # 随坎塞尔解锁
+		"destructive_hammer":
+			return Global.unlock_xueming
 		_:
 			return true # dodge、wind_thunder 等默认解锁

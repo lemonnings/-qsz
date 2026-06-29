@@ -7,8 +7,11 @@ extends Area2D
 
 const DETOX_BUFF_ID := "boss_a_detox"
 const DETOX_DURATION: float = 4.0
-const GOLDEN_PETAL_TINT := Color(1.0, 0.95, 0.62, 1.0)
-const GOLDEN_PETAL_OUTLINE := Color(1.0, 0.72, 0.1, 1.0)
+const NORMAL_PETAL_MODULATE := Color(1.0, 1.0, 1.0, 1.0)
+const NORMAL_PETAL_TINT := Color(2.1, 1.95, 2.0, 1.0)
+const NORMAL_PETAL_OUTLINE := Color(1.0, 0.08, 0.08, 1.0)
+const GOLDEN_PETAL_TINT := Color(2.35, 1.75, 0.35, 1.0)
+const GOLDEN_PETAL_OUTLINE := Color(1.0, 0.88, 0.08, 1.0)
 
 @onready var sprite: Sprite2D = $Sprite2D
 
@@ -59,13 +62,30 @@ func initialize(
 
 	if is_golden:
 		_apply_golden_visual()
+	else:
+		_apply_normal_visual()
 
 
 func _ready() -> void:
 	add_to_group("boss_a_petal") # 便于 boss 死亡时批量清除
 	if is_golden:
 		_apply_golden_visual()
+	else:
+		_apply_normal_visual()
 	body_entered.connect(_on_body_entered)
+
+
+func _apply_normal_visual() -> void:
+	if sprite == null:
+		sprite = get_node_or_null("Sprite2D") as Sprite2D
+	if sprite == null:
+		return
+	sprite.modulate = NORMAL_PETAL_MODULATE
+	if sprite.material is ShaderMaterial:
+		sprite.material = sprite.material.duplicate()
+		var shader_material := sprite.material as ShaderMaterial
+		shader_material.set_shader_parameter("tint_color", NORMAL_PETAL_TINT)
+		shader_material.set_shader_parameter("outline_color", NORMAL_PETAL_OUTLINE)
 
 
 func _apply_golden_visual() -> void:
@@ -73,7 +93,7 @@ func _apply_golden_visual() -> void:
 		sprite = get_node_or_null("Sprite2D") as Sprite2D
 	if sprite == null:
 		return
-	sprite.modulate = GOLDEN_PETAL_TINT
+	sprite.modulate = Color.WHITE
 	if sprite.material is ShaderMaterial:
 		sprite.material = sprite.material.duplicate()
 		var shader_material := sprite.material as ShaderMaterial
@@ -110,5 +130,4 @@ func _on_body_entered(body: Node2D) -> void:
 	if not PC.invincible:
 		var dmg: int = max(1, int(damage))
 		PC.player_hit(int(dmg), self , "落花")
-		Global.emit_signal("player_hit")
 	queue_free()

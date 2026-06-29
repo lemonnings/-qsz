@@ -39,13 +39,13 @@ static func apply_all() -> void:
 	# learn2-3  六识系出现概率提升 — 每级 +10%，上限 5 级
 	Global.study_six_chance_bonus = t.get("learn2-3", 0) * 0.10
 
-	# learn-2-1-1  逆天（红色）领悟概率提升 — 每级 +0.1%，上限 5 级
-	Global.study_red_chance_bonus = t.get("learn-2-1-1", 0) * 0.001
+	# learn-2-1-1  逆天（红色）领悟概率提升 — 每级 +0.05%，上限 5 级
+	Global.study_red_chance_bonus = t.get("learn-2-1-1", 0) * 0.05
 
-	# learn-2-1-2  臻境（金色）领悟概率提升 — 每级 +0.5%，上限 5 级
-	Global.study_gold_chance_bonus = t.get("learn-2-1-2", 0) * 0.005
+	# learn-2-1-2  臻境（金色）领悟概率提升 — 每级 +0.25%，上限 5 级
+	Global.study_gold_chance_bonus = t.get("learn-2-1-2", 0) * 0.25
 
-	# learn2-1-3  悟道（紫色）领悟概率提升 — 每级 +1.6%，上限 5 级
-	Global.study_purple_chance_bonus = t.get("learn2-1-3", 0) * 0.016
+	# learn2-1-3  悟道（紫色）领悟概率提升 — 每级 +1%，上限 5 级
+	Global.study_purple_chance_bonus = t.get("learn2-1-3", 0) * 1.0
 
 	print("[StudyTreeLearn] 领悟修习效果已刷新")

@@ -19,8 +19,9 @@ const VELOCITY_MAX: float = 270.0 # 初始飞散速度上限
 const DAMPING_MIN: float = 220.0 # 阻尼下限（使粒子减速）
 const DAMPING_MAX: float = 300.0 # 阻尼上限
 const GRAVITY: Vector2 = Vector2(0, 240) # 重力（轻微向下）
-const SCALE_MIN: float = 1.3 # 粒子最小缩放
-const SCALE_MAX: float = 2 # 粒子最大缩放
+const SCALE_BASE: float = 1.6 # 粒子基础缩放
+const SCALE_RANDOM_MIN_MULTIPLIER: float = 0.7 # 每个粒子大小 -30%
+const SCALE_RANDOM_MAX_MULTIPLIER: float = 1.2 # 每个粒子大小 +20%
 const ANGLE_VEL_MIN: float = 60.0 # 粒子自旋速度下限（度/秒）
 const ANGLE_VEL_MAX: float = 240.0 # 粒子自旋速度上限（度/秒）
 const DEFAULT_COLOR: Color = Color(1.0, 0.45, 0.4, 1.0) # 默认浅红色（swordQi）
@@ -88,8 +89,8 @@ static func spawn(tree: SceneTree, world_pos: Vector2, amount: int = DEFAULT_AMO
 	p.damping_max = DAMPING_MAX
 
 	# —— 外观 ——
-	p.scale_amount_min = SCALE_MIN
-	p.scale_amount_max = SCALE_MAX
+	p.scale_amount_min = SCALE_BASE * SCALE_RANDOM_MIN_MULTIPLIER
+	p.scale_amount_max = SCALE_BASE * SCALE_RANDOM_MAX_MULTIPLIER
 	p.color = color
 	p.texture = _get_pixel_texture()
 

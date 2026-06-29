@@ -7,6 +7,9 @@ var move_vector: Vector2 = Vector2.LEFT
 # 发射子弹计时器
 var fire_timer: Timer
 const FIRE_INTERVAL: float = 4.0
+const ATTACK_WARNING_TIME: float = 1.2
+const ATTACK_BODY_WARNING_ALPHA: float = 0.8
+const PROJECTILE_SPEED_MULTIPLIER: float = 0.7
 
 var base_speed: float = SettingMoster.bat("speed")
 var speed: float # Actual speed after debuffs
@@ -17,6 +20,9 @@ var get_point: int = SettingMoster.bat("point")
 var get_exp: int = SettingMoster.bat("exp")
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
+var attack_warning_started: bool = false
+var attack_warning_overlay: AnimatedSprite2D = null
+var attack_warning_tween: Tween = null
 
 # 精英怪相关
 
@@ -54,6 +60,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if fire_timer.paused:
 		fire_timer.paused = false
+	_update_attack_body_warning()
 
 	# 处理推挤效果（防止怪物重叠，离屏时跳过）
 	if not is_dead and not _is_offscreen:
@@ -63,20 +70,18 @@ func _physics_process(delta: float) -> void:
 		speed = get_effective_move_speed(base_speed)
 		if CharacterEffects.is_player_dead_or_game_over():
 			move_vector = CharacterEffects.get_player_death_scatter_direction(self)
-		position += move_vector * speed * delta
+		position += CharacterEffects.apply_soft_separation_to_direction(self, move_vector) * speed * delta
 		# 根据水平移动方向翻转精灵
 		if not _is_offscreen:
 			if move_vector.x > 0:
-				sprite.flip_h = true
+				CharacterEffects.set_enemy_flip_h(self, sprite, true)
 			elif move_vector.x < 0:
-				sprite.flip_h = false
+				CharacterEffects.set_enemy_flip_h(self, sprite, false)
 		
-		# 超出边界范围时，朝向玩家方向转向（只在刚越界时触发一次）
-		# 边界：y > 25, y < -560, x > 305, x < -310，向内缩10像素作为触发边界
-		# 使用 global_position 与世界坐标边界比较
-		var currently_out_of_bounds = (global_position.y > 550 or global_position.y < 50 or global_position.x > 295 or global_position.x < -300)
+		# 游走型弹幕怪不追人，必须用地图边界钳制，避免长期漂移到地图外。
+		var currently_out_of_bounds := clamp_self_to_scene_bounds(16.0)
 		if currently_out_of_bounds and not is_out_of_bounds:
-			_pick_direction_to_safe_zone()
+			move_vector = steer_direction_toward_scene_bounds_center(move_vector, 30.0, 16.0)
 			is_out_of_bounds = true
 		elif not currently_out_of_bounds:
 			is_out_of_bounds = false
@@ -99,6 +104,7 @@ func _physics_process(delta: float) -> void:
 			is_dead = true
 			remove_from_group("enemies")
 			# 死亡时去除滤镜和描边
+			_finish_attack_body_warning()
 			$AnimatedSprite2D.modulate = Color(1, 1, 1, 1)
 			$AnimatedSprite2D.material = null
 			var collision_shape = get_node("CollisionShape2D")
@@ -113,7 +119,7 @@ func _physics_process(delta: float) -> void:
 				shadow.visible = false
 			if SettingMoster.ghost("itemdrop") != null:
 				for key in SettingMoster.ghost("itemdrop"):
-					var drop_chance = SettingMoster.ghost("itemdrop")[key] * drop_rate_multiplier
+					var drop_chance = SettingMoster.ghost("itemdrop")[key] * SettingMoster.get_item_drop_rate_multiplier(key, drop_rate_multiplier)
 					if randf() <= drop_chance:
 						Global.emit_signal("drop_out_item", key, 1, global_position)
 
@@ -182,6 +188,8 @@ func _pick_direction_to_safe_zone() -> void:
 func _shoot_bullet() -> void:
 	if is_dead:
 		return
+	_finish_attack_body_warning()
+	attack_warning_started = false
 	var shoot_direction: Vector2
 	if CharacterEffects.is_player_dead_or_game_over():
 		shoot_direction = move_vector
@@ -190,6 +198,66 @@ func _shoot_bullet() -> void:
 	else:
 		shoot_direction = move_vector
 	if is_corrupted_elite_monster():
-		fire_corrupted_spread_burst(shoot_direction)
+		fire_corrupted_spread_burst(shoot_direction, 0.5, PROJECTILE_SPEED_MULTIPLIER)
 		return
-	fire_monster_projectile(shoot_direction, global_position)
+	fire_monster_projectile(shoot_direction, global_position, PROJECTILE_SPEED_MULTIPLIER)
+
+func _update_attack_body_warning() -> void:
+	if is_dead or fire_timer == null or fire_timer.paused or fire_timer.is_stopped():
+		return
+	if attack_warning_started:
+		_sync_attack_warning_overlay()
+		return
+	if fire_timer.time_left <= ATTACK_WARNING_TIME:
+		attack_warning_started = true
+		_start_attack_body_warning(maxf(fire_timer.time_left, 0.01))
+
+func _get_attack_warning_overlay() -> AnimatedSprite2D:
+	if attack_warning_overlay != null and is_instance_valid(attack_warning_overlay):
+		return attack_warning_overlay
+	attack_warning_overlay = AnimatedSprite2D.new()
+	attack_warning_overlay.name = "AttackWarningOverlay"
+	attack_warning_overlay.sprite_frames = sprite.sprite_frames
+	attack_warning_overlay.visible = false
+	attack_warning_overlay.modulate = Color(1.0, 0.0, 0.0, 0.0)
+	attack_warning_overlay.z_index = sprite.z_index + 1
+	add_child(attack_warning_overlay)
+	_sync_attack_warning_overlay()
+	return attack_warning_overlay
+
+func _sync_attack_warning_overlay() -> void:
+	if attack_warning_overlay == null or not is_instance_valid(attack_warning_overlay):
+		return
+	attack_warning_overlay.position = sprite.position
+	attack_warning_overlay.scale = sprite.scale
+	attack_warning_overlay.rotation = sprite.rotation
+	attack_warning_overlay.flip_h = sprite.flip_h
+	attack_warning_overlay.flip_v = sprite.flip_v
+	attack_warning_overlay.centered = sprite.centered
+	attack_warning_overlay.offset = sprite.offset
+	attack_warning_overlay.animation = sprite.animation
+	attack_warning_overlay.frame = sprite.frame
+
+func _start_attack_body_warning(duration: float) -> void:
+	var overlay := _get_attack_warning_overlay()
+	_sync_attack_warning_overlay()
+	overlay.visible = true
+	overlay.modulate = Color(1.0, 0.0, 0.0, 0.0)
+	overlay.play(sprite.animation)
+	if attack_warning_tween != null and attack_warning_tween.is_valid():
+		attack_warning_tween.kill()
+	attack_warning_tween = create_tween()
+	attack_warning_tween.tween_property(overlay, "modulate:a", ATTACK_BODY_WARNING_ALPHA, duration)
+
+func _finish_attack_body_warning() -> void:
+	if attack_warning_tween != null and attack_warning_tween.is_valid():
+		attack_warning_tween.kill()
+	if attack_warning_overlay == null or not is_instance_valid(attack_warning_overlay):
+		return
+	_sync_attack_warning_overlay()
+	attack_warning_tween = create_tween()
+	attack_warning_tween.tween_property(attack_warning_overlay, "modulate:a", 0.0, 0.08)
+	attack_warning_tween.tween_callback(func():
+		if attack_warning_overlay != null and is_instance_valid(attack_warning_overlay):
+			attack_warning_overlay.visible = false
+	)

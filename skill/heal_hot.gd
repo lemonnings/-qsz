@@ -45,6 +45,8 @@ func _create_screen_flash(color: Color):
 	tween.tween_callback(canvas_layer.queue_free)
 
 func _process(delta):
+	if Global.is_battle_time_paused():
+		return
 	duration -= delta
 	timer += delta
 	
@@ -65,6 +67,6 @@ func perform_heal():
 	
 	PC.pc_hp = min(PC.pc_max_hp, PC.pc_hp + heal_amount)
 	if player:
-		Global.emit_signal("player_heal", heal_amount, player.global_position)
+		Global.emit_signal("player_heal", heal_amount, player.global_position, "heal_hot")
 	else:
-		Global.emit_signal("player_heal", heal_amount, global_position)
+		Global.emit_signal("player_heal", heal_amount, global_position, "heal_hot")

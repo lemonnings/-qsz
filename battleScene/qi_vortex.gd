@@ -7,9 +7,12 @@ signal completed(vortex: Node2D)
 signal expired(vortex: Node2D)
 
 const TICK_SECONDS: float = 0.1
-const PROGRESS_GAIN_PER_TICK: float = 0.025
+const ACTIVATE_SECONDS: float = 3.0
+const PROGRESS_GAIN_PER_TICK: float = TICK_SECONDS / ACTIVATE_SECONDS
 const PROGRESS_LOSS_PER_TICK: float = 0.01
-const LIFE_SECONDS: float = 30.0
+const LIFE_SECONDS: float = 35.0
+const EXPIRING_FLASH_SECONDS: float = 10.0
+const EXPIRING_FLASH_MIN_ALPHA_RATIO: float = 0.2
 const BAR_SIZE := Vector2(84.0, 8.0)
 const BAR_OFFSET := Vector2(-42.0, -70.0)
 
@@ -18,6 +21,8 @@ var _tick_accumulator: float = 0.0
 var _life_time: float = 0.0
 var _player_inside: bool = false
 var _closing: bool = false
+var _base_animate_modulate: Color = Color.WHITE
+var _flash_phase: float = 0.0
 
 @onready var area: Area2D = $Area2D
 
@@ -25,8 +30,10 @@ func _ready() -> void:
 	if area:
 		area.body_entered.connect(_on_area_body_entered)
 		area.body_exited.connect(_on_area_body_exited)
-	if animate and not animate.is_playing():
-		animate.play()
+	if animate:
+		_base_animate_modulate = animate.modulate
+		if not animate.is_playing():
+			animate.play()
 
 func _process(delta: float) -> void:
 	if _closing:
@@ -35,6 +42,7 @@ func _process(delta: float) -> void:
 	if _life_time >= LIFE_SECONDS:
 		_expire()
 		return
+	_update_expiring_flash(delta)
 	_tick_accumulator += delta
 	while _tick_accumulator >= TICK_SECONDS:
 		_tick_accumulator -= TICK_SECONDS
@@ -60,6 +68,32 @@ func _update_progress_tick() -> void:
 		queue_redraw()
 	if progress >= 1.0:
 		_complete()
+
+func _update_expiring_flash(delta: float) -> void:
+	if animate == null:
+		return
+	var time_left := LIFE_SECONDS - _life_time
+	if time_left > EXPIRING_FLASH_SECONDS:
+		if animate.modulate != _base_animate_modulate:
+			animate.modulate = _base_animate_modulate
+		return
+	var flash_ratio := 1.0 - clampf(time_left / EXPIRING_FLASH_SECONDS, 0.0, 1.0)
+	var flash_speed := lerpf(4.0, 18.0, flash_ratio * flash_ratio)
+	_flash_phase += delta * flash_speed
+	var wave := (sin(_flash_phase * TAU) + 1.0) * 0.5
+	var min_alpha := _base_animate_modulate.a * EXPIRING_FLASH_MIN_ALPHA_RATIO
+	var max_alpha := _base_animate_modulate.a
+	var flash_modulate := _base_animate_modulate
+	flash_modulate.a = lerpf(min_alpha, max_alpha, wave)
+	animate.modulate = flash_modulate
+
+func get_expiring_flash_alpha(base_alpha: float) -> float:
+	var time_left := LIFE_SECONDS - _life_time
+	if time_left > EXPIRING_FLASH_SECONDS:
+		return base_alpha
+	var flash_ratio := 1.0 - clampf(time_left / EXPIRING_FLASH_SECONDS, 0.0, 1.0)
+	var wave := (sin(_flash_phase * TAU) + 1.0) * 0.5
+	return lerpf(base_alpha * EXPIRING_FLASH_MIN_ALPHA_RATIO, base_alpha, wave)
 
 func _on_area_body_entered(body: Node) -> void:
 	if _is_player(body):

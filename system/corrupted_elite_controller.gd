@@ -109,6 +109,10 @@ func _try_start_charge_skill() -> void:
 	get_tree().current_scene.add_child(_charge_warning_node)
 	_charge_warning_node.attacker = monster
 	_charge_warning_node.warning_finished.connect(_on_charge_warning_finished, CONNECT_ONE_SHOT)
+	_set_charge_preparing(true)
+	var sprite := monster.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if sprite != null:
+		CharacterEffects.set_enemy_flip_h(monster, sprite, direction.x > 0.0, 0.0)
 	_charge_warning_node.start_warning(
 		start_position,
 		target_position,
@@ -127,7 +131,7 @@ func _on_charge_warning_finished() -> void:
 	_charge_active = true
 	_charge_elapsed = 0.0
 	_charge_start_position = monster.global_position
-	monster.set_meta("corrupted_elite_charging", true)
+	monster.set_meta(MonsterBase.CORRUPTED_ELITE_CHARGING_META, true)
 	if monster.has_method("fire_corrupted_perpendicular_rounds"):
 		monster.fire_corrupted_perpendicular_rounds(_charge_direction, CHARGE_BULLET_ROUNDS, CHARGE_BULLET_INTERVAL)
 
@@ -135,7 +139,8 @@ func _stop_charge() -> void:
 	_charge_active = false
 	_charge_elapsed = 0.0
 	if monster != null and is_instance_valid(monster):
-		monster.set_meta("corrupted_elite_charging", false)
+		monster.set_meta(MonsterBase.CORRUPTED_ELITE_CHARGING_META, false)
+		monster.set_meta(MonsterBase.CORRUPTED_ELITE_CHARGE_PREPARING_META, false)
 
 func _use_periodic_skill() -> void:
 	if not _is_monster_valid() or CharacterEffects.is_player_dead_or_game_over():
@@ -182,7 +187,7 @@ func _spawn_player_aoe_warnings() -> void:
 			PLAYER_AOE_RADIUS,
 			PLAYER_AOE_WARNING_TIME,
 			float(monster.get("atk")),
-			"侵蚀范围",
+			"核心侵蚀",
 			null,
 			WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE
 		)
@@ -191,6 +196,11 @@ func _clear_charge_warning() -> void:
 	if _charge_warning_node != null and is_instance_valid(_charge_warning_node):
 		_charge_warning_node.cleanup()
 	_charge_warning_node = null
+	_set_charge_preparing(false)
+
+func _set_charge_preparing(is_preparing: bool) -> void:
+	if monster != null and is_instance_valid(monster):
+		monster.set_meta(MonsterBase.CORRUPTED_ELITE_CHARGE_PREPARING_META, is_preparing)
 
 func _exit_tree() -> void:
 	_clear_charge_warning()

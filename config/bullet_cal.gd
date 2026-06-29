@@ -33,6 +33,9 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 	var weapon_tag = ""
 	if bullet_data.has("weapon_tag"):
 		weapon_tag = bullet_data["weapon_tag"]
+	var excluded_law_categories: Array = []
+	if bullet_data.has("excluded_law_categories"):
+		excluded_law_categories = bullet_data["excluded_law_categories"] as Array
 
 	# 计算最终伤害值
 	var final_damage_val = damage
@@ -48,21 +51,22 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 		var extra_multiplier = area.get_meta("extra_attack_multiplier")
 		final_damage_val *= (1.0 + extra_multiplier)
 	
+	# 统一武器伤害加成：修习树、成就、法则类武器伤害都加到武器基础倍率上。
+	if weapon_tag != "":
+		final_damage_val = SettingStudyTreeUp.apply_total_damage_bonus_to_damage_excluding(final_damage_val, weapon_tag, excluded_law_categories)
+	
 	# 最终伤害乘区改由怪物基类统一结算，这里只保留子弹自身与目标类型相关的基础增伤。
 	final_damage_val = Global.apply_enemy_damage_bonus(final_damage_val, enemy)
 	
-	# 修习树武器篇伤害加成（根据武器分类动态获取）
-	if weapon_tag != "":
-		var study_weapon_bonus = SettingStudyTreeUp.get_total_damage_bonus(weapon_tag)
-		if study_weapon_bonus > 0.0:
-			final_damage_val *= (1.0 + study_weapon_bonus)
-	
 	if weapon_tag == "treasure" or weapon_tag == "branch":
 		if enemy.is_in_group("elite") or enemy.is_in_group("boss"):
-			final_damage_val = final_damage_val * Faze.get_treasure_elite_boss_multiplier(PC.faze_treasure_level, PC.lucky)
+			final_damage_val = final_damage_val * Faze.get_treasure_elite_boss_multiplier(PC.faze_treasure_level, PC.get_lucky_level())
 	
 	result["final_damage"] = final_damage_val
 	result["is_crit"] = is_crit
+	var actual_damage_for_stats: float = final_damage_val
+	if enemy.has_method("get"):
+		actual_damage_for_stats = minf(float(final_damage_val), maxf(float(enemy.get("hp")), 0.0))
 	
 	# 处理子弹穿透逻辑
 	if area.has_method("handle_penetration"):
@@ -99,17 +103,17 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 			)
 			# Boss特殊处理
 			if is_crit:
-				Global.emit_signal("monster_damage", 2, final_damage_val, enemy.global_position - Vector2(35, 20) + damage_offset, weapon_tag)
+				Global.emit_signal("monster_damage", 2, actual_damage_for_stats, enemy.global_position - Vector2(35, 20) + damage_offset, weapon_tag)
 			else:
-				Global.emit_signal("monster_damage", 1, final_damage_val, enemy.global_position - Vector2(35, 20) + damage_offset, weapon_tag)
+				Global.emit_signal("monster_damage", 1, actual_damage_for_stats, enemy.global_position - Vector2(35, 20) + damage_offset, weapon_tag)
 		else:
 			# 普通怪物
 			if is_summon_bullet:
-				Global.emit_signal("monster_damage", 4, final_damage_val, enemy.global_position - damage_offset, weapon_tag)
+				Global.emit_signal("monster_damage", 4, actual_damage_for_stats, enemy.global_position - damage_offset, weapon_tag)
 			elif is_crit:
-				Global.emit_signal("monster_damage", 2, final_damage_val, enemy.global_position - damage_offset, weapon_tag)
+				Global.emit_signal("monster_damage", 2, actual_damage_for_stats, enemy.global_position - damage_offset, weapon_tag)
 			else:
-				Global.emit_signal("monster_damage", 1, final_damage_val, enemy.global_position - damage_offset, weapon_tag)
+				Global.emit_signal("monster_damage", 1, actual_damage_for_stats, enemy.global_position - damage_offset, weapon_tag)
 	
 	if area.has_method("is_faze_bullet_weapon") and area.is_faze_bullet_weapon():
 		Faze.on_bullet_hit()
@@ -130,6 +134,8 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 static func should_create_rebound(bullet: Area2D) -> bool:
 	if not bullet:
 		return false
+	if not bullet.has_method("create_rebound"):
+		return false
 	
 	# 首先检查玩家是否有续剑技能
 	if not PC.selected_rewards.has("SplitSwordQi12"):
@@ -146,7 +152,10 @@ static func should_create_rebound(bullet: Area2D) -> bool:
 
 # 应用全局buff效果到最终伤害
 static func apply_global_buff_effects(damage: float) -> float:
-	var final_damage = damage
+	return damage * get_global_buff_damage_multiplier()
+
+static func get_global_buff_damage_multiplier() -> float:
+	var multiplier := 1.0
 	
 	# 沉静：1秒内没有移动，提升6*层数%的最终伤害
 	if EmblemManager.has_emblem("chenjing"):
@@ -155,26 +164,26 @@ static func apply_global_buff_effects(damage: float) -> float:
 			var last_move = PC.player_instance.get_last_move_time()
 			var current = Time.get_unix_time_from_system()
 			if current - last_move >= 1.0: # 1秒
-				final_damage *= (1.0 + Global.get_scaled_emblem_value(0.06 * chenjing_stack))
+				multiplier *= (1.0 + Global.get_scaled_emblem_value(0.06 * chenjing_stack))
 	
 	# 炼体：每1%的减伤率额外提升0.2*层数%的最终伤害
 	if EmblemManager.has_emblem("lianti"):
 		var lianti_stack = EmblemManager.get_emblem_stack("lianti")
 		var damage_reduction_percent = PC.damage_reduction_rate * 100
 		var damage_bonus = damage_reduction_percent * Global.get_scaled_emblem_value(0.002 * lianti_stack)
-		final_damage *= (1.0 + damage_bonus)
+		multiplier *= (1.0 + damage_bonus)
 	
 	# 蛮力：当移动速度加成<0%时，提升8*层数%的最终伤害
 	if EmblemManager.has_emblem("manli"):
 		var manli_stack = EmblemManager.get_emblem_stack("manli")
 		if PC.pc_speed < 0.0:
-			final_damage *= (1.0 + Global.get_scaled_emblem_value(0.08 * manli_stack))
+			multiplier *= (1.0 + Global.get_scaled_emblem_value(0.08 * manli_stack))
 	
 	# 融会贯通：当前每拥有一个纹章，提升2*层数%最终伤害
 	if EmblemManager.has_emblem("ronghui"):
 		var ronghui_stack = EmblemManager.get_emblem_stack("ronghui")
 		var active_emblem_count = EmblemManager.get_emblem_count()
 		var damage_bonus = active_emblem_count * Global.get_scaled_emblem_value(0.02 * ronghui_stack)
-		final_damage *= (1.0 + damage_bonus)
+		multiplier *= (1.0 + damage_bonus)
 	
-	return final_damage
+	return multiplier

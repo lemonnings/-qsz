@@ -3,6 +3,7 @@ class_name SettingsManager
 
 # 设置配置文件路径
 const SETTINGS_CONFIG_PATH = "user://settings_config.cfg"
+const SaveCrypto := preload("res://Script/system/save_crypto.gd")
 
 # 分辨率选项
 const RESOLUTION_OPTIONS = {
@@ -26,6 +27,9 @@ var noborder_enabled: bool = true
 var vignetting_enabled: bool = true
 var particle_enabled: bool = true
 var damage_show_enabled: bool = true
+var player_hp_bar_enabled: bool = true
+var drop_visible_enabled: bool = true
+var drop_mater_enabled: bool = false
 
 # 信号
 @warning_ignore("unused_signal")
@@ -40,6 +44,12 @@ signal vignetting_changed(enabled: bool)
 signal particle_changed(enabled: bool)
 @warning_ignore("unused_signal")
 signal damage_show_changed(enabled: bool)
+@warning_ignore("unused_signal")
+signal player_hp_bar_changed(enabled: bool)
+@warning_ignore("unused_signal")
+signal drop_visible_changed(enabled: bool)
+@warning_ignore("unused_signal")
+signal drop_mater_changed(enabled: bool)
 
 func _ready() -> void:
 	# 加载设置
@@ -152,6 +162,22 @@ func set_damage_show(enabled: bool) -> void:
 	damage_show_changed.emit(enabled)
 	save_settings()
 
+# 设置玩家头顶血条显示
+func set_player_hp_bar(enabled: bool) -> void:
+	player_hp_bar_enabled = enabled
+	player_hp_bar_changed.emit(enabled)
+	save_settings()
+
+func set_drop_visible(enabled: bool) -> void:
+	drop_visible_enabled = enabled
+	drop_visible_changed.emit(enabled)
+	save_settings()
+
+func set_drop_mater(enabled: bool) -> void:
+	drop_mater_enabled = enabled
+	drop_mater_changed.emit(enabled)
+	save_settings()
+
 # 获取当前设置
 func get_current_resolution_index() -> int:
 	return current_resolution_index
@@ -174,6 +200,15 @@ func is_particle_enabled() -> bool:
 func is_damage_show_enabled() -> bool:
 	return damage_show_enabled
 
+func is_player_hp_bar_enabled() -> bool:
+	return player_hp_bar_enabled
+
+func is_drop_visible_enabled() -> bool:
+	return drop_visible_enabled
+
+func is_drop_mater_enabled() -> bool:
+	return drop_mater_enabled
+
 # 应用所有设置
 func apply_all_settings() -> void:
 	# 先设置全屏模式，再设置分辨率（全屏模式下窗口大小设置无效）
@@ -192,6 +227,9 @@ func apply_all_settings() -> void:
 	set_vignetting(vignetting_enabled)
 	set_particle(particle_enabled)
 	set_damage_show(damage_show_enabled)
+	set_player_hp_bar(player_hp_bar_enabled)
+	set_drop_visible(drop_visible_enabled)
+	set_drop_mater(drop_mater_enabled)
 
 # 保存设置
 func save_settings() -> void:
@@ -202,8 +240,11 @@ func save_settings() -> void:
 	config.set_value("effects", "vignetting", vignetting_enabled)
 	config.set_value("effects", "particle", particle_enabled)
 	config.set_value("effects", "damage_show", damage_show_enabled)
+	config.set_value("game", "player_hp_bar", player_hp_bar_enabled)
+	config.set_value("game", "dropvisible", drop_visible_enabled)
+	config.set_value("game", "dropmater", drop_mater_enabled)
 	
-	var err = config.save(SETTINGS_CONFIG_PATH)
+	var err = SaveCrypto.save_config(config, SETTINGS_CONFIG_PATH)
 	if err == OK:
 		print("设置保存成功")
 	else:
@@ -212,7 +253,7 @@ func save_settings() -> void:
 # 加载设置
 func load_settings() -> void:
 	var config = ConfigFile.new()
-	var err = config.load(SETTINGS_CONFIG_PATH)
+	var err = SaveCrypto.load_config(config, SETTINGS_CONFIG_PATH)
 	
 	if err != OK:
 		print("未找到设置配置文件，使用默认设置")
@@ -224,6 +265,9 @@ func load_settings() -> void:
 	vignetting_enabled = config.get_value("effects", "vignetting", true)
 	particle_enabled = config.get_value("effects", "particle", true)
 	damage_show_enabled = config.get_value("effects", "damage_show", true)
+	player_hp_bar_enabled = config.get_value("game", "player_hp_bar", true)
+	drop_visible_enabled = config.get_value("game", "dropvisible", true)
+	drop_mater_enabled = config.get_value("game", "dropmater", false)
 	
 	# 验证分辨率索引的有效性
 	if current_resolution_index < 0 or current_resolution_index >= RESOLUTION_OPTIONS.size():
@@ -239,6 +283,9 @@ func reset_to_defaults() -> void:
 	vignetting_enabled = true
 	particle_enabled = true
 	damage_show_enabled = true
+	player_hp_bar_enabled = true
+	drop_visible_enabled = true
+	drop_mater_enabled = false
 	
 	apply_all_settings()
 	save_settings()

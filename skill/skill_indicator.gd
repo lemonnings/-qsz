@@ -10,6 +10,8 @@ var mode: int = IndicatorMode.LINE
 var target_player: Node2D = null
 var is_frozen: bool = false
 var follow_mouse: bool = false # 圆圈模式下是否跟随鼠标位置（用于AoE放置型技能预览）
+var fixed_direction: Vector2 = Vector2.ZERO
+var fixed_target_position: Vector2 = Vector2.INF
 
 # 直线模式：当前朝向
 var current_direction: Vector2 = Vector2.RIGHT
@@ -31,6 +33,10 @@ func setup_line(player: Node2D) -> void:
 	mode = IndicatorMode.LINE
 	target_player = player
 
+func setup_line_fixed(player: Node2D, direction: Vector2) -> void:
+	setup_line(player)
+	set_fixed_direction(direction)
+
 ## 初始化为圆圈型提示，size 为椭圆 (宽, 高)，mouse_follow=true 时圆圈跟随鼠标位置
 func setup_circle(player: Node2D, size: Vector2, mouse_follow: bool = false) -> void:
 	mode = IndicatorMode.CIRCLE
@@ -38,23 +44,45 @@ func setup_circle(player: Node2D, size: Vector2, mouse_follow: bool = false) -> 
 	circle_size = size
 	follow_mouse = mouse_follow
 
+func setup_circle_fixed(player: Node2D, size: Vector2, target_position: Vector2) -> void:
+	setup_circle(player, size, false)
+	set_fixed_target_position(target_position)
+
+func set_fixed_direction(direction: Vector2) -> void:
+	if direction.length() > 0.01:
+		fixed_direction = direction.normalized()
+		current_direction = fixed_direction
+		queue_redraw()
+
+func set_fixed_target_position(target_position: Vector2) -> void:
+	fixed_target_position = target_position
+	global_position = fixed_target_position
+	queue_redraw()
+
 func _process(_delta: float) -> void:
 	if is_frozen:
 		return
 	if not is_instance_valid(target_player):
 		queue_free()
 		return
+	if fixed_target_position != Vector2.INF:
+		global_position = fixed_target_position
+	elif mode == IndicatorMode.LINE:
+		global_position = target_player.global_position
 	# 圆圈跟随鼠标模式：跟随鼠标世界坐标
-	if follow_mouse:
+	elif follow_mouse:
 		global_position = get_global_mouse_position()
 	else:
 		global_position = target_player.global_position
 	
 	if mode == IndicatorMode.LINE:
-		var mouse_pos = get_global_mouse_position()
-		var dir = mouse_pos - global_position
-		if dir.length() > 0.01:
-			current_direction = dir.normalized()
+		if fixed_direction != Vector2.ZERO:
+			current_direction = fixed_direction
+		else:
+			var mouse_pos = get_global_mouse_position()
+			var dir = mouse_pos - global_position
+			if dir.length() > 0.01:
+				current_direction = dir.normalized()
 	
 	queue_redraw()
 

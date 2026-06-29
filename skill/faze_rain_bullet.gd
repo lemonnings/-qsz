@@ -10,8 +10,11 @@ var direction: Vector2 = Vector2.RIGHT
 var start_position: Vector2
 var traveled_distance: float = 0.0
 var has_hit: bool = false
+var shared_wave_hit_counts: Dictionary = {}
+var shared_wave_hit_limit: int = 0
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	if not sprite:
 		sprite = get_node_or_null("AnimatedSprite2D")
 	if not collision_shape:
@@ -22,11 +25,13 @@ func _ready() -> void:
 	if not area_entered.is_connected(_on_area_entered):
 		area_entered.connect(_on_area_entered)
 
-func setup_barrage_bullet(pos: Vector2, dir: Vector2, p_damage: float) -> void:
+func setup_barrage_bullet(pos: Vector2, dir: Vector2, p_damage: float, options: Dictionary = {}) -> void:
 	global_position = pos
 	start_position = pos
 	direction = dir.normalized()
 	damage = p_damage
+	shared_wave_hit_counts = options.get("shared_wave_hit_counts", {})
+	shared_wave_hit_limit = int(options.get("shared_wave_hit_limit", 0))
 	rotation = direction.angle()
 
 func _process(delta: float) -> void:
@@ -56,6 +61,13 @@ func _on_area_entered(area: Area2D) -> void:
 	if not area.is_in_group("enemies"):
 		return
 	has_hit = true
+	if shared_wave_hit_limit > 0:
+		var enemy_id := area.get_instance_id()
+		var shared_hit_count: int = int(shared_wave_hit_counts.get(enemy_id, 0))
+		if shared_hit_count >= shared_wave_hit_limit:
+			ObjectPool.recycle(self )
+			return
+		shared_wave_hit_counts[enemy_id] = shared_hit_count + 1
 	var is_crit = false
 	var final_damage = damage
 	if randf() < PC.crit_chance:
@@ -72,6 +84,8 @@ func reset_for_pool() -> void:
 	start_position = Vector2.ZERO
 	traveled_distance = 0.0
 	has_hit = false
+	shared_wave_hit_counts = {}
+	shared_wave_hit_limit = 0
 	modulate.a = 1.0
 	rotation = 0.0
 	global_position = Vector2.ZERO

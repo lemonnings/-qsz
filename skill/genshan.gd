@@ -4,24 +4,28 @@ class_name Genshan
 @export var sprite: AnimatedSprite2D
 @export var collision: CollisionShape2D
 
-static var main_skill_genshan_damage: float = 1.2
+static var main_skill_genshan_damage: float = 1.0
 static var genshan_final_damage_multi: float = 1.0
-static var genshan_range: float = 230.0
+static var genshan_range: float = 350.0
+
+const MIN_DISTANCE_DAMAGE_MULTIPLIER: float = 0.4
+const MAX_DISTANCE_DAMAGE_MULTIPLIER: float = 1.2
 
 static func reset_data() -> void:
-	main_skill_genshan_damage = 1.2
+	main_skill_genshan_damage = 1.0
 	genshan_final_damage_multi = 1.0
-	genshan_range = 230.0
+	genshan_range = 350.0
 	enemy_hit_records.clear()
 
 # 基础属性
 var damage: float = 0.0
-var range_val: float = 230.0
+var range_val: float = 350.0
 var total_damage_multiplier: float = 1.0 # 用于降低总伤害（连山/连山-崩山）
 
 # 渐进式生成相关
 var direction: Vector2 = Vector2.RIGHT
 var current_length: float = 0.0
+var current_collision_height: float = 51.0
 var step_length: float = 0.1 # 每3像素生成一个sprite
 var spawn_timer: float = 0.0
 var spawn_interval: float = 0.3 # 0.3秒后生成下一个
@@ -80,12 +84,10 @@ static func _spawn_genshan(scene: PackedScene, tree: SceneTree, origin_pos: Vect
 	var instance = scene.instantiate()
 	tree.current_scene.add_child(instance)
 	
-	var spawn_damage = PC.pc_atk * main_skill_genshan_damage * genshan_final_damage_multi
+	var spawn_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier(main_skill_genshan_damage, "genshan")
+	var spawn_damage = PC.pc_atk * spawn_multiplier * genshan_final_damage_multi
 	
-	# 八卦法则伤害加成
-	spawn_damage *= Faze.get_bagua_damage_multiplier()
-	
-	# 从全局攻击范围倍率获取基础 scale
+	# 从全局伤害范围倍率获取基础 scale
 	var base_scale = Global.get_attack_range_multiplier()
 	
 	instance.setup(origin_pos, dir, spawn_damage, genshan_range * Global.get_attack_range_multiplier(), multiplier, base_scale, should_apply_shield)
@@ -105,7 +107,8 @@ func setup(pos: Vector2, dir: Vector2, p_damage: float, p_range: float, p_multip
 	if collision:
 		# 使用 RectangleShape2D，初始长度很小
 		var rect = RectangleShape2D.new()
-		rect.size = Vector2(1, 51) # 初始宽度1
+		current_collision_height = base_sprite_size.y
+		rect.size = Vector2(1, current_collision_height) # 初始长度1，高度随生成的sprite增长
 		collision.shape = rect
 		collision.position = Vector2(0.5, 0)
 		collision.rotation = direction.angle() # 碰撞体仍然需要旋转以匹配攻击方向
@@ -114,6 +117,7 @@ func setup(pos: Vector2, dir: Vector2, p_damage: float, p_range: float, p_multip
 	_add_next_sprite()
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self )
 	if sprite:
 		sprite.visible = false # 隐藏模板sprite
 	connect("area_entered", Callable(self , "_on_area_entered"))
@@ -157,6 +161,7 @@ func _process(delta: float) -> void:
 	# 碰撞体应该跟随生成的sprite延伸
 	if collision and collision.shape is RectangleShape2D:
 		collision.shape.size.x = current_length
+		collision.shape.size.y = current_collision_height
 		# 碰撞体的位置也需要根据 direction 设置
 		# collision.rotation 已经设置好了，所以 collision.position 应该是沿着 direction 延伸一半长度
 		# 但是如果 collision.rotation 已经设置了，那么 collision 的局部坐标系的 x 轴已经对齐了 direction
@@ -228,6 +233,7 @@ func _create_sprite_at(local_x: float, p_scale: Vector2) -> void:
 	
 	# 设置 scale
 	s.scale = p_scale
+	current_collision_height = maxf(current_collision_height, base_sprite_size.y * absf(p_scale.y))
 	
 	# 设置 offset 以实现底部锚点
 	# base_sprite_size.y 是 51.0
@@ -287,7 +293,8 @@ func _deal_damage(enemy: Area2D) -> void:
 	new_records.append(current_time)
 	enemy_hit_records[enemy_id] = new_records
 	
-	var final_damage = damage * total_damage_multiplier
+	var distance_multiplier := _get_distance_damage_multiplier(enemy)
+	var final_damage = damage * distance_multiplier * total_damage_multiplier
 	var is_crit = false
 	
 	# 暴击判定
@@ -329,10 +336,17 @@ func _deal_damage(enemy: Area2D) -> void:
 	if PC.selected_rewards.has("Genshan2"):
 		if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("add_debuff"):
 			enemy.debuff_manager.add_debuff("vulnerable", 4.0)
-			
+
 	# Genshan4 (护山): 获得护盾
 	if PC.selected_rewards.has("Genshan4"):
 		_apply_shield()
+
+func _get_distance_damage_multiplier(enemy: Area2D) -> float:
+	var local_x := 0.0
+	if is_instance_valid(enemy):
+		local_x = (enemy.global_position - global_position).dot(direction)
+	var ratio := clampf(local_x / maxf(range_val, 1.0), 0.0, 1.0)
+	return lerpf(MIN_DISTANCE_DAMAGE_MULTIPLIER, MAX_DISTANCE_DAMAGE_MULTIPLIER, ratio)
 
 func _apply_shield() -> void:
 	if not can_apply_shield:
@@ -341,9 +355,9 @@ func _apply_shield() -> void:
 		return
 	has_applied_shield = true
 	
-	var base_shield = 60
+	var base_shield = 30
 	var hp_ratio = 0.03
-	var shield_duration = 7.0
+	var shield_duration = 5.0
 	
 	# Genshan11 (震山-护山): 护盾提升50%，持续10秒
 	if PC.selected_rewards.has("Genshan11"):
@@ -352,4 +366,4 @@ func _apply_shield() -> void:
 		shield_duration = 10.0
 		
 	var shield_val = base_shield + (PC.pc_max_hp * hp_ratio)
-	PC.add_shield(int(shield_val), shield_duration)
+	PC.add_shield(int(shield_val), shield_duration, "genshan")

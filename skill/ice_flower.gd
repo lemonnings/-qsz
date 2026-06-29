@@ -15,6 +15,8 @@ static var ice_flower_small_damage_ratio: float = 0.2
 static var ice_flower_small_scale_ratio: float = 0.65
 static var ice_flower_base_scale: float = 1.0
 
+const SMALL_ICE_PER_FRAME := 8
+
 static func reset_data() -> void:
 	main_skill_ice_damage = 0.60
 	ice_flower_range = 132.0
@@ -77,8 +79,20 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 	)
 	
 	# 发射小冰刺
+	_spawn_small_ice_flowers(current_scene, spawn_position, base_direction, data, tree)
+
+static func _spawn_small_ice_flowers(current_scene: Node, spawn_position: Vector2, base_direction: Vector2, data: Dictionary, tree: SceneTree) -> void:
+	if current_scene == null or tree == null:
+		return
 	var half_angle = data.spread_angle / 2.0
+	var spawned_this_frame := 0
 	for i in range(data.small_count):
+		if PC.is_game_over or not is_instance_valid(current_scene):
+			return
+		while tree.paused or Global.is_level_up:
+			if PC.is_game_over:
+				return
+			await tree.create_timer(0.05, true, false, true).timeout
 		# 随机角度
 		var random_angle = randf_range(-half_angle, half_angle)
 		var small_direction = base_direction.rotated(deg_to_rad(random_angle))
@@ -98,6 +112,10 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 			data.pierce_decay,
 			small_scale
 		)
+		spawned_this_frame += 1
+		if spawned_this_frame >= SMALL_ICE_PER_FRAME and i < data.small_count - 1:
+			spawned_this_frame = 0
+			await tree.process_frame
 
 static func _build_data() -> Dictionary:
 	# 基础属性
@@ -105,6 +123,7 @@ static func _build_data() -> Dictionary:
 	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
 	damage_multiplier += (Faze.get_destroy_damage_multiplier(PC.faze_destroy_level) - 1.0) # 破坏法则
 	damage_multiplier += (Faze.get_bullet_damage_multiplier(PC.faze_bullet_level) - 1.0) # 弹体法则
+	damage_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(damage_multiplier, "ice_flower", ["destroy"])
 	var small_damage_ratio = ice_flower_small_damage_ratio
 	var spread_angle = ice_flower_spread_angle
 	var small_count = ice_flower_extra_small_count
@@ -176,6 +195,7 @@ static func _build_data() -> Dictionary:
 	}
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	if not sprite:
 		sprite = get_node_or_null("AnimatedSprite2D")
 	if not collision_shape:

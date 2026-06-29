@@ -1,6 +1,7 @@
 extends Area2D
 
 @export var damage_interval: float = 1.0 # 赤曜伤害频率：1秒/次
+const ELITE_BOSS_DAMAGE_BONUS: float = 3.0
 
 var player_node: Node2D
 @export var damage_timer: Timer
@@ -12,17 +13,21 @@ var current_speed_multiplier: float = 1.0
 var pulse_time: float = 0.0 # 像素动画计时器
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self )
 	Global.connect("riyan_damage_triggered", Callable(self , "_on_get_riyan"))
 
 func _process(delta: float) -> void:
 	if player_node:
 		global_position = player_node.global_position
+		visible = not (player_node.has_method("is_beastify_replacing_weapon") and player_node.is_beastify_replacing_weapon("Riyan"))
 	if draw_node:
 		pulse_time += delta
 		draw_node.queue_redraw()
 
 func _on_damage_timer_timeout() -> void:
 	if player_node:
+		if player_node.has_method("is_beastify_replacing_weapon") and player_node.is_beastify_replacing_weapon("Riyan"):
+			return
 		_check_updates()
 		
 		# 基础系数 0.08 (riyan_hp_max_damage)
@@ -34,17 +39,20 @@ func _on_damage_timer_timeout() -> void:
 		elif PC.selected_rewards.has("Riyan2"):
 			hp_damage_ratio = 0.15
 			
-		var damage_amount: float = (PC.pc_atk * PC.riyan_atk_damage) + (PC.pc_max_hp * hp_damage_ratio)
+		var hp_level_multiplier: float = pow(1.02, max(0, PC.pc_lv - 1))
+		var damage_amount: float = (PC.pc_atk * PC.riyan_atk_damage) + (PC.pc_max_hp * hp_damage_ratio * hp_level_multiplier)
 		# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
-		damage_amount = damage_amount * (PC.main_skill_riyan_damage + (Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level) - 1.0))
+		var damage_scale: float = PC.main_skill_riyan_damage + (Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level) - 1.0)
 		
 		# 广域法则伤害加成（base_range_bonus = 非法则的范围加成，用于"范围转伤害"）
 		var base_range_bonus = 0.0
 		if PC.selected_rewards.has("Riyan3"):
 			base_range_bonus += 0.2
 		base_range_bonus += Global.get_attack_range_multiplier() - 1.0
-		damage_amount *= Faze.get_wide_damage_multiplier(base_range_bonus)
-		
+		damage_scale += Faze.get_wide_damage_multiplier(base_range_bonus) - 1.0
+		damage_scale = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(damage_scale, "riyan", ["fire", "wide"])
+		damage_amount *= damage_scale
+
 		# Riyan1 / Riyan11: 减伤转化伤害
 		var dr_bonus = 0.0
 		var dr_rate = PC.damage_reduction_rate
@@ -55,17 +63,26 @@ func _on_damage_timer_timeout() -> void:
 		damage_amount *= (1.0 + dr_bonus)
 		
 		for area in get_overlapping_areas():
-			if area.is_in_group("enemies") and area.has_method("take_damage"):
+			if _is_valid_riyan_target(area):
 				var final_damage = damage_amount
 				
 				# Riyan33: 对燃烧敌人额外伤害
 				if PC.selected_rewards.has("Riyan33"):
 					if _has_burn(area):
 						final_damage *= 1.6
+				if Global.is_elite_or_boss_target(area):
+					final_damage *= 1.0 + ELITE_BOSS_DAMAGE_BONUS
 						
 				area.take_damage(final_damage, false, false, "riyan")
 				# 击中粒子崩散特效
 				HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "riyan")
+
+func _is_valid_riyan_target(target: Node) -> bool:
+	if target == null or not is_instance_valid(target):
+		return false
+	if not target.has_method("take_damage"):
+		return false
+	return target.is_in_group("enemies") or target.is_in_group("boss")
 
 func _has_burn(enemy) -> bool:
 	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("has_debuff"):
@@ -80,10 +97,10 @@ func _check_updates() -> void:
 	
 	# 广域法则范围加成
 	var wide_range_mult = Faze.get_wide_range_multiplier()
-	# 全局攻击范围加成
+	# 全局伤害范围加成
 	var global_range_mult = Global.get_attack_range_multiplier()
 	var total_range_mult = new_range_mult * wide_range_mult * global_range_mult
-	
+
 	if not is_equal_approx(total_range_mult, current_range_multiplier):
 		current_range_multiplier = total_range_mult
 		_update_visuals()

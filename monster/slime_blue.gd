@@ -58,7 +58,7 @@ func _physics_process(delta: float) -> void:
 				shadow.visible = false
 			if SettingMoster.slime_blue("itemdrop") != null:
 				for key in SettingMoster.slime_blue("itemdrop"):
-					var drop_chance = SettingMoster.slime_blue("itemdrop")[key] * drop_rate_multiplier
+					var drop_chance = SettingMoster.slime_blue("itemdrop")[key] * SettingMoster.get_item_drop_rate_multiplier(key, drop_rate_multiplier)
 					if randf() <= drop_chance:
 						Global.emit_signal("drop_out_item", key, 1, global_position)
 				# for item in SettingMoster.slime_blue("itemdrop"):
@@ -86,13 +86,13 @@ func _physics_process(delta: float) -> void:
 			move_away_from_dead_player(delta, base_speed, sprite)
 			return
 		if move_direction == 0:
-			position += Vector2(speed, 0) * delta
+			position += CharacterEffects.apply_soft_separation_to_direction(self, Vector2.RIGHT) * speed * delta
 			if not _is_offscreen:
-				sprite.flip_h = true
+				CharacterEffects.set_enemy_flip_h(self, sprite, true)
 		if move_direction == 1:
-			position -= Vector2(speed, 0) * delta
+			position += CharacterEffects.apply_soft_separation_to_direction(self, Vector2.LEFT) * speed * delta
 			if not _is_offscreen:
-				sprite.flip_h = false
+				CharacterEffects.set_enemy_flip_h(self, sprite, false)
 		if move_direction >= 2:
 			if PC.player_instance != null:
 				var direction_to_player = CharacterEffects.get_tracking_direction_to_player(self)
@@ -100,7 +100,7 @@ func _physics_process(delta: float) -> void:
 					speed = get_effective_move_speed(base_speed)
 					position += direction_to_player * speed * delta
 					if not _is_offscreen:
-						sprite.flip_h = direction_to_player.x > 0
+						CharacterEffects.face_player_x(self, sprite)
 	
 	if move_direction == 0 and position.x <= -534:
 		free_health_bar()

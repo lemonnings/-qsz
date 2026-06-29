@@ -8,6 +8,14 @@ var move_vector: Vector2 = Vector2.LEFT
 # 发射子弹计时器
 var fire_timer: Timer
 const FIRE_INTERVAL: float = 4.0
+const ATTACK_WARNING_TIME: float = 1.2
+const ATTACK_BODY_WARNING_ALPHA: float = 0.8
+const PROJECTILE_SPEED_MULTIPLIER: float = 0.4
+const BOUNDS_MIN_X: float = -300.0
+const BOUNDS_MAX_X: float = 295.0
+const BOUNDS_MIN_Y_DEFAULT: float = 50.0
+const BOUNDS_MIN_Y_CAVE: float = 70.0
+const BOUNDS_MAX_Y: float = 550.0
 
 var base_speed: float = SettingMoster.ghost("speed")
 var speed: float # Actual speed after debuffs
@@ -18,6 +26,9 @@ var get_point: int = SettingMoster.ghost("point")
 var get_exp: int = SettingMoster.ghost("exp")
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
+var attack_warning_started: bool = false
+var attack_warning_overlay: AnimatedSprite2D = null
+var attack_warning_tween: Tween = null
 
 # 精英怪相关
 
@@ -52,6 +63,7 @@ func _physics_process(delta: float) -> void:
 		return
 	if fire_timer.paused:
 		fire_timer.paused = false
+	_update_attack_body_warning()
 
 	# 处理推挤效果（防止怪物重叠）
 	if not is_dead:
@@ -61,17 +73,18 @@ func _physics_process(delta: float) -> void:
 		speed = get_effective_move_speed(base_speed)
 		if CharacterEffects.is_player_dead_or_game_over():
 			move_vector = CharacterEffects.get_player_death_scatter_direction(self)
-		position += move_vector * speed * delta
+		position += CharacterEffects.apply_soft_separation_to_direction(self, move_vector) * speed * delta
 		# 根据水平移动方向翻转精灵
 		if move_vector.x > 0:
-			sprite.flip_h = true
+			CharacterEffects.set_enemy_flip_h(self, sprite, true)
 		elif move_vector.x < 0:
-			sprite.flip_h = false
+			CharacterEffects.set_enemy_flip_h(self, sprite, false)
 		
-		# 超出边界范围时，朝向玩家方向转向
-		# cave关卡顶部边界下移20像素
-		var top_bound = 70.0 if Global.current_stage_id == "cave" else 50.0
-		var currently_out_of_bounds = (global_position.y > 550 or global_position.y < top_bound or global_position.x > 295 or global_position.x < -300)
+		var bounds_rect: Rect2 = _get_movement_bounds()
+		var clamped_position: Vector2 = global_position.clamp(bounds_rect.position, bounds_rect.position + bounds_rect.size)
+		var currently_out_of_bounds: bool = not clamped_position.is_equal_approx(global_position)
+		if currently_out_of_bounds:
+			global_position = clamped_position
 		if currently_out_of_bounds and not is_out_of_bounds:
 			_pick_direction_to_safe_zone()
 			is_out_of_bounds = true
@@ -96,6 +109,7 @@ func _physics_process(delta: float) -> void:
 			is_dead = true
 			remove_from_group("enemies")
 			# 死亡时去除滤镜和描边
+			_finish_attack_body_warning()
 			$AnimatedSprite2D.modulate = Color(1, 1, 1, 1)
 			$AnimatedSprite2D.material = null
 			var collision_shape = get_node("CollisionShape2D")
@@ -110,7 +124,7 @@ func _physics_process(delta: float) -> void:
 				shadow.visible = false
 			if SettingMoster.ghost("itemdrop") != null:
 				for key in SettingMoster.ghost("itemdrop"):
-					var drop_chance = SettingMoster.ghost("itemdrop")[key] * drop_rate_multiplier
+					var drop_chance = SettingMoster.ghost("itemdrop")[key] * SettingMoster.get_item_drop_rate_multiplier(key, drop_rate_multiplier)
 					if randf() <= drop_chance:
 						Global.emit_signal("drop_out_item", key, 1, global_position)
 
@@ -164,8 +178,19 @@ func _pick_random_direction() -> void:
 	var angle = randf() * TAU
 	move_vector = Vector2(cos(angle), sin(angle))
 
+func _get_movement_bounds() -> Rect2:
+	var min_y: float = BOUNDS_MIN_Y_CAVE if Global.current_stage_id == "cave" else BOUNDS_MIN_Y_DEFAULT
+	return Rect2(Vector2(BOUNDS_MIN_X, min_y), Vector2(BOUNDS_MAX_X - BOUNDS_MIN_X, BOUNDS_MAX_Y - min_y))
+
 # 朝向安全区域中心选择方向（避免再次越界）
 func _pick_direction_to_safe_zone() -> void:
+	var bounds_rect: Rect2 = _get_movement_bounds()
+	var safe_center: Vector2 = bounds_rect.position + bounds_rect.size * 0.5
+	var direction_to_center: Vector2 = safe_center - global_position
+	if direction_to_center.length_squared() > 0.0001:
+		var random_offset: float = deg_to_rad(randf_range(-30, 30))
+		move_vector = direction_to_center.normalized().rotated(random_offset)
+		return
 	var direction_to_player: Vector2
 	if CharacterEffects.is_player_dead_or_game_over():
 		direction_to_player = CharacterEffects.get_player_death_scatter_direction(self)
@@ -173,13 +198,15 @@ func _pick_direction_to_safe_zone() -> void:
 		direction_to_player = (PC.player_instance.global_position - global_position).normalized()
 	else:
 		direction_to_player = Vector2.LEFT
-	var random_offset = deg_to_rad(randf_range(-30, 30))
+	var random_offset: float = deg_to_rad(randf_range(-30, 30))
 	move_vector = direction_to_player.rotated(random_offset)
 
 # 每隔 FIRE_INTERVAL 秒向玩家发射一次子弹
 func _shoot_bullet() -> void:
 	if is_dead:
 		return
+	_finish_attack_body_warning()
+	attack_warning_started = false
 	var shoot_direction: Vector2
 	if CharacterEffects.is_player_dead_or_game_over():
 		shoot_direction = move_vector
@@ -188,6 +215,66 @@ func _shoot_bullet() -> void:
 	else:
 		shoot_direction = move_vector
 	if is_corrupted_elite_monster():
-		fire_corrupted_spread_burst(shoot_direction)
+		fire_corrupted_spread_burst(shoot_direction, 0.5, PROJECTILE_SPEED_MULTIPLIER)
 		return
-	fire_monster_projectile(shoot_direction, global_position)
+	fire_monster_projectile(shoot_direction, global_position, PROJECTILE_SPEED_MULTIPLIER)
+
+func _update_attack_body_warning() -> void:
+	if is_dead or fire_timer == null or fire_timer.paused or fire_timer.is_stopped():
+		return
+	if attack_warning_started:
+		_sync_attack_warning_overlay()
+		return
+	if fire_timer.time_left <= ATTACK_WARNING_TIME:
+		attack_warning_started = true
+		_start_attack_body_warning(maxf(fire_timer.time_left, 0.01))
+
+func _get_attack_warning_overlay() -> AnimatedSprite2D:
+	if attack_warning_overlay != null and is_instance_valid(attack_warning_overlay):
+		return attack_warning_overlay
+	attack_warning_overlay = AnimatedSprite2D.new()
+	attack_warning_overlay.name = "AttackWarningOverlay"
+	attack_warning_overlay.sprite_frames = sprite.sprite_frames
+	attack_warning_overlay.visible = false
+	attack_warning_overlay.modulate = Color(1.0, 0.0, 0.0, 0.0)
+	attack_warning_overlay.z_index = sprite.z_index + 1
+	add_child(attack_warning_overlay)
+	_sync_attack_warning_overlay()
+	return attack_warning_overlay
+
+func _sync_attack_warning_overlay() -> void:
+	if attack_warning_overlay == null or not is_instance_valid(attack_warning_overlay):
+		return
+	attack_warning_overlay.position = sprite.position
+	attack_warning_overlay.scale = sprite.scale
+	attack_warning_overlay.rotation = sprite.rotation
+	attack_warning_overlay.flip_h = sprite.flip_h
+	attack_warning_overlay.flip_v = sprite.flip_v
+	attack_warning_overlay.centered = sprite.centered
+	attack_warning_overlay.offset = sprite.offset
+	attack_warning_overlay.animation = sprite.animation
+	attack_warning_overlay.frame = sprite.frame
+
+func _start_attack_body_warning(duration: float) -> void:
+	var overlay := _get_attack_warning_overlay()
+	_sync_attack_warning_overlay()
+	overlay.visible = true
+	overlay.modulate = Color(1.0, 0.0, 0.0, 0.0)
+	overlay.play(sprite.animation)
+	if attack_warning_tween != null and attack_warning_tween.is_valid():
+		attack_warning_tween.kill()
+	attack_warning_tween = create_tween()
+	attack_warning_tween.tween_property(overlay, "modulate:a", ATTACK_BODY_WARNING_ALPHA, duration)
+
+func _finish_attack_body_warning() -> void:
+	if attack_warning_tween != null and attack_warning_tween.is_valid():
+		attack_warning_tween.kill()
+	if attack_warning_overlay == null or not is_instance_valid(attack_warning_overlay):
+		return
+	_sync_attack_warning_overlay()
+	attack_warning_tween = create_tween()
+	attack_warning_tween.tween_property(attack_warning_overlay, "modulate:a", 0.0, 0.08)
+	attack_warning_tween.tween_callback(func():
+		if attack_warning_overlay != null and is_instance_valid(attack_warning_overlay):
+			attack_warning_overlay.visible = false
+	)

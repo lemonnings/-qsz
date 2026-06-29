@@ -7,7 +7,7 @@ extends "res://Script/monster/monster_base.gd"
 ## 2. 连续冲锋 — 落石组合技中触发，撞石减速度+损失石甲
 ## 3. 落石 — 对脚下(无石块)+玩家位置下砸(生成实体石块+击飞)
 ## 4. 拍击 — 扇形连续攻击
-## 5. 掙地 — 扇形攻击后生成扇形泥潭（减速+受伤）
+## 5. 掀地 — 扇形攻击后生成扇形泥潭（减速+受伤）
 ## 6. 震地 — 以自身为中心步进扩大伤害圈+崩散粒子
 ## 7. 落石预兆 — 深层以上出现，给玩家多层debuff倒计时后逐个生成落石
 ## ========================================================
@@ -53,6 +53,7 @@ var stun_timer: Timer
 const ROLLING_STONE_WARNING_TIME: float = 1.0
 const ROLLING_STONE_SPEED: float = 180.0
 const ROLLING_STONE_WIDTH: float = 32.0
+const ROLLING_STONE_COUNT_MULTIPLIER: float = 1.75
 
 # 滚石活动范围（与冲锋边界一致）
 const ROLLING_LEFT: float = -370.0
@@ -63,10 +64,10 @@ const ROLLING_BOTTOM: float = 740.0
 const CHARGE_COUNT: int = 3
 const CHARGE_SPEED_MULT: float = 14.0
 const CHARGE_SPEED_BOOST: float = 1.5 # 冲锋速度永久加成50%
-const CHARGE_HIT_SPEED_REDUCTION: float = 0.3 # 撞石头每次降低30%速度
+const CHARGE_HIT_SPEED_REDUCTION: float = 0.2 # 撞石头每次降低30%速度
 const CHARGE_MAX_REDUCTION_STACKS: int = 2 # 最多降低2次
 const CHARGE_WARNING_TIME: float = 1.2
-const CHARGE_DISTANCE: float = 500.0
+const CHARGE_DISTANCE: float = 600.0
 
 # 冲锋专用边界（与 Boss 移动边界不同）
 const CHARGE_LEFT: float = -370.0
@@ -90,7 +91,7 @@ const MUD_POOL_DURATION: float = 10.0
 const MUD_POOL_DAMAGE_TICK: float = 0.5
 const MUD_POOL_SLOW_RATE: float = 0.5
 const MUD_POOL_FADE_IN: float = 0.6 # 泥潭渐入时间，期间不造成伤害
-const MUD_POOL_TARGET_ALPHA: float = 0.90
+const MUD_POOL_TARGET_ALPHA: float = 0.99
 
 const QUAKE_INITIAL_RADIUS: float = 50.0 # 震地第1次半径
 const QUAKE_MAX_RADIUS: float = 180.0 # 震地第3次半径
@@ -132,21 +133,21 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
 	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 9
-	match Global.current_stage_difficulty:
+	var dps_multiplier := 25.0
+	match stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 12
+			dps_multiplier *= 1.05
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 15
+			dps_multiplier *= 1.1
 	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
 		hpMax = Global.get_poetry_boss_max_hp("boss_stone", hpMax)
 	else:
 		hpMax += Global.get_current_dps() * dps_multiplier
 	hp = hpMax
 	
-	# 浅层难度下Boss只造成50%伤害
+	# 浅层难度下Boss只造成75%伤害
 	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
-		atk *= 0.5
+		atk *= 0.75
 
 	# 石甲初始化：浅层2/深层4/核心6/诗想9
 	match stage_difficulty:
@@ -193,6 +194,8 @@ func _ready():
 	attack_timer.start()
 
 func _update_target_position():
+	if not is_instance_valid(PC.player_instance):
+		return
 	var player_pos = PC.player_instance.global_position
 	var x_offset = 80
 	if global_position.x < player_pos.x:
@@ -206,9 +209,9 @@ func _physics_process(delta: float) -> void:
 	if PC.player_instance and allow_turning:
 		var player_pos = PC.player_instance.global_position
 		if player_pos.x < global_position.x:
-			sprite.flip_h = true
+			CharacterEffects.set_enemy_flip_h(self, sprite, true)
 		else:
-			sprite.flip_h = false
+			CharacterEffects.set_enemy_flip_h(self, sprite, false)
 
 	if not is_dead and not is_attacking:
 		_move_pattern(delta)
@@ -358,6 +361,7 @@ func _attack_rolling_stones():
 		Global.STAGE_DIFFICULTY_POETRY:
 			stones_per_second = 4.0
 			duration = 16.0
+	stones_per_second *= ROLLING_STONE_COUNT_MULTIPLIER
 
 	var interval = 1.0 / stones_per_second
 
@@ -484,7 +488,7 @@ func _attack_consecutive_charge():
 			charge_dir = Vector2.RIGHT
 
 		# 设置朝向
-		sprite.flip_h = charge_dir.x < 0
+		CharacterEffects.set_enemy_flip_h(self, sprite, charge_dir.x < 0)
 
 		# 显示冲锋预警线 + 读条
 		Global.emit_signal("boss_chant_start", "冲锋" + str(i + 1), CHARGE_WARNING_TIME)

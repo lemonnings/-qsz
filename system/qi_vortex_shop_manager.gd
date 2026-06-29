@@ -8,6 +8,7 @@ const SHOP_CHANGE_SCENE: PackedScene = preload("res://Scenes/global/shop_change.
 const TWO_CHOICE_Y := [201.0, 451.0]
 const THREE_CHOICE_Y := [84.0, 285.0, 486.0]
 const COST_BONUS_PER_PREVIOUS_PURCHASE: int = 100
+const NEXT_BUTTON_COOLDOWN_SECONDS: float = 0.7
 
 var stage: Node = null
 var canvas_layer: CanvasLayer = null
@@ -15,6 +16,7 @@ var level_up_manager: LevelUpManager = null
 
 var shop_ui: Control = null
 var info_label: RichTextLabel = null
+var info_shadow_panel: Panel = null
 var next_button: Button = null
 var exit_button: Button = null
 var reward_buttons: Array[Button] = []
@@ -23,11 +25,22 @@ var shop_round: int = 1
 var _is_open: bool = false
 var _selection_locked: bool = false
 var _pending_shop_advance_name: String = ""
+var _presenting_advance_choice: bool = false
 var _purchase_count_in_run: int = 0
 var _current_shop_cost_bonus: int = 0
+var _next_button_cooldown_until_msec: int = 0
+
+func is_open() -> bool:
+	return _is_open
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+
+func _process(_delta: float) -> void:
+	if not _is_open or not shop_ui or not shop_ui.visible:
+		return
+	if _navigation_buttons_visible():
+		_update_navigation_buttons(false)
 
 func open(p_stage: Node, p_canvas_layer: CanvasLayer) -> void:
 	stage = p_stage
@@ -41,6 +54,8 @@ func open(p_stage: Node, p_canvas_layer: CanvasLayer) -> void:
 	_is_open = true
 	_selection_locked = false
 	_pending_shop_advance_name = ""
+	_presenting_advance_choice = false
+	_next_button_cooldown_until_msec = 0
 	shop_round = 1
 	_current_shop_cost_bonus = _purchase_count_in_run * COST_BONUS_PER_PREVIOUS_PURCHASE
 	Global.is_level_up = true
@@ -48,6 +63,7 @@ func open(p_stage: Node, p_canvas_layer: CanvasLayer) -> void:
 	if canvas_layer and canvas_layer.has_method("set_qi_vortex_shop_manual_level_up_hidden"):
 		canvas_layer.set_qi_vortex_shop_manual_level_up_hidden(true)
 	_hide_reward_buttons()
+	_reset_reward_pool_after_unselected_choices()
 	_update_info_label()
 	_update_navigation_buttons(false)
 	shop_ui.visible = true
@@ -63,6 +79,7 @@ func _ensure_ui() -> void:
 	_set_process_always_recursive(shop_ui)
 	shop_ui.visible = false
 	info_label = shop_ui.get_node("LevelUpChange_Panel#RefreshNum") as RichTextLabel
+	_setup_info_shadow_panel()
 	next_button = shop_ui.get_node("Next") as Button
 	exit_button = shop_ui.get_node("Exit") as Button
 	reward_buttons = [
@@ -96,13 +113,16 @@ func _hide_refresh_and_lock_buttons() -> void:
 			node.visible = false
 
 func _on_next_pressed() -> void:
-	if not _is_open or _selection_locked:
+	if not _is_open or _selection_locked or _presenting_advance_choice or _is_next_button_on_cooldown():
 		return
 	var cost := _get_round_cost(shop_round)
 	if not stage or not stage.has_method("spend_spirit") or stage.call("spend_spirit", cost) != true:
 		_update_info_label()
 		_update_navigation_buttons(true)
 		return
+	_refresh_stage_currency_display()
+	_start_next_button_cooldown()
+	_reset_reward_pool_after_unselected_choices()
 	_selection_locked = true
 	_hide_reward_buttons()
 	var choice_count := 2 if shop_round <= 2 else 3
@@ -110,19 +130,25 @@ func _on_next_pressed() -> void:
 	_purchase_count_in_run += 1
 	AchievementManager.record_qi_vortex_purchase()
 	_update_info_label()
-	await _fade_navigation_buttons(false)
 	_present_reward_choices("", choice_count)
 
 func _on_exit_pressed() -> void:
-	if not _is_open or _selection_locked:
+	if not _is_open or _selection_locked or _presenting_advance_choice:
 		return
+	_reset_reward_pool_after_unselected_choices()
 	_close_shop()
 
 func _present_reward_choices(main_skill_name: String, choice_count: int) -> void:
 	_selection_locked = false
 	_pending_shop_advance_name = ""
+	_presenting_advance_choice = main_skill_name != ""
 	_hide_reward_buttons()
 	_hide_refresh_and_lock_buttons()
+	if _presenting_advance_choice:
+		_update_navigation_buttons(false)
+		_hide_navigation_buttons()
+	else:
+		_update_navigation_buttons(false)
 	var rewards := _roll_rewards(main_skill_name, choice_count)
 	var positions := TWO_CHOICE_Y if choice_count == 2 else THREE_CHOICE_Y
 	for i in range(choice_count):
@@ -141,11 +167,12 @@ func _present_reward_choices(main_skill_name: String, choice_count: int) -> void
 
 func _roll_rewards(main_skill_name: String, choice_count: int) -> Array:
 	var rewards: Array = []
+	var exclude_reward_ids: Array[String] = []
 	var advance_pool_is_empty := false
 	if main_skill_name != "":
 		advance_pool_is_empty = LvUp.is_advance_pool_empty(main_skill_name)
 	for _i in range(choice_count):
-		var reward = LvUp.get_reward_level(randf_range(0.0, 100.0), main_skill_name)
+		var reward = LvUp.get_reward_level(randf_range(0.0, 100.0), main_skill_name, exclude_reward_ids)
 		if reward == null:
 			rewards.append(null)
 			continue
@@ -156,9 +183,32 @@ func _roll_rewards(main_skill_name: String, choice_count: int) -> Array:
 			rewards.append(null)
 			continue
 		rewards.append(reward)
+		if main_skill_name == "":
+			_append_same_weapon_reward_ids_to_exclude(reward, exclude_reward_ids)
 	if main_skill_name != "" and _all_rewards_empty(rewards):
 		rewards[0] = LvUp._get_no_advance_reward()
 	return rewards
+
+func _append_same_weapon_reward_ids_to_exclude(reward, exclude_reward_ids: Array[String]) -> void:
+	var weapon_key := _get_weapon_reward_key(reward)
+	if weapon_key.is_empty():
+		return
+	for candidate in LvUp.all_rewards_list:
+		if _get_weapon_reward_key(candidate) != weapon_key:
+			continue
+		var candidate_id := str(candidate.id)
+		if not exclude_reward_ids.has(candidate_id):
+			exclude_reward_ids.append(candidate_id)
+
+func _get_weapon_reward_key(reward) -> String:
+	if reward == null:
+		return ""
+	if not bool(reward.if_main_skill):
+		return ""
+	var faction := str(reward.faction).strip_edges().to_lower()
+	if faction.is_empty():
+		return ""
+	return faction
 
 func _all_rewards_empty(rewards: Array) -> bool:
 	for reward in rewards:
@@ -176,6 +226,7 @@ func _on_reward_selected(reward) -> void:
 	_apply_reward(reward)
 	_update_after_reward_applied()
 	await _fade_reward_buttons(false)
+	_reset_reward_pool_after_unselected_choices()
 	_pending_shop_advance_name = ""
 	if not selected_main_skill_name.is_empty() and level_up_manager:
 		_pending_shop_advance_name = level_up_manager.pop_pending_advance_name_for(selected_main_skill_name)
@@ -202,8 +253,7 @@ func _update_after_reward_applied() -> void:
 		canvas_layer._refresh_faze_ui()
 	if canvas_layer and canvas_layer.has_method("check_and_update_skill_icons") and PC.player_instance:
 		canvas_layer.check_and_update_skill_icons(PC.player_instance)
-	if stage and canvas_layer and canvas_layer.has_method("update_score_display"):
-		canvas_layer.update_score_display(int(stage.get("point")), int(stage.get("spirit")))
+	_refresh_stage_currency_display()
 	_update_info_label()
 
 func _show_next_pending_advance() -> void:
@@ -213,21 +263,25 @@ func _show_next_pending_advance() -> void:
 		_return_to_shop_idle()
 		return
 	_update_info_label()
-	_update_navigation_buttons(false)
 	_present_reward_choices(main_skill_name, 2)
 
 func _return_to_shop_idle() -> void:
 	_selection_locked = false
 	_pending_shop_advance_name = ""
+	_presenting_advance_choice = false
+	_next_button_cooldown_until_msec = 0
 	_hide_reward_buttons()
+	_reset_reward_pool_after_unselected_choices()
 	_update_info_label()
-	_update_navigation_buttons(not _navigation_buttons_visible())
+	_update_navigation_buttons(false)
 
 func _close_shop() -> void:
 	_is_open = false
 	_selection_locked = false
 	_pending_shop_advance_name = ""
+	_presenting_advance_choice = false
 	_hide_reward_buttons()
+	_reset_reward_pool_after_unselected_choices()
 	closed.emit()
 	_fade_control(shop_ui, 0.0, 0.2)
 	await _wait_unscaled(0.2)
@@ -287,11 +341,17 @@ func _fade_navigation_buttons(fade_in: bool) -> void:
 func _update_navigation_buttons(animate: bool) -> void:
 	if not next_button or not exit_button:
 		return
+	if _presenting_advance_choice:
+		next_button.visible = false
+		next_button.disabled = true
+		exit_button.visible = false
+		exit_button.disabled = true
+		return
 	var can_afford := _get_stage_spirit() >= _get_round_cost(shop_round)
-	next_button.visible = can_afford
-	next_button.disabled = not can_afford
+	next_button.visible = true
+	next_button.disabled = _selection_locked or not can_afford or _is_next_button_on_cooldown()
 	exit_button.visible = true
-	exit_button.disabled = false
+	exit_button.disabled = _selection_locked
 	if animate:
 		var tween := create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 		tween.set_ignore_time_scale(true)
@@ -302,17 +362,92 @@ func _update_navigation_buttons(animate: bool) -> void:
 		if exit_button.visible:
 			exit_button.modulate.a = 0.0
 			tween.tween_property(exit_button, "modulate:a", 1.0, 0.2)
-	else:
-		next_button.modulate.a = 1.0
-		exit_button.modulate.a = 1.0
 
 func _navigation_buttons_visible() -> bool:
 	return exit_button != null and exit_button.visible
 
+func _hide_navigation_buttons() -> void:
+	if next_button:
+		next_button.visible = false
+		next_button.disabled = true
+		next_button.modulate.a = 1.0
+	if exit_button:
+		exit_button.visible = false
+		exit_button.disabled = true
+		exit_button.modulate.a = 1.0
+
+func _is_next_button_on_cooldown() -> bool:
+	return Time.get_ticks_msec() < _next_button_cooldown_until_msec
+
+func _start_next_button_cooldown() -> void:
+	_next_button_cooldown_until_msec = Time.get_ticks_msec() + int(NEXT_BUTTON_COOLDOWN_SECONDS * 1000.0)
+	if next_button:
+		next_button.disabled = true
+	_refresh_next_button_after_cooldown(_next_button_cooldown_until_msec)
+
+func _refresh_next_button_after_cooldown(cooldown_until_msec: int) -> void:
+	await _wait_unscaled(NEXT_BUTTON_COOLDOWN_SECONDS)
+	if _next_button_cooldown_until_msec != cooldown_until_msec:
+		return
+	if _is_open and not _presenting_advance_choice:
+		_update_navigation_buttons(false)
+
+func _reset_reward_pool_after_unselected_choices() -> void:
+	if LvUp.has_method("reset_reward_pool"):
+		LvUp.reset_reward_pool()
+
+func _setup_info_shadow_panel() -> void:
+	if not shop_ui or not info_label:
+		return
+	if info_shadow_panel and is_instance_valid(info_shadow_panel):
+		return
+	info_shadow_panel = Panel.new()
+	info_shadow_panel.name = "SpiritInfoShadowPanel"
+	info_shadow_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info_shadow_panel.process_mode = Node.PROCESS_MODE_ALWAYS
+	info_shadow_panel.z_index = info_label.z_index - 1
+	info_shadow_panel.z_as_relative = info_label.z_as_relative
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.02, 0.025, 0.03, 0.28)
+	style.border_color = Color(0.0, 0.0, 0.0, 0.28)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.corner_radius_top_left = 6
+	style.corner_radius_top_right = 6
+	style.corner_radius_bottom_right = 6
+	style.corner_radius_bottom_left = 6
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.0)
+	style.shadow_size = 0
+	style.shadow_offset = Vector2.ZERO
+	info_shadow_panel.add_theme_stylebox_override("panel", style)
+	shop_ui.add_child(info_shadow_panel)
+	_update_info_shadow_panel_layout()
+
+func _update_info_shadow_panel_layout() -> void:
+	if not info_shadow_panel or not info_label:
+		return
+	const PADDING_X := 10.0
+	const PADDING_Y := 8.0
+	info_shadow_panel.anchor_left = info_label.anchor_left
+	info_shadow_panel.anchor_top = info_label.anchor_top
+	info_shadow_panel.anchor_right = info_label.anchor_right
+	info_shadow_panel.anchor_bottom = info_label.anchor_bottom
+	info_shadow_panel.offset_left = info_label.offset_left - PADDING_X
+	info_shadow_panel.offset_top = info_label.offset_top - PADDING_Y
+	info_shadow_panel.offset_right = info_label.offset_right + PADDING_X
+	info_shadow_panel.offset_bottom = info_label.offset_bottom + PADDING_Y
+
 func _update_info_label() -> void:
 	if not info_label:
 		return
+	_update_info_shadow_panel_layout()
 	info_label.text = "下轮\n所需\n精魄\n\n%d\n\n当前\n精魄\n\n%d" % [_get_round_cost(shop_round), _get_stage_spirit()]
+
+func _refresh_stage_currency_display() -> void:
+	if stage and canvas_layer and canvas_layer.has_method("update_score_display"):
+		canvas_layer.update_score_display(int(stage.get("point")), int(stage.get("spirit")))
 
 func _get_stage_spirit() -> int:
 	if not stage:

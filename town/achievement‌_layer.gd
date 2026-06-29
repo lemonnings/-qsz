@@ -26,6 +26,8 @@ var _grid_container: GridContainer
 var _grid_nodes: Dictionary = {}
 var _ui_font: Font
 var _tooltip_request_id: int = 0
+var _mobile_scroll_touch_index: int = -1
+var _mobile_scroll_mouse_dragging: bool = false
 
 func _ready() -> void:
 	add_to_group("achievement_layer")
@@ -39,6 +41,33 @@ func _ready() -> void:
 	_build_achievement_grid()
 	refresh()
 
+func _input(event: InputEvent) -> void:
+	if not visible or not Global.is_mobile_input_mode() or _scroll_container == null:
+		return
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			if _mobile_scroll_touch_index == -1 and _is_mobile_scroll_point_inside(touch.position):
+				_mobile_scroll_touch_index = touch.index
+		elif touch.index == _mobile_scroll_touch_index:
+			_mobile_scroll_touch_index = -1
+	elif event is InputEventScreenDrag:
+		var drag := event as InputEventScreenDrag
+		if drag.index == _mobile_scroll_touch_index:
+			_apply_mobile_scroll_delta(drag.relative.y)
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton:
+		var mouse_button := event as InputEventMouseButton
+		if mouse_button.button_index == MOUSE_BUTTON_LEFT:
+			if mouse_button.pressed:
+				_mobile_scroll_mouse_dragging = _is_mobile_scroll_point_inside(mouse_button.position)
+			else:
+				_mobile_scroll_mouse_dragging = false
+	elif event is InputEventMouseMotion and _mobile_scroll_mouse_dragging:
+		var motion := event as InputEventMouseMotion
+		_apply_mobile_scroll_delta(motion.relative.y)
+		get_viewport().set_input_as_handled()
+
 func open_layer() -> void:
 	visible = true
 	refresh()
@@ -46,6 +75,8 @@ func open_layer() -> void:
 func close_layer(emit_request: bool = true) -> void:
 	visible = false
 	_hide_tooltip()
+	_mobile_scroll_touch_index = -1
+	_mobile_scroll_mouse_dragging = false
 	if emit_request:
 		exit_requested.emit()
 
@@ -110,6 +141,16 @@ func _configure_list_size(view_size: Vector2) -> void:
 
 func _get_grid_width() -> float:
 	return GRID_COLUMNS * GRID_SIZE.x + (GRID_COLUMNS - 1) * GRID_H_SEPARATION
+
+func _is_mobile_scroll_point_inside(point: Vector2) -> bool:
+	if _scroll_container == null:
+		return false
+	return _scroll_container.get_global_rect().has_point(point)
+
+func _apply_mobile_scroll_delta(relative_y: float) -> void:
+	if _scroll_container == null:
+		return
+	_scroll_container.scroll_vertical = maxi(0, _scroll_container.scroll_vertical + roundi(-relative_y))
 
 func _setup_tooltip() -> void:
 	var panel_parent := get_node_or_null("Panel")
@@ -290,14 +331,14 @@ func _setup_detail_style() -> void:
 		detail.add_theme_font_override("italics_font", _ui_font)
 		detail.add_theme_font_override("bold_italics_font", _ui_font)
 		detail.add_theme_font_override("mono_font", _ui_font)
-	detail.add_theme_font_size_override("normal_font_size", 35)
-	detail.add_theme_font_size_override("bold_font_size", 35)
-	detail.add_theme_font_size_override("italics_font_size", 35)
-	detail.add_theme_font_size_override("bold_italics_font_size", 35)
-	detail.add_theme_font_size_override("mono_font_size", 35)
+	detail.add_theme_font_size_override("normal_font_size", 34)
+	detail.add_theme_font_size_override("bold_font_size", 34)
+	detail.add_theme_font_size_override("italics_font_size", 34)
+	detail.add_theme_font_size_override("bold_italics_font_size", 34)
+	detail.add_theme_font_size_override("mono_font_size", 34)
 	detail.add_theme_color_override("default_color", Color.WHITE)
 	detail.add_theme_color_override("font_outline_color", Color.BLACK)
-	detail.add_theme_constant_override("outline_size", 4)
+	detail.add_theme_constant_override("outline_size", 6)
 
 func _reset_tooltip_layout() -> void:
 	if _tooltip_panel == null or _tooltip_vbox == null:

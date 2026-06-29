@@ -340,6 +340,8 @@ func _unhandled_input(event: InputEvent):
 		return
 	if _is_story_skip_mouse_event(event):
 		return
+	if DialogDirector.is_story_input_blocked():
+		return
 
 	if _is_typing:
 		_skip_typewriter()

@@ -18,6 +18,7 @@ const DIALOGUE_SCENE_PATH: String = "res://Scenes/global/dialogue.tscn"
 const MAX_VISIBLE: int = 2
 const BASE_DURATION: float = 1.0
 const DURATION_PER_CHAR: float = 0.15
+const EXTRA_HOLD_DURATION: float = 0.3
 const FADE_OUT_DURATION: float = 0.5
 
 # 头像纹理缓存
@@ -66,11 +67,12 @@ func _process(delta: float) -> void:
 	# 暂停期间不计时
 	if get_tree().paused:
 		return
+	var real_delta := _get_real_delta(delta)
 
 	# 更新所有活跃对话的剩余时间
 	var to_remove: Array[int] = []
 	for i in range(_active_dialogues.size()):
-		_active_dialogues[i].timer_remaining -= delta
+		_active_dialogues[i].timer_remaining -= real_delta
 		if _active_dialogues[i].timer_remaining <= 0.0 and not _active_dialogues[i].get("fading", false):
 			to_remove.append(i)
 
@@ -80,7 +82,7 @@ func _process(delta: float) -> void:
 
 	# 处理队列中带延迟的消息
 	if _pending_queue.size() > 0 and _pending_queue[0].has("_wait_remaining"):
-		_pending_queue[0]._wait_remaining -= delta
+		_pending_queue[0]._wait_remaining -= real_delta
 		if _pending_queue[0]._wait_remaining <= 0.0:
 			_pending_queue[0].erase("_wait_remaining")
 
@@ -172,11 +174,12 @@ func _show_dialogue(msg: Dictionary) -> void:
 
 	# 计算持续时间
 	var text_length = msg.text.length()
-	var duration = BASE_DURATION + text_length * DURATION_PER_CHAR
+	var duration = BASE_DURATION + text_length * DURATION_PER_CHAR + EXTRA_HOLD_DURATION
 
 	# 淡入效果
 	dialogue_node.modulate.a = 0.0
 	var fade_in_tween = dialogue_node.create_tween()
+	fade_in_tween.set_ignore_time_scale(true)
 	fade_in_tween.tween_property(dialogue_node, "modulate:a", 1.0, 0.3)
 
 	_active_dialogues.append({
@@ -202,6 +205,7 @@ func _fade_out_dialogue(index: int) -> void:
 		return
 
 	var tween = node.create_tween()
+	tween.set_ignore_time_scale(true)
 	tween.tween_property(node, "modulate:a", 0.0, FADE_OUT_DURATION)
 	tween.tween_callback(func():
 		if is_instance_valid(node):
@@ -227,6 +231,7 @@ func _force_remove_oldest() -> void:
 	if is_instance_valid(node):
 		# 快速淡出并销毁
 		var tween = node.create_tween()
+		tween.set_ignore_time_scale(true)
 		tween.tween_property(node, "modulate:a", 0.0, 0.2)
 		tween.tween_callback(func():
 			if is_instance_valid(node):
@@ -249,6 +254,8 @@ func _get_portrait(speaker: String) -> Texture2D:
 			texture_path = "res://AssetBundle/Sprites/town/noam.png"
 		"坎塞尔", "kansel":
 			texture_path = "res://AssetBundle/Sprites/town/kansel.png"
+		"雪铭", "xueming":
+			texture_path = "res://AssetBundle/Sprites/town/xueming.png"
 		"":
 			return null # 系统消息无头像
 		_:
@@ -268,3 +275,7 @@ func clear_all() -> void:
 			entry.node.queue_free()
 	_active_dialogues.clear()
 	_pending_queue.clear()
+
+
+func _get_real_delta(delta: float) -> float:
+	return delta / max(Engine.time_scale, 0.001)

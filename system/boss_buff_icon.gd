@@ -275,6 +275,8 @@ func update_debuff(new_remaining_time: float, new_stacks: int):
 	_update_display()
 
 func _process(delta: float):
+	if Global.is_battle_time_paused():
+		return
 	# debuff的倒计时由boss_hp_bar通过update_debuff()外部更新，不需要自行倒计时
 	# 仅boss正面buff自行倒计时
 	if not is_debuff and not is_permanent and remaining_time > 0:

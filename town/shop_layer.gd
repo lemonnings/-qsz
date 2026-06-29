@@ -6,6 +6,7 @@ const SETTING_MONSTER_SCRIPT = preload("res://Script/config/setting_moster.gd")
 const SHOP_LEVEL_CAP := 8
 const SHOP_HEADER_FONT_SIZE := 39
 const TOOLTIP_FONT_SIZE := 24
+const SHOP_UPGRADE_INFO_WIDTH := 460.0
 const RARITY_ORDER := ["white", "blue", "purple", "gold", "red"]
 const RARITY_NAMES := {
 	"white": "普通",
@@ -555,6 +556,7 @@ var _common_material_pool: Array[String] = []
 var _shop_level_label: RichTextLabel
 var _offer_tooltip_panel: Panel
 var _upgrade_info_panel: Panel
+var _shop_level_up_hitbox: Control
 var _exit_button: Button
 var _tooltip_font: Font = null
 var _setting_monster = SETTING_MONSTER_SCRIPT.new()
@@ -802,7 +804,10 @@ func _get_info_panel_nodes(panel: Panel) -> Dictionary:
 func _reset_info_panel_layout(panel: Panel, desc_min_width: float) -> Dictionary:
 	var nodes := _get_info_panel_nodes(panel)
 	var vbox := nodes["vbox"] as VBoxContainer
+	var type_label := nodes["type_label"] as Label
 	var desc_label := nodes["desc_label"] as Label
+	var price_label := nodes["price_label"] as Label
+	var hint_label := nodes["hint_label"] as Label
 	# 第一次悬浮时，如果提示框还没真正参与过布局计算，自动换行标签的高度有时会被算错。
 	# 这里先把面板放到屏幕外，并给说明文字一个明确宽度，再去计算最终尺寸，就能避免首帧高度异常。
 	panel.size = Vector2.ZERO
@@ -810,8 +815,10 @@ func _reset_info_panel_layout(panel: Panel, desc_min_width: float) -> Dictionary
 	panel.global_position = Vector2(-10000, -10000)
 	panel.visible = true
 	vbox.size = Vector2.ZERO
-	desc_label.size = Vector2(desc_min_width, 0)
-	desc_label.custom_minimum_size = Vector2(desc_min_width, 0)
+	for label in [type_label, desc_label, price_label, hint_label]:
+		if label != null:
+			label.size = Vector2(desc_min_width, 0)
+			label.custom_minimum_size = Vector2(desc_min_width, 0)
 	return nodes
 
 func _finalize_info_panel_layout(panel: Panel) -> void:
@@ -823,6 +830,35 @@ func _finalize_info_panel_layout(panel: Panel) -> void:
 	var panel_size := content_size + Vector2(20, 16)
 	panel.custom_minimum_size = panel_size
 	panel.size = panel_size
+
+
+func _ensure_shop_level_up_hitbox() -> void:
+	if shop_level_up_button == null:
+		return
+	if _shop_level_up_hitbox != null and is_instance_valid(_shop_level_up_hitbox):
+		return
+	var parent_control := shop_level_up_button.get_parent() as Control
+	if parent_control == null:
+		return
+	_shop_level_up_hitbox = Control.new()
+	_shop_level_up_hitbox.name = "ShopLevelUpHitbox"
+	_shop_level_up_hitbox.mouse_filter = Control.MOUSE_FILTER_STOP
+	_shop_level_up_hitbox.mouse_default_cursor_shape = Control.CURSOR_ARROW
+	_shop_level_up_hitbox.position = shop_level_up_button.position
+	_shop_level_up_hitbox.size = shop_level_up_button.size
+	_shop_level_up_hitbox.z_index = shop_level_up_button.z_index + 1
+	parent_control.add_child(_shop_level_up_hitbox)
+	_shop_level_up_hitbox.gui_input.connect(_on_shop_level_up_hitbox_gui_input)
+	_shop_level_up_hitbox.mouse_entered.connect(_on_shop_level_up_mouse_entered)
+	_shop_level_up_hitbox.mouse_exited.connect(_on_shop_level_up_mouse_exited)
+
+
+func _sync_shop_level_up_hitbox() -> void:
+	if shop_level_up_button == null or _shop_level_up_hitbox == null or not is_instance_valid(_shop_level_up_hitbox):
+		return
+	_shop_level_up_hitbox.position = shop_level_up_button.position
+	_shop_level_up_hitbox.size = shop_level_up_button.size
+	_shop_level_up_hitbox.visible = shop_level_up_button.visible
 
 func _connect_interactions() -> void:
 	for i in range(_item_panels.size()):
@@ -844,6 +880,7 @@ func _connect_interactions() -> void:
 		shop_level_up_button.pressed.connect(_on_shop_level_up_pressed)
 		shop_level_up_button.mouse_entered.connect(_on_shop_level_up_mouse_entered)
 		shop_level_up_button.mouse_exited.connect(_on_shop_level_up_mouse_exited)
+		_ensure_shop_level_up_hitbox()
 	if recycle_button != null:
 		recycle_button.focus_mode = Control.FOCUS_NONE
 		recycle_button.mouse_default_cursor_shape = Control.CURSOR_ARROW
@@ -1137,6 +1174,7 @@ func _update_shop_header() -> void:
 	if Global.shop_level >= SHOP_LEVEL_CAP:
 		shop_level_up_button.text = "货摊已满级"
 		shop_level_up_button.disabled = true
+		_sync_shop_level_up_hitbox()
 		return
 	shop_level_up_button.disabled = false
 	var costs: Array = SHOP_UPGRADE_COSTS.get(Global.shop_level, [])
@@ -1144,6 +1182,7 @@ func _update_shop_header() -> void:
 		shop_level_up_button.text = "后续等级未开放"
 	else:
 		shop_level_up_button.text = "货摊升级"
+	_sync_shop_level_up_hitbox()
 
 func _update_now_ls_label() -> void:
 	if _now_ls_label == null:
@@ -1196,14 +1235,19 @@ func _build_upgrade_info_text() -> String:
 	var costs: Array = SHOP_UPGRADE_COSTS.get(Global.shop_level, [])
 	if costs.is_empty():
 		return "当前仅开放到 Lv.5。\n\n提升后概率：\n" + _format_probability_text(next_level)
-	return "提升后概率：\n" + _format_probability_text(next_level)
+	return "所需材料：\n" + _format_costs(costs) + "\n\n提升后概率：\n" + _format_probability_text(next_level)
 
 func _format_costs(costs: Array) -> String:
 	var parts: Array[String] = []
 	for cost in costs:
 		var item_id := str(cost.get("item_id", ""))
 		var item_name := str(ItemManager.get_item_property(item_id, "item_name"))
-		parts.append(item_name + " " + str(cost.get("count", 0)) + "个")
+		var needed_count := int(cost.get("count", 0))
+		var owned_count := Global.get_item_count(item_id)
+		if Global.is_mobile_input_mode():
+			parts.append("%s %d 个（持有 %d 个）" % [item_name, needed_count, owned_count])
+		else:
+			parts.append("%s %d 个（背包：%d 个）" % [item_name, needed_count, owned_count])
 	return "、".join(parts)
 
 func _format_offer_price(offer: Dictionary) -> String:
@@ -1324,10 +1368,12 @@ func _show_offer_tooltip(index: int, request_id: int) -> void:
 	var hovered_panel := _item_panels[index]
 	if hovered_panel == null:
 		return
-	var tooltip_pos := hovered_panel.global_position + Vector2(hovered_panel.size.x + 10, 0)
+	var tooltip_pos := hovered_panel.global_position - Vector2(_offer_tooltip_panel.size.x + 18, 0)
 	var viewport_size := get_viewport().get_visible_rect().size
+	if tooltip_pos.x < 0:
+		tooltip_pos.x = hovered_panel.global_position.x + hovered_panel.size.x + 18
 	if tooltip_pos.x + _offer_tooltip_panel.size.x > viewport_size.x:
-		tooltip_pos.x = hovered_panel.global_position.x - _offer_tooltip_panel.size.x - 10
+		tooltip_pos.x = maxf(0.0, viewport_size.x - _offer_tooltip_panel.size.x - 10)
 	if tooltip_pos.y + _offer_tooltip_panel.size.y > viewport_size.y:
 		tooltip_pos.y = viewport_size.y - _offer_tooltip_panel.size.y - 10
 	_offer_tooltip_panel.global_position = tooltip_pos
@@ -1339,7 +1385,7 @@ func _hide_offer_tooltip() -> void:
 		_offer_tooltip_panel.visible = false
 
 func _show_upgrade_info() -> void:
-	var nodes := _reset_info_panel_layout(_upgrade_info_panel, 260.0)
+	var nodes := _reset_info_panel_layout(_upgrade_info_panel, SHOP_UPGRADE_INFO_WIDTH)
 	var icon := nodes["icon"] as TextureRect
 	var name_label := nodes["name_label"] as Label
 	var type_label := nodes["type_label"] as Label
@@ -1515,6 +1561,19 @@ func _on_shop_level_up_mouse_entered() -> void:
 
 func _on_shop_level_up_mouse_exited() -> void:
 	_hide_upgrade_info()
+
+
+func _on_shop_level_up_hitbox_gui_input(event: InputEvent) -> void:
+	if shop_level_up_button == null or shop_level_up_button.disabled:
+		return
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		if mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed:
+			_on_shop_level_up_pressed()
+	elif event is InputEventScreenTouch:
+		var touch_event := event as InputEventScreenTouch
+		if touch_event.pressed:
+			_on_shop_level_up_pressed()
 
 func _on_shop_level_up_pressed() -> void:
 	_hide_upgrade_info()

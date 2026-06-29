@@ -33,11 +33,17 @@ const DAMAGE_COLORS = {
 	DamageType.PLAYER_HURT: Color.RED # 红色
 }
 
-var base_font_size: int = 10
+var base_font_size: int = 9
 var base_outline_size: int = 2
-var _current_tween: Tween = null
 var _canvas_layer: CanvasLayer = null
 static var _shared_canvas_layer: CanvasLayer = null
+var _animation_active: bool = false
+var _animation_elapsed: float = 0.0
+var _animation_start_pos: Vector2 = Vector2.ZERO
+var _animation_end_pos: Vector2 = Vector2.ZERO
+var _fade_in_duration: float = 0.15
+var _hold_duration: float = 0.25
+var _fade_out_duration: float = 0.3
 
 # 伤害层级
 # 层级计算：数值 >= 1000 时，每多一个0层级+1
@@ -50,6 +56,7 @@ func _ready():
 		return
 	# 初始时可以隐藏Label
 	damage_label.visible = false
+	set_process(false)
 
 	# 伤害数字共用一个 CanvasLayer，避免高命中频率时创建大量独立 CanvasLayer。
 	_canvas_layer = _get_shared_canvas_layer()
@@ -63,8 +70,10 @@ func _ready():
 func show_damage_number(damage_type_int: int, damage_value: float, display_position: Vector2 = global_position, source_name: String = ""):
 	if not damage_label:
 		printerr("DamageDisplay: Label node not assigned, cannot show damage.")
+		ObjectPool.recycle(self )
 		return
 	if damage_value <= 0:
+		ObjectPool.recycle(self )
 		return
 	var damage_type = DamageType.PLAYER_BULLET
 	if damage_type_int == 2:
@@ -149,44 +158,52 @@ func show_damage_number(damage_type_int: int, damage_value: float, display_posit
 	damage_label.modulate.a = 0.0
 	damage_label.visible = true
 
-	# 创建动画
-	if _current_tween and _current_tween.is_valid():
-		_current_tween.kill()
-	var tween = create_tween()
-	tween.set_parallel(false) # 确保动画按顺序播放
-	tween.set_trans(Tween.TRANS_QUINT) # 使用缓动函数使动画更平滑
-	tween.set_ease(Tween.EASE_OUT) # 缓动类型
+	_animation_active = true
+	_animation_elapsed = 0.0
+	_animation_start_pos = screen_pos
+	_animation_end_pos = screen_pos + Vector2(0.0, -20.0 * cam_zoom)
+	set_process(true)
 
-	# 1. 初始显示 (渐入)
-	tween.tween_property(damage_label, "modulate:a", 1.0, 0.15)
+func _process(delta: float) -> void:
+	if not _animation_active:
+		return
+	if not damage_label or not is_instance_valid(damage_label):
+		_on_display_finished()
+		return
+	_animation_elapsed += delta
+	var fade_in_end := _fade_in_duration
+	var hold_end := fade_in_end + _hold_duration
+	var total_duration := hold_end + _fade_out_duration
+	if _animation_elapsed < fade_in_end:
+		damage_label.modulate.a = _ease_out_quint(_animation_elapsed / _fade_in_duration)
+		return
+	if _animation_elapsed < hold_end:
+		damage_label.modulate.a = 1.0
+		damage_label.position = _animation_start_pos
+		return
+	if _animation_elapsed < total_duration:
+		var t := (_animation_elapsed - hold_end) / _fade_out_duration
+		var eased_t := _ease_out_quint(t)
+		damage_label.position = _animation_start_pos.lerp(_animation_end_pos, eased_t)
+		damage_label.modulate.a = 1.0 - eased_t
+		return
+	_on_display_finished()
 
-	# 2. 保持显示1s，暴击额外0.6s
-	# 注意：tween_interval 会等待前面的动画完成后再执行
-	if damage_type == DamageType.PLAYER_BULLET_CRIT:
-		tween.tween_interval(0.25)
-	else:
-		tween.tween_interval(0.25)
-
-	# 3. 向上飘动并渐隐
-	# 获取当前damage_label的相对位置
-	var current_label_pos = damage_label.position
-	
-	tween.tween_property(damage_label, "position:y", current_label_pos.y - 20.0 * cam_zoom, 0.3)
-	tween.parallel().tween_property(damage_label, "modulate:a", 0.0, 0.3)
-
-	# 动画完成后回收到对象池（或 queue_free）
-	tween.finished.connect(_on_display_finished)
-	_current_tween = tween
+func _ease_out_quint(t: float) -> float:
+	var clamped_t := clampf(t, 0.0, 1.0)
+	return 1.0 - pow(1.0 - clamped_t, 5.0)
 
 ## 动画播放完毕，回收或销毁
 func _on_display_finished() -> void:
+	_animation_active = false
+	set_process(false)
 	ObjectPool.recycle(self )
 
 ## 对象池重置：清除状态供复用
 func reset_for_pool() -> void:
-	if _current_tween and _current_tween.is_valid():
-		_current_tween.kill()
-	_current_tween = null
+	_animation_active = false
+	_animation_elapsed = 0.0
+	set_process(false)
 	if damage_label:
 		damage_label.visible = false
 		damage_label.modulate.a = 0.0

@@ -15,7 +15,7 @@ const WEAPON_FACTIONS: Array[String] = [
 	"Branch", "Moyan", "Riyan", "Ringfire", "Thunderbreak", "Swordqi",
 	"Thunder", "Bloodwave", "Bloodboardsword", "Lightbullet", "Water",
 	"Qiankun", "Xuanwu", "Xunfeng", "Genshan", "Duize", "Qigong",
-	"Holylight", "Ice", "Dragonwind"
+	"Holylight", "Ice", "Dragonwind", "Zhuazhuajuchui"
 ]
 
 # C类派系（权重C：其他升级），on_faction_selected 对这些派系生效
@@ -23,12 +23,12 @@ const C_FACTIONS: Array[String] = ["Normal", "Live", "Debuff", "Summon", "Lucky"
 
 # C类各派系的基础权重（直接用于 get_level_up_weights 归一化）
 const C_BASE_WEIGHTS: Dictionary = {
-	"Normal": 65.0,
+	"Normal": 70.0,
 	"Live": 30.0,
 	"Debuff": 15.0,
 	"Summon": 20.0,
 	"Lucky": 20.0,
-	"Six": 30.0
+	"Six": 12.0
 }
 
 # 需要修习树解锁的武器派系 → 对应的 Global 解锁变量名
@@ -53,13 +53,9 @@ func _init():
 	print("PlayerRewardWeights initialized.")
 	reset_all_weights()
 
-# 检查某武器派系是否已通过修习树解锁（不在映射表中的武器默认已解锁）
-func is_faction_study_unlocked(faction: String) -> bool:
-	if HERO_UNLOCK_MAP.has(faction):
-		return Global.get(HERO_UNLOCK_MAP[faction]) == true
-	if not STUDY_UNLOCK_MAP.has(faction):
-		return true
-	return Global.get(STUDY_UNLOCK_MAP[faction]) == true
+# 检查某武器派系是否可用。当前版本所有武器默认解锁，不再由修习树或角色解锁门槛控制。
+func is_faction_study_unlocked(_faction: String) -> bool:
+	return true
 
 # 返回当前修习树已解锁的武器派系列表（未解锁的武器不参与权重计算）
 func get_available_weapon_factions() -> Array[String]:
@@ -171,15 +167,15 @@ func get_level_up_weights(rarity: String) -> Dictionary:
 		new_weapon_total = 0.0
 		# 根据武器数量动态调整武器升级权重
 		if weapon_count <= 1:
-			weapon_upgrade_total = 5.0
+			weapon_upgrade_total = 4.5
 		elif weapon_count == 2:
-			weapon_upgrade_total = 11.0
+			weapon_upgrade_total = 9.5
 		elif weapon_count == 3:
-			weapon_upgrade_total = 17.5
+			weapon_upgrade_total = 15
 		elif weapon_count == 4:
-			weapon_upgrade_total = 23.5
+			weapon_upgrade_total = 20
 		else:
-			weapon_upgrade_total = 31
+			weapon_upgrade_total = 26
 		# 铸匠之魂：武器升级概率提升（加算）
 		if PC.lingwu_weapon_upgrade_bonus > 0:
 			var bonus = weapon_upgrade_total * PC.lingwu_weapon_upgrade_bonus

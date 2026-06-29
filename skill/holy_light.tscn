@@ -19,7 +19,7 @@ animations = [{
 }]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_n4dqg"]
-radius = 16.0
+radius = 30.0
 
 [node name="HolyLight" type="Area2D" node_paths=PackedStringArray("sprite", "collision")]
 script = ExtResource("1_hv5yv")

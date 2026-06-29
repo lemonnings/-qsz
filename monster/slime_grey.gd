@@ -70,7 +70,7 @@ func _physics_process(delta: float) -> void:
 				shadow.visible = false
 			if SettingMoster.slime_grey("itemdrop") != null:
 				for key in SettingMoster.slime_grey("itemdrop"):
-					var drop_chance = SettingMoster.slime_grey("itemdrop")[key] * drop_rate_multiplier
+					var drop_chance = SettingMoster.slime_grey("itemdrop")[key] * SettingMoster.get_item_drop_rate_multiplier(key, drop_rate_multiplier)
 					if randf() <= drop_chance:
 						Global.emit_signal("drop_out_item", key, 1, global_position)
 				# for item in SettingMoster.slime_grey("itemdrop"):
@@ -86,6 +86,8 @@ func _physics_process(delta: float) -> void:
 		show_health_bar()
 	
 	if should_skip_actions_for_debuff():
+		return
+	if is_corrupted_elite_charge_motion_locked():
 		return
 	
 	# 处理推挤效果（防止怪物重叠，离屏时跳过）
@@ -107,13 +109,13 @@ func _physics_process(delta: float) -> void:
 			try_start_charge_skill()
 			if not is_charge_warning and not is_charging:
 				if move_direction == 0:
-					position += Vector2(speed, 0) * delta
+					position += CharacterEffects.apply_soft_separation_to_direction(self, Vector2.RIGHT) * speed * delta
 					if not _is_offscreen:
-						sprite.flip_h = true
+						CharacterEffects.set_enemy_flip_h(self, sprite, true)
 				if move_direction == 1:
-					position -= Vector2(speed, 0) * delta
+					position += CharacterEffects.apply_soft_separation_to_direction(self, Vector2.LEFT) * speed * delta
 					if not _is_offscreen:
-						sprite.flip_h = false
+						CharacterEffects.set_enemy_flip_h(self, sprite, false)
 				if move_direction >= 2:
 					# 靠近角色的移动方式
 					if PC.player_instance != null:
@@ -122,7 +124,7 @@ func _physics_process(delta: float) -> void:
 							speed = get_effective_move_speed(base_speed)
 							position += direction_to_player * speed * delta
 							if not _is_offscreen:
-								sprite.flip_h = direction_to_player.x > 0
+								CharacterEffects.face_player_x(self, sprite)
 	
 	
 	if move_direction == 0 and position.x <= -534:
@@ -190,7 +192,7 @@ func try_start_charge_skill():
 	is_charge_warning = true
 	is_charging = false
 	last_charge_start_time = current_time
-	sprite.flip_h = charge_direction.x > 0
+	CharacterEffects.set_enemy_flip_h(self, sprite, charge_direction.x > 0)
 	clear_charge_warning()
 	charge_warning_node = WarnRectUtil.new()
 	get_tree().current_scene.add_child(charge_warning_node)
@@ -218,7 +220,7 @@ func update_charge_movement(delta: float):
 	if step_distance > remain_distance:
 		step_distance = remain_distance
 	position += charge_direction * step_distance
-	sprite.flip_h = charge_direction.x > 0
+	CharacterEffects.set_enemy_flip_h(self, sprite, charge_direction.x > 0)
 	if step_distance == remain_distance:
 		is_charging = false
 

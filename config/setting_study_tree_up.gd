@@ -15,28 +15,28 @@ class_name SettingStudyTreeUp
 # "wind"       = 啸风系      "thunder"  = 鸣雷系(子类)
 # "wide"       = 广域系      "bagua"    = 八卦系(子类)
 # "life"       = 生灵系      "heal"     = 治愈系(子类)
-# "destroy"    = 破坏系      "treasure" = 宝器系(子类)
+# "destroy"    = 破坏系      "treasure" = 宝器系(子类)      "deep" = 沉渊系
 
 const WEAPON_CATEGORY_MAP: Dictionary = {
 	# 四个角色基础武器（受主武器强化影响）
 	"swordqi": ["main", "sword"],
 	"light_bullet": ["main", "projectile"],
 	"ice": ["main", "destroy"],
-	"qigong": ["main"],
+	"qigong": ["main", "wide"],
 	# 刀剑系
-	"qiankun": ["sword"],
+	"qiankun": ["sword", "bagua"],
 	# 刀剑系 > 炽炎系
 	"moyan": ["sword", "fire"],
-	"riyan": ["sword", "fire"],
-	"ringfire": ["sword", "fire"],
+	"riyan": ["sword", "fire", "wide"],
+	"ringfire": ["sword", "fire", "bagua"],
 	"baoyan": ["sword", "fire"],
 	# 弹道系 > 护佑系
-	"genshan": ["projectile", "protect"],
+	"genshan": ["projectile", "protect", "bagua"],
 	# 啸风系
-	"xunfeng": ["wind"],
+	"xunfeng": ["wind", "bagua"],
 	"dragonwind": ["wind"],
 	# 啸风系 > 鸣雷系
-	"thunder": ["wind", "thunder"],
+	"thunder": ["wind", "thunder", "bagua"],
 	"thunder_break": ["wind", "thunder"],
 	# 广域系
 	"bloodwave": ["wide"],
@@ -44,17 +44,23 @@ const WEAPON_CATEGORY_MAP: Dictionary = {
 	# 广域系 > 八卦系
 	"duize": ["wide", "bagua"],
 	# 生灵系
-	"water": ["life"],
+	"water": ["life", "bagua"],
 	# 生灵系 > 治愈系
 	"holylight": ["life", "heal"],
 	# 破坏系 > 宝器系
 	"branch": ["destroy", "treasure"],
 	"xuanwu": ["destroy", "treasure"],
+	# 沉渊系
+	"zhuazhuajuchui": ["deep"],
+	"handizhang": ["deep"],
+	"shihunlian": ["deep"],
+	"faze_deep": ["deep"],
 	# ---- 别名映射：take_damage(damage_type) 与 WEAPON_CATEGORY_MAP key 不一致的武器 ----
 	"ice_flower": ["main", "destroy"], # ice_flower.gd 使用 "ice_flower"，等同 "ice"
 	"blood_wave": ["wide"], # blood_wave.gd 使用 "blood_wave"，等同 "bloodwave"
 	"blood_broadsword": ["wide"], # blood_broadsword.gd 使用 "blood_broadsword"，等同 "bloodboardsword"
-	"ringFire": ["sword", "fire"], # fire_instance.gd 使用 "ringFire"，等同 "ringfire"
+	"ringFire": ["sword", "fire", "bagua"], # fire_instance.gd 使用 "ringFire"，等同 "ringfire"
+	"faze_thunder_strike": ["thunder", "bagua"],
 }
 
 # 分类标识 → Global 上对应的变量名
@@ -72,16 +78,23 @@ const CATEGORY_BONUS_MAP: Dictionary = {
 	"bagua": "study_bagua_damage_bonus",
 	"heal": "study_heal_damage_bonus",
 	"treasure": "study_treasure_damage_bonus",
+	"deep": "",
 }
+
+static var _total_damage_bonus_cache: Dictionary = {}
 
 
 # ===================== 公开接口 =====================
 
 ## 一次性刷新全部武器修习效果（游戏启动 / 读档 / 修习升级后调用）
 static func apply_all() -> void:
+	invalidate_total_damage_bonus_cache()
 	_apply_damage_bonuses()
 	_apply_weapon_unlocks()
 	print("[StudyTreeUp] 武器修习效果已刷新")
+
+static func invalidate_total_damage_bonus_cache() -> void:
+	_total_damage_bonus_cache.clear()
 
 
 # ===================== 伤害加成计算 =====================
@@ -132,44 +145,76 @@ static func _apply_damage_bonuses() -> void:
 # ===================== 武器解锁标记 =====================
 
 static func _apply_weapon_unlocks() -> void:
-	var t: Dictionary = Global.player_study_tree
-
-	Global.study_unlock_qiankun = t.get("weapon2-2", 0) >= 1 # 乾坤双剑
-	Global.study_unlock_dragonwind = t.get("weapon2-5", 0) >= 1 # 风龙杖
-	Global.study_unlock_bloodwave = t.get("weapon2-7", 0) >= 1 # 血气波
-	Global.study_unlock_water = t.get("weapon2-9", 0) >= 1 # 坎水诀
-	Global.study_unlock_baoyan = t.get("weapon2-1-2", 0) >= 1 # 爆炎诀
-	Global.study_unlock_genshan = t.get("weapon2-3-2", 0) >= 1 # 艮山诀
-	Global.study_unlock_thunder_break = t.get("weapon2-4-2", 0) >= 1 # 天雷破
-	Global.study_unlock_holylight = t.get("weapon2-8-2", 0) >= 1 # 圣光术
-	Global.study_unlock_xuanwu = t.get("weapon2-10-2", 0) >= 1 # 玄武盾
+	Global.study_unlock_qiankun = true # 乾坤双剑
+	Global.study_unlock_dragonwind = true # 风龙杖
+	Global.study_unlock_bloodwave = true # 血气波
+	Global.study_unlock_water = true # 坎水诀
+	Global.study_unlock_baoyan = true # 爆炎诀
+	Global.study_unlock_genshan = true # 艮山诀
+	Global.study_unlock_thunder_break = true # 天雷破
+	Global.study_unlock_holylight = true # 圣光术
+	Global.study_unlock_xuanwu = true # 玄武盾
 
 
 # ===================== 面板展示辅助 =====================
 
-## 返回指定 weapon_tag 享受的修习树总伤害加成（小数，如 0.12 = 12%）。
+## 返回指定 weapon_tag 享受的统一武器伤害加成（修习树、成就、法则等，小数，如 0.12 = 12%）。
 ## weapon_tag 与各武器脚本中 get_bullet_damage_and_crit_status() 返回值一致。
 static func get_total_damage_bonus(weapon_tag: String) -> float:
+	return get_total_damage_bonus_excluding(weapon_tag, [])
+
+static func get_total_damage_bonus_excluding(weapon_tag: String, excluded_law_categories: Array = []) -> float:
 	var categories: Array = WEAPON_CATEGORY_MAP.get(weapon_tag, [])
 	var bonus: float = 0.0
 	for cat in categories:
 		var var_name: String = CATEGORY_BONUS_MAP.get(cat, "")
 		if var_name != "":
 			bonus += float(Global.get(var_name))
+		if not excluded_law_categories.has(str(cat)):
+			bonus += _get_law_weapon_damage_bonus(str(cat))
 	bonus += Global.get_achievement_weapon_damage_bonus(weapon_tag)
 	return bonus
 
+static func apply_total_damage_bonus_to_base_multiplier(base_multiplier: float, weapon_tag: String) -> float:
+	return base_multiplier + get_total_damage_bonus(weapon_tag)
+
+static func apply_total_damage_bonus_to_base_multiplier_excluding(base_multiplier: float, weapon_tag: String, excluded_law_categories: Array = []) -> float:
+	return base_multiplier + get_total_damage_bonus_excluding(weapon_tag, excluded_law_categories)
+
+static func apply_total_damage_bonus_to_damage(base_damage: float, weapon_tag: String) -> float:
+	return apply_total_damage_bonus_to_damage_excluding(base_damage, weapon_tag, [])
+
+static func apply_total_damage_bonus_to_damage_excluding(base_damage: float, weapon_tag: String, excluded_law_categories: Array = []) -> float:
+	if weapon_tag == "":
+		return base_damage
+	if PC.pc_atk <= 0:
+		return base_damage * (1.0 + get_total_damage_bonus_excluding(weapon_tag, excluded_law_categories))
+	var base_multiplier: float = base_damage / float(PC.pc_atk)
+	return float(PC.pc_atk) * apply_total_damage_bonus_to_base_multiplier_excluding(base_multiplier, weapon_tag, excluded_law_categories)
+
+static func _get_law_weapon_damage_bonus(category: String) -> float:
+	match category:
+		"bagua":
+			return Faze.get_bagua_weapon_damage_bonus()
+		"wide":
+			return PC.faze_wide_damage_bonus
+		"fire":
+			return Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level) - 1.0
+		"life":
+			return Faze.get_life_damage_multiplier(PC.faze_life_level) - 1.0
+		"destroy":
+			return Faze.get_destroy_damage_multiplier(PC.faze_destroy_level) - 1.0
+		"wind":
+			return Faze.get_wind_weapon_damage_multiplier(PC.faze_wind_level) - 1.0
+		"thunder":
+			return Faze.get_thunder_weapon_damage_multiplier(PC.faze_thunder_level) - 1.0
+		"treasure":
+			return Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.get_lucky_level()) - 1.0
+		"deep":
+			return Faze.get_deep_weapon_damage_bonus(PC.faze_deep_level)
+	return 0.0
+
 
 ## 检查指定武器是否已通过修习树解锁（非修习树管控的武器默认视为已解锁）
-static func is_weapon_unlocked(weapon_id: String) -> bool:
-	match weapon_id:
-		"qiankun": return Global.study_unlock_qiankun
-		"dragonwind": return Global.study_unlock_dragonwind
-		"bloodwave": return Global.study_unlock_bloodwave
-		"water": return Global.study_unlock_water
-		"baoyan": return Global.study_unlock_baoyan
-		"genshan": return Global.study_unlock_genshan
-		"thunder_break": return Global.study_unlock_thunder_break
-		"holylight": return Global.study_unlock_holylight
-		"xuanwu": return Global.study_unlock_xuanwu
-		_: return true
+static func is_weapon_unlocked(_weapon_id: String) -> bool:
+	return true

@@ -10,6 +10,7 @@ var base_sprite_scale: Vector2
 var base_collision_scale: Vector2
 var custom_range_multiplier: float = 1.0
 var can_repeat: bool = true
+var repeat_attack_index: int = 1
 var target_direction: Vector2 = Vector2.RIGHT
 var cached_attack_data: Dictionary = {}
 var hit_targets: Dictionary = {}
@@ -19,10 +20,14 @@ var effect_applied: bool = false
 func set_custom_range_multiplier(multiplier: float) -> void:
 	custom_range_multiplier = multiplier
 
+func set_repeat_attack_index(index: int) -> void:
+	repeat_attack_index = maxi(1, index)
+
 func disable_repeat() -> void:
 	can_repeat = false
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self )
 	base_sprite_scale = sprite.scale
 	base_collision_scale = collision_shape.scale
 	
@@ -60,8 +65,9 @@ func _build_attack_data() -> Dictionary:
 	var bleed_damage_bonus = 0.0
 	var heal_on_bleed_bonus = 0.0
 	var repeat_chance = 0.0
-	var repeat_delay = 0.5
+	var repeat_delay = 0.35
 	var repeat_range_multiplier = 1.0
+	var next_repeat_attack_index = repeat_attack_index + 1
 	var shield_hit_count = 0
 	var shield_ratio = 0.0
 	var shield_min = 0
@@ -78,7 +84,9 @@ func _build_attack_data() -> Dictionary:
 		range_multiplier += 0.3
 	
 	if PC.selected_rewards.has("BloodBoardSword3"):
-		repeat_chance = 0.25
+		if repeat_attack_index == 1:
+			repeat_chance = 0.3
+			repeat_range_multiplier = 1.3
 	
 	if PC.selected_rewards.has("BloodBoardSword4"):
 		bleed_damage_bonus = 0.5
@@ -95,8 +103,9 @@ func _build_attack_data() -> Dictionary:
 		heal_on_bleed_bonus = 0.3
 	
 	if PC.selected_rewards.has("BloodBoardSword33"):
-		repeat_chance = 0.3
-		repeat_range_multiplier = 1.3
+		if repeat_attack_index == 2:
+			repeat_chance = 0.6
+			repeat_range_multiplier = 1.3
 	
 	range_multiplier *= custom_range_multiplier
 	
@@ -112,6 +121,8 @@ func _build_attack_data() -> Dictionary:
 		"repeat_chance": repeat_chance,
 		"repeat_delay": repeat_delay,
 		"repeat_range_multiplier": repeat_range_multiplier,
+		"next_custom_range_multiplier": custom_range_multiplier * repeat_range_multiplier,
+		"next_repeat_attack_index": next_repeat_attack_index,
 		"shield_hit_count": shield_hit_count,
 		"shield_ratio": shield_ratio,
 		"shield_min": shield_min,
@@ -241,7 +252,7 @@ func _apply_heal(attack_data: Dictionary, hit_result: Dictionary) -> void:
 		PC.pc_hp = PC.pc_max_hp
 	
 	if heal_amount > 0:
-		Global.emit_signal("player_heal", heal_amount, PC.player_instance.global_position)
+		Global.emit_signal("player_heal", heal_amount, PC.player_instance.global_position, "blood_broadsword")
 
 func _apply_shield(attack_data: Dictionary, hit_result: Dictionary) -> void:
 	if attack_data.shield_hit_count <= 0:
@@ -253,12 +264,12 @@ func _apply_shield(attack_data: Dictionary, hit_result: Dictionary) -> void:
 	if shield_amount < attack_data.shield_min:
 		shield_amount = attack_data.shield_min
 	
-	PC.add_shield(shield_amount, attack_data.shield_duration)
+	PC.add_shield(shield_amount, attack_data.shield_duration, "blood_broadsword")
 
 func _spawn_repeat_attack(attack_data: Dictionary) -> void:
 	var repeat_instance = broadsword_scene.instantiate()
-	repeat_instance.set_custom_range_multiplier(attack_data.repeat_range_multiplier)
-	repeat_instance.disable_repeat()
-	# 第二刀动画水平镜像
-	repeat_instance.sprite.flip_h = true
+	repeat_instance.set_custom_range_multiplier(attack_data.next_custom_range_multiplier)
+	repeat_instance.set_repeat_attack_index(attack_data.next_repeat_attack_index)
+	# 连击动画交替镜像，避免多段看起来完全重叠。
+	repeat_instance.sprite.flip_h = int(attack_data.next_repeat_attack_index) % 2 == 0
 	get_tree().current_scene.add_child(repeat_instance)

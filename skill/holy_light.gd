@@ -4,30 +4,30 @@ class_name HolyLight
 @export var sprite: AnimatedSprite2D
 @export var collision: CollisionShape2D
 
-static var main_skill_holylight_damage: float = 0.85
+static var main_skill_holylight_damage: float = 1.10
 static var holylight_final_damage_multi: float = 1.0
 static var holylight_range_scale: float = 1.0
-static var holylight_duration: float = 2.0
+static var holylight_duration: float = 1.5
 static var holylight_center_extra_damage: float = 0.0
 static var holylight_heal_base: int = 30
 static var holylight_heal_ratio: float = 0.03
 static var holylight_dot_damage: float = 0.0
 static var holylight_interval: float = 3.2
-static var holylight_size_multiplier: float = 1.56
+static var holylight_size_multiplier: float = 1.0
 static var holylight_vulnerable_damage_bonus: float = 0.0
 static var holylight_vulnerable_crit: bool = false
 
 static func reset_data() -> void:
-	main_skill_holylight_damage = 0.85
+	main_skill_holylight_damage = 1.10
 	holylight_final_damage_multi = 1.0
 	holylight_range_scale = 1.0
-	holylight_duration = 1.0
+	holylight_duration = 1.5
 	holylight_center_extra_damage = 0.0
 	holylight_heal_base = 30
 	holylight_heal_ratio = 0.03
 	holylight_dot_damage = 0.0
 	holylight_interval = 3.2
-	holylight_size_multiplier = 1.56
+	holylight_size_multiplier = 1.0
 	holylight_vulnerable_damage_bonus = 0.0
 	holylight_vulnerable_crit = false
 
@@ -49,13 +49,15 @@ var circle_color = Color(1, 1, 0.6, 0.45) # 浅黄色
 var radius: float = 0.0
 var x_radius: float = 0.0
 
+const TARGET_PREDICT_TIME: float = 1.2
+
 static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree) -> void:
 	if not scene:
 		return
 		
 	var data = _build_data()
-	# 索敌范围150
-	var target_pos = _find_best_target_pos(origin_pos, tree, 150.0, data.radius)
+	# 索敌范围225
+	var target_pos = _find_best_target_pos(origin_pos, tree, 225.0, data.radius)
 	
 	var instance = scene.instantiate()
 	tree.current_scene.add_child(instance)
@@ -90,6 +92,7 @@ static func _find_best_target_pos(origin: Vector2, tree: SceneTree, search_range
 		
 	# 寻找敌人最密集点
 	var best_pos = candidates[0].global_position
+	var best_enemy: Node2D = candidates[0] as Node2D
 	var max_count = 0
 	var skill_radius_sq = skill_radius * skill_radius
 	
@@ -103,13 +106,63 @@ static func _find_best_target_pos(origin: Vector2, tree: SceneTree, search_range
 		if count > max_count:
 			max_count = count
 			best_pos = pos
+			best_enemy = center_candidate as Node2D
 			
-	return best_pos
+	return _predict_target_pos_on_player_segment(origin, best_pos, best_enemy)
+
+static func _predict_target_pos_on_player_segment(player_pos: Vector2, dense_pos: Vector2, sample_enemy: Node2D) -> Vector2:
+	var line_vec := player_pos - dense_pos
+	var line_len := line_vec.length()
+	if line_len <= 0.01 or not is_instance_valid(sample_enemy):
+		return dense_pos
+	
+	var enemy_velocity := _estimate_enemy_velocity(sample_enemy, player_pos)
+	var predict_distance := enemy_velocity.length() * TARGET_PREDICT_TIME
+	if predict_distance <= 0.01:
+		return dense_pos
+	if predict_distance >= line_len:
+		return dense_pos.lerp(player_pos, 0.5)
+	
+	var predicted_pos := dense_pos + enemy_velocity * TARGET_PREDICT_TIME
+	var line_dir := line_vec / line_len
+	var projected_distance := clampf((predicted_pos - dense_pos).dot(line_dir), 0.0, line_len)
+	return dense_pos + line_dir * projected_distance
+
+static func _estimate_enemy_velocity(enemy: Node2D, player_pos: Vector2) -> Vector2:
+	var velocity_value: Variant = enemy.get("velocity")
+	if velocity_value is Vector2:
+		return velocity_value
+	
+	var speed_value: Variant = enemy.get("speed")
+	var enemy_speed := 0.0
+	if typeof(speed_value) == TYPE_INT or typeof(speed_value) == TYPE_FLOAT:
+		enemy_speed = float(speed_value)
+	if enemy_speed <= 0.01:
+		return Vector2.ZERO
+	
+	var move_vector_value: Variant = enemy.get("move_vector")
+	if move_vector_value is Vector2 and move_vector_value.length_squared() > 0.0001:
+		return move_vector_value.normalized() * enemy_speed
+	
+	var move_direction_value: Variant = enemy.get("move_direction")
+	if typeof(move_direction_value) == TYPE_INT:
+		match int(move_direction_value):
+			0:
+				return Vector2.RIGHT * enemy_speed
+			1:
+				return Vector2.LEFT * enemy_speed
+	
+	var to_player := player_pos - enemy.global_position
+	if to_player.length_squared() <= 0.0001:
+		return Vector2.ZERO
+	return to_player.normalized() * enemy_speed
 
 static func _build_data() -> Dictionary:
 	var life_range_multiplier = Faze.get_life_range_multiplier(PC.faze_life_level)
-	# 伤害仅由奖励直接累加（main_skill_holylight_damage），不再叠加生灵法则乘数，避免奖励加成 × 法则加成的双重放大
-	var damage_multiplier = main_skill_holylight_damage * holylight_final_damage_multi
+	var damage_multiplier = main_skill_holylight_damage
+	damage_multiplier += (Faze.get_life_damage_multiplier(PC.faze_life_level) - 1.0)
+	damage_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(damage_multiplier, "holylight", ["life"])
+	damage_multiplier *= holylight_final_damage_multi
 	var build_range_scale = holylight_range_scale * holylight_size_multiplier * life_range_multiplier
 	var build_duration = holylight_duration
 	var build_heal_base = holylight_heal_base
@@ -122,8 +175,8 @@ static func _build_data() -> Dictionary:
 	var build_damage = PC.pc_atk * damage_multiplier
 	var build_dot_damage = PC.pc_atk * dot_damage_ratio
 	
-	# 估算半径用于索敌 (假设基础半径100)
-	var build_radius = 100.0 * build_range_scale
+	# 估算半径用于索敌（基础光圈半径已包含35%提升）
+	var build_radius = 30.0 * build_range_scale
 	
 	return {
 		"damage": build_damage,
@@ -139,12 +192,13 @@ static func _build_data() -> Dictionary:
 	}
 
 func setup(pos: Vector2, p_damage: float, p_heal_base: int, p_heal_ratio: float, p_duration: float, p_range_scale: float, options: Dictionary = {}) -> void:
+	CharacterEffects.include_enemy_collision_mask(self )
 	global_position = pos
 	damage = p_damage
 	heal_base = p_heal_base
 	heal_ratio = p_heal_ratio
 	duration = p_duration
-	range_scale = p_range_scale * Global.get_attack_range_multiplier() # 统一叠加全局攻击范围倍率
+	range_scale = p_range_scale * Global.get_attack_range_multiplier() # 统一叠加全局伤害范围倍率
 	
 	center_extra_damage = options.get("center_extra_damage", 0.0)
 	dot_damage = options.get("dot_damage", 0.0)
@@ -162,8 +216,8 @@ func setup(pos: Vector2, p_damage: float, p_heal_base: int, p_heal_ratio: float,
 		# 椭圆碰撞体：X轴拉伸1.3倍
 		collision.scale = Vector2(base_collision_scale.x * range_scale * 1.3, base_collision_scale.y * range_scale)
 	else:
-		radius = 100.0 * range_scale + 5
-		x_radius = 100.0 * range_scale * 1.3 + 5
+		radius = 30.0 * range_scale + 5
+		x_radius = 30.0 * range_scale * 1.3 + 5
 	
 	# 初始状态
 	scale = Vector2.ZERO
@@ -296,4 +350,4 @@ func _apply_end_damage_and_heal() -> void:
 			heal_val = int(ceil(float(heal_val) * heal_multiplier))
 			var actual_heal := int(body.heal(heal_val))
 			if actual_heal > 0:
-				Global.emit_signal("player_heal", actual_heal, body.global_position)
+				Global.emit_signal("player_heal", actual_heal, body.global_position, "holylight")

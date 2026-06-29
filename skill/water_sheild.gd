@@ -17,7 +17,7 @@ func start(duration_time: float, shield_pct: float, dr_bonus: float):
 	# 修习树技能篇：水幕护体护盾量加成
 	var shield_base = PC.pc_max_hp * shield_percent * (1.0 + Global.study_shuimu_shield_bonus) + 1
 	if PC.has_method("add_shield"):
-		PC.add_shield(int(shield_base), duration)
+		PC.add_shield(int(shield_base), duration, "water_sheild")
 	else:
 		# 兼容性处理，如果 PC 没有 add_shield 方法（虽然现在应该有了）
 		var shield_amount = shield_base * (1.0 + PC.sheild_multi)
@@ -70,6 +70,8 @@ func start_blink_effect():
 	tween.tween_property(sprite, "modulate:a", 0.2, 0.75).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 func _process(delta):
+	if Global.is_battle_time_paused():
+		return
 	duration -= delta
 	if duration <= 0:
 		Global.emit_signal("buff_removed", "water_sheild")

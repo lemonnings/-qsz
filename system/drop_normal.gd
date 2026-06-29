@@ -10,10 +10,14 @@ const HEAL_AURA_ATTRACT_HP_RATIO := 0.9
 var item_id: String
 var quantity: int
 var _is_picking_up: bool = false
+var _item_name_label: Label = null
 
 func _ready():
 	# 连接 body_entered 信号
 	body_entered.connect(_on_body_entered)
+	_item_name_label = get_node_or_null("ItemNameLabel") as Label
+	if _item_name_label:
+		_item_name_label.visible = true
 
 func _process(delta: float) -> void:
 	if _is_picking_up or Global.victory_collecting:
@@ -33,6 +37,15 @@ func _process(delta: float) -> void:
 		return
 
 	global_position = global_position.move_toward(player.global_position, attract_speed * delta)
+
+func set_item_name_visible(should_show: bool) -> void:
+	if _item_name_label == null:
+		return
+	if _item_name_label.visible != should_show:
+		_item_name_label.visible = should_show
+
+func is_item_name_visible() -> bool:
+	return _item_name_label != null and _item_name_label.visible
 
 func _on_body_entered(body):
 	_pick_up(body, true)

@@ -140,15 +140,15 @@ func _move_pattern(delta: float):
 		State.SEEKING_PLAYER:
 			if distance_to_target > 5: # 避免抖动
 				speed = get_effective_move_speed(base_speed)
-				position += direction_to_target * speed * delta
+				position += CharacterEffects.apply_soft_separation_to_direction(self, direction_to_target) * speed * delta
 		State.FLEEING:
 			if distance_to_target > 5:
 				speed = get_effective_move_speed(base_speed)
-				position += direction_to_target * speed * delta
+				position += CharacterEffects.apply_soft_separation_to_direction(self, direction_to_target) * speed * delta
 				if target_position.x > global_position.x + 0.1: # 目标在右边 (0.1为小容差)
-					sprite.flip_h = false # 面向右
+					CharacterEffects.set_enemy_flip_h(self, sprite, false) # 面向右
 				elif target_position.x < global_position.x - 0.1: # 目标在左边 (0.1为小容差)
-					sprite.flip_h = true # 面向左
+					CharacterEffects.set_enemy_flip_h(self, sprite, true) # 面向左
 			else: # 到达逃跑点
 				action_timer.stop() # 提前停止计时器
 				_on_flee_timeout()
@@ -213,7 +213,7 @@ func _physics_process(delta: float) -> void:
 				shadow.visible = false
 			if SettingMoster.frog("itemdrop") != null:
 				for key in SettingMoster.frog("itemdrop"):
-					var drop_chance = SettingMoster.frog("itemdrop")[key] * drop_rate_multiplier
+					var drop_chance = SettingMoster.frog("itemdrop")[key] * SettingMoster.get_item_drop_rate_multiplier(key, drop_rate_multiplier)
 					if randf() <= drop_chance:
 						Global.emit_signal("drop_out_item", key, 1, global_position)
 
@@ -223,9 +223,9 @@ func _physics_process(delta: float) -> void:
 	if not _is_offscreen and not is_direction_locked and current_state != State.FLEEING and PC.player_instance: # 未锁定方向且非逃跑状态下，朝向玩家
 		var player_pos = PC.player_instance.global_position
 		if global_position.x > player_pos.x: # 青蛙在玩家右侧
-			sprite.flip_h = true # 面向左 (朝向玩家)
+			CharacterEffects.set_enemy_flip_h(self, sprite, true) # 面向左 (朝向玩家)
 		else: # 青蛙在玩家左侧或同一X轴
-			sprite.flip_h = false # 面向右 (朝向玩家)
+			CharacterEffects.set_enemy_flip_h(self, sprite, false) # 面向右 (朝向玩家)
 	
 
 	match current_state:

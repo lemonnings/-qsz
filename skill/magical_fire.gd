@@ -21,10 +21,12 @@ func activate(dmg_ratio: float) -> void:
 	"""激活炽炎效果"""
 	damage_ratio = dmg_ratio
 	_activated = true
+	var range_multiplier: float = Global.get_attack_range_multiplier()
 	
 	# 显示爆炸效果动画
 	if sprite:
 		sprite.visible = true
+		sprite.scale *= range_multiplier
 		sprite.stop()
 		sprite.frame = 0
 		sprite.play("default")
@@ -50,7 +52,7 @@ func _on_animation_finished() -> void:
 func _apply_area_damage() -> void:
 	"""对范围内敌人造成伤害"""
 	# 修习树技能篇：应用技能总伤害加成
-	var base_damage = PC.pc_atk * damage_ratio * (1.0 + Global.study_skill_damage_bonus)
+	var base_damage = PC.pc_atk * damage_ratio * (1.0 + PC.active_skill_multi)
 	var center = global_position
 	
 	# 从 collisionShape 获取效果半径
@@ -60,6 +62,7 @@ func _apply_area_damage() -> void:
 			effect_radius = (collisionShape.shape as CircleShape2D).radius
 		elif collisionShape.shape is CapsuleShape2D:
 			effect_radius = (collisionShape.shape as CapsuleShape2D).height * 0.5
+	effect_radius *= Global.get_attack_range_multiplier()
 	
 	var enemies = get_tree().get_nodes_in_group("enemies")
 	for enemy in enemies:

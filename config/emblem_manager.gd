@@ -202,6 +202,12 @@ static func get_active_emblem_ids() -> Array:
 static func get_emblem_count() -> int:
 	return active_emblems.size()
 
+static func get_total_emblem_stacks() -> int:
+	var total := 0
+	for emblem_id in PC.current_emblems.keys():
+		total += int(PC.current_emblems[emblem_id])
+	return total
+
 # 查找空槽位
 func _find_empty_slot() -> int:
 	for i in range(emblem_icons.size()):

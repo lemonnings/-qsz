@@ -20,6 +20,8 @@ var accumulation_max_stacks_bonus: int = 0 # 蓄光上限加成
 var start_position: Vector2
 var velocity: Vector2
 var hit_targets: Dictionary = {}
+var shared_ring_hit_counts: Dictionary = {}
+var shared_ring_hit_limit: int = 0
 var travelled_distance: float = 0.0
 var reached_max_range: bool = false
 var fade_out_duration: float = 0.4
@@ -27,6 +29,7 @@ var base_sprite_scale: Vector2 = Vector2(0.3, 0.3)
 var base_collision_scale: Vector2 = Vector2(0.24, 0.24)
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	if not sprite:
 		sprite = get_node_or_null("AnimatedSprite2D")
 	if not collision_shape:
@@ -54,15 +57,18 @@ func setup_light_bullet(pos: Vector2, dir: Vector2, p_damage: float, p_range: fl
 	var bullet_range_multiplier = Faze.get_bullet_range_multiplier(PC.faze_bullet_level)
 	var is_emblem_extra_attack = options.get("is_emblem_extra_attack", false)
 	var apply_base_weapon_emblems = options.get("apply_base_weapon_emblems", true)
+	var size_multiplier: float = float(options.get("size_multiplier", 1.0))
+	shared_ring_hit_counts = options.get("shared_ring_hit_counts", {})
+	shared_ring_hit_limit = int(options.get("shared_ring_hit_limit", 0))
 	damage = p_damage
 	if apply_base_weapon_emblems:
 		damage = PC.apply_base_weapon_emblem_damage_bonus(damage, "light_bullet", is_emblem_extra_attack)
 	range_val = p_range * life_range_multiplier * bullet_range_multiplier * Global.get_attack_range_multiplier()
 	penetration_count = p_penetration
 	if sprite:
-		sprite.scale = base_sprite_scale * Global.get_attack_range_multiplier()
+		sprite.scale = base_sprite_scale * size_multiplier * Global.get_attack_range_multiplier()
 	if collision_shape:
-		collision_shape.scale = base_collision_scale * Global.get_attack_range_multiplier()
+		collision_shape.scale = base_collision_scale * size_multiplier * Global.get_attack_range_multiplier()
 	
 	# 读取特殊选项
 	apply_light_accumulation = options.get("apply_light_accumulation", false)
@@ -96,6 +102,11 @@ func _on_area_entered(area: Area2D) -> void:
 		if hit_targets.has(enemy_id):
 			return
 		hit_targets[enemy_id] = true
+		if shared_ring_hit_limit > 0:
+			var shared_hit_count: int = int(shared_ring_hit_counts.get(enemy_id, 0))
+			if shared_hit_count >= shared_ring_hit_limit:
+				return
+			shared_ring_hit_counts[enemy_id] = shared_hit_count + 1
 		
 		_deal_damage(area)
 		Faze.on_bullet_hit()
@@ -156,6 +167,8 @@ func reset_for_pool() -> void:
 	start_position = Vector2.ZERO
 	velocity = Vector2.ZERO
 	hit_targets.clear()
+	shared_ring_hit_counts = {}
+	shared_ring_hit_limit = 0
 	travelled_distance = 0.0
 	reached_max_range = false
 	modulate.a = 1.0

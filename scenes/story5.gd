@@ -218,6 +218,8 @@ func start_story() -> void:
 
 	# ── 第三段：发现石头人里有人 ──
 	await director.run([
+		{"type": "callback", "func": func(): char_moning.show_emote("slient", 1.5)},
+		{"type": "wait", "duration": 1.5},
 		{
 			"type": "speak_normal",
 			"normal_dialog": normal,
@@ -253,6 +255,9 @@ func start_story() -> void:
 				},
 			]
 		},
+		{"type": "wait", "duration": 0.5},
+		{"type": "callback", "func": func(): char_noam.show_emote("surprise", 1.5)},
+		{"type": "wait", "duration": 1.5},
 	])
 	if _skip_requested:
 		await _skip_to_story6()
@@ -525,7 +530,14 @@ func start_story() -> void:
 				},
 				{
 					"speaker": "诺姆", "speaker_position": "right",
-					"dialog": "小诺姆是什么称呼……好吧，我还不知道我能不能正常离开这个幻境来着……毕竟我跟你们好像不太一样？",
+					"dialog": "小诺姆是什么称呼……",
+					"illustrationLeft": ill_moning, "illustrationLeftStatus": false,
+					"illustrationMiddle": "",
+					"illustrationRight": ill_noam, "illustrationRightStatus": true,
+				},
+				{
+					"speaker": "诺姆", "speaker_position": "right",
+					"dialog": "不过……我还不知道我能不能正常离开这个幻境来着。毕竟我跟你们好像不太一样？",
 					"illustrationLeft": ill_moning, "illustrationLeftStatus": false,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_noam, "illustrationRightStatus": true,

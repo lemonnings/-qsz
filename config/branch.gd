@@ -32,6 +32,7 @@ var _life_timer: float = 0.0
 const LIFE_DURATION: float = 3.0
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	# 一次性设置：连接碰撞信号
 	area_entered.connect(_on_area_entered)
 
@@ -52,7 +53,7 @@ func activate_bullet() -> void:
 	initialize_bullet_damage()
 	update_collision_shape_size()
 	_update_sprite_rotation()
-	
+
 	# 重置视觉状态
 	if sprite:
 		sprite.modulate.a = 1.0
@@ -65,7 +66,7 @@ func _physics_process(delta: float) -> void:
 	if _life_timer >= LIFE_DURATION:
 		ObjectPool.recycle(self )
 		return
-	
+
 	# 子弹始终保持移动（包括渐隐过程中）
 	position += direction * bullet_speed * delta
 	# 更新已飞行距
@@ -163,7 +164,7 @@ func initialize_bullet_damage() -> void:
 	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
 	var damage_multiplier = PC.main_skill_branch_damage
 	damage_multiplier += (Faze.get_bullet_damage_multiplier(PC.faze_bullet_level) - 1.0) # 弹体法则
-	damage_multiplier += (Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.lucky) - 1.0) # 宝藏法则
+	damage_multiplier += (Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.get_lucky_level()) - 1.0) # 宝藏法则
 	var base_damage: float
 	base_damage = PC.pc_atk * damage_multiplier
 	bullet_fisson = 1
@@ -181,7 +182,7 @@ func initialize_bullet_damage() -> void:
 
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary: # Returns {"damage": float, "is_crit": bool}
-	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": false, "weapon_tag": "branch"}
+	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": false, "weapon_tag": "branch", "excluded_law_categories": ["treasure"]}
 
 func is_faze_bullet_weapon() -> bool:
 	return true
@@ -270,6 +271,7 @@ func set_bullet_scale(new_scale: Vector2) -> void:
 
 func _create_aoe_damage(aoe_position: Vector2) -> void:
 	var aoe_area = Area2D.new()
+	CharacterEffects.include_enemy_collision_mask(aoe_area)
 	var aoe_shape = CircleShape2D.new()
 	aoe_shape.radius = 20 # 小范围半径
 	var aoe_collision_shape = CollisionShape2D.new()
@@ -279,10 +281,12 @@ func _create_aoe_damage(aoe_position: Vector2) -> void:
 	get_parent().add_child(aoe_area)
 
 	await get_tree().create_timer(0.1).timeout
-	var bodies = aoe_area.get_overlapping_bodies()
-	for body in bodies:
+	var targets = []
+	targets.append_array(aoe_area.get_overlapping_areas())
+	targets.append_array(aoe_area.get_overlapping_bodies())
+	for body in targets:
 		if body.is_in_group("enemies") and body.has_method("take_damage"):
-			body.take_damage(bullet_damage * 0.4, false, false)
+			body.take_damage(bullet_damage * 0.4, false, false, "branch")
 	
 	aoe_area.queue_free()
 

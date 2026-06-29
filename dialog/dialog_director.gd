@@ -24,16 +24,31 @@ class_name DialogDirector
 
 signal sequence_completed
 
+const INPUT_BLOCK_MSEC: int = 220
+
+static var _input_block_until_msec: int = 0
+
 var _cancelled: bool = false
+
+
+static func block_story_input(duration_msec: int = INPUT_BLOCK_MSEC) -> void:
+	var next_block_until_msec: int = Time.get_ticks_msec() + duration_msec
+	_input_block_until_msec = maxi(_input_block_until_msec, next_block_until_msec)
+
+
+static func is_story_input_blocked() -> bool:
+	return Time.get_ticks_msec() < _input_block_until_msec
 
 
 ## 取消当前 run 循环，让所有 await 立即跳过
 func cancel() -> void:
 	_cancelled = true
+	block_story_input()
 
 
 func run(steps: Array[Dictionary]) -> void:
 	_cancelled = false
+	block_story_input()
 	var i := 0
 	while i < steps.size():
 		if _cancelled:
@@ -52,11 +67,16 @@ func run(steps: Array[Dictionary]) -> void:
 			if j > i + 1:
 				# 合并后的单步验一次整屏渐变
 				var merged: Dictionary = {"type": "speak_normal", "normal_dialog": normal_node, "lines": merged_lines}
+				block_story_input()
 				await _process_step(merged)
+				block_story_input()
 				i = j
 				continue
+		block_story_input()
 		await _process_step(step)
+		block_story_input()
 		i += 1
+	block_story_input()
 	sequence_completed.emit()
 
 
@@ -198,6 +218,7 @@ func _do_speak_char(step: Dictionary) -> void:
 		return
 	var offset = step.get("offset", Vector2.INF)
 	char_node.speak(text, offset)
+	block_story_input(300)
 	await char_node.speech_completed
 
 
@@ -209,6 +230,7 @@ func _do_speak_normal(step: Dictionary) -> void:
 		return
 	if not normal_node.has_signal("dialog_completed") or not normal_node.has_method("start_dialog_from_data"):
 		return
+	block_story_input(300)
 	normal_node.start_dialog_from_data(lines)
 	await normal_node.dialog_completed
 

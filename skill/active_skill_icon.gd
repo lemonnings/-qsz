@@ -17,6 +17,7 @@ var cooldown_progress: TextureProgressBar = null
 
 # 冷却遮罩纹理
 var _cooldown_mask: Texture2D = null
+static var _rounded_mask_cache: Dictionary = {}
 
 func _ready() -> void:
 	# 获取或创建UI节点
@@ -50,10 +51,11 @@ func _setup_ui_nodes() -> void:
 	# 设置样式
 	var font = load("res://AssetBundle/Uranus_Pixel_11Px.ttf")
 	hotkey_label.add_theme_font_override("font", font)
-	hotkey_label.add_theme_color_override("font_color", Color(1, 1, 0.7, 1))
+	hotkey_label.add_theme_color_override("font_color", Color(1, 1, 0.85, 1))
 	hotkey_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
 	hotkey_label.add_theme_constant_override("outline_size", 3)
-	hotkey_label.add_theme_font_size_override("font_size", 23)
+	var hotkey_font_size := 18 if Global.is_mobile_input_mode() else 23
+	hotkey_label.add_theme_font_size_override("font_size", hotkey_font_size)
 	
 	add_child(hotkey_label)
 	hotkey_label.show()
@@ -141,6 +143,8 @@ func _get_skill_icon_path(skill_id: String) -> String:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/mowenzhen.png"
 		"meditation":
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/meditation.png"
+		"destructive_hammer":
+			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/juchui.png"
 		_:
 			return "res://AssetBundle/Sprites/Sprite sheets/skillIcon/luanji.png"
 
@@ -178,6 +182,8 @@ func _get_skill_cooldown(skill_id: String) -> float:
 					cd_reduction += 1.0
 			cd_reduction = cd_reduction * PC.cooldown_multi * PC.random_strike_multi
 			return max(5.0, base_cd - cd_reduction) * cooldown_multiplier
+		"destructive_hammer":
+			return 18.0 * cooldown_multiplier
 		_:
 			return 10.0
 
@@ -247,15 +253,20 @@ func refresh_skill_config() -> void:
 
 ## 生成带圆角的正方形遮罩纹理，用于 TextureProgressBar 的时钟扫描效果
 func _create_rounded_square_mask(width: int = 72, height: int = 72) -> ImageTexture:
-	var img = Image.create(width, height, false, Image.FORMAT_RGBA8)
+	var corner_radius: int = max(4, int(min(width, height) * 0.08)) # 圆角半径约8%
+	var cache_key: String = "%d:%d:%d" % [width, height, corner_radius]
+	if _rounded_mask_cache.has(cache_key):
+		return _rounded_mask_cache[cache_key] as ImageTexture
+
+	var img: Image = Image.create(width, height, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0)) # 透明背景
-	var color = Color(0, 0, 0, 0.886275) # 半透明黑底
-	var corner_radius = max(4, int(min(width, height) * 0.08)) # 圆角半径约8%
+	var color: Color = Color(0, 0, 0, 0.886275) # 半透明黑底
 	for x in range(width):
 		for y in range(height):
 			if _is_inside_rounded_rect(x, y, width, height, corner_radius):
 				img.set_pixel(x, y, color)
-	var tex = ImageTexture.create_from_image(img)
+	var tex: ImageTexture = ImageTexture.create_from_image(img)
+	_rounded_mask_cache[cache_key] = tex
 	return tex
 
 ## 判断像素是否在圆角矩形内部

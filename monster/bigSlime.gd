@@ -73,13 +73,13 @@ func _physics_process(delta: float) -> void:
 			move_away_from_dead_player(delta, base_speed, sprite)
 			return
 		if move_direction == 0:
-			position += Vector2(speed, 0) * delta
+			position += CharacterEffects.apply_soft_separation_to_direction(self, Vector2.RIGHT) * speed * delta
 			if not _is_offscreen:
-				sprite.flip_h = true
+				CharacterEffects.set_enemy_flip_h(self, sprite, true)
 		if move_direction == 1:
-			position -= Vector2(speed, 0) * delta
+			position += CharacterEffects.apply_soft_separation_to_direction(self, Vector2.LEFT) * speed * delta
 			if not _is_offscreen:
-				sprite.flip_h = false
+				CharacterEffects.set_enemy_flip_h(self, sprite, false)
 		if move_direction >= 2:
 			# 靠近角色的移动方式
 			if PC.player_instance != null:
@@ -89,7 +89,7 @@ func _physics_process(delta: float) -> void:
 					position += direction_to_player * speed * delta
 					# 根据移动方向设置精灵翻转
 					if not _is_offscreen:
-						sprite.flip_h = direction_to_player.x > 0
+						CharacterEffects.face_player_x(self, sprite)
 	
 	# 处理推挤效果（防止怪物重叠，离屏时跳过）
 	if not is_dead and not _is_offscreen:

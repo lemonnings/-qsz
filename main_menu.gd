@@ -20,6 +20,8 @@ var _bg_base_position: Vector2
 var _bg_base_scale: Vector2
 var _bg_tween: Tween
 
+const SETTINGS_LAYER_ENTRY_BUTTONS := ["Bag", "Skill", "Setting", "JC"]
+
 func _ready() -> void:
 	if start_button:
 		start_button.pressed.connect(_on_start_pressed)
@@ -29,17 +31,9 @@ func _ready() -> void:
 		setting_button.pressed.connect(_on_setting_pressed)
 	if about_button:
 		about_button.pressed.connect(_on_about_pressed)
-	# 隐藏设置面板中的背包/技能/设定按钮（主菜单不需要）
+	# 隐藏设置面板中的入口按钮（主菜单不需要）
 	if settings_layer:
-		var bag_btn = settings_layer.get_node_or_null("Bag")
-		var skill_btn = settings_layer.get_node_or_null("Skill")
-		var setting_btn = settings_layer.get_node_or_null("Setting")
-		if bag_btn:
-			bag_btn.visible = false
-		if skill_btn:
-			skill_btn.visible = false
-		if setting_btn:
-			setting_btn.visible = false
+		_hide_settings_layer_entry_buttons()
 		# 将Exit2按钮重连到主菜单自己的关闭逻辑
 		var exit_btn = settings_layer.get_node_or_null("Panel/Exit2")
 		if exit_btn:
@@ -88,6 +82,7 @@ func _on_setting_pressed() -> void:
 	if not settings_layer:
 		return
 	settings_layer.visible = true
+	_hide_settings_layer_entry_buttons()
 	var panel = settings_layer.get_node_or_null("Panel")
 	if panel and not panel.visible:
 		panel.visible = true
@@ -105,8 +100,9 @@ func _on_exit_setting() -> void:
 		tween.tween_callback(func():
 			panel.visible = false
 			panel.modulate.a = 1.0
+			_hide_settings_layer_entry_buttons()
 			settings_layer.visible = false
-		)
+	)
 
 func _on_about_pressed() -> void:
 	if not about:
@@ -131,6 +127,17 @@ func _on_about_exit_pressed() -> void:
 
 func _show_tip(msg: String) -> void:
 	Tip.start_animation(msg, 0.5)
+
+func _hide_settings_layer_entry_buttons() -> void:
+	if not settings_layer:
+		return
+	for button_name in SETTINGS_LAYER_ENTRY_BUTTONS:
+		var button := settings_layer.get_node_or_null(button_name) as Button
+		if button == null:
+			continue
+		button.visible = false
+		button.disabled = true
+		button.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 ## 背景动态动画：随机缩放 + 随机方向移动，5秒一个周期循环
 func _start_bg_anim() -> void:

@@ -268,13 +268,6 @@ func start_story() -> void:
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": true,
 				},
-				{
-					"speaker": "乾", "speaker_position": "right",
-					"dialog": "而且这幻境与明珑道修一脉的阵道体系截然不同。可这些年我从未听闻过大陆上又出了什么阵法奇才。",
-					"illustrationLeft": ill_xun, "illustrationLeftStatus": false,
-					"illustrationMiddle": "",
-					"illustrationRight": ill_qian, "illustrationRightStatus": true,
-				},
 			]
 		},
 		{
@@ -283,7 +276,7 @@ func start_story() -> void:
 			"lines": [
 				{
 					"speaker": "巽", "speaker_position": "left",
-					"dialog": "方才我在外围以灵识探过，这布阵手法不仅不像道修，也不是妖修、魔修、佛修的阵法路数。",
+					"dialog": "方才我在外围以灵识探过，这布阵手法不仅不像我们道修，也不是妖修、魔修、佛修的阵法路数。",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": true,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": false,
@@ -303,7 +296,7 @@ func start_story() -> void:
 				},
 				{
 					"speaker": "乾", "speaker_position": "right",
-					"dialog": "对了，还有一事，据桃源镇镇长说，不少镇民此前亲眼瞧见天边裂开一道墨色裂隙，随即一座形状怪异的建筑坠落了在龙门山上。",
+					"dialog": "还有一事，据桃源镇镇长说，不少镇民此前亲眼瞧见天边裂开一道墨色裂隙，随即一座形状怪异的建筑坠落了在龙门山上。",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": false,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": true,
@@ -318,13 +311,6 @@ func start_story() -> void:
 				{
 					"speaker": "巽", "speaker_position": "left",
 					"dialog": "也就是说，幻境是在那裂隙出现之后才展开的……？",
-					"illustrationLeft": ill_xun, "illustrationLeftStatus": true,
-					"illustrationMiddle": "",
-					"illustrationRight": ill_qian, "illustrationRightStatus": false,
-				},
-				{
-					"speaker": "巽", "speaker_position": "left",
-					"dialog": "这样一来，这个幻境很可能是人为的？那裂隙又是什么？里面出现的奇异建筑和异兽都去了哪里？",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": true,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": false,
@@ -430,7 +416,7 @@ func start_story() -> void:
 			"lines": [
 				{
 					"speaker": "巽", "speaker_position": "left",
-					"dialog": "有些难办……方才我已将轻功提至极限，谁知那股推力简直不讲道理，直接就把我震退了出来。这等霸道的拒斥之力，我还是头一回见。",
+					"dialog": "有些难办……方才我都将轻功提至极限了，但那股推力简直不讲道理，直接就把我震退了出来。这等霸道的拒斥之力，我还是头一回见。",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": true,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": false,
@@ -443,7 +429,7 @@ func start_story() -> void:
 			"lines": [
 				{
 					"speaker": "乾", "speaker_position": "right",
-					"dialog": "当今天衍宗内，论轻功与阵法造诣，无人能出你之右。连你都无法深入，这事就棘手了。",
+					"dialog": "当今天衍宗内，论轻功与阵法造诣，无人能出你之右。连你都无法深入……这事就棘手了。",
 					"illustrationLeft": ill_xun, "illustrationLeftStatus": false,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": true,
@@ -555,7 +541,7 @@ func start_story() -> void:
 			"lines": [
 				{
 					"speaker": "乾", "speaker_position": "right",
-					"dialog": "嗯……还真的有弟子能自由进出这幻境啊。我记得你是墨宁吧？上次大比里是少年组的第二名？",
+					"dialog": "嗯？没想到还真的有弟子能自由进出这幻境啊。我记得……你是墨宁吧？上次大比里是少年组的第二名？",
 					"illustrationLeft": ill_moning, "illustrationLeftStatus": false,
 					"illustrationMiddle": "",
 					"illustrationRight": ill_qian, "illustrationRightStatus": true,

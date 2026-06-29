@@ -1,5 +1,7 @@
 extends Node
 
+const ZHUAZHUAJUCHUI_SCRIPT = preload("res://Script/skill/zhuazhuajuchui.gd")
+
 @export var player_instance: Node = null
 @export var player_name: String = "yiqiu"
 @export var pc_atk: int = 25 # 局内攻击
@@ -26,15 +28,18 @@ var _pc_hp_value: int = 50
 @export var crit_chance: float = 0.0 # 局内暴击率
 @export var crit_damage_multi: float = 0.5 # 局内暴击伤害倍率 (例如0.5代表150%伤害)
 @export var damage_reduction_rate: float = 0.0 # 局内减伤率 (例如0.1代表10%减伤)
+@export var independent_damage_reduction_multiplier: float = 1.0 # 独立受击倍率，0.6代表额外40%减伤
+var independent_damage_reduction_sources: Dictionary = {}
 @export var damage_deal_multiplier: float = 1.0 # 最终伤害系数 (1.0代表正常伤害，仅用于暗影拘束，别的情况需要使用pc_final_atk)
 @export var point_multi: float = 0 # 额外真气获取率
 @export var spirit_multi: float = 0.0 # 额外精魄获取率
 @export var exp_multi: float = 0 # 额外exp获取率
 @export var drop_multi: float = 0 # 额外掉落率
+@export var heal_aura_drop_multi: float = 0.0 # 额外治愈灵气掉落率
 @export var body_size: float = 1 # 体型大小
-@export var attack_range: float = 1.0 # 攻击范围
-@export var bullet_size: float = 1.0 # 旧字段兼容，请改用 attack_range
+@export var attack_range: float = 1.0 # 伤害范围
 @export var heal_multi: float = 0 # 额外治疗加成
+@export var bloodwave_dynamic_heal_bonus: float = 0.0
 @export var sheild_multi: float = 0 # 额外护盾加成
 @export var normal_monster_multi: float = 0 # 对小怪额外伤害
 @export var boss_multi: float = 0 # 对精英首领额外伤害
@@ -48,8 +53,10 @@ var _pc_hp_value: int = 50
 
 @export var total_distance_moved: float = 0.0 # 本局累计移动距离（像素，10像素=1米）
 var distance_buff_offsets: Dictionary = {} # 各移动距离buff获取时的距离（米），key=reward_id, value=meters_at_acquisition
-@export var xianqi_points: int = 0 # 仙气凝聚点数（满100触发仙力护体）
+@export var xianqi_points: int = 0 # 仙气凝聚层数
 @export var xianli_active: bool = false # 仙力护体是否已激活
+@export var xianqi_final_damage_applied_bonus: float = 0.0 # 仙气凝聚已应用最终伤害
+@export var xianqi_hp_applied_bonus: float = 0.0 # 仙气凝聚已应用体力上限数值
 @export var xuji_remaining: int = 0 # 蓄积(UR53)剩余升级次数（每次升级+5%攻击）
 @export var bleed_damage_multi: float = 0.0 # 流血伤害加成倍率（UR51十八层）
 @export var electrification_damage_multi: float = 0.0 # 感电伤害加成倍率（UR51十八层）
@@ -96,6 +103,7 @@ var distance_buff_offsets: Dictionary = {} # 各移动距离buff获取时的距�
 @export var faze_wide_level: int = 0
 @export var faze_bagua_level: int = 0
 @export var faze_treasure_level: int = 0
+@export var faze_deep_level: int = 0
 @export var faze_chaos_level: int = 0
 @export var faze_skill_level: int = 0
 @export var faze_sixsense_level: int = 0
@@ -119,7 +127,7 @@ var distance_buff_offsets: Dictionary = {} # 各移动距离buff获取时的距�
 @export var faze_wind_level: int = 0
 @export var wind_huanfeng_stacks: int = 0
 @export var wind_huanfeng_max_stacks: int = 0
-@export var wind_huanfeng_duration: float = 30.0
+@export var wind_huanfeng_duration: float = 12.0
 @export var faze_heal_shield_bonus: float = 0.0
 
 # 御灵法则 (Summon Law)
@@ -140,6 +148,7 @@ var distance_buff_offsets: Dictionary = {} # 各移动距离buff获取时的距�
 @export var faze_wide_range_bonus: float = 0.0
 @export var faze_wide_damage_bonus: float = 0.0
 @export var faze_wide_range_to_damage_ratio: float = 0.0
+@export var faze_wide_global_attack_range_bonus: float = 0.0
 
 # 八卦法则 (Bagua Law)
 @export var faze_bagua_damage_bonus: float = 0.0
@@ -170,14 +179,15 @@ var distance_buff_offsets: Dictionary = {} # 各移动距离buff获取时的距�
 
 # 跟升级抽卡有关系的
 @export var now_lunky_level: int = 1
-@export var lucky: int = 1
-@export var now_red_p: float = 0.5
+@export var now_red_p: float = 0.2
 @export var now_gold_p: float = 4
 @export var now_darkorchid_p: float = 25.5
 @export var now_blue_p: float = 70
 @export var selected_rewards = []
 
-const RED_CHANCE_PER_LUCKY: float = 0.025
+const RED_CHANCE_PER_LUCKY: float = 0.02
+const GOLD_CHANCE_PER_LUCKY: float = 0.25
+const DARKORCHID_CHANCE_PER_LUCKY: float = 0.6
 
 # 诗想难度备战配置（跨场景保持，reset_player_attr不重置此字段）
 var poetry_loadout: Dictionary = {}
@@ -262,7 +272,7 @@ var poetry_loadout: Dictionary = {}
 @export var main_skill_water = 0
 @export var main_skill_water_advance = 0
 @export var first_has_water: bool = true
-@export var main_skill_water_damage: float = 0.60
+@export var main_skill_water_damage: float = 0.40
 @export var water_final_damage_multi: float = 1.0 # 坎水诀总伤害加成
 
 # 乾坤双剑相关变量
@@ -307,7 +317,12 @@ var poetry_loadout: Dictionary = {}
 @export var main_skill_qigong = 0
 @export var main_skill_qigong_advance = 0
 @export var first_has_qigong: bool = true
-@export var main_skill_qigong_damage: float = 1.25
+@export var main_skill_qigong_damage: float = 0.0
+
+# 爪爪巨锤相关变量
+@export var main_skill_zhuazhuajuchui = 0
+@export var main_skill_zhuazhuajuchui_advance = 0
+@export var first_has_zhuazhuajuchui: bool = true
 
 
 # 反弹子弹相关属性
@@ -341,7 +356,10 @@ var poetry_loadout: Dictionary = {}
 # 刷新次数
 @export var refresh_num: int = 5
 # 锁定次数
-@export var lock_num: int = 1
+@export var lock_num: int = 3
+# 禁用次数
+@export var ban_num: int = 0
+var banned_lingwu_series: Dictionary = {}
 
 # 纹章相关字段
 @export var emblem_slots_max: int = 4
@@ -365,6 +383,11 @@ const START_WEAPON_RUNTIME_MAP := {
 	"Moyan": {"skill_id": "moyan", "reward_id": "Moyan", "attack_ids": ["moyan"]},
 	"Qiankun": {"skill_id": "qiankun", "reward_id": "Qiankun", "attack_ids": ["qiankun"]},
 	"Bloodboardsword": {"skill_id": "bloodboardsword", "reward_id": "Bloodboardsword", "attack_ids": ["bloodboardsword", "blood_broadsword"]},
+	"Riyan": {"skill_id": "riyan", "reward_id": "Riyan", "attack_ids": ["riyan"]},
+	"Ringfire": {"skill_id": "ringFire", "reward_id": "Ringfire", "attack_ids": ["ringfire", "ringFire", "ring_fire"]},
+	"Duize": {"skill_id": "duize", "reward_id": "Duize", "attack_ids": ["duize"]},
+	"Dragonwind": {"skill_id": "dragonwind", "reward_id": "Dragonwind", "attack_ids": ["dragonwind", "dragon_wind"]},
+	"Zhuazhuajuchui": {"skill_id": "zhuazhuajuchui", "reward_id": "Zhuazhuajuchui", "attack_ids": ["zhuazhuajuchui"]},
 }
 
 # active配置字段
@@ -382,11 +405,7 @@ func _ready():
 	Global.connect("lucky_level_up", Callable(self , "_on_lucky_level_up"))
 
 func _on_lucky_level_up(lunky_up: float) -> void:
-	now_red_p = now_red_p + lunky_up * RED_CHANCE_PER_LUCKY
-	now_gold_p = now_gold_p + lunky_up * 0.5
-	now_darkorchid_p = now_darkorchid_p + lunky_up * 0.6
-	now_blue_p = now_blue_p + lunky_up * 1
-	lucky = now_lunky_level
+	_recalculate_reward_rarity_chances()
 
 func get_reward_acquisition_count(fallback_reward_id: String):
 	return selected_rewards.count(fallback_reward_id)
@@ -402,11 +421,11 @@ func get_pain_relief_ratio() -> float:
 
 func get_pain_spirit_gain() -> int:
 	if selected_rewards.has("SSR84"):
-		return 18
+		return 90
 	if selected_rewards.has("SR84"):
-		return 13
+		return 60
 	if selected_rewards.has("R84"):
-		return 10
+		return 40
 	return 0
 
 func get_pain_exp_ratio() -> float:
@@ -504,6 +523,45 @@ func is_base_weapon_attack(attack_id: String, player_name_override: String = "")
 			return true
 	return normalized_attack_id == _normalize_attack_id(str(weapon_info.get("skill_id", "")))
 
+func _grant_start_weapon(start_weapon_id: String) -> void:
+	var normalized_id := Global.normalize_start_weapon_id(start_weapon_id)
+	var start_weapon_info: Dictionary = START_WEAPON_RUNTIME_MAP.get(normalized_id, {})
+	if start_weapon_info.is_empty():
+		return
+	var reward_id := str(start_weapon_info.get("reward_id", "Swordqi"))
+	if not PC.selected_rewards.has(reward_id):
+		PC.selected_rewards.append(reward_id)
+	PC.current_weapon_num += 1
+	_reset_start_weapon_runtime_data(normalized_id)
+	var faze_levels := Global.get_start_weapon_faze_levels(normalized_id)
+	for faze_prop in faze_levels.keys():
+		PC.set(faze_prop, int(PC.get(faze_prop)) + int(faze_levels[faze_prop]))
+
+func _reset_start_weapon_runtime_data(start_weapon_id: String) -> void:
+	match start_weapon_id:
+		"Ice":
+			IceFlower.reset_data()
+		"Bloodwave":
+			BloodWave.reset_data()
+		"Qiankun":
+			Qiankun.reset_data()
+		"Xuanwu":
+			Xuanwu.reset_data()
+		"Xunfeng":
+			Xunfeng.reset_data()
+		"Genshan":
+			Genshan.reset_data()
+		"Duize":
+			Duize.reset_data()
+		"Holylight":
+			HolyLight.reset_data()
+		"Dragonwind":
+			DragonWind.reset_data()
+		"Zhuazhuajuchui":
+			ZHUAZHUAJUCHUI_SCRIPT.reset_data()
+		"Qigong":
+			Qigong.sync_reward_modifiers()
+
 func apply_base_weapon_emblem_damage_bonus(base_damage: float, attack_id: String, is_extra_attack: bool = false) -> float:
 	var final_damage := base_damage
 	if not is_base_weapon_attack(attack_id):
@@ -542,6 +600,8 @@ func queue_base_weapon_extra_attack(damage_multiplier: float) -> void:
 func reset_player_attr() -> void:
 	# 清除所有buff/debuff（燃烧、冰冻等战斗debuff不会残留到城镇）
 	BuffManager.clear_all_buffs()
+	if LvUp and LvUp.has_method("reset_battle_reward_state"):
+		LvUp.reset_battle_reward_state()
 
 	# 重置权重
 	if PlayerRewardWeights:
@@ -550,6 +610,8 @@ func reset_player_attr() -> void:
 	# 初始化一系列单局内会发生变化的变量
 	Global.in_menu = false
 	PC.is_game_over = false
+	if Global.active_skill_manager and Global.active_skill_manager.has_method("reset_battle_state"):
+		Global.active_skill_manager.reset_battle_state()
 	
 	Global.reset_battle_modifiers()
 	
@@ -608,13 +670,14 @@ func reset_player_attr() -> void:
 	
 	# 修习树团队篇：减伤率加成
 	PC.damage_reduction_rate = min(0.0 + (Global.cultivation_huti_level * 0.002) + Global.study_damage_reduction_bonus, 0.7) # 基础减伤率 + 局外成长，最高70%
+	PC.clear_independent_damage_reduction_sources()
 	PC.damage_deal_multiplier = 1.0
 	PC.pc_final_atk = Global.get_cultivation_final_damage_bonus()
 	var achievement_bonus := _get_achievement_bonus_summary()
 	PC.pc_final_atk += float(achievement_bonus.get("final_damage", 0.0))
 	PC.wind_huanfeng_stacks = 0
 	PC.wind_huanfeng_max_stacks = 0
-	PC.wind_huanfeng_duration = 30.0
+	PC.wind_huanfeng_duration = 12.0
 	PC.sixsense_bonus_multiplier = 1.0
 	PC.sixsense_base_crit_chance = 0.0
 	PC.sixsense_base_crit_damage_multi = 0.0
@@ -635,9 +698,11 @@ func reset_player_attr() -> void:
 	PC.exp_multi = Global.exp_multi + Global.study_exp_bonus + float(achievement_bonus.get("exp", 0.0)) # 修习树领悟篇：经验获取提升
 	# 修习树团队篇：掉落率百分比加成
 	PC.drop_multi = Global.drop_multi + Global.study_drop_rate_bonus + float(achievement_bonus.get("drop", 0.0))
+	PC.heal_aura_drop_multi = 0.0
 	PC.body_size = Global.body_size
 	PC.set_attack_range_value(Global.attack_range)
 	PC.heal_multi = Global.heal_multi
+	PC.bloodwave_dynamic_heal_bonus = 0.0
 	PC.sheild_multi = Global.sheild_multi
 	PC.normal_monster_multi = Global.normal_monster_multi
 	PC.boss_multi = Global.boss_multi
@@ -648,8 +713,10 @@ func reset_player_attr() -> void:
 	PC.enemy_damage_multiplier = 1.0 # 重置敌人伤害倍率
 	PC.total_distance_moved = 0.0 # 重置移动距离
 	PC.distance_buff_offsets.clear() # 重置移动距离buff偏移
-	PC.xianqi_points = 0 # 重置仙气凝聚点数
+	PC.xianqi_points = 0 # 重置仙气凝聚层数
 	PC.xianli_active = false # 重置仙力护体状态
+	PC.xianqi_final_damage_applied_bonus = 0.0
+	PC.xianqi_hp_applied_bonus = 0.0
 	PC.xuji_remaining = 0 # 重置蓄积剩余次数
 	PC.bleed_damage_multi = 0.0 # 重置流血伤害加成
 	PC.electrification_damage_multi = 0.0 # 重置感电伤害加成
@@ -697,6 +764,7 @@ func reset_player_attr() -> void:
 	PC.faze_wide_level = 0
 	PC.faze_bagua_level = 0
 	PC.faze_treasure_level = 0
+	PC.faze_deep_level = 0
 	PC.faze_chaos_level = 0
 	PC.faze_skill_level = 0
 	PC.faze_sixsense_level = 0
@@ -723,6 +791,7 @@ func reset_player_attr() -> void:
 	PC.faze_wide_range_bonus = 0.0
 	PC.faze_wide_damage_bonus = 0.0
 	PC.faze_wide_range_to_damage_ratio = 0.0
+	PC.faze_wide_global_attack_range_bonus = 0.0
 	
 	PC.faze_sword_coldlight_stack = 0
 	
@@ -810,7 +879,7 @@ func reset_player_attr() -> void:
 	PC.main_skill_water = 0
 	PC.main_skill_water_advance = 0
 	PC.first_has_water = true
-	PC.main_skill_water_damage = 0.60
+	PC.main_skill_water_damage = 0.40
 	PC.water_final_damage_multi = 1.0
 	
 	# 重置乾坤双剑相关属性
@@ -853,10 +922,16 @@ func reset_player_attr() -> void:
 	PC.main_skill_qigong = 0
 	PC.main_skill_qigong_advance = 0
 	PC.first_has_qigong = true
-	PC.main_skill_qigong_damage = 1.25
+	PC.main_skill_qigong_damage = 0.0
+	PC.main_skill_zhuazhuajuchui = 0
+	PC.main_skill_zhuazhuajuchui_advance = 0
+	PC.first_has_zhuazhuajuchui = true
+	ZHUAZHUAJUCHUI_SCRIPT.reset_data()
 	
-	PC.refresh_num = Global.refresh_max_num
-	PC.lock_num = 1
+	PC.refresh_num = Global.get_initial_refresh_num()
+	PC.lock_num = Global.get_initial_lock_num()
+	PC.ban_num = Global.get_initial_ban_num()
+	PC.banned_lingwu_series.clear()
 	
 	# 重置纹章系统
 	PC.current_emblems.clear()
@@ -873,26 +948,24 @@ func reset_player_attr() -> void:
 
 	# 诗想难度下不添加角色默认武器（由poetry_loadout统一管理），非诗想难度才添加
 	if Global.current_stage_difficulty != Global.STAGE_DIFFICULTY_POETRY:
-		var start_weapon_info := PC.get_base_weapon_runtime_info()
-		if not start_weapon_info.is_empty():
-			var start_weapon_id := Global.get_selected_start_weapon()
-			PC.selected_rewards.append(str(start_weapon_info.get("reward_id", "Swordqi")))
-			PC.current_weapon_num += 1
-			var faze_levels := Global.get_start_weapon_faze_levels(start_weapon_id)
-			for faze_prop in faze_levels.keys():
-				PC.set(faze_prop, int(PC.get(faze_prop)) + int(faze_levels[faze_prop]))
+		PC._grant_start_weapon(Global.get_selected_start_weapon())
 	
 
-func add_shield(amount: int, duration: float) -> void:
+func add_shield(amount: int, duration: float, source_id: String = "unknown") -> void:
 	if is_game_over:
 		return
 	var shield_bonus = 1.0 + PC.sheild_multi
 	var final_amount = int(ceil(float(amount) * shield_bonus * Global.get_heal_shield_effect_multiplier()))
+	if final_amount <= 0:
+		return
 	var shield = {"value": final_amount, "time_left": duration}
 	pc_sheild.append(shield)
+	Global.record_heal_shield_for_stats("shield", float(final_amount), source_id)
 	_scan_achievement_runtime_keys(["shield_ratio"])
 
 func update_shields(delta: float) -> void:
+	if Global.is_battle_time_paused():
+		return
 	for i in range(pc_sheild.size()):
 		var shield = pc_sheild[i]
 		shield["time_left"] = float(shield["time_left"]) - delta
@@ -910,9 +983,12 @@ func player_hit(damage: int, attacker: Node2D = null, source_name: String = "未
 		return 0
 	if Global.is_poetry_boss_damage_source(attacker):
 		damage = int(ceil(float(damage) * Global.get_poetry_boss_damage_multiplier()))
+	elif Global.is_boss_damage_source(attacker):
+		damage = int(ceil(float(damage) * Global.get_stage_boss_damage_multiplier()))
 	# 护甲减伤：armor/(armor+500)
 	var armor_reduction = pc_armor / (pc_armor + 500.0) if pc_armor > 0 else 0.0
 	damage = int(damage * (1.0 - armor_reduction))
+	damage = _apply_independent_damage_reduction(damage)
 	if damage < 1:
 		damage = 1
 	var remaining_damage = damage
@@ -954,9 +1030,12 @@ func player_hit_ignore_invincible(damage: int, attacker: Node2D = null, source_n
 		return 0
 	if Global.is_poetry_boss_damage_source(attacker):
 		damage = int(ceil(float(damage) * Global.get_poetry_boss_damage_multiplier()))
+	elif Global.is_boss_damage_source(attacker):
+		damage = int(ceil(float(damage) * Global.get_stage_boss_damage_multiplier()))
 	# 护甲减伤：armor/(armor+500)
 	var armor_reduction = pc_armor / (pc_armor + 500.0) if pc_armor > 0 else 0.0
 	damage = int(damage * (1.0 - armor_reduction))
+	damage = _apply_independent_damage_reduction(damage)
 	if damage < 1:
 		damage = 1
 	var remaining_damage = damage
@@ -992,6 +1071,31 @@ func player_hit_ignore_invincible(damage: int, attacker: Node2D = null, source_n
 		player_instance.game_over()
 	
 	return remaining_damage
+
+func _apply_independent_damage_reduction(damage: int) -> int:
+	if independent_damage_reduction_multiplier >= 0.999:
+		return damage
+	return int(ceil(float(damage) * clampf(independent_damage_reduction_multiplier, 0.0, 1.0)))
+
+func add_independent_damage_reduction_source(source_id: String, multiplier: float) -> void:
+	if source_id.is_empty():
+		return
+	independent_damage_reduction_sources[source_id] = clampf(multiplier, 0.0, 1.0)
+	_refresh_independent_damage_reduction_multiplier()
+
+func remove_independent_damage_reduction_source(source_id: String) -> void:
+	independent_damage_reduction_sources.erase(source_id)
+	_refresh_independent_damage_reduction_multiplier()
+
+func clear_independent_damage_reduction_sources() -> void:
+	independent_damage_reduction_sources.clear()
+	independent_damage_reduction_multiplier = 1.0
+
+func _refresh_independent_damage_reduction_multiplier() -> void:
+	var multiplier := 1.0
+	for value in independent_damage_reduction_sources.values():
+		multiplier = minf(multiplier, float(value))
+	independent_damage_reduction_multiplier = multiplier
 
 ## 无视无敌状态的秒杀（用于核爆/玄冰等Buff不匹配时的即死判定）
 func player_instakill(attacker: Node2D = null, source_name: String = "未知") -> void:
@@ -1044,22 +1148,27 @@ func exec_pc_attack_range() -> void:
 
 func set_attack_range_value(value: float) -> void:
 	attack_range = max(0.01, value)
-	bullet_size = attack_range
 
 func add_attack_range(delta: float) -> void:
 	set_attack_range_value(attack_range + delta)
 
 func exec_lucky_level() -> void:
-	PC.now_lunky_level = Global.lunky_level
-	# 修习树领悟篇：初始天命提升
-	PC.lucky = PC.now_lunky_level + Global.study_initial_lucky
-	# 修习树领悟篇：逆天/臻境/悟道概率提升
-	PC.now_red_p = Global.red_p + Global.lunky_level * RED_CHANCE_PER_LUCKY + Global.study_red_chance_bonus
-	PC.now_gold_p = Global.gold_p + Global.lunky_level * 0.5 + Global.study_gold_chance_bonus
-	PC.now_darkorchid_p = Global.darkorchid_p + Global.lunky_level * 0.6 + Global.study_purple_chance_bonus
-	PC.now_blue_p = Global.blue_p + Global.lunky_level * 1
+	PC.now_lunky_level = Global.lunky_level + Global.study_initial_lucky + Global.get_achievement_initial_lucky_bonus()
+	_recalculate_reward_rarity_chances()
 	# 修习树领悟篇：纹章栏位增加
 	PC.emblem_slots_max = 4 + Global.study_emblem_slots_bonus
+
+func get_lucky_level() -> int:
+	return now_lunky_level
+
+func _recalculate_reward_rarity_chances() -> void:
+	now_red_p = Global.red_p + float(now_lunky_level) * RED_CHANCE_PER_LUCKY + Global.study_red_chance_bonus
+	now_gold_p = Global.gold_p + float(now_lunky_level) * GOLD_CHANCE_PER_LUCKY + Global.study_gold_chance_bonus
+	now_darkorchid_p = Global.darkorchid_p + float(now_lunky_level) * DARKORCHID_CHANCE_PER_LUCKY + Global.study_purple_chance_bonus
+	now_red_p = clampf(now_red_p, 0.0, 100.0)
+	now_gold_p = clampf(now_gold_p, 0.0, 100.0 - now_red_p)
+	now_darkorchid_p = clampf(now_darkorchid_p, 0.0, 100.0 - now_red_p - now_gold_p)
+	now_blue_p = maxf(0.0, 100.0 - now_red_p - now_gold_p - now_darkorchid_p)
 
 func exec_swordqi_skills() -> void:
 	# 根据已学习的技能初始化剑气等级和伤害
@@ -1090,6 +1199,21 @@ var character_data = {
 	"moning": {
 		"display_name": "墨宁",
 		"animation_path": "res://AssetBundle/Sprites/idle.png",
+		"animation_name": "idle"
+	},
+	"noam": {
+		"display_name": "诺姆",
+		"animation_path": "res://AssetBundle/Sprites/idle.png",
+		"animation_name": "idle"
+	},
+	"kansel": {
+		"display_name": "坎塞尔",
+		"animation_path": "res://AssetBundle/Sprites/idle.png",
+		"animation_name": "idle"
+	},
+	"xueming": {
+		"display_name": "雪铭",
+		"animation_path": "res://AssetBundle/Sprites/new_character/xueming_idle.png",
 		"animation_name": "idle"
 	}
 }
@@ -1141,7 +1265,7 @@ func get_character_attributes_text() -> String:
 	var drop_rate = (1 + Global.drop_multi + equipment_stats["drop_multi"]) * 100
 	
 	# 计算次要属性（用于修为计算）
-	var bullet_size_val = equipment_stats["bullet_size"] * 100
+	var attack_range_val = equipment_stats["attack_range"] * 100
 	var body_size_val = Global.body_size * 100 # 秘丹加成
 	var heal_multi_val = (Global.heal_multi + equipment_stats.get("heal_multi", 0)) * 100
 	var sheild_multi_val = (Global.sheild_multi + equipment_stats.get("sheild_multi", 0)) * 100
@@ -1154,7 +1278,7 @@ func get_character_attributes_text() -> String:
 	var cultivation_power = _calculate_cultivation_power(
 		final_atk, final_hp, atk_speed, move_speed, damage_reduction,
 		crit_rate, crit_damage, point_rate, exp_rate, drop_rate,
-		bullet_size_val, body_size_val, heal_multi_val, sheild_multi_val,
+		attack_range_val, body_size_val, heal_multi_val, sheild_multi_val,
 		normal_monster_multi_val, boss_multi_val, cooldown_val, active_skill_multi_val,
 		spirit_rate
 	)
@@ -1203,7 +1327,7 @@ func get_character_attributes_text() -> String:
 func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: float, move_speed: float,
 								   damage_reduction: float, crit_rate: float, crit_damage: float,
 								   point_rate: float, exp_rate: float, drop_rate: float,
-								   p_bullet_size: float = 0, p_body_size: float = 0, p_heal_multi: float = 0, p_sheild_multi: float = 0,
+								   p_attack_range: float = 0, p_body_size: float = 0, p_heal_multi: float = 0, p_sheild_multi: float = 0,
 								   p_normal_monster_multi: float = 0, p_boss_multi: float = 0, p_cooldown: float = 0, p_active_skill_multi: float = 0,
 								   spirit_rate: float = 100.0) -> int:
 	# 攻速实际倍率 = 1 + atk_speed/100
@@ -1247,10 +1371,10 @@ func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: floa
 	var damage_reduction_bonus = damage_reduction * 120.0
 	
 	# === 次要属性额外加成 ===
-	# 攻击范围每1%提升16修为
-	var bullet_size_bonus = p_bullet_size * 16.0
-	# 体型大小每1%提升4修为
-	var body_size_bonus = p_body_size * 4.0
+	# 伤害范围每1%提升16修为
+	var attack_range_bonus = p_attack_range * 16.0
+	# 体型偏离基础值也视为收益；体型减小丹药降低受击体积，不能扣修为。
+	var body_size_bonus = abs(p_body_size) * 4.0
 	# 治疗加成每1%提升6修为
 	var heal_multi_bonus = p_heal_multi * 6.0
 	# 护盾加成每1%提升6修为
@@ -1268,7 +1392,7 @@ func _calculate_cultivation_power(final_atk: int, final_hp: int, atk_speed: floa
 	# 总修为
 	var total_cultivation = atk_part + hp_part + point_part + exp_bonus + drop_bonus + spirit_bonus \
 		+ atk_speed_bonus + move_speed_bonus + crit_rate_bonus + crit_damage_bonus + damage_reduction_bonus \
-		+ bullet_size_bonus + body_size_bonus + heal_multi_bonus + sheild_multi_bonus \
+		+ attack_range_bonus + body_size_bonus + heal_multi_bonus + sheild_multi_bonus \
 		+ normal_monster_bonus + boss_bonus + cooldown_bonus + active_skill_bonus \
 		+ progression_power_bonus - 2750
 	
@@ -1335,7 +1459,7 @@ func get_secondary_attributes_text() -> String:
 	var equipment_stats = Global.equipment_manager.calculate_total_equipment_stats()
 	
 	# 计算次要属性
-	var bullet_size_val = (1 + Global.attack_range - 1.0 + equipment_stats["bullet_size"]) * 100 # 攻击范围包含秘丹加成
+	var attack_range_val = (1 + Global.attack_range - 1.0 + equipment_stats["attack_range"]) * 100 # 伤害范围包含秘丹加成
 	var point_multi_val = (1 + Global.cultivation_hualing_level * 0.02 + equipment_stats["point_multi"]) * 100
 	var spirit_multi_val = (1 + equipment_stats.get("spirit_multi", 0.0)) * 100
 	var exp_multi_val = (1 + Global.exp_multi + equipment_stats["exp_multi"]) * 100
@@ -1357,7 +1481,7 @@ func get_secondary_attributes_text() -> String:
 	
 	var attr_text = ""
 	attr_text += "最终伤害  " + _fmt_attr(final_damage_val) + "%\n"
-	attr_text += "攻击范围  " + _fmt_attr(bullet_size_val) + "%\n"
+	attr_text += "伤害范围  " + _fmt_attr(attack_range_val) + "%\n"
 	attr_text += "真气获取  " + _fmt_attr(point_multi_val) + "%\n"
 	attr_text += "精魄获取  " + _fmt_attr(spirit_multi_val) + "%\n"
 	attr_text += "经验获取  " + _fmt_attr(exp_multi_val) + "%\n"
@@ -1367,8 +1491,8 @@ func get_secondary_attributes_text() -> String:
 	attr_text += "护盾加成  " + _fmt_attr(sheild_multi_val) + "%\n"
 	attr_text += "对小怪增伤  " + _fmt_attr(normal_monster_multi_val) + "%\n"
 	attr_text += "对精英首领增伤  " + _fmt_attr(boss_multi_val) + "%\n"
-	attr_text += "主动技能冷却缩减  " + _fmt_attr(cooldown_val) + "%\n"
-	attr_text += "主动技能增伤  " + _fmt_attr(active_skill_multi_val) + "%"
+	attr_text += "技能冷却缩减  " + _fmt_attr(cooldown_val) + "%\n"
+	attr_text += "技能增伤  " + _fmt_attr(active_skill_multi_val) + "%"
 	
 	return attr_text
 

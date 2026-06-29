@@ -283,6 +283,10 @@ func _on_difficulty_button_pressed(difficulty_id: String) -> void:
 		return
 	_selected_difficulty = Global.validate_stage_difficulty_id(difficulty_id)
 	Global.set_selected_stage_difficulty(_selected_difficulty)
+	if _selected_difficulty == Global.STAGE_DIFFICULTY_CORE:
+		var global_start_depth := Global.get_global_core_start_depth()
+		if Global.selected_core_depth < global_start_depth:
+			Global.set_selected_core_depth(global_start_depth)
 	_apply_difficulty_button_visual()
 	if not _hovered_stage_key.is_empty():
 		_show_stage_tooltip(_hovered_stage_key)
@@ -323,19 +327,26 @@ func _on_core_depth_right_pressed() -> void:
 func _update_core_bonus_ui(animate_visibility: bool) -> void:
 	var should_show := _selected_difficulty == Global.STAGE_DIFFICULTY_CORE
 	_update_core_bonus_text()
-	_update_core_depth_navigation_state()
 	_set_core_bonus_visible(should_show, animate_visibility)
+	_update_core_depth_navigation_state()
 
 func _update_poetry_bonus_ui(animate_visibility: bool) -> void:
 	var should_show := _selected_difficulty == Global.STAGE_DIFFICULTY_POETRY
 	_set_poetry_bonus_visible(should_show, animate_visibility)
 
 func _update_core_depth_navigation_state() -> void:
+	var is_core_selected := _selected_difficulty == Global.STAGE_DIFFICULTY_CORE
 	if core_depth_left_button != null:
-		core_depth_left_button.disabled = Global.selected_core_depth <= Global.CORE_DEPTH_MIN
+		var can_go_left := Global.selected_core_depth > Global.CORE_DEPTH_MIN
+		core_depth_left_button.disabled = not can_go_left
+		core_depth_left_button.visible = is_core_selected and can_go_left
+		core_depth_left_button.modulate.a = 1.0 if core_depth_left_button.visible else 0.0
 	if core_depth_right_button != null:
 		var max_unlocked_depth := Global.get_global_max_unlocked_core_depth()
-		core_depth_right_button.disabled = Global.selected_core_depth >= Global.CORE_DEPTH_MAX or Global.selected_core_depth >= max_unlocked_depth
+		var can_go_right := Global.selected_core_depth < Global.CORE_DEPTH_MAX and Global.selected_core_depth < max_unlocked_depth
+		core_depth_right_button.disabled = not can_go_right
+		core_depth_right_button.visible = is_core_selected and can_go_right
+		core_depth_right_button.modulate.a = 1.0 if core_depth_right_button.visible else 0.0
 
 func _set_core_bonus_visible(should_show: bool, animate_visibility: bool) -> void:
 	if _core_bonus_tween and _core_bonus_tween.is_valid():
@@ -344,6 +355,8 @@ func _set_core_bonus_visible(should_show: bool, animate_visibility: bool) -> voi
 		return
 	if not animate_visibility:
 		for control in _core_bonus_controls:
+			if control == core_depth_left_button or control == core_depth_right_button:
+				continue
 			control.visible = should_show
 			control.modulate.a = 1.0 if should_show else 0.0
 		return
@@ -351,16 +364,22 @@ func _set_core_bonus_visible(should_show: bool, animate_visibility: bool) -> voi
 		_core_bonus_tween = create_tween()
 		_core_bonus_tween.set_parallel(true)
 		for control in _core_bonus_controls:
+			if control == core_depth_left_button or control == core_depth_right_button:
+				continue
 			control.visible = true
 			_core_bonus_tween.tween_property(control, "modulate:a", 1.0, 0.18)
 	else:
 		_core_bonus_tween = create_tween()
 		_core_bonus_tween.set_parallel(true)
 		for control in _core_bonus_controls:
+			if control == core_depth_left_button or control == core_depth_right_button:
+				continue
 			_core_bonus_tween.tween_property(control, "modulate:a", 0.0, 0.15)
 		_core_bonus_tween.set_parallel(false)
 		_core_bonus_tween.tween_callback(func():
 			for control in _core_bonus_controls:
+				if control == core_depth_left_button or control == core_depth_right_button:
+					continue
 				control.visible = false
 		)
 
@@ -393,6 +412,7 @@ func _set_poetry_bonus_visible(should_show: bool, animate_visibility: bool) -> v
 
 func _update_core_bonus_text() -> void:
 	var depth := Global.clamp_core_depth(Global.selected_core_depth)
+	var stage_id := _get_core_bonus_stage_id()
 	if difficulty_bonus_label != null:
 		difficulty_bonus_label.text = "核心进阶"
 	if difficulty_bonus_num != null:
@@ -401,7 +421,7 @@ func _update_core_bonus_text() -> void:
 		return
 	difficulty_bonus_text.clear()
 	var qi_bonus := Global.get_core_qi_gain_bonus_percent(depth) - 40
-	var stat_bonus := Global.get_core_stat_bonus_percent(depth)
+	var stat_bonus := Global.get_stage_core_stat_bonus_percent(stage_id, depth)
 	var move_bonus := 25 if depth >= 10 else 15
 	var growth_bonus := 30 if depth >= 10 else 20
 	var exp_bonus := 25 if depth >= 10 else 20
@@ -431,6 +451,16 @@ func _update_core_bonus_text() -> void:
 	if depth >= 9:
 		lines.append("护盾与治疗效果降低%s" % _color_value("30%"))
 	difficulty_bonus_text.parse_bbcode("\n".join(lines))
+
+func _get_core_bonus_stage_id() -> String:
+	if not _hovered_stage_key.is_empty():
+		var hovered_info: Dictionary = STAGE_INFO.get(_hovered_stage_key, {})
+		var hovered_stage_id := str(hovered_info.get("stage_id", ""))
+		if not hovered_stage_id.is_empty():
+			return hovered_stage_id
+	if not Global.current_stage_id.is_empty():
+		return Global.current_stage_id
+	return str(STAGE_INFO.get("stage1", {}).get("stage_id", "peach_grove"))
 
 func _color_value(text: String) -> String:
 	return _color_text(text, CORE_BONUS_COLOR_VALUE)
@@ -557,6 +587,9 @@ func _build_locked_stage_message(stage_key: String) -> String:
 		var unlocked_depth := Global.get_stage_max_unlocked_core_depth(stage_id)
 		if unlocked_depth <= 0:
 			return "需要先通关%s的深层，才能开启核心进阶1层。" % stage_name
+		var global_start_depth := Global.get_global_core_start_depth()
+		if target_depth <= global_start_depth:
+			return "需要先通关%s的深层，才能开启核心进阶%d层。" % [stage_name, target_depth]
 		return "需要先通关%s的核心进阶%d层，才能开启核心进阶%d层。" % [
 			stage_name,
 			max(1, target_depth - 1),
@@ -714,6 +747,9 @@ func _build_locked_difficulty_message(stage_key: String) -> String:
 		var unlocked_depth := Global.get_stage_max_unlocked_core_depth(stage_id)
 		if unlocked_depth <= 0:
 			return "需要先通关%s的深层，才能进入核心进阶1层。" % stage_name
+		var global_start_depth := Global.get_global_core_start_depth()
+		if target_depth <= global_start_depth:
+			return "需要先通关%s的深层，才能进入核心进阶%d层。" % [stage_name, target_depth]
 		return "需要先通关%s的核心进阶%d层，才能进入核心进阶%d层。" % [
 			stage_name,
 			max(1, target_depth - 1),
@@ -752,6 +788,8 @@ func _show_stage_tooltip(stage_key: String) -> void:
 	if _stage_tooltips_suppressed:
 		return
 	_hovered_stage_key = stage_key
+	if _selected_difficulty == Global.STAGE_DIFFICULTY_CORE:
+		_update_core_bonus_text()
 	_tooltip_request_id += 1
 	var request_id := _tooltip_request_id
 	var info: Dictionary = STAGE_INFO.get(stage_key, {})

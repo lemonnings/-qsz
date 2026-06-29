@@ -8,6 +8,7 @@ var ambient_player: AudioStreamPlayer
 var bgm_map: Dictionary = {}
 # 场景环境音映射表
 var ambient_map: Dictionary = {}
+var town_bgm_variants: Array[AudioStream] = []
 
 func _ready() -> void:
 	_setup_stage_audio()
@@ -32,12 +33,15 @@ func _setup_stage_audio() -> void:
 	
 	# 载入场景BGM资源并设置循环
 	var _bgm_town: AudioStreamMP3 = load("res://AssetBundle/Audio/Town_normal.mp3")
+	var _bgm_town_2: AudioStreamMP3 = load("res://AssetBundle/Audio/town2.mp3")
 	var _bgm_peach: AudioStreamMP3 = load("res://AssetBundle/Audio/Peach_normal.mp3")
 	var _bgm_ruin: AudioStreamMP3 = load("res://AssetBundle/Audio/Ruin_normal.mp3")
 	var _bgm_cave: AudioStreamMP3 = load("res://AssetBundle/Audio/Cave_normal.mp3")
 	var _bgm_forest: AudioStreamMP3 = load("res://AssetBundle/Audio/Forest_normal.mp3")
-	for bgm_stream in [_bgm_town, _bgm_peach, _bgm_ruin, _bgm_cave, _bgm_forest]:
-		bgm_stream.loop = true
+	for bgm_stream in [_bgm_town, _bgm_town_2, _bgm_peach, _bgm_ruin, _bgm_cave, _bgm_forest]:
+		if bgm_stream != null:
+			bgm_stream.loop = true
+	town_bgm_variants = [_bgm_town, _bgm_town_2]
 	bgm_map = {
 		"town": _bgm_town,
 		"peach_grove": _bgm_peach,
@@ -60,17 +64,28 @@ func _setup_stage_audio() -> void:
 
 ## 播放场景专属BGM和环境音
 func play_stage_bgm(stage_id: String) -> void:
+	var bgm_stream := _resolve_stage_bgm_stream(stage_id)
 	# 同一首BGM正在播放时，不重启，继续播放
-	if bgm_map.has(stage_id) and stage_bgm_player.playing \
-		and stage_bgm_player.stream == bgm_map[stage_id]:
+	if bgm_stream != null and stage_bgm_player.playing \
+		and stage_bgm_player.stream == bgm_stream:
 		play_stage_ambient(stage_id)
 		return
 	stop_all_bgm()
 	stop_ambient()
-	if bgm_map.has(stage_id) and bgm_map[stage_id] != null:
-		stage_bgm_player.stream = bgm_map[stage_id]
+	if bgm_stream != null:
+		stage_bgm_player.stream = bgm_stream
 		stage_bgm_player.play(0.0)
 	play_stage_ambient(stage_id)
+
+func _resolve_stage_bgm_stream(stage_id: String) -> AudioStream:
+	if stage_id == "town" and Global.is_stage_cleared("peach_grove"):
+		var valid_variants: Array[AudioStream] = []
+		for stream in town_bgm_variants:
+			if stream != null:
+				valid_variants.append(stream)
+		if not valid_variants.is_empty():
+			return valid_variants.pick_random()
+	return bgm_map.get(stage_id, null)
 
 ## 播放场景环境音
 func play_stage_ambient(stage_id: String) -> void:

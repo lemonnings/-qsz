@@ -12,6 +12,9 @@ const MAX_LIFETIME: float = 3.0
 # 子弹的伤害和暴击状态（在创建时确定）
 var bullet_damage: float = 0.0
 var is_crit_hit: bool = false
+var damage_override: float = -1.0
+var weapon_tag_override: String = ""
+var excluded_law_categories_override: Array = []
 
 # 射程和渐隐相关变量
 var start_position: Vector2 # 子弹起始位置
@@ -42,6 +45,10 @@ var extra_damage_multiplier: float = 1.0 # 额外伤害倍率
 var is_extra_attack_flag: bool = false # 是否为额外攻击
 var base_node_scale: Vector2 = Vector2.ONE
 var current_scale_factor: Vector2 = Vector2.ONE
+var pseudo_random_report_owner: Object = null
+var pseudo_random_hit_method: StringName = &""
+var pseudo_random_miss_method: StringName = &""
+var pseudo_random_hit_reported: bool = false
 
 # 剑波痕迹相关变量
 var sword_wave_trace_enabled: bool = false
@@ -63,6 +70,7 @@ var speed_boost_amount: float = 50.0 # 每次提升50速度
 var has_hit_target: bool = false # 是否已击中目标
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	# 记录子弹起始位置
 	start_position = global_position
 	lifetime_timer = 0.0
@@ -92,7 +100,7 @@ func _physics_process(delta: float) -> void:
 	if lifetime_timer >= MAX_LIFETIME:
 		queue_free()
 		return
-	
+
 	if if_summon:
 		sprite.visible = false
 		sprite_summon.visible = true
@@ -217,19 +225,29 @@ func initialize_bullet_damage() -> void:
 	# 应用额外伤害倍率
 	bullet_damage *= extra_damage_multiplier
 
+	if damage_override >= 0.0:
+		bullet_damage = damage_override
+
 # 应用buff效果到伤害
 func apply_buff_effects_to_damage(base_damage: float, p_is_summon_bullet: bool) -> float:
 	var final_damage = base_damage
 	
 	# 如果是召唤物子弹，不应用基础武器纹章
-	if not p_is_summon_bullet and not if_summon and not is_ring_bullet and not is_wave_bullet:
+	if weapon_tag_override.is_empty() and not p_is_summon_bullet and not if_summon and not is_ring_bullet and not is_wave_bullet:
 		final_damage = PC.apply_base_weapon_emblem_damage_bonus(final_damage, "swordqi", is_extra_attack_flag)
 	
 	return final_damage
 
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary: # Returns {"damage": float, "is_crit": bool}
-	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": is_summon_bullet, "weapon_tag": "swordqi"}
+	var weapon_tag: String = weapon_tag_override if not weapon_tag_override.is_empty() else "swordqi"
+	var excluded_law_categories: Array[String] = []
+	if excluded_law_categories_override.is_empty():
+		excluded_law_categories.append("main")
+	else:
+		for category in excluded_law_categories_override:
+			excluded_law_categories.append(str(category))
+	return {"damage": bullet_damage, "is_crit": is_crit_hit, "is_summon_bullet": is_summon_bullet, "weapon_tag": weapon_tag, "excluded_law_categories": excluded_law_categories}
 
 func is_sword_weapon() -> bool:
 	return true
@@ -268,6 +286,7 @@ func handle_penetration() -> bool:
 		
 	# 标记这一帧已经处理过碰撞
 	collision_processed_this_frame = true
+	_report_pseudo_random_hit()
 	
 	# SplitSwordQi33: Apply debuff to enemy when penetrated
 	if PC.selected_rewards.has("SplitSwordQi33") and penetration_count > 0:
@@ -277,6 +296,33 @@ func handle_penetration() -> bool:
 	penetration_count -= 1
 	
 	return true
+
+func setup_pseudo_random_reporter(owner: Object, hit_method: StringName, miss_method: StringName) -> void:
+	pseudo_random_report_owner = owner
+	pseudo_random_hit_method = hit_method
+	pseudo_random_miss_method = miss_method
+	pseudo_random_hit_reported = false
+
+func _report_pseudo_random_hit() -> void:
+	if pseudo_random_hit_reported:
+		return
+	pseudo_random_hit_reported = true
+	if pseudo_random_report_owner == null or pseudo_random_hit_method == &"":
+		return
+	if not is_instance_valid(pseudo_random_report_owner):
+		return
+	if pseudo_random_report_owner.has_method(String(pseudo_random_hit_method)):
+		pseudo_random_report_owner.call(pseudo_random_hit_method)
+
+func _exit_tree() -> void:
+	if pseudo_random_hit_reported:
+		return
+	if pseudo_random_report_owner == null or pseudo_random_miss_method == &"":
+		return
+	if not is_instance_valid(pseudo_random_report_owner):
+		return
+	if pseudo_random_report_owner.has_method(String(pseudo_random_miss_method)):
+		pseudo_random_report_owner.call(pseudo_random_miss_method)
 
 # Apply penetrate debuff to enemy (for SplitSwordQi33)
 func apply_penetrate_debuff_to_enemy():
@@ -297,7 +343,7 @@ func spawn_sub_sword_wave():
 		sub_bullet.penetration_count = penetration_count # Inherit remaining penetration count
 		sub_bullet.bullet_damage = bullet_damage * 0.5 # 50% of mother sword wave damage
 		sub_bullet.is_other_sword_wave = true # Mark as additional sword wave
-		get_tree().current_scene.add_child(sub_bullet)
+		get_tree().current_scene.call_deferred("add_child", sub_bullet)
 
 # 寻找最近的敌人 (for splitting purposes)
 func find_nearest_enemy_for_split() -> Node:
@@ -390,7 +436,7 @@ func create_rebound() -> void:
 			child_bullet.position = position
 			
 			# 添加到场景
-			get_tree().current_scene.add_child(child_bullet)
+			get_tree().current_scene.call_deferred("add_child", child_bullet)
 
 # 寻找最近的敌人
 func find_nearest_enemy() -> void:

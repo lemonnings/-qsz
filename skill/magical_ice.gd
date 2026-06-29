@@ -29,10 +29,12 @@ func activate(dmg_ratio: float) -> void:
 	"""激活玄冰阵效果"""
 	damage_ratio = dmg_ratio
 	_activated = true
+	var range_multiplier: float = (1.0 + Global.study_xuanbing_size_bonus) * Global.get_attack_range_multiplier()
 	
 	# 显示爆炸/冰冻效果动画
 	if explore:
 		explore.visible = true
+		explore.scale *= range_multiplier
 		explore.stop()
 		explore.frame = 0
 		explore.play("default")
@@ -59,7 +61,7 @@ func _on_explore_finished() -> void:
 func _apply_area_damage() -> void:
 	"""对范围内敌人造成伤害"""
 	# 修习树技能篇：应用技能总伤害加成
-	var base_damage = PC.pc_atk * damage_ratio * (1.0 + Global.study_skill_damage_bonus)
+	var base_damage = PC.pc_atk * damage_ratio * (1.0 + PC.active_skill_multi)
 	var center = global_position
 	
 	# 从 exploreShape 获取爆炸半径
@@ -71,6 +73,7 @@ func _apply_area_damage() -> void:
 			effect_radius = (exploreShape.shape as CapsuleShape2D).height * 0.5
 	# 修习树技能篇：玄冰范围加成
 	effect_radius *= (1.0 + Global.study_xuanbing_size_bonus)
+	effect_radius *= Global.get_attack_range_multiplier()
 	
 	var enemies = get_tree().get_nodes_in_group("enemies")
 	for enemy in enemies:
@@ -107,6 +110,7 @@ func _apply_slow_debuff() -> void:
 			effect_radius = (exploreShape.shape as CapsuleShape2D).height * 0.5
 	# 修习树技能篇：玄冰范围加成
 	effect_radius *= (1.0 + Global.study_xuanbing_size_bonus)
+	effect_radius *= Global.get_attack_range_multiplier()
 	
 	var all_targets = []
 	all_targets.append_array(get_tree().get_nodes_in_group("enemies"))

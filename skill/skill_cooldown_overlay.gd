@@ -7,6 +7,8 @@ var is_paused: bool = false
 
 # 冷却遮罩纹理（带圆角的正方形）
 var _cooldown_mask: Texture2D = null
+var _current_icon_url: String = ""
+static var _rounded_mask_cache: Dictionary = {}
 
 func _ready() -> void:
 	$Label.hide()
@@ -19,12 +21,14 @@ func _ready() -> void:
 func update_skill(skill: int, cooldown_time_new: float, skill_icon_url: String) -> void:
 	$Label.show()
 	skill_id = skill
-	var texture = load(skill_icon_url)
-	texture_normal = texture
-	# 更新遮罩纹理尺寸以匹配技能图标
-	if texture:
-		_cooldown_mask = _create_rounded_square_mask(texture.get_width(), texture.get_height())
-		$TextureProgressBar.texture_progress = _cooldown_mask
+	if skill_icon_url != _current_icon_url:
+		_current_icon_url = skill_icon_url
+		var texture: Texture2D = load(skill_icon_url) as Texture2D
+		texture_normal = texture
+		# 更新遮罩纹理尺寸以匹配技能图标
+		if texture:
+			_cooldown_mask = _create_rounded_square_mask(texture.get_width(), texture.get_height())
+			$TextureProgressBar.texture_progress = _cooldown_mask
 	
 	# 如果时间没变，只检查是否需要启动
 	if abs(cooldown_time - cooldown_time_new) < 0.0001:
@@ -53,27 +57,25 @@ func update_skill(skill: int, cooldown_time_new: float, skill_icon_url: String) 
 
 ## 生成带圆角的正方形遮罩纹理，用于 TextureProgressBar 的时钟扫描效果
 func _create_rounded_square_mask(width: int = 72, height: int = 72) -> ImageTexture:
-	var img = Image.create(width, height, false, Image.FORMAT_RGBA8)
+	var corner_radius: int = max(4, int(min(width, height) * 0.08)) # 圆角半径约8%
+	var cache_key: String = "%d:%d:%d" % [width, height, corner_radius]
+	if _rounded_mask_cache.has(cache_key):
+		return _rounded_mask_cache[cache_key] as ImageTexture
+
+	var img: Image = Image.create(width, height, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0)) # 透明背景
-	var color = Color(0, 0, 0, 0.886275) # 与原来 tscn 中 modulate + tint_under 一致的黑底
-	var corner_radius = max(4, int(min(width, height) * 0.08)) # 圆角半径约8%
+	var color: Color = Color(0, 0, 0, 0.886275) # 与原来 tscn 中 modulate + tint_under 一致的黑底
 	# 绘制带圆角的正方形
 	for x in range(width):
 		for y in range(height):
 			if _is_inside_rounded_rect(x, y, width, height, corner_radius):
 				img.set_pixel(x, y, color)
-	var tex = ImageTexture.create_from_image(img)
+	var tex: ImageTexture = ImageTexture.create_from_image(img)
+	_rounded_mask_cache[cache_key] = tex
 	return tex
 
 ## 判断像素是否在圆角矩形内部
 func _is_inside_rounded_rect(x: int, y: int, w: int, h: int, r: int) -> bool:
-	# 四个角的圆心
-	var corners = [
-		[Vector2(r, r), Vector2(r, r)], # 左上
-		[Vector2(w - r - 1, r), Vector2(w - r - 1, r)], # 右上
-		[Vector2(r, h - r - 1), Vector2(r, h - r - 1)], # 左下
-		[Vector2(w - r - 1, h - r - 1), Vector2(w - r - 1, h - r - 1)] # 右下
-	]
 	# 检查是否在四个角的圆弧内
 	# 左上角
 	if x < r and y < r:
@@ -143,11 +145,25 @@ func _on_timer_timeout() -> void:
 		Global.emit_signal("skill_cooldown_complete_qigong", skill_id)
 	elif skill_id == 20:
 		Global.emit_signal("skill_cooldown_complete_dragonwind", skill_id)
+	elif skill_id == 21:
+		Global.emit_signal("skill_cooldown_complete_zhuazhuajuchui", skill_id)
 
 func stop_cooldown() -> void:
 	$Timer.stop()
 	$Label.hide()
 	$TextureProgressBar.value = 0
+
+func set_static_skill(skill: int, skill_icon_url: String) -> void:
+	skill_id = skill
+	cooldown_time = 0.0
+	if skill_icon_url != _current_icon_url:
+		_current_icon_url = skill_icon_url
+		var texture: Texture2D = load(skill_icon_url) as Texture2D
+		texture_normal = texture
+		if texture:
+			_cooldown_mask = _create_rounded_square_mask(texture.get_width(), texture.get_height())
+			$TextureProgressBar.texture_progress = _cooldown_mask
+	stop_cooldown()
 
 var remaining_time: float = 0
 

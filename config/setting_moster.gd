@@ -3,20 +3,22 @@ extends Node
 const DEFAULT_STAGE_ID := "peach_grove"
 
 const STAGE_STAT_BASES := {
-	"peach_grove": {"atk": 140.0, "hp": 27.0},
-	"ruin": {"atk": 360.0, "hp": 50.0},
-	"cave": {"atk": 500.0, "hp": 75.0},
-	"forest": {"atk": 600.0, "hp": 120.0}
+	"peach_grove": {"atk": 150.0, "hp": 22.0},
+	"ruin": {"atk": 280.0, "hp": 32.0},
+	"cave": {"atk": 360.0, "hp": 48.0},
+	"forest": {"atk": 440.0, "hp": 68.0}
 }
 
 const MONSTER_STAT_MULTIPLIERS := {
 	"slime_blue": {"default_stage": "peach_grove", "atk": 1.0, "hp": 1.0},
+	"copper": {"default_stage": "peach_grove", "atk": 1.2, "hp": 1.2},
 	"taohua_yao": {"default_stage": "peach_grove", "atk": 160.0 / 140.0, "hp": 30.0 / 27.0},
 	"frog": {"default_stage": "peach_grove", "atk": 120.0 / 140.0, "hp": 24.0 / 27.0},
 	"paper": {"default_stage": "ruin", "atk": 1.0, "hp": 1.0},
 	"lantern": {"default_stage": "ruin", "atk": 350.0 / 360.0, "hp": 45.0 / 50.0},
 	"bat": {"default_stage": "ruin", "atk": 320.0 / 360.0, "hp": 41.0 / 50.0},
 	"slime_grey": {"default_stage": "ruin", "atk": 1.0, "hp": 1.0},
+	"gu_insect": {"default_stage": "ruin", "atk": 1.0, "hp": 3.0},
 	"armor_stone": {"default_stage": "cave", "atk": 1.0, "hp": 1.0},
 	"ghost": {"default_stage": "cave", "atk": 420.0 / 500.0, "hp": 70.0 / 75.0},
 	"stone_man": {"default_stage": "cave", "atk": 1.0, "hp": 80.0 / 75.0},
@@ -78,7 +80,7 @@ func _calc_atk(base_atk: float) -> float:
 	var t = PC.real_time
 	var raw_mult = _get_current_stage_multiplier()
 	var growth_mult := Global.get_core_attack_growth_multiplier() if typeof(Global) != TYPE_NIL else 1.0
-	return ((base_atk * raw_mult) + (0.5 * t) * pow(1.02, PC.pc_lv - 1) * growth_mult) * PC.enemy_damage_multiplier
+	return ((base_atk * raw_mult) + (0.6 * t) * pow(1.035, PC.pc_lv - 1) * growth_mult) * PC.enemy_damage_multiplier
 
 # 计算新武器带来的怪物血量加成
 func _get_new_weapon_hp_multiplier() -> float:
@@ -98,7 +100,7 @@ func _get_new_weapon_hp_multiplier() -> float:
 
 func _calc_hp(base_hp: float) -> float:
 	var t = float(PC.real_time)
-	var lv_bonus = pow(1.085, PC.pc_lv - 1) # 玩家每升1级，怪物血量提升
+	var lv_bonus = pow(1.115, PC.pc_lv - 1) # 玩家每升1级，怪物血量提升
 	var new_weapon_bonus = _get_new_weapon_hp_multiplier() # 新武器带来的血量加成
 
 	var first_part = base_hp + t / 8.0
@@ -106,19 +108,19 @@ func _calc_hp(base_hp: float) -> float:
 	var quadratic_part = t * t / 400000.0
 	var second_part = 1.0 + linear_part + quadratic_part
 
-	var first_jump_time = 80.0
-	var second_jump_time = 160.0
-	var third_jump_time = 235.0
-	var fourth_jump_time = 305.0
-	var fifth_jump_time = 370.0
-	var sixth_jump_time = 435.0
+	var first_jump_time = 90.0
+	var second_jump_time = 170.0
+	var third_jump_time = 250.0
+	var fourth_jump_time = 325.0
+	var fifth_jump_time = 390.0
+	var sixth_jump_time = 450.0
 
-	var first_jump_multiplier = 1.8
-	var second_jump_multiplier = 3.7
-	var third_jump_multiplier = 7.5
-	var fourth_jump_multiplier = 15
-	var fifth_jump_multiplier = 30
-	var sixth_jump_multiplier = 45
+	var first_jump_multiplier = 1.25
+	var second_jump_multiplier = 1.85
+	var third_jump_multiplier = 3
+	var fourth_jump_multiplier = 4.2
+	var fifth_jump_multiplier = 8
+	var sixth_jump_multiplier = 12.5
 
 	var jump_multiplier = 1.0
 	if t < first_jump_time:
@@ -143,11 +145,16 @@ func _finalize_monster_data(data: Dictionary, query: String):
 	# 修习树特殊篇：提升治愈灵气和灵髓碎片的掉落概率
 	if query == "itemdrop" and data.has("itemdrop"):
 		var drops = data["itemdrop"]
-		if drops.has("item_001") and Global.study_heal_aura_spawn_chance > 0.0:
-			drops["item_001"] *= (1.0 + Global.study_heal_aura_spawn_chance)
+		if drops.has("item_001"):
+			drops["item_001"] *= Global.get_effective_heal_aura_drop_multiplier()
 		if drops.has("item_007") and Global.study_fragment_drop_chance > 0.0:
 			drops["item_007"] *= (1.0 + Global.study_fragment_drop_chance)
 	return data.get(query, null)
+
+func get_item_drop_rate_multiplier(item_id: String, monster_drop_rate_multiplier: float) -> float:
+	if item_id == "item_001":
+		return 1.0
+	return monster_drop_rate_multiplier
 
 func goldball(query: String):
 	var data = {
@@ -171,9 +178,44 @@ func slime_blue(query: String): # 蓝色史莱姆 / 普通怪1
 		"exp": 350,
 		"point": 10 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 10,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_002": 0.015 * Global.get_effective_drop_multiplier(), "item_009": 0.006 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_002": 0.015 * Global.get_effective_drop_multiplier(), "item_009": 0.006 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
+
+func copper(query: String): # 铜兽 / 特殊近战怪
+	var exp_value := _get_reference_normal_exp_for_current_stage()
+	var data = {
+		"atk": _calc_monster_atk("copper"),
+		"hp": _calc_monster_hp("copper"),
+		"speed": 38,
+		"exp": exp_value,
+		"point": _get_reference_normal_point_for_current_stage(),
+		"mechanism": 10,
+		"itemdrop": {}
+	}
+	return _finalize_monster_data(data, query)
+
+func _get_reference_normal_exp_for_current_stage() -> int:
+	match str(Global.current_stage_id):
+		"ruin":
+			return int(paper("exp"))
+		"cave":
+			return int(armor_stone("exp"))
+		"forest":
+			return int(shen("exp"))
+		_:
+			return int(slime_blue("exp"))
+
+func _get_reference_normal_point_for_current_stage() -> float:
+	match str(Global.current_stage_id):
+		"ruin":
+			return float(paper("point"))
+		"cave":
+			return float(armor_stone("point"))
+		"forest":
+			return float(shen("point"))
+		_:
+			return float(slime_blue("point"))
 
 func taohua_yao(query: String): # 桃花妖 / 普通怪2
 	var data = {
@@ -183,7 +225,7 @@ func taohua_yao(query: String): # 桃花妖 / 普通怪2
 		"exp": 450,
 		"point": 15 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 12,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_003": 0.03 * Global.get_effective_drop_multiplier(), "item_014": 0.01 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_003": 0.03 * Global.get_effective_drop_multiplier(), "item_014": 0.01 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 
@@ -195,7 +237,7 @@ func frog(query: String): # 幼体树精 / 远程怪
 		"exp": 500,
 		"point": 20 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 14,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_023": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_023": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 
@@ -209,7 +251,7 @@ func lantern(query: String): # 灯笼怪 / 普通怪2
 		"exp": 450,
 		"point": 14 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 12,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_011": 0.015 * Global.get_effective_drop_multiplier(), "item_015": 0.006 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_011": 0.015 * Global.get_effective_drop_multiplier(), "item_015": 0.006 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 
@@ -221,7 +263,7 @@ func paper(query: String): # 宣纸精 / 普通怪1
 		"exp": 500,
 		"point": 13 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 14,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_011": 0.015 * Global.get_effective_drop_multiplier(), "item_017": 0.006 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_011": 0.015 * Global.get_effective_drop_multiplier(), "item_017": 0.006 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 
@@ -233,7 +275,7 @@ func bat(query: String): # 草药怪 / 远程怪
 		"exp": 600,
 		"point": 15 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 16,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_045": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_045": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 
@@ -245,7 +287,19 @@ func slime_grey(query: String): # 灰色史莱姆 / 特殊怪
 		"exp": 550,
 		"point": 16 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 16,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_002": 0.05 * Global.get_effective_drop_multiplier(), "item_009": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_002": 0.05 * Global.get_effective_drop_multiplier(), "item_009": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+	}
+	return _finalize_monster_data(data, query)
+
+func gu_insect(query: String): # 蛊虫 / 十字射线怪
+	var data = {
+		"atk": _calc_monster_atk("gu_insect"),
+		"hp": _calc_monster_hp("gu_insect"),
+		"speed": 36,
+		"exp": _get_reference_normal_exp_for_current_stage() * 3,
+		"point": _get_reference_normal_point_for_current_stage(),
+		"mechanism": 14,
+		"itemdrop": {}
 	}
 	return _finalize_monster_data(data, query)
 
@@ -259,7 +313,7 @@ func ghost(query: String): # 鬼魂 / 远程怪
 		"exp": 500,
 		"point": 18 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 12,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_003": 0.02 * Global.get_effective_drop_multiplier(), "item_017": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_003": 0.02 * Global.get_effective_drop_multiplier(), "item_017": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 
@@ -271,7 +325,7 @@ func armor_stone(query: String): # 甲石 / 普通怪1
 		"exp": 400,
 		"point": 19 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 14,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_044": 0.02 * Global.get_effective_drop_multiplier(), "item_014": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_044": 0.02 * Global.get_effective_drop_multiplier(), "item_014": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 
@@ -283,7 +337,7 @@ func stone_man(query: String): # 石人 / 特殊怪
 		"exp": 550,
 		"point": 22 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 16,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_044": 0.05 * Global.get_effective_drop_multiplier(), "item_014": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_044": 0.05 * Global.get_effective_drop_multiplier(), "item_014": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 
@@ -295,7 +349,7 @@ func slime_green(query: String): # 绿色史莱姆 / 普通怪2
 		"exp": 550,
 		"point": 16 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 16,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_002": 0.05 * Global.get_effective_drop_multiplier(), "item_009": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_002": 0.05 * Global.get_effective_drop_multiplier(), "item_009": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 
@@ -309,7 +363,7 @@ func shen(query: String): # 参精怪 / 普通怪1
 		"exp": 450,
 		"point": 24 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 12,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_045": 0.02 * Global.get_effective_drop_multiplier(), "item_015": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_045": 0.02 * Global.get_effective_drop_multiplier(), "item_015": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 
@@ -321,7 +375,7 @@ func frog_new(query: String): # 新蛙 / 远程怪
 		"exp": 600,
 		"point": 22 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 14,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_003": 0.02 * Global.get_effective_drop_multiplier(), "item_010": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_003": 0.02 * Global.get_effective_drop_multiplier(), "item_010": 0.0075 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 
@@ -333,7 +387,7 @@ func ball(query: String): # 弹跳兽 / 特殊怪
 		"exp": 500,
 		"point": 26 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 16,
-		"itemdrop": {"item_001": 0.01 * Global.get_effective_drop_multiplier(), "item_046": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+		"itemdrop": {"item_001": 0.01, "item_046": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 

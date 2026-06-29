@@ -8,6 +8,10 @@ const DROP_DISTANCE_MIN := 20.0
 const DROP_DISTANCE_MAX := 50.0
 const DROP_MULTI_INITIAL_OFFSET_MIN := 4.0
 const DROP_MULTI_INITIAL_OFFSET_MAX := 12.0
+const DROP_ITEMS_PER_FRAME := 8
+const LABEL_VISIBLE_DISTANCE := -1.0 # -1 表示掉落物名称不再按距离裁剪
+const MAX_VISIBLE_ITEM_LABELS := -1 # -1 表示掉落物名称不再限制显示数量
+const LABEL_REFRESH_FRAMES := 8
 
 var victory_attracting: bool = false
 var victory_player: Node2D
@@ -15,11 +19,16 @@ var victory_speed: float = 100.0
 var _victory_collect_request_id: int = 0
 var _pending_drop_entries: Array = []
 var _pending_drop_flush_queued: bool = false
+var _pending_drop_flush_running: bool = false
+var _item_icon_cache: Dictionary = {}
+var _label_refresh_offset: int = 0
+var _visible_label_count: int = 0
 # 缓存当前场景的可移动边界（从 Boundry 节点计算）
 var _cached_boundary: Dictionary = {}
 var _cached_boundary_scene: Node = null
 
 func _ready():
+	add_to_group("item_drop_controller")
 	stop_victory_collect()
 	# 连接到全局信号
 	if Global.has_signal("drop_out_item"):
@@ -37,6 +46,7 @@ func stop_victory_collect() -> void:
 	Global.victory_collecting = false
 
 func _process(delta: float) -> void:
+	_update_item_label_visibility()
 	if not victory_attracting:
 		return
 	if not is_instance_valid(victory_player):
@@ -51,6 +61,41 @@ func _process(delta: float) -> void:
 		else:
 			var step = victory_speed * delta
 			item.global_position = item.global_position.move_toward(victory_player.global_position, step)
+
+func get_drop_label_debug_stats() -> Dictionary:
+	return {
+		"visible": _visible_label_count,
+		"max_visible": MAX_VISIBLE_ITEM_LABELS,
+		"distance": LABEL_VISIBLE_DISTANCE,
+		"victory_attracting": victory_attracting,
+	}
+
+func _update_item_label_visibility() -> void:
+	var frame := Engine.get_process_frames()
+	if frame % LABEL_REFRESH_FRAMES != _label_refresh_offset:
+		return
+	var items := get_tree().get_nodes_in_group("drop_item")
+	_visible_label_count = 0
+	for item in items:
+		if not is_instance_valid(item) or item.is_queued_for_deletion():
+			continue
+		if not item.has_method("set_item_name_visible"):
+			continue
+		var item_id := str(item.get("item_id"))
+		var item_data := ItemManager.get_item_all_data(item_id)
+		var should_show := _should_show_drop_item_name(item_id, item_data)
+		item.set_item_name_visible(should_show)
+		if should_show:
+			_visible_label_count += 1
+
+func _get_label_player() -> Node2D:
+	if PC.player_instance is Node2D and is_instance_valid(PC.player_instance):
+		return PC.player_instance
+	var players := get_tree().get_nodes_in_group("player")
+	for player in players:
+		if player is Node2D and is_instance_valid(player):
+			return player
+	return null
 
 func start_victory_collect(player: Node2D, speed: float = 100.0, delay: float = 0.0) -> void:
 	_victory_collect_request_id += 1
@@ -81,25 +126,28 @@ func _on_drop_out_item(item_id: String, quantity: int, drop_position: Vector2):
 		"quantity": max(1, quantity),
 		"drop_position": drop_position
 	})
-	if _pending_drop_flush_queued:
+	if _pending_drop_flush_queued or _pending_drop_flush_running:
 		return
 	_pending_drop_flush_queued = true
 	call_deferred("_flush_pending_drops")
 
 func _flush_pending_drops() -> void:
-	_pending_drop_flush_queued = false
-	if _pending_drop_entries.is_empty():
+	if _pending_drop_flush_running:
 		return
-	var pending_entries = _pending_drop_entries.duplicate(true)
-	_pending_drop_entries.clear()
-	var grouped_entries := {}
-	for entry in pending_entries:
-		var drop_position: Vector2 = entry["drop_position"]
-		if not grouped_entries.has(drop_position):
-			grouped_entries[drop_position] = []
-		grouped_entries[drop_position].append(entry)
-	for group_entries in grouped_entries.values():
-		_spawn_drop_group(group_entries)
+	_pending_drop_flush_queued = false
+	_pending_drop_flush_running = true
+	while not _pending_drop_entries.is_empty():
+		var pending_entries = _pending_drop_entries.duplicate(true)
+		_pending_drop_entries.clear()
+		var grouped_entries := {}
+		for entry in pending_entries:
+			var drop_position: Vector2 = entry["drop_position"]
+			if not grouped_entries.has(drop_position):
+				grouped_entries[drop_position] = []
+			grouped_entries[drop_position].append(entry)
+		for group_entries in grouped_entries.values():
+			await _spawn_drop_group(group_entries)
+	_pending_drop_flush_running = false
 
 func _spawn_drop_group(group_entries: Array) -> void:
 	if group_entries.is_empty():
@@ -127,29 +175,43 @@ func _spawn_drop_group(group_entries: Array) -> void:
 	if spawn_jobs.is_empty():
 		return
 	var spread_data = _build_drop_spread_data(spawn_jobs.size())
+	var spawned_this_frame := 0
 	for i in range(spawn_jobs.size()):
+		if not is_instance_valid(current_scene):
+			return
 		var spawn_job = spawn_jobs[i]
 		var dropped_item_instance = DroppedItemScene.instantiate()
 		dropped_item_instance.scale = Vector2(0.2, 0.2)
 		dropped_item_instance.add_to_group("drop_item")
-		dropped_item_instance.item_id = spawn_job["item_id"]
+		var item_id: String = spawn_job["item_id"]
+		var item_data: Dictionary = spawn_job["item_data"]
+		dropped_item_instance.item_id = item_id
 		var drop_data: Dictionary = spread_data[i]
 		dropped_item_instance.global_position = drop_position + drop_data.get("initial_offset", Vector2.ZERO)
 		if dropped_item_instance.has_node("Sprite2D"):
 			var sprite = dropped_item_instance.get_node("Sprite2D")
-			var icon_texture = load(spawn_job["item_data"].item_icon)
+			var icon_texture = _get_item_icon_texture(str(item_data.get("item_icon", "")))
 			sprite.texture = icon_texture
+			if _should_dim_drop_item(item_id, item_data):
+				sprite.modulate.a = 0.3
+			else:
+				sprite.modulate.a = 1.0
 		if dropped_item_instance.has_node("ItemNameLabel"):
 			var name_label = dropped_item_instance.get_node("ItemNameLabel") as Label
-			var item_name_color = _get_item_drop_name_color(spawn_job["item_data"])
-			name_label.text = spawn_job["item_data"].item_name
+			var item_name_color = _get_item_drop_name_color(item_data)
+			name_label.text = str(item_data.get("item_name", ""))
 			name_label.add_theme_color_override("font_color", item_name_color)
 			if name_label.label_settings:
 				var label_settings = name_label.label_settings.duplicate() as LabelSettings
 				label_settings.font_color = item_name_color
 				name_label.label_settings = label_settings
+			name_label.visible = _should_show_drop_item_name(item_id, item_data)
 		current_scene.add_child(dropped_item_instance)
 		apply_drop_animation(dropped_item_instance, drop_data)
+		spawned_this_frame += 1
+		if spawned_this_frame >= DROP_ITEMS_PER_FRAME and i < spawn_jobs.size() - 1:
+			spawned_this_frame = 0
+			await get_tree().process_frame
 
 func _can_accept_drop_item(item_id: String) -> bool:
 	var counts := _get_live_drop_item_counts()
@@ -199,6 +261,40 @@ func _get_item_drop_name_color(item_data: Dictionary) -> Color:
 	if item_color is String and not String(item_color).strip_edges().is_empty():
 		return Color.from_string(String(item_color), rare_color)
 	return rare_color
+
+func _should_show_drop_item_name(item_id: String, item_data: Dictionary) -> bool:
+	if _is_drop_item_setting_exempt(item_id, item_data):
+		return true
+	if Global.settings_manager == null:
+		return true
+	return Global.settings_manager.is_drop_visible_enabled()
+
+func _should_dim_drop_item(item_id: String, item_data: Dictionary) -> bool:
+	if _is_drop_item_setting_exempt(item_id, item_data):
+		return false
+	if Global.settings_manager == null:
+		return false
+	return Global.settings_manager.is_drop_mater_enabled()
+
+func _is_drop_item_setting_exempt(item_id: String, item_data: Dictionary) -> bool:
+	if item_id == HEAL_AURA_ITEM_ID:
+		return true
+	var rare := str(item_data.get("item_rare", "")).to_lower()
+	return rare == "artifact" or rare == "red" or rare == "5"
+
+func _get_item_icon_texture(icon_path: String) -> Texture2D:
+	if icon_path.is_empty():
+		return null
+	if _item_icon_cache.has(icon_path):
+		var cached_texture = _item_icon_cache[icon_path]
+		if cached_texture is Texture2D:
+			return cached_texture
+	if not ResourceLoader.exists(icon_path):
+		return null
+	var texture := load(icon_path) as Texture2D
+	if texture:
+		_item_icon_cache[icon_path] = texture
+	return texture
 
 func _get_rare_color(rare: String) -> Color:
 	match rare.to_lower():
@@ -270,9 +366,10 @@ func _clamp_position_to_scene_bounds(pos: Vector2) -> Vector2:
 	var current_scene = get_tree().current_scene
 	if not current_scene:
 		return pos
-	
+
 	# 优先从场景中的 Boundry 节点获取实际可移动边界（StaticBody2D 圈定的范围）
 	var bounds = _get_scene_boundary(current_scene)
+	_apply_scene_drop_limit_overrides(current_scene, bounds)
 	if bounds.has("min_x") and bounds.has("max_x") and bounds.has("min_y") and bounds.has("max_y"):
 		var top_offset = 10
 		if Global.current_stage_id == "cave":
@@ -280,15 +377,25 @@ func _clamp_position_to_scene_bounds(pos: Vector2) -> Vector2:
 		pos.x = clamp(pos.x, bounds["min_x"] + 10, bounds["max_x"] - 10)
 		pos.y = clamp(pos.y, bounds["min_y"] + top_offset, bounds["max_y"] - 10)
 		return pos
-	
+
 	# 回退：从 Camera2D 获取边界
 	var camera = _find_scene_camera()
 	if camera:
 		pos.x = clamp(pos.x, camera.limit_left + 10, camera.limit_right - 10)
 		pos.y = clamp(pos.y, camera.limit_top + 10, camera.limit_bottom - 10)
 		return pos
-	
+
 	return pos
+
+func _apply_scene_drop_limit_overrides(current_scene: Node, bounds: Dictionary) -> void:
+	if current_scene.has_meta("drop_limit_left"):
+		bounds["min_x"] = float(current_scene.get_meta("drop_limit_left"))
+	if current_scene.has_meta("drop_limit_right"):
+		bounds["max_x"] = float(current_scene.get_meta("drop_limit_right"))
+	if current_scene.has_meta("drop_limit_top"):
+		bounds["min_y"] = float(current_scene.get_meta("drop_limit_top"))
+	if current_scene.has_meta("drop_limit_bottom"):
+		bounds["max_y"] = float(current_scene.get_meta("drop_limit_bottom"))
 
 ## 获取当前场景的可移动边界（带缓存，场景切换时自动刷新）
 func _get_scene_boundary(current_scene: Node) -> Dictionary:
@@ -329,21 +436,21 @@ func _compute_boundary_from_static_bodies(boundary_node: Node2D) -> Dictionary:
 			continue
 		if col_shape.shape == null or not col_shape.shape is WorldBoundaryShape2D:
 			continue
-		
+
 		var wb_shape: WorldBoundaryShape2D = col_shape.shape
 		var dist: float = wb_shape.distance
-		
+
 		# 将旋转角度归一化到 [-PI, PI]
 		var rot = fposmod(static_body.global_rotation, TAU)
 		if rot > PI:
 			rot -= TAU
 		var abs_rot = absf(rot)
-		
+
 		# 旋转后的法线方向（WorldBoundaryShape2D 默认法线为 (0, -1)）
 		var normal := Vector2(0.0, -1.0).rotated(rot)
 		# 边界线的全局位置 = 碰撞形状原点 + distance 沿法线方向的偏移
 		var boundary_pos = col_shape.global_position + normal * dist
-		
+
 		if abs_rot < margin or absf(abs_rot - PI) < margin:
 			# 水平墙壁 → 决定 Y 边界
 			var y_val = boundary_pos.y
@@ -366,7 +473,7 @@ func _compute_boundary_from_static_bodies(boundary_node: Node2D) -> Dictionary:
 				# 旋转≈+π/2 → 左侧墙壁 → min_x
 				if not result.has("min_x") or x_val > result["min_x"]:
 					result["min_x"] = x_val
-	
+
 	return result
 
 ## 从当前场景中查找 Camera2D（优先找玩家身上的相机）

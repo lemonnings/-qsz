@@ -10,9 +10,10 @@ var spirit: int = 0
 var spirit_raw: float = 0.0
 
 # ============== 所有关卡完全一致的常数 ==============
-const MONSTER_LIMIT_INCREASE_WAVE_STEP: int = 1
+const MONSTER_LIMIT_INCREASE_WAVE_STEP: int = 2
 const INITIAL_WAVE_SPAWN_COUNT: int = 4
-const MAX_WAVE_SPAWN_COUNT: int = 30
+const MAX_WAVE_SPAWN_COUNT: int = 21
+const WAVE_SPAWNS_PER_FRAME: int = 1
 const EARLY_WAVE_LIMIT: int = 10
 const NORMAL_SPIRIT_GAIN: int = 10
 const SPECIAL_SPIRIT_GAIN: int = 12
@@ -23,7 +24,9 @@ const DEEP_STAGE_DURATION_SECONDS: float = 420.0
 const CORE_STAGE_DURATION_SECONDS: float = 480.0
 const POETRY_STAGE_DURATION_SECONDS: float = 1.0
 const QI_VORTEX_SCENE: PackedScene = preload("res://Scenes/level/qi_vortex.tscn")
+const BATTLE_CANVAS_LAYER_MOBILE_SCENE: PackedScene = preload("res://Scenes/global/battle_canvas_layer_mobile.tscn")
 const QI_VORTEX_SHOP_MANAGER_SCRIPT: Script = preload("res://Script/system/qi_vortex_shop_manager.gd")
+const QI_VORTEX_TUTORIAL_SCENE: PackedScene = preload("res://Scenes/town/qi_vortex_tutorial.tscn")
 const QI_VORTEX_SHALLOW_TIMES: Array[float] = [75.0, 150.0, 225.0, 290.0, 340.0]
 const QI_VORTEX_DEEP_TIMES: Array[float] = [75.0, 140.0, 205.0, 270.0, 335.0, 400.0]
 const QI_VORTEX_CORE_TIMES: Array[float] = [75.0, 135.0, 195.0, 255.0, 315.0, 375.0, 435.0]
@@ -34,8 +37,13 @@ const QI_VORTEX_MASK_ALPHA: float = 0.35
 const QI_VORTEX_SPAWN_FLASH_SECONDS: float = 0.75
 const QI_VORTEX_SPAWN_FLASH_COLOR: Color = Color(0.55, 0.85, 1.0, 0.5)
 const QI_VORTEX_INDICATOR_MARGIN: float = 56.0
-const QI_VORTEX_INDICATOR_SCALE: float = 3.0
+const QI_VORTEX_INDICATOR_SCALE: float = 8.0
+const QI_VORTEX_INDICATOR_ALPHA: float = 0.7
 const QI_VORTEX_INDICATOR_TEXTURE: Texture2D = preload("res://AssetBundle/Sprites/Sprite sheets/qi_tips.png")
+const MOBILE_MONSTER_HP_MULTIPLIER: float = 0.9
+const MOBILE_MONSTER_ATK_MULTIPLIER: float = 0.85
+const MOBILE_MONSTER_SPEED_MULTIPLIER: float = 0.95
+const MOBILE_BOSS_ATK_MULTIPLIER: float = 0.9
 const GOLD_BALL_SPAWN_FLASH_SECONDS: float = 0.55
 const GOLD_BALL_SPAWN_FLASH_COLOR: Color = Color(1.0, 0.82, 0.28, 0.28)
 const CORE_MISSILE_SCENE: PackedScene = preload("res://Scenes/moster/frog_attack.tscn")
@@ -46,6 +54,7 @@ const CORE_MISSILE_MAX_COUNT: int = 4
 const CORE_MISSILE_OFFSCREEN_MARGIN: float = 96.0
 const CORE_MISSILE_SPEED: float = 72.8 # 在104基础上再降低30%
 const CORE_MISSILE_RANGE: float = 3000.0
+const CORE_MISSILE_DAMAGE_MULTIPLIER: float = 0.67
 const CORRUPTED_ELITE_CONTROLLER_SCRIPT: Script = preload("res://Script/system/corrupted_elite_controller.gd")
 const CORRUPTED_ELITE_INTERVAL: float = 50.0
 const CORRUPTED_ELITE_SCALE_EXTRA: float = 1.15
@@ -57,6 +66,9 @@ const CORRUPTED_ELITE_OUTLINE_COLOR: Color = Color(0.72, 0.1, 1.0, 1.0)
 const CORRUPTED_ELITE_OUTLINE_THICKNESS: float = 1.65
 const CORRUPTED_ELITE_SPRITE_MODULATE: Color = Color(1.0, 0.86, 1.0, 1.0)
 const CORRUPTED_ELITE_SPAWN_MARGIN: float = 72.0
+const PLAYER_SPAWN_SAFE_RADIUS: float = 300.0
+const PLAYER_SPAWN_SAFE_RADIUS_SQ: float = PLAYER_SPAWN_SAFE_RADIUS * PLAYER_SPAWN_SAFE_RADIUS
+const PLAYER_SPAWN_SAFE_REROLL_ATTEMPTS: int = 10
 
 # 精英怪配置（所有关卡一致）
 const ELITE_SPAWN_CHANCE: float = 0.02 # 2%概率生成精英怪
@@ -84,8 +96,8 @@ const DYNAMIC_BALANCE_HP_MIN_REDUCTION: float = 0.1 # 最小HP削减10%
 var STAGE_ID: String = ""
 var SPAWN_INTERVAL_SECONDS: float = 5.0
 var INITIAL_MONSTER_LIMIT: int = 50
-var WAVE_SPAWN_INCREASE_STEP: int = 5
-var MAX_MONSTER_CAP: int = 120
+var WAVE_SPAWN_INCREASE_STEP: int = 6
+var MAX_MONSTER_CAP: int = 84
 var DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD: float = 0.3
 var DYNAMIC_BALANCE_SPAWN_MAX_BONUS: float = 1.5
 var DYNAMIC_BALANCE_HP_MAX_REDUCTION: float = 0.4
@@ -106,8 +118,10 @@ var spawn_count: int = 0
 var current_monster_count: int = 0
 var max_monster_limit: int = 50 # 在 _ready() 中用 INITIAL_MONSTER_LIMIT 重新初始化
 var last_wave_spawn_frame: int = -1
+var _wave_spawning: bool = false
 
 var boss_event_triggered: bool = false
+var _boss_fight_active: bool = false
 
 var other_type_alive: int = 0 # 非基础类型怪物当前存活数
 var elite_alive: int = 0 # 当前存活精英怪数量
@@ -120,7 +134,7 @@ var late_game_speed_bonus: float = 0.0 # 120秒后累积的speed加成（最大0
 var stage_spawn_pool: Array[Dictionary] = []
 
 # 金团团场景（修习树特殊篇解锁后可用）
-const GOLD_BALL_BASE_CHANCE: float = 0.03 # 每波 3% 基础概率
+const GOLD_BALL_BASE_CHANCE: float = 0.015 # 每波 1.5% 基础概率
 var _gold_ball_scene: PackedScene = null
 
 # 战斗动态对话系统
@@ -128,6 +142,34 @@ var battle_chat: BattleChat = null
 var qi_vortex_spawn_times: Array[float] = []
 var qi_vortex_spawn_index: int = 0
 var active_qi_vortex: Node2D = null
+var qi_vortex_tutorial_pending: bool = false
+
+func _get_player_spawn_safe_position(candidate: Vector2, reroll_callable: Callable = Callable()) -> Vector2:
+	var player_pos: Vector2 = _get_current_player_position()
+	if player_pos == Vector2.INF:
+		return candidate
+	var resolved: Vector2 = candidate
+	if reroll_callable.is_valid():
+		for i in range(PLAYER_SPAWN_SAFE_REROLL_ATTEMPTS):
+			if resolved.distance_squared_to(player_pos) >= PLAYER_SPAWN_SAFE_RADIUS_SQ:
+				return resolved
+			var next_candidate: Variant = reroll_callable.call()
+			if next_candidate is Vector2:
+				resolved = next_candidate
+	if resolved.distance_squared_to(player_pos) >= PLAYER_SPAWN_SAFE_RADIUS_SQ:
+		return resolved
+	var from_player: Vector2 = resolved - player_pos
+	if from_player.length_squared() < 0.0001:
+		from_player = Vector2.RIGHT
+	return player_pos + from_player.normalized() * PLAYER_SPAWN_SAFE_RADIUS
+
+func _get_current_player_position() -> Vector2:
+	if PC.player_instance != null and is_instance_valid(PC.player_instance):
+		return PC.player_instance.global_position
+	var player_node := get_tree().get_first_node_in_group("player")
+	if player_node is Node2D:
+		return (player_node as Node2D).global_position
+	return Vector2.INF
 var qi_vortex_shop_manager: Node = null
 var qi_vortex_mask: ColorRect = null
 var qi_vortex_indicator: Sprite2D = null
@@ -141,6 +183,8 @@ var _corrupted_elite_timer: Timer = null
 func _ready() -> void:
 	_setup_stage_config()
 	Global.victory_collecting = false
+	Global.stage_boss_fight_time = 0.0
+	_boss_fight_active = false
 	if Global.current_stage_difficulty == Global.STAGE_DIFFICULTY_CORE:
 		Global.current_core_depth = Global.clamp_core_depth(Global.current_core_depth)
 	else:
@@ -154,6 +198,7 @@ func _ready() -> void:
 	current_spawn_interval = SPAWN_INTERVAL_SECONDS
 
 	PC.player_instance = $Player
+	_setup_battle_canvas_layer_for_device()
 	Global.emit_signal("reset_camera")
 
 	map_mechanism_num = 0
@@ -170,6 +215,8 @@ func _ready() -> void:
 	# 诗想难度：玩家直接50级 + Boss基于第8分钟数据
 	if Global.current_stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
 		_apply_poetry_init()
+		if $Player.has_method("_update_start_weapon_timers"):
+			$Player.call("_update_start_weapon_timers")
 
 	# 连接关卡特定信号
 	Global.connect("boss_defeated", Callable(self , "_on_boss_defeated"))
@@ -208,6 +255,23 @@ func _ready() -> void:
 # ============== 虚方法（子类覆盖）==============
 func _setup_stage_config() -> void:
 	pass # 子类覆盖，设置 STAGE_ID 和各种配置值
+
+func _setup_battle_canvas_layer_for_device() -> void:
+	if not Global.is_mobile_input_mode():
+		return
+	var current_layer := get_node_or_null("CanvasLayer") as BattleCanvasLayer
+	var mobile_layer := BATTLE_CANVAS_LAYER_MOBILE_SCENE.instantiate() as BattleCanvasLayer
+	if mobile_layer == null:
+		return
+	mobile_layer.name = "CanvasLayer"
+	var insert_index := get_child_count()
+	if current_layer != null:
+		insert_index = current_layer.get_index()
+		remove_child(current_layer)
+		current_layer.queue_free()
+	add_child(mobile_layer)
+	move_child(mobile_layer, insert_index)
+	layer_ui = mobile_layer
 
 func _get_stage_duration_seconds() -> float:
 	var difficulty_id := Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
@@ -391,12 +455,33 @@ func _poetry_stat_growth() -> void:
 func _spawn_wave() -> void:
 	pass # 子类覆盖，实现怪物波生成
 
+func _begin_wave_spawn() -> bool:
+	if boss_event_triggered or _wave_spawning:
+		return false
+	var current_frame = Engine.get_process_frames()
+	if current_frame == last_wave_spawn_frame:
+		return false
+	last_wave_spawn_frame = current_frame
+	_wave_spawning = true
+	if monster_spawn_timer != null and is_instance_valid(monster_spawn_timer):
+		monster_spawn_timer.stop()
+	return true
+
+func _finish_wave_spawn(restart_timer: bool = true) -> void:
+	_wave_spawning = false
+	if not restart_timer or boss_event_triggered:
+		return
+	if monster_spawn_timer != null and is_instance_valid(monster_spawn_timer):
+		monster_spawn_timer.start()
+
 func _choose_individual_type(wave_other_type_counts: Dictionary) -> String:
 	var available_entries: Array[Dictionary] = []
 	var total_weight = 0
 	for entry in stage_spawn_pool:
 		var entry_type = entry["type"]
 		if spawn_count <= EARLY_WAVE_LIMIT and entry["blocked_early"]:
+			continue
+		if not _can_choose_spawn_entry(entry, wave_other_type_counts):
 			continue
 		if not BASIC_TYPES.has(entry_type):
 			if other_type_alive >= OTHER_TYPE_TOTAL_MAX:
@@ -417,6 +502,9 @@ func _choose_individual_type(wave_other_type_counts: Dictionary) -> String:
 			return entry["type"]
 
 	return available_entries[available_entries.size() - 1]["type"]
+
+func _can_choose_spawn_entry(_entry: Dictionary, _wave_other_type_counts: Dictionary) -> bool:
+	return true
 
 func _get_boss_position() -> Vector2:
 	return Vector2(-370, randf_range(185, 259)) # 默认值，子类可覆盖
@@ -453,10 +541,13 @@ func _physics_process(_delta: float) -> void:
 	# 检查Boss触发
 	if map_mechanism_num >= map_mechanism_num_max and not boss_event_triggered:
 		boss_event_triggered = true
+		Global.stage_boss_fight_time = 0.0
 		_trigger_boss_event()
 		return
 
 	PC.real_time += _delta
+	if _boss_fight_active and Global.current_stage_difficulty != Global.STAGE_DIFFICULTY_POETRY and not PC.is_game_over:
+		Global.stage_boss_fight_time += _delta
 	_check_qi_vortex_spawn()
 	_update_core_missile_attack(_delta)
 	PC.update_shields(_delta)
@@ -476,10 +567,13 @@ func _check_level_up() -> void:
 		return
 	if layer_ui.warning_active:
 		return
-	if PC.pc_exp >= layer_ui.get_required_lv_up_value(PC.pc_lv):
+	var required_exp := layer_ui.get_required_lv_up_value(PC.pc_lv)
+	if PC.pc_exp >= required_exp:
 		layer_ui.add_pending_level_up()
+		PC.pc_exp = clamp(PC.pc_exp - required_exp, 0, layer_ui.get_required_lv_up_value(PC.pc_lv + 1))
 		PC.pc_lv += 1
-		PC.pc_exp = clamp((PC.pc_exp - layer_ui.get_required_lv_up_value(PC.pc_lv)), 0, layer_ui.get_required_lv_up_value(PC.pc_lv))
+		if Global.current_stage_difficulty != Global.STAGE_DIFFICULTY_POETRY:
+			LvUp.pre_apply_level_growth_for_pending_level()
 		Global.emit_signal("player_lv_up")
 
 
@@ -521,6 +615,9 @@ func _on_warning_finished() -> void:
 	# Boss渐变出现效果
 	boss_node.modulate.a = 0.0
 	get_tree().current_scene.add_child(boss_node)
+	_boss_fight_active = true
+	Global.stage_boss_fight_time = 0.0
+	_apply_mobile_boss_balance(boss_node)
 	var boss_tween = boss_node.create_tween()
 	boss_tween.tween_property(boss_node, "modulate:a", 1.0, 0.8)
 	_clear_non_boss_enemies()
@@ -537,6 +634,30 @@ func _clear_non_boss_enemies() -> void:
 		var tween = enemy.create_tween()
 		tween.tween_property(enemy, "modulate:a", 0.0, 0.4)
 		tween.tween_callback(Callable(enemy, "queue_free"))
+
+func _push_teammate_dialogue_sequence(dialogues: Array[Dictionary]) -> void:
+	var dialogue_mgr = layer_ui.teammate_dialogue_mgr
+	if dialogue_mgr == null:
+		return
+	for line in dialogues:
+		if not is_inside_tree():
+			return
+		var speaker := str(line.get("speaker", ""))
+		var text := str(line.get("text", ""))
+		if speaker.is_empty() or text.is_empty():
+			continue
+		dialogue_mgr.push_dialogue(speaker, text)
+		var delay := 1.0 + text.length() * 0.15 + 0.7
+		await _wait_unpaused(delay)
+
+func _wait_unpaused(duration: float) -> void:
+	var elapsed := 0.0
+	while elapsed < duration:
+		if not is_inside_tree():
+			return
+		await get_tree().process_frame
+		if not get_tree().paused:
+			elapsed += get_process_delta_time()
 
 
 func _on_monster_spawn_timer_timeout() -> void:
@@ -597,6 +718,7 @@ func _spawn_corrupted_elite() -> void:
 	_make_corrupted_elite(monster_node, monster_id)
 	_apply_dynamic_hp_reduction(monster_node)
 	_apply_late_game_speed_bonus(monster_node)
+	_apply_mobile_monster_balance(monster_node)
 	monster_node.modulate.a = 0.0
 	var tween := create_tween()
 	tween.tween_property(monster_node, "modulate:a", 1.0, 0.7)
@@ -609,6 +731,8 @@ func _choose_corrupted_elite_spawn_entry() -> Dictionary:
 	for entry in stage_spawn_pool:
 		var spawn_type := str(entry.get("type", ""))
 		if spawn_type.is_empty() or spawn_type == "gold_ball":
+			continue
+		if entry.get("never_elite", false) == true:
 			continue
 		var spawn_data := _get_corrupted_elite_spawn_data(spawn_type)
 		if spawn_data.is_empty():
@@ -797,6 +921,44 @@ func _apply_late_game_speed_bonus(monster_node: Node) -> void:
 	if speed_value != null:
 		monster_node.set("speed", float(speed_value) * speed_multiplier)
 
+func _apply_mobile_monster_balance(monster_node: Node) -> void:
+	if not Global.is_mobile_input_mode():
+		return
+	if monster_node == null or not is_instance_valid(monster_node):
+		return
+	if monster_node.is_in_group("boss"):
+		return
+	if bool(monster_node.get_meta("mobile_monster_balance_applied", false)):
+		return
+	monster_node.set_meta("mobile_monster_balance_applied", true)
+	var hp_value: Variant = monster_node.get("hp")
+	if hp_value != null:
+		monster_node.set("hp", float(hp_value) * MOBILE_MONSTER_HP_MULTIPLIER)
+	var hp_max_value: Variant = monster_node.get("hpMax")
+	if hp_max_value != null:
+		monster_node.set("hpMax", float(hp_max_value) * MOBILE_MONSTER_HP_MULTIPLIER)
+	var atk_value: Variant = monster_node.get("atk")
+	if atk_value != null:
+		monster_node.set("atk", float(atk_value) * MOBILE_MONSTER_ATK_MULTIPLIER)
+	var base_speed_value: Variant = monster_node.get("base_speed")
+	if base_speed_value != null:
+		monster_node.set("base_speed", float(base_speed_value) * MOBILE_MONSTER_SPEED_MULTIPLIER)
+	var speed_value: Variant = monster_node.get("speed")
+	if speed_value != null:
+		monster_node.set("speed", float(speed_value) * MOBILE_MONSTER_SPEED_MULTIPLIER)
+
+func _apply_mobile_boss_balance(boss_node: Node) -> void:
+	if not Global.is_mobile_input_mode():
+		return
+	if boss_node == null or not is_instance_valid(boss_node):
+		return
+	if bool(boss_node.get_meta("mobile_boss_balance_applied", false)):
+		return
+	boss_node.set_meta("mobile_boss_balance_applied", true)
+	var atk_value: Variant = boss_node.get("atk")
+	if atk_value != null:
+		boss_node.set("atk", float(atk_value) * MOBILE_BOSS_ATK_MULTIPLIER)
+
 
 func _should_force_low_population_wave() -> bool:
 	if boss_event_triggered or monster_spawn_timer == null or not is_instance_valid(monster_spawn_timer):
@@ -866,11 +1028,37 @@ func _spawn_qi_vortex() -> void:
 	get_tree().current_scene.add_child(vortex)
 	active_qi_vortex = vortex
 	_show_qi_vortex_focus_ui()
+	if battle_chat and is_instance_valid(battle_chat):
+		battle_chat.notify_qi_vortex_spawned()
+	_try_show_qi_vortex_tutorial()
 	if vortex.has_signal("completed"):
 		vortex.completed.connect(_on_qi_vortex_completed)
 	if vortex.has_signal("expired"):
 		vortex.expired.connect(_on_qi_vortex_expired)
 	vortex.tree_exiting.connect(Callable(self, "_on_active_qi_vortex_tree_exiting"))
+
+func _try_show_qi_vortex_tutorial() -> void:
+	if Global.has_seen_qi_vortex_tutorial or qi_vortex_tutorial_pending:
+		return
+	qi_vortex_tutorial_pending = true
+	_show_qi_vortex_tutorial_after_delay()
+
+func _show_qi_vortex_tutorial_after_delay() -> void:
+	await get_tree().create_timer(0.5).timeout
+	if not is_inside_tree() or get_tree() == null:
+		qi_vortex_tutorial_pending = false
+		return
+	if Global.has_seen_qi_vortex_tutorial:
+		qi_vortex_tutorial_pending = false
+		return
+	var tutorial := QI_VORTEX_TUTORIAL_SCENE.instantiate()
+	if tutorial == null:
+		qi_vortex_tutorial_pending = false
+		return
+	add_child(tutorial)
+	Global.has_seen_qi_vortex_tutorial = true
+	Global.save_game()
+	qi_vortex_tutorial_pending = false
 
 func _on_active_qi_vortex_tree_exiting() -> void:
 	active_qi_vortex = null
@@ -932,8 +1120,9 @@ func _spawn_core_missile_from_edge(edge: int, visible_rect: Rect2, target_positi
 	if missile == null:
 		return
 	var missile_direction := (target_position - spawn_position).normalized()
+	var missile_damage: float = float(SettingMoster.frog("atk")) * CORE_MISSILE_DAMAGE_MULTIPLIER
 	if missile.has_method("setup_projectile"):
-		missile.setup_projectile(spawn_position, missile_direction, SettingMoster.frog("atk"), CORE_MISSILE_SPEED, CORE_MISSILE_RANGE)
+		missile.setup_projectile(spawn_position, missile_direction, missile_damage, CORE_MISSILE_SPEED, CORE_MISSILE_RANGE)
 	else:
 		if missile.get_parent() == null:
 			get_tree().current_scene.add_child(missile)
@@ -943,7 +1132,7 @@ func _spawn_core_missile_from_edge(edge: int, visible_rect: Rect2, target_positi
 		if missile.get("max_range") != null:
 			missile.set("max_range", CORE_MISSILE_RANGE)
 		if missile.get("atk") != null:
-			missile.set("atk", SettingMoster.frog("atk"))
+			missile.set("atk", missile_damage)
 		if missile.has_method("set_direction"):
 			missile.set_direction(missile_direction)
 		if missile.has_method("play_animation"):
@@ -1200,6 +1389,7 @@ func _ensure_qi_vortex_indicator() -> void:
 	qi_vortex_indicator.texture = QI_VORTEX_INDICATOR_TEXTURE
 	qi_vortex_indicator.centered = true
 	qi_vortex_indicator.scale = Vector2.ONE * QI_VORTEX_INDICATOR_SCALE
+	qi_vortex_indicator.modulate.a = QI_VORTEX_INDICATOR_ALPHA
 	qi_vortex_indicator.process_mode = Node.PROCESS_MODE_ALWAYS
 	qi_vortex_indicator.z_index = 80
 	qi_vortex_indicator.visible = false
@@ -1209,6 +1399,7 @@ func _update_qi_vortex_indicator() -> void:
 	if active_qi_vortex == null or not is_instance_valid(active_qi_vortex):
 		if qi_vortex_indicator:
 			qi_vortex_indicator.visible = false
+			qi_vortex_indicator.modulate.a = QI_VORTEX_INDICATOR_ALPHA
 		return
 	_ensure_qi_vortex_indicator()
 	if qi_vortex_indicator == null:
@@ -1216,10 +1407,12 @@ func _update_qi_vortex_indicator() -> void:
 	var camera := $Player.get_node_or_null("Camera2D") as Camera2D
 	if camera == null:
 		qi_vortex_indicator.visible = false
+		qi_vortex_indicator.modulate.a = QI_VORTEX_INDICATOR_ALPHA
 		return
 	var visible_rect := _get_camera_visible_rect(camera)
 	if visible_rect.has_point(active_qi_vortex.global_position):
 		qi_vortex_indicator.visible = false
+		qi_vortex_indicator.modulate.a = QI_VORTEX_INDICATOR_ALPHA
 		return
 	var viewport_size := get_viewport().get_visible_rect().size
 	var zoom_value := camera.zoom
@@ -1231,6 +1424,7 @@ func _update_qi_vortex_indicator() -> void:
 	var direction := target_screen_pos - viewport_center
 	if direction.length_squared() <= 0.001:
 		qi_vortex_indicator.visible = false
+		qi_vortex_indicator.modulate.a = QI_VORTEX_INDICATOR_ALPHA
 		return
 	direction = direction.normalized()
 	var half_area := viewport_center - Vector2(QI_VORTEX_INDICATOR_MARGIN, QI_VORTEX_INDICATOR_MARGIN)
@@ -1242,14 +1436,29 @@ func _update_qi_vortex_indicator() -> void:
 		y_distance = half_area.y / absf(direction.y)
 	qi_vortex_indicator.position = viewport_center + direction * min(x_distance, y_distance)
 	qi_vortex_indicator.rotation = direction.angle()
+	if active_qi_vortex.has_method("get_expiring_flash_alpha"):
+		qi_vortex_indicator.modulate.a = active_qi_vortex.get_expiring_flash_alpha(QI_VORTEX_INDICATOR_ALPHA)
+	else:
+		qi_vortex_indicator.modulate.a = QI_VORTEX_INDICATOR_ALPHA
 	qi_vortex_indicator.visible = true
 
 func _on_qi_vortex_completed(vortex: Node2D) -> void:
 	if vortex != active_qi_vortex:
 		return
 	add_spirit(500)
+	_restore_player_full_hp_from_qi_vortex()
 	if qi_vortex_shop_manager:
 		qi_vortex_shop_manager.open(self, layer_ui)
+
+func _restore_player_full_hp_from_qi_vortex() -> void:
+	if PC.pc_max_hp <= 0 or PC.pc_hp >= PC.pc_max_hp:
+		return
+	var heal_amount := float(PC.pc_max_hp - PC.pc_hp)
+	PC.pc_hp = PC.pc_max_hp
+	Global.emit_signal("player_heal", heal_amount, $Player.global_position, "qi_vortex")
+	Global.emit_signal("player_healed", heal_amount)
+	if layer_ui:
+		layer_ui.update_hp_bar(PC.pc_hp, PC.pc_max_hp, PC.get_total_shield())
 
 func _on_qi_vortex_expired(vortex: Node2D) -> void:
 	if vortex == active_qi_vortex:
@@ -1273,8 +1482,29 @@ func _mark_spirit_enemy_type(monster_node: Node, is_special_enemy: bool) -> void
 		return
 	monster_node.set_meta("is_special_enemy", is_special_enemy)
 
+func _register_spawned_monster(monster_node: Node, is_special_enemy: bool, allow_elite: bool = true, connect_other_type_counter: bool = false) -> void:
+	if monster_node == null:
+		return
+	_mark_spirit_enemy_type(monster_node, is_special_enemy)
+	if allow_elite:
+		_try_make_elite(monster_node)
+	_apply_dynamic_hp_reduction(monster_node)
+	_apply_late_game_speed_bonus(monster_node)
+	_apply_mobile_monster_balance(monster_node)
+	monster_node.modulate.a = 0.0
+	var tween := create_tween()
+	tween.tween_property(monster_node, "modulate:a", 1.0, 0.7)
+	current_monster_count += 1
+	monster_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
+	if connect_other_type_counter:
+		monster_node.connect("tree_exiting", Callable(self, "_on_other_type_monster_tree_exiting"))
+
 ## 尝试将怪物升级为精英怪（2%概率）
 func _try_make_elite(monster_node: Node) -> void:
+	if monster_node == null:
+		return
+	if monster_node.get_meta("never_elite", false) == true or monster_node.is_in_group("non_elite_enemy"):
+		return
 	if randf() > ELITE_SPAWN_CHANCE:
 		return # 未触发精英怪
 	if elite_alive >= ELITE_MAX:
@@ -1352,13 +1582,13 @@ void fragment() {
 	monster_node.set_meta("is_elite_monster", true)
 
 # ============== 金团团生成 ==============
-## 每波怪生成时尝试刷新金团团（基础 3% 概率，受修习树加成影响）
+## 每波怪生成时尝试刷新金团团（基础 1.5% 概率，受修习树加成影响）
 func _try_spawn_gold_ball() -> void:
 	if boss_event_triggered:
 		return
 	if not Global.study_gold_ball_unlocked:
 		return
-	# 实际概率 = 基础 3% × (1 + 金团团概率加成)
+	# 实际概率 = 基础 1.5% × (1 + 金团团概率加成)
 	var chance = GOLD_BALL_BASE_CHANCE * (1.0 + Global.study_gold_ball_chance_bonus)
 	if randf() > chance:
 		return
@@ -1380,11 +1610,14 @@ func _try_spawn_gold_ball() -> void:
 	get_tree().current_scene.add_child(gold_ball_node)
 	_show_gold_ball_spawn_flash()
 	_mark_spirit_enemy_type(gold_ball_node, true)
+	_apply_mobile_monster_balance(gold_ball_node)
 	gold_ball_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(gold_ball_node, "modulate:a", 1.0, 0.7)
 	current_monster_count += 1
 	gold_ball_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
+	if battle_chat and is_instance_valid(battle_chat):
+		battle_chat.notify_gold_ball_spawned()
 	print("[GoldBall] 金团团已生成！")
 
 # ============== 游戏结果 ==============
@@ -1473,7 +1706,7 @@ func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 			Global.has_defeated_peach_grove_boss = true
 		
 		Global.mark_stage_difficulty_cleared(STAGE_ID, Global.current_stage_difficulty)
-		# 角色解锁：首次通关ruin解锁诺姆，首次通关cave解锁坎塞尔
+		# 角色解锁：首次通关指定关卡后开放对应角色和初始武器。
 		if STAGE_ID == "ruin" and not Global.unlock_noam:
 			Global.unlock_noam = true
 			Global.sync_available_start_weapons()
@@ -1482,6 +1715,10 @@ func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 			Global.unlock_kansel = true
 			Global.sync_available_start_weapons()
 			print("[HeroUnlock] 首次通关cave，解锁坎塞尔及炽炎技能")
+		if STAGE_ID == "forest" and not Global.unlock_xueming:
+			Global.unlock_xueming = true
+			Global.sync_available_start_weapons()
+			print("[HeroUnlock] 首次通关forest，解锁雪铭及爪爪巨锤")
 		Global.add_shop_battle_refresh(1)
 		await player.play_boss_defeat_camera_focus(boss_position)
 

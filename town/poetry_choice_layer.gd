@@ -29,6 +29,8 @@ extends CanvasLayer
 const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 const VERSION = 1
 const TOOLTIP_POSITION_OFFSET := Vector2(20, 20)
+const TIP_DEFAULT_DURATION := 0.5
+const TIP_SUCCESS_DURATION := 0.6
 
 var available_weapons = []
 var updating_ui = false
@@ -85,47 +87,12 @@ func _is_selection_complete() -> bool:
 		if not dd or dd.selected <= 0: return false
 	return true
 
-func _apply_loadout_to_pc():
-	PC.selected_rewards.clear()
-	PC.current_weapon_num = 0
-	
-	var w12_id = weapon12Choice.get_item_metadata(weapon12Choice.selected)
-	_grant_weapon_level(w12_id, 12)
-	for dd in adv_dropdowns_12:
-		var adv_id = dd.get_item_metadata(dd.selected)
-		_grant_advancement(adv_id)
-		
-	for i in range(3):
-		var w_dd = weapon_dropdowns[i + 1]
-		var adv_dd = adv_dropdowns_3[i]
-		var w_id = w_dd.get_item_metadata(w_dd.selected)
-		var adv_id = adv_dd.get_item_metadata(adv_dd.selected)
-		_grant_weapon_level(w_id, 3)
-		_grant_advancement(adv_id)
-
-func _grant_weapon_level(w_id: String, target_level: int):
-	var base_func = "reward_" + w_id
-	if LvUp.has_method(base_func):
-		LvUp.call(base_func)
-		
-	var upgrade_func = "reward_R" + w_id
-	for i in range(target_level - 1):
-		if LvUp.has_method(upgrade_func):
-			LvUp.call(upgrade_func)
-
-func _grant_advancement(adv_id: String):
-	var adv_func = "reward_" + adv_id
-	if LvUp.has_method(adv_func):
-		LvUp.call(adv_func)
-
 func _on_ok_pressed():
 	if not _is_selection_complete():
-		if tips and tips.has_method("start_animation"):
-			tips.start_animation("需要完整的选择所有武器及进阶后才能进入诗想难度关卡！", 1.0)
+		_show_tips("需要完整的选择所有武器及进阶后才能进入诗想难度关卡！")
 		return
 		
 	_hide_tooltip()
-	_apply_loadout_to_pc()
 	_save_poetry_loadout()
 	
 	# 保存备战码到 Global，下次进入自动填入
@@ -240,7 +207,7 @@ func is_weapon_unlocked(w_id: String) -> bool:
 		return SettingStudyTreeUp.is_weapon_unlocked(check_id)
 	return true
 
-func _on_weapon_selected(index: int, dropdown_idx: int):
+func _on_weapon_selected(_index: int, dropdown_idx: int):
 	if updating_ui: return
 	
 	# 切换武器时，清空对应的进阶选项
@@ -253,12 +220,11 @@ func _on_weapon_selected(index: int, dropdown_idx: int):
 		
 	_update_all_dropdowns()
 
-func _on_adv_selected_12(index: int, dropdown_idx: int):
+func _on_adv_selected_12(_index: int, dropdown_idx: int):
 	if updating_ui: return
 	# 校验规则：如果修改或取消了某个进阶项，导致当前已选的其他进阶项前置条件不满足，则提示并还原
 	if not _validate_adv_selection(adv_dropdowns_12, weapon12Choice):
-		if tips and tips.has_method("start_animation"):
-			tips.start_animation("前置条件不足，请先取消相关的后续进阶", 1.0)
+		_show_tips("前置条件不足，请先取消相关的后续进阶")
 		# 还原到上一次有效选择，而非强制归零
 		var prev_idx = last_valid_advs_12_indices[dropdown_idx] if dropdown_idx < last_valid_advs_12_indices.size() else 0
 		adv_dropdowns_12[dropdown_idx].select(prev_idx)
@@ -266,7 +232,7 @@ func _on_adv_selected_12(index: int, dropdown_idx: int):
 		return
 	_update_all_dropdowns()
 
-func _on_adv_selected_3(index: int, dropdown_idx: int):
+func _on_adv_selected_3(_index: int, dropdown_idx: int):
 	if updating_ui: return
 	_update_all_dropdowns()
 
@@ -487,8 +453,7 @@ func _encode_adv(dd: OptionButton, w_dd: OptionButton) -> String:
 func _on_copy_pressed():
 	if line_edit:
 		DisplayServer.clipboard_set(line_edit.text)
-	if tips and tips.has_method("start_animation"):
-		tips.start_animation("已复制备战码", 1.5)
+	_show_tips("已复制备战码", TIP_SUCCESS_DURATION)
 
 func _on_use_other_pressed():
 	if not line_edit: return
@@ -497,8 +462,8 @@ func _on_use_other_pressed():
 
 func _on_use_other_code(code: String, silent: bool = false) -> bool:
 	if code.length() != 13:
-		if not silent and tips and tips.has_method("start_animation"):
-			tips.start_animation("备战码格式错误或不完整", 1.0)
+		if not silent:
+			_show_tips("备战码格式错误或不完整")
 		return false
 		
 	var version = _decode_char(code[0])
@@ -509,8 +474,8 @@ func _on_use_other_code(code: String, silent: bool = false) -> bool:
 	for c in content:
 		sum += c.unicode_at(0)
 	if sum % 62 != checksum:
-		if not silent and tips and tips.has_method("start_animation"):
-			tips.start_animation("备战码校验失败，可能被篡改", 1.0)
+		if not silent:
+			_show_tips("备战码校验失败，可能被篡改")
 		return false
 		
 	# Validate weapons
@@ -524,12 +489,12 @@ func _on_use_other_code(code: String, silent: bool = false) -> bool:
 		if idx >= 0 and idx < WeapDataExport.WEAPON_IDS.size():
 			var w_id = WeapDataExport.WEAPON_IDS[idx]
 			if not w_id in available_weapons:
-				if not silent and tips and tips.has_method("start_animation"):
-					tips.start_animation("备战码包含未解锁的武器: " + WeapDataExport.WEAPON_NAMES.get(w_id, w_id), 1.0)
+				if not silent:
+					_show_tips("备战码包含未解锁的武器: " + WeapDataExport.WEAPON_NAMES.get(w_id, w_id), TIP_SUCCESS_DURATION)
 				return false
 			if w_id in needed_weapons:
-				if not silent and tips and tips.has_method("start_animation"):
-					tips.start_animation("备战码包含重复武器", 1.0)
+				if not silent:
+					_show_tips("备战码包含重复武器")
 				return false
 			needed_weapons.append(w_id)
 			
@@ -552,9 +517,13 @@ func _on_use_other_code(code: String, silent: bool = false) -> bool:
 	_update_all_dropdowns()
 	if line_edit:
 		line_edit.text = code
-	if not silent and tips and tips.has_method("start_animation"):
-		tips.start_animation("备战码应用成功", 1.0)
+	if not silent:
+		_show_tips("备战码应用成功", TIP_SUCCESS_DURATION)
 	return true
+
+func _show_tips(message: String, duration: float = TIP_DEFAULT_DURATION) -> void:
+	if tips and tips.has_method("start_animation"):
+		tips.start_animation(message, duration)
 
 func _apply_weapon(dd: OptionButton, idx: int):
 	dd.clear()
@@ -759,8 +728,8 @@ func _create_tooltip_panel() -> void:
 	_tooltip_canvas = CanvasLayer.new()
 	_tooltip_canvas.name = "DropdownTooltipCanvasLayer"
 	_tooltip_canvas.layer = 100
-	get_tree().root.add_child(_tooltip_canvas)
 	_tooltip_canvas.add_child(_tooltip_panel)
+	get_tree().root.call_deferred("add_child", _tooltip_canvas)
 	
 	var vbox := VBoxContainer.new()
 	vbox.name = "VBox"

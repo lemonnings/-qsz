@@ -5,27 +5,29 @@ extends "res://Script/battleScene/base_stage.gd"
 @export var peach_yao_scene: PackedScene
 @export var bat_scene: PackedScene
 @export var frog_scene: PackedScene
+@export var copper_scene: PackedScene
 
 # ============== 关卡配置 ==============
 func _setup_stage_config() -> void:
 	STAGE_ID = "peach_grove"
 	SPAWN_INTERVAL_SECONDS = 5.0
-	INITIAL_MONSTER_LIMIT = 50
+	INITIAL_MONSTER_LIMIT = 35
 	DYNAMIC_BALANCE_SPAWN_LOW_THRESHOLD = 0.3 # stage1 特有：40%（其他关卡是0.3）
 	DYNAMIC_BALANCE_SPAWN_MAX_BONUS = 1.0
 	DYNAMIC_BALANCE_HP_MAX_REDUCTION = 0.4
 	LOW_POPULATION_FORCE_WAVE_MIN_TIME_LEFT = 1.25
 	LATE_GAME_TIME_THRESHOLD = 180.0
 	LATE_GAME_LOW_POPULATION_RATIO = 0.35
-	BASIC_TYPES = ["slime", "peach_yao"]
+	BASIC_TYPES = ["slime", "peach_yao", "copper"]
 	OTHER_TYPE_PER_WAVE_MAX = 1
 	OTHER_TYPE_TOTAL_MAX = 4
 	ELITE_MAX = 3
-	# PEACH_GROVE: slime(5), peach_yao(3), frog(1)
+	# PEACH_GROVE: slime(5), peach_yao(3), frog(1), copper(0.3)
 	stage_spawn_pool = [
-		{"type": "slime", "weight": 5, "blocked_early": false},
-		{"type": "peach_yao", "weight": 3, "blocked_early": false},
-		{"type": "frog", "weight": 1, "blocked_early": true}
+		{"type": "slime", "weight": 500, "blocked_early": false},
+		{"type": "peach_yao", "weight": 300, "blocked_early": false},
+		{"type": "frog", "weight": 100, "blocked_early": true},
+		{"type": "copper", "weight": 30, "blocked_early": false, "never_elite": true}
 	]
 
 func _get_corrupted_elite_spawn_data(spawn_type: String) -> Dictionary:
@@ -36,6 +38,8 @@ func _get_corrupted_elite_spawn_data(spawn_type: String) -> Dictionary:
 			return {"scene": peach_yao_scene, "monster_id": "peach_yao"}
 		"frog":
 			return {"scene": frog_scene, "monster_id": "frog"}
+		"copper":
+			return {}
 		_:
 			return {}
 
@@ -81,6 +85,7 @@ func _on_warning_finished() -> void:
 	# Boss渐变出现效果
 	boss_node.modulate.a = 0.0
 	get_tree().current_scene.add_child(boss_node)
+	_apply_mobile_boss_balance(boss_node)
 	var boss_tween = boss_node.create_tween()
 	boss_tween.tween_property(boss_node, "modulate:a", 1.0, 0.8)
 	_clear_non_boss_enemies()
@@ -127,22 +132,17 @@ func _trigger_battle_tutorial() -> void:
 
 # ============== Boss位置（覆盖基类默认值）==============
 func _get_boss_position() -> Vector2:
-	return Vector2(-370, randf_range(185, 259))
+	return Vector2(-220, randf_range(185, 259))
 
 # ============== 怪物波生成 ==============
 func _spawn_wave() -> void:
-	if boss_event_triggered:
+	if not _begin_wave_spawn():
 		return
-
-	var current_frame = Engine.get_process_frames()
-	if current_frame == last_wave_spawn_frame:
-		return
-	last_wave_spawn_frame = current_frame
 
 	spawn_count += 1
 	_update_wave_monster_limit()
 	if current_monster_count >= max_monster_limit:
-		monster_spawn_timer.start()
+		_finish_wave_spawn()
 		return
 
 	# 计算动态平衡参数
@@ -154,7 +154,7 @@ func _spawn_wave() -> void:
 	var available_slots = max_monster_limit - current_monster_count
 	var spawn_target_count = min(wave_spawn_count, available_slots)
 	if spawn_target_count <= 0:
-		monster_spawn_timer.start()
+		_finish_wave_spawn()
 		return
 
 	# 每个怪物单独按权重判断类型
@@ -169,9 +169,10 @@ func _spawn_wave() -> void:
 			other_type_alive += 1
 		spawn_list.append(chosen_type)
 
-	# 逐个生成，间隔0.1秒
+	var spawned_this_frame := 0
 	for i in range(spawn_list.size()):
 		if boss_event_triggered:
+			_finish_wave_spawn(false)
 			return
 		if current_monster_count >= max_monster_limit:
 			break
@@ -184,40 +185,55 @@ func _spawn_wave() -> void:
 				_spawn_single_bat()
 			"frog":
 				_spawn_single_frog()
+			"copper":
+				_spawn_single_copper()
 		if i < spawn_list.size() - 1:
+			spawned_this_frame += 1
+			if spawned_this_frame < WAVE_SPAWNS_PER_FRAME:
+				continue
+			spawned_this_frame = 0
 			if not is_inside_tree() or boss_event_triggered:
+				_finish_wave_spawn(false)
 				return
-			await get_tree().create_timer(0.1).timeout
+			await get_tree().process_frame
 			if not is_inside_tree() or boss_event_triggered:
+				_finish_wave_spawn(false)
 				return
 
 	if boss_event_triggered:
+		_finish_wave_spawn(false)
 		return
-	monster_spawn_timer.start()
+	_finish_wave_spawn()
 
 # ============== 单体怪物生成 ==============
+func _get_spawn_position(top_y: float = 100.0) -> Vector2:
+	return _get_player_spawn_safe_position(_get_raw_spawn_position(top_y), Callable(self, "_get_raw_spawn_position").bind(top_y))
+
+func _get_raw_spawn_position(top_y: float = 100.0) -> Vector2:
+	var spawn_edge = randi_range(0, 3)
+	match spawn_edge:
+		0:
+			return Vector2(randf_range(-590, 590), top_y)
+		1:
+			return Vector2(randf_range(-590, 590), 480)
+		2:
+			return Vector2(-590, randf_range(0, 480))
+		_:
+			return Vector2(590, randf_range(0, 480))
+
 func _spawn_single_slime() -> void:
 	if not is_inside_tree() or get_tree().current_scene == null:
 		return
 	var slime_node = slime_scene.instantiate()
-	var spawn_edge = randi_range(0, 3)
-	var spawn_position = Vector2.ZERO
 	slime_node.move_direction = randi_range(2, 8)
-	match spawn_edge:
-		0: # Top
-			spawn_position = Vector2(randf_range(-590, 590), 100)
-		1: # Bottom
-			spawn_position = Vector2(randf_range(-590, 590), 480)
-		2: # Left
-			spawn_position = Vector2(-590, randf_range(0, 480))
-		3: # Right
-			spawn_position = Vector2(590, randf_range(0, 480))
+	var spawn_position = _get_spawn_position()
 	slime_node.position = spawn_position
 	get_tree().current_scene.add_child(slime_node)
 	_mark_spirit_enemy_type(slime_node, false)
 	_try_make_elite(slime_node)
 	_apply_dynamic_hp_reduction(slime_node)
 	_apply_late_game_speed_bonus(slime_node)
+	_apply_mobile_monster_balance(slime_node)
 	slime_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(slime_node, "modulate:a", 1.0, 0.7)
@@ -228,24 +244,15 @@ func _spawn_single_peach_yao() -> void:
 	if not is_inside_tree() or get_tree().current_scene == null:
 		return
 	var peach_yao_node = peach_yao_scene.instantiate()
-	var spawn_edge = randi_range(0, 3)
-	var spawn_position = Vector2.ZERO
 	peach_yao_node.move_direction = randi_range(2, 8)
-	match spawn_edge:
-		0: # Top
-			spawn_position = Vector2(randf_range(-590, 590), 100)
-		1: # Bottom
-			spawn_position = Vector2(randf_range(-590, 590), 480)
-		2: # Left
-			spawn_position = Vector2(-590, randf_range(0, 480))
-		3: # Right
-			spawn_position = Vector2(590, randf_range(0, 480))
+	var spawn_position = _get_spawn_position()
 	peach_yao_node.position = spawn_position
 	get_tree().current_scene.add_child(peach_yao_node)
 	_mark_spirit_enemy_type(peach_yao_node, false)
 	_try_make_elite(peach_yao_node)
 	_apply_dynamic_hp_reduction(peach_yao_node)
 	_apply_late_game_speed_bonus(peach_yao_node)
+	_apply_mobile_monster_balance(peach_yao_node)
 	peach_yao_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(peach_yao_node, "modulate:a", 1.0, 0.7)
@@ -256,23 +263,14 @@ func _spawn_single_bat() -> void:
 	if not is_inside_tree() or get_tree().current_scene == null:
 		return
 	var bat_node = bat_scene.instantiate()
-	var spawn_edge = randi_range(0, 3)
-	var spawn_position = Vector2.ZERO
-	match spawn_edge:
-		0: # Top
-			spawn_position = Vector2(randf_range(-590, 590), -25)
-		1: # Bottom
-			spawn_position = Vector2(randf_range(-590, 590), 480)
-		2: # Left
-			spawn_position = Vector2(-590, randf_range(0, 480))
-		3: # Right
-			spawn_position = Vector2(590, randf_range(0, 480))
+	var spawn_position = _get_spawn_position(-25.0)
 	bat_node.position = spawn_position
 	get_tree().current_scene.add_child(bat_node)
 	_mark_spirit_enemy_type(bat_node, true)
 	_try_make_elite(bat_node)
 	_apply_dynamic_hp_reduction(bat_node)
 	_apply_late_game_speed_bonus(bat_node)
+	_apply_mobile_monster_balance(bat_node)
 	bat_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(bat_node, "modulate:a", 1.0, 0.7)
@@ -283,29 +281,30 @@ func _spawn_single_frog() -> void:
 	if not is_inside_tree() or get_tree().current_scene == null:
 		return
 	var frog_node = frog_scene.instantiate()
-	var spawn_edge = randi_range(0, 3)
-	var spawn_position = Vector2.ZERO
-	match spawn_edge:
-		0: # Top
-			spawn_position = Vector2(randf_range(-590, 590), 100)
-		1: # Bottom
-			spawn_position = Vector2(randf_range(-590, 590), 480)
-		2: # Left
-			spawn_position = Vector2(-590, randf_range(0, 480))
-		3: # Right
-			spawn_position = Vector2(590, randf_range(0, 480))
+	var spawn_position = _get_spawn_position()
 	frog_node.position = spawn_position
 	get_tree().current_scene.add_child(frog_node)
 	_mark_spirit_enemy_type(frog_node, true)
 	_try_make_elite(frog_node)
 	_apply_dynamic_hp_reduction(frog_node)
 	_apply_late_game_speed_bonus(frog_node)
+	_apply_mobile_monster_balance(frog_node)
 	frog_node.modulate.a = 0
 	var tween = create_tween()
 	tween.tween_property(frog_node, "modulate:a", 1.0, 0.7)
 	current_monster_count += 1
 	frog_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
 	frog_node.connect("tree_exiting", Callable(self, "_on_other_type_monster_tree_exiting"))
+
+func _spawn_single_copper() -> void:
+	if not is_inside_tree() or get_tree().current_scene == null or copper_scene == null:
+		return
+	var copper_node = copper_scene.instantiate()
+	copper_node.move_direction = 2
+	var spawn_position = _get_spawn_position()
+	copper_node.position = spawn_position
+	get_tree().current_scene.add_child(copper_node)
+	_register_spawned_monster(copper_node, false, false, false)
 
 # ============== 首次进入桃林队友对话 ==============
 func _trigger_peach_grove_dialogue() -> void:
@@ -354,14 +353,3 @@ func _trigger_peach_grove_dialogue() -> void:
 	# 标记已触发并保存
 	Global.has_seen_peach_grove_dialogue = true
 	Global.save_game()
-
-
-## 等待指定秒数，暂停期间不计时
-func _wait_unpaused(duration: float) -> void:
-	var elapsed := 0.0
-	while elapsed < duration:
-		if not is_inside_tree():
-			return
-		await get_tree().process_frame
-		if not get_tree().paused:
-			elapsed += get_process_delta_time()

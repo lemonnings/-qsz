@@ -4,7 +4,7 @@ class_name DragonWind
 @export var sprite: AnimatedSprite2D
 @export var collision: CollisionShape2D
 
-static var dragonwind_base_damage: float = 0.9
+static var dragonwind_base_damage: float = 0.5
 static var dragonwind_final_damage_multi: float = 1.0
 static var dragonwind_range: float = 180.0
 static var dragonwind_range_scale: float = 1.0
@@ -23,7 +23,7 @@ var fade_sustain_time: float = 2.5
 var fade_out_time: float = 0.8
 
 static func reset_data() -> void:
-	dragonwind_base_damage = 0.9
+	dragonwind_base_damage = 0.5
 	dragonwind_final_damage_multi = 1.0
 	dragonwind_range = 200.0
 	dragonwind_range_scale = 1.0
@@ -43,6 +43,7 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 	instance._setup_instance()
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	monitoring = true
 	monitorable = true
 	base_sprite_scale = sprite.scale
@@ -66,17 +67,18 @@ func _find_cluster_center(player_position: Vector2) -> Vector2:
 	var enemies = get_tree().get_nodes_in_group("enemies")
 	if enemies.is_empty():
 		return player_position
+	var search_range = dragonwind_range * dragonwind_range_scale * Global.get_attack_range_multiplier()
 	var candidates: Array = []
 	for enemy in enemies:
 		if not is_instance_valid(enemy):
 			continue
-		if player_position.distance_to(enemy.global_position) <= dragonwind_range:
+		if player_position.distance_to(enemy.global_position) <= search_range:
 			candidates.append(enemy)
 	if candidates.is_empty():
 		return player_position
 	var best_count = 0
 	var best_center = player_position
-	var cluster_radius = min(80.0, dragonwind_range * 0.4)
+	var cluster_radius = min(80.0 * Global.get_attack_range_multiplier(), search_range * 0.4)
 	for enemy in candidates:
 		var center = enemy.global_position
 		var count = 0
@@ -98,6 +100,7 @@ func _apply_effects() -> void:
 	var overlapping_areas = _collect_targets()
 	var center_pos = global_position
 	var center_radius = _get_effect_radius() * 0.35
+	var damaged_targets: Dictionary = {}
 	for area in overlapping_areas:
 		var target = area
 		if not target.is_in_group("enemies") and target.get_parent() and target.get_parent().is_in_group("enemies"):
@@ -106,11 +109,15 @@ func _apply_effects() -> void:
 			continue
 		if not target.has_method("take_damage"):
 			continue
+		var target_id: int = target.get_instance_id()
+		if damaged_targets.has(target_id):
+			continue
+		damaged_targets[target_id] = true
 		var final_damage = _calculate_damage(target, center_pos, center_radius)
 		target.take_damage(int(final_damage), false, false, "dragonwind")
 		_apply_pull(target, center_pos)
 		_apply_slow(target)
-		Faze.on_wind_weapon_hit()
+		Faze.on_wind_weapon_hit(target)
 	await get_tree().create_timer(_get_fade_total_time()).timeout
 	queue_free()
 
@@ -153,9 +160,11 @@ func _collect_targets() -> Array:
 	return results
 
 func _calculate_damage(target: Area2D, center_pos: Vector2, center_radius: float) -> float:
-	var damage = PC.pc_atk * dragonwind_base_damage * dragonwind_final_damage_multi
-	damage *= Faze.get_wind_weapon_damage_multiplier(PC.faze_wind_level)
-	damage *= Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.lucky)
+	var damage_scale: float = dragonwind_base_damage
+	damage_scale += Faze.get_wind_weapon_damage_multiplier(PC.faze_wind_level) - 1.0
+	damage_scale += Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.get_lucky_level()) - 1.0
+	damage_scale = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(damage_scale, "dragonwind", ["wind", "treasure"])
+	var damage = PC.pc_atk * damage_scale * dragonwind_final_damage_multi
 	var dist = center_pos.distance_to(target.global_position)
 	if dist <= center_radius and dragonwind_center_bonus_ratio > 0.0:
 		damage *= 1.0 + dragonwind_center_bonus_ratio
@@ -164,7 +173,7 @@ func _calculate_damage(target: Area2D, center_pos: Vector2, center_radius: float
 			damage *= 1.0 + dragonwind_slow_damage_bonus
 	if target.is_in_group("elite") or target.is_in_group("boss"):
 		damage *= Faze.get_wind_elite_boss_multiplier(PC.faze_wind_level, PC.wind_huanfeng_stacks)
-		damage *= Faze.get_treasure_elite_boss_multiplier(PC.faze_treasure_level, PC.lucky)
+		damage *= Faze.get_treasure_elite_boss_multiplier(PC.faze_treasure_level, PC.get_lucky_level())
 	if target.is_in_group("boss") and dragonwind_boss_bonus_ratio > 0.0:
 		damage *= 1.0 + dragonwind_boss_bonus_ratio
 	return damage

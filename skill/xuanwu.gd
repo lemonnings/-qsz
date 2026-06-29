@@ -4,11 +4,11 @@ class_name Xuanwu
 @export var sprite: AnimatedSprite2D
 @export var collision: CollisionShape2D
 
-static var main_skill_xuanwu_damage: float = 0.45
-static var xuanwu_hp_damage_ratio: float = 0.075
+static var main_skill_xuanwu_damage: float = 0.60
+static var xuanwu_hp_damage_ratio: float = 0.08
 static var xuanwu_range: float = 240.0
-static var xuanwu_shield_base: int = 40
-static var xuanwu_shield_hp_ratio: float = 0.06
+static var xuanwu_shield_base: int = 30
+static var xuanwu_shield_hp_ratio: float = 0.04
 static var xuanwu_width_scale: float = 1.0
 static var xuanwu_slow_duration: float = 0.0
 static var xuanwu_vulnerable_duration: float = 0.0
@@ -16,14 +16,16 @@ static var xuanwu_shield_bonus_damage: float = 0.0
 static var xuanwu_return_shield_bonus: float = 0.0
 static var xuanwu_shield_base_bonus: int = 0
 static var xuanwu_final_damage_multi: float = 1.0
-static var xuanwu_shield_duration: float = 6.0
+static var xuanwu_shield_duration: float = 5.0
+const PLAYER_CATCH_PADDING: float = 14.0
+const DAMAGE_DECAY_PER_HIT: float = 0.95
 
 static func reset_data() -> void:
-	main_skill_xuanwu_damage = 0.45
-	xuanwu_hp_damage_ratio = 0.10
+	main_skill_xuanwu_damage = 0.60
+	xuanwu_hp_damage_ratio = 0.08
 	xuanwu_range = 240.0
-	xuanwu_shield_base = 6
-	xuanwu_shield_hp_ratio = 0.06
+	xuanwu_shield_base = 30
+	xuanwu_shield_hp_ratio = 0.04
 	xuanwu_width_scale = 1.0
 	xuanwu_slow_duration = 0.0
 	xuanwu_vulnerable_duration = 0.0
@@ -31,7 +33,7 @@ static func reset_data() -> void:
 	xuanwu_return_shield_bonus = 0.0
 	xuanwu_shield_base_bonus = 0
 	xuanwu_final_damage_multi = 1.0
-	xuanwu_shield_duration = 6.0
+	xuanwu_shield_duration = 5.0
 
 enum State {FORWARD, RETURN, MISS}
 var state = State.FORWARD
@@ -56,6 +58,8 @@ var slow_duration: float = 0.0
 var vulnerable_duration: float = 0.0
 var return_shield_bonus: float = 0.0
 var shield_duration: float = 0.0
+var current_damage_multiplier: float = 1.0
+var _caught: bool = false
 
 static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree) -> void:
 	if not scene:
@@ -91,7 +95,7 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 	instance.setup(origin_pos, target_pos, data)
 
 static func _build_data() -> Dictionary:
-	var damage_multiplier = main_skill_xuanwu_damage # 45% 攻击 + 10% 最大体力
+	var damage_multiplier = main_skill_xuanwu_damage # 60% 攻击 + 10% 最大体力
 	var hp_damage_ratio = xuanwu_hp_damage_ratio
 	var range_val = xuanwu_range
 	var shield_base = xuanwu_shield_base
@@ -118,10 +122,11 @@ static func _build_data() -> Dictionary:
 
 	
 	var atk_dmg = PC.pc_atk * damage_multiplier
-	var hp_dmg = PC.pc_max_hp * hp_damage_ratio
+	var hp_level_multiplier: float = pow(1.02, max(0, PC.pc_lv - 1))
+	var hp_dmg = PC.pc_max_hp * hp_damage_ratio * hp_level_multiplier
 	var total_damage = atk_dmg + hp_dmg
 	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
-	total_damage = total_damage * (1.0 + (Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.lucky) - 1.0))
+	total_damage = SettingStudyTreeUp.apply_total_damage_bonus_to_damage_excluding(total_damage, "xuanwu", ["treasure"])
 	
 	
 	if shield_bonus_damage > 0:
@@ -151,6 +156,7 @@ static func _build_data() -> Dictionary:
 	}
 
 func _ready():
+	CharacterEffects.include_enemy_collision_mask(self)
 	base_node_scale = scale
 	connect("body_entered", Callable(self , "_on_body_entered"))
 	connect("area_entered", Callable(self , "_on_area_entered"))
@@ -182,6 +188,10 @@ func setup(pos: Vector2, target_pos: Vector2, data: Dictionary = {}):
 		shield_duration = data.shield_duration
 
 func _process(delta):
+	if _caught:
+		return
+
+	var previous_global_position := global_position
 	# Rotate 360 degrees per second
 	rotation += 4 * PI * delta
 	
@@ -192,10 +202,15 @@ func _process(delta):
 		traveled_dist += step
 		if traveled_dist >= max_dist:
 			_start_return()
+			if _caught:
+				return
 			
 	elif state == State.RETURN:
 		position += direction * step
 		return_traveled_dist += step
+		_try_catch_player(previous_global_position)
+		if _caught:
+			return
 		
 		if return_traveled_dist > return_start_dist + 50:
 			state = State.MISS
@@ -203,6 +218,9 @@ func _process(delta):
 	elif state == State.MISS:
 		position += direction * step
 		miss_traveled += step
+		_try_catch_player(previous_global_position)
+		if _caught:
+			return
 		modulate.a = 1.0 - (miss_traveled / miss_dist)
 		if miss_traveled >= miss_dist:
 			queue_free()
@@ -213,6 +231,7 @@ func _start_return():
 		var to_player = (PC.player_instance.global_position - global_position)
 		return_start_dist = to_player.length()
 		direction = to_player.normalized().rotated(return_angle_offset)
+		_try_catch_player(global_position)
 	else:
 		queue_free()
 
@@ -223,17 +242,20 @@ func _on_body_entered(body: Node):
 	_handle_hit(body)
 
 func _handle_hit(target: Node):
+	if _caught:
+		return
 	if target.is_in_group("enemies"):
 		if target.has_method("take_damage"):
 			var is_crit = false
-			var final_damage = damage
+			var final_damage = damage * current_damage_multiplier
 			if randf() < PC.crit_chance:
 				is_crit = true
 				final_damage *= PC.crit_damage_multi
 			if target.is_in_group("elite") or target.is_in_group("boss"):
-				final_damage = final_damage * Faze.get_treasure_elite_boss_multiplier(PC.faze_treasure_level, PC.lucky)
+				final_damage = final_damage * Faze.get_treasure_elite_boss_multiplier(PC.faze_treasure_level, PC.get_lucky_level())
 				
 			target.take_damage(int(final_damage), is_crit, false, "xuanwu")
+			current_damage_multiplier *= DAMAGE_DECAY_PER_HIT
 			# 击中粒子崩散特效
 			HitParticleSpawner.spawn_by_weapon(get_tree(), target.global_position, "xuanwu")
 			
@@ -249,13 +271,45 @@ func _handle_hit(target: Node):
 			if vulnerable_duration > 0 and target.has_method("apply_debuff"):
 				target.apply_debuff("vulnerable", vulnerable_duration)
 				
-	elif target.is_in_group("player") and state == State.RETURN:
-		# Apply Shield on return catch
-		var final_shield = shield_gain
-		if hit_abnormal:
-			final_shield = int(float(final_shield) * (1.0 + return_shield_bonus))
-			
-		if final_shield > 0:
-			PC.add_shield(final_shield, shield_duration)
-			
-		queue_free()
+	elif target.is_in_group("player") and _can_catch_player():
+		_catch_returned_shield()
+
+func _can_catch_player() -> bool:
+	return not _caught and (state == State.RETURN or state == State.MISS)
+
+func _try_catch_player(previous_global_position: Vector2) -> void:
+	if not _can_catch_player():
+		return
+	if not is_instance_valid(PC.player_instance):
+		return
+	var player_pos: Vector2 = PC.player_instance.global_position
+	var catch_radius := _get_player_catch_radius()
+	if _point_to_segment_distance_squared(player_pos, previous_global_position, global_position) <= catch_radius * catch_radius:
+		_catch_returned_shield()
+
+func _get_player_catch_radius() -> float:
+	var radius := 18.0
+	if collision and collision.shape is CircleShape2D:
+		var circle := collision.shape as CircleShape2D
+		radius = circle.radius * maxf(absf(collision.global_scale.x), absf(collision.global_scale.y))
+	return radius + PLAYER_CATCH_PADDING
+
+func _point_to_segment_distance_squared(point: Vector2, segment_start: Vector2, segment_end: Vector2) -> float:
+	var segment := segment_end - segment_start
+	var length_sq := segment.length_squared()
+	if length_sq <= 0.0001:
+		return point.distance_squared_to(segment_end)
+	var t := clampf((point - segment_start).dot(segment) / length_sq, 0.0, 1.0)
+	var closest := segment_start + segment * t
+	return point.distance_squared_to(closest)
+
+func _catch_returned_shield() -> void:
+	if _caught:
+		return
+	_caught = true
+	var final_shield = shield_gain
+	if hit_abnormal:
+		final_shield = int(float(final_shield) * (1.0 + return_shield_bonus))
+	if final_shield > 0:
+		PC.add_shield(final_shield, shield_duration, "xuanwu")
+	queue_free()

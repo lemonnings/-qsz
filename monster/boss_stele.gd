@@ -33,6 +33,7 @@ const DISPLACEMENT_SAFE_RX := 115 # 安全区长轴
 const DISPLACEMENT_SAFE_RY := 90 # 安全区短轴 (缩小20%)
 const DISPLACEMENT_DAMAGE_RADIUS := 500.0
 const TORNADO_RADIUS := 28.0
+const BOSS_SCREEN_EFFECT_LAYER := 15
 
 # 黑球贴图（诗想难度）
 const BLACK_BALL_TEXTURE: Texture2D = preload("res://AssetBundle/Sprites/SpecialEffects/black_ball.png")
@@ -53,6 +54,7 @@ var invincibility_timer: Timer
 # 黑球机制（诗想难度）
 var black_ball_timer: Timer = null
 var black_ball_spawned: bool = false # 是否已启动黑球机制
+var restrainer_dialogue_triggered: bool = false
 
 func _on_body_entered(body: Node2D) -> void:
 	if disable_contact_damage: return
@@ -75,26 +77,38 @@ func remove_restrainer_buff():
 		restrainer_applied_dr_delta = 0.0
 		Global.emit_signal("buff_removed", "restrained")
 
+func _create_non_blocking_screen_filter(color: Color) -> Dictionary:
+	var canvas := CanvasLayer.new()
+	canvas.layer = BOSS_SCREEN_EFFECT_LAYER
+	canvas.process_mode = Node.PROCESS_MODE_PAUSABLE
+	var filter := ColorRect.new()
+	filter.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	filter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	filter.color = color
+	canvas.add_child(filter)
+	get_tree().current_scene.add_child(canvas)
+	return {"canvas": canvas, "filter": filter}
+
 func _ready():
 	add_to_group("boss")
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
-	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 9
-	match Global.current_stage_difficulty:
+# 根据玩家DPS和难度增加Boss HP
+	var dps_multiplier := 25.0
+	match stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 12
+			dps_multiplier *= 1.05
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 15
+			dps_multiplier *= 1.1
 	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
 		hpMax = Global.get_poetry_boss_max_hp("boss_stele", hpMax)
 	else:
 		hpMax += Global.get_current_dps() * dps_multiplier
 	hp = hpMax
 	
-	# 浅层难度下Boss只造成50%伤害
+	# 浅层难度下Boss只造成75%伤害
 	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
-		atk *= 0.5
+		atk *= 0.75
 
 	setup_monster_base()
 	player_hit_emit_self = true
@@ -131,9 +145,9 @@ func _physics_process(_delta: float) -> void:
 	if PC.player_instance and allow_turning:
 		var player_pos = PC.player_instance.global_position
 		if player_pos.x < global_position.x:
-			if sprite: sprite.flip_h = true
+			if sprite: CharacterEffects.set_enemy_flip_h(self, sprite, true)
 		else:
-			if sprite: sprite.flip_h = false
+			if sprite: CharacterEffects.set_enemy_flip_h(self, sprite, false)
 	
 	if is_attacking:
 		attack_timer.paused = true
@@ -437,9 +451,9 @@ func _skill_corrosive_storm():
 			return
 
 	Global.emit_signal("boss_chant_start", "腐蚀风暴", 4.0)
-	var canvas = CanvasLayer.new(); canvas.layer = 100
-	var filter = ColorRect.new(); filter.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	filter.color = Color(0.0, 0.4, 0.1, 0.0); canvas.add_child(filter); get_tree().current_scene.add_child(canvas)
+	var screen_filter: Dictionary = _create_non_blocking_screen_filter(Color(0.0, 0.4, 0.1, 0.0))
+	var canvas: CanvasLayer = screen_filter["canvas"]
+	var filter: ColorRect = screen_filter["filter"]
 	var tw = create_tween(); tw.tween_property(filter, "color:a", 0.3, 3.5)
 	
 	var elapsed = 0.0
@@ -447,6 +461,9 @@ func _skill_corrosive_storm():
 	var particle_timer := 0.0
 	while elapsed < 4.0:
 		if is_dead: break
+		if get_tree().paused:
+			await get_tree().process_frame
+			continue
 		var dt = get_process_delta_time()
 		elapsed += dt
 		particle_timer += dt
@@ -653,11 +670,31 @@ func _skill_cross_ray():
 
 # ================= 机制管理 =================
 
-func _check_milestones(old_h, new_h):
+func _check_milestones(old_h: float, new_h: float) -> void:
 	for i in range(hp_milestones.size()):
-		var threshold = hpMax * hp_milestones[i]
+		var threshold: float = hpMax * float(hp_milestones[i])
 		if not spawned_milestones[i] and old_h > threshold and new_h <= threshold:
 			spawned_milestones[i] = true; _spawn_restrainer()
+
+func _get_next_unspawned_milestone_between(old_h: float, target_h: float) -> float:
+	var nearest_threshold: float = -1.0
+	for i in range(hp_milestones.size()):
+		if spawned_milestones[i]:
+			continue
+		var threshold: float = hpMax * float(hp_milestones[i])
+		if old_h > threshold and target_h <= threshold:
+			if nearest_threshold < 0.0 or threshold > nearest_threshold:
+				nearest_threshold = threshold
+	return nearest_threshold
+
+func _clamp_damage_to_next_milestone(old_h: float, damage: int) -> int:
+	if damage <= 0:
+		return damage
+	var target_h: float = old_h - float(damage)
+	var threshold: float = _get_next_unspawned_milestone_between(old_h, target_h)
+	if threshold < 0.0:
+		return damage
+	return max(1, int(ceil(old_h - threshold)))
 
 func _get_active_restrainers() -> Array:
 	var active: Array = []; for r in restrainers: if is_instance_valid(r): active.append(r)
@@ -667,6 +704,7 @@ func _spawn_restrainer():
 	var spawn_pos = global_position
 	var restrainer = _ShadowRestrainer.new(); restrainer.boss = self ; restrainer.global_position = spawn_pos; get_tree().current_scene.add_child(restrainer)
 	_spawn_particles(spawn_pos, Color(0.35, 0.0, 0.5), 24, 80.0); GU.screen_shake(3.0, 0.15)
+	_trigger_first_restrainer_dialogue()
 	for other in _get_active_restrainers():
 		if other != restrainer and spawn_pos.distance_to(other.global_position) < RESTRAINER_MIN_GAP:
 			_explode_restrainers(restrainer, other); return
@@ -701,19 +739,56 @@ func _explode_restrainers(r1, r2):
 	# 拘束爆炸判定跟读条同时
 	if is_instance_valid(PC.player_instance) and not PC.invincible:
 		if pos.distance_to(PC.player_instance.global_position) < 800.0:
-			PC.player_hit(int(atk * 999999 * (1.0 - PC.damage_reduction_rate)), self , "拘束爆炸")
+			if _is_poetry():
+				PC.player_hit(int(atk * 999999 * (1.0 - PC.damage_reduction_rate)), self , "拘束爆炸")
+			else:
+				_deal_restrainer_explosion_damage()
 	
 	await get_tree().create_timer(1.0).timeout
 	if is_dead: return
 	
-	var canvas = CanvasLayer.new(); canvas.layer = 100
-	var filter = ColorRect.new(); filter.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	filter.color = Color(1.0, 0.0, 0.0, 0.5); canvas.add_child(filter); get_tree().current_scene.add_child(canvas)
+	var screen_filter: Dictionary = _create_non_blocking_screen_filter(Color(1.0, 0.0, 0.0, 0.5))
+	var canvas: CanvasLayer = screen_filter["canvas"]
+	var filter: ColorRect = screen_filter["filter"]
 	var tw_filter = canvas.create_tween(); tw_filter.tween_property(filter, "color:a", 0.0, 0.3); tw_filter.tween_callback(canvas.queue_free)
 	
 	GU.screen_shake(20.0, 1.0)
 			
 	is_attacking = false
+	if not is_dead:
+		_spawn_restrainer()
+
+func _deal_restrainer_explosion_damage() -> void:
+	if PC.is_game_over:
+		return
+	var current_hp: int = PC.pc_hp
+	if current_hp <= 1:
+		return
+	var damage: int = clampi(int(floor(float(current_hp) * 0.8)), 0, current_hp - 1)
+	if damage <= 0:
+		return
+	PC.pc_hp -= damage
+	if PC.player_instance:
+		Global.emit_signal("player_hit_ignore_invincible", float(damage), 0.0, self, PC.player_instance.global_position, "拘束爆炸")
+
+func _trigger_first_restrainer_dialogue() -> void:
+	if restrainer_dialogue_triggered:
+		return
+	restrainer_dialogue_triggered = true
+	call_deferred("_play_first_restrainer_dialogue")
+
+func _play_first_restrainer_dialogue() -> void:
+	var lines: Array[Dictionary] = [
+		{"speaker": "墨宁", "text": "那个紫色的圆圈……似乎这个石碑上的封印力量解除了？"},
+		{"speaker": "坎塞尔", "text": "那股封印力量变成了一个魔法阵，里面的力量非常庞大。"},
+		{"speaker": "诺姆", "text": "总感觉如果两个魔法阵如果集中在了一起，会发生什么很不妙的事情……"},
+		{"speaker": "言秋", "text": "那就不要让这些魔法阵集中到一起就好了！"},
+	]
+	for line in lines:
+		if is_dead:
+			return
+		Global.emit_signal("teammate_dialogue", str(line["speaker"]), str(line["text"]))
+		await get_tree().create_timer(2.2).timeout
 
 # ================= 交互判定 =================
 
@@ -726,13 +801,14 @@ func _on_area_entered(area: Area2D) -> void:
 		if collision_result["should_rebound"]: area.call_deferred("create_rebound")
 		if collision_result["should_delete_bullet"]: area.queue_free()
 		# 统一走 take_damage 入口，由其集中处理扣血、阶段检查与死亡判定
-		var raw_dmg = get_common_bullet_damage_value(collision_result["final_damage"])
+		var raw_dmg: float = get_common_bullet_damage_value(collision_result["final_damage"])
 		take_damage(int(raw_dmg), collision_result["is_crit"], false, "bullet")
 
 func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:
 	if is_dead: return
 	if is_invincible: return
 	var old_h = hp
+	damage = _clamp_damage_to_next_milestone(old_h, damage)
 	var show_popup = (damage_type != "bullet")
 	var res = apply_common_take_damage(damage, is_crit, is_summon, damage_type, {"use_debuff_multiplier": false, "update_boss_hp_bar": true, "play_hit_animation": true, "randomize_popup_offset": true, "show_damage_popup": show_popup})
 	if res["applied"]:
@@ -1056,7 +1132,7 @@ class _ShadowTornado extends Node2D:
 			fading_out = true
 			var tw = create_tween(); tw.tween_property(self , "modulate:a", 0.0, 1.0); tw.tween_callback(self.queue_free)
 	func _screen_flash_purple():
-		var canvas = CanvasLayer.new(); canvas.layer = 100; var filter = ColorRect.new(); filter.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var canvas = CanvasLayer.new(); canvas.layer = BOSS_SCREEN_EFFECT_LAYER; var filter = ColorRect.new(); filter.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); filter.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		filter.color = Color(0.4, 0.0, 0.6, 0.4); canvas.add_child(filter); get_tree().current_scene.add_child(canvas)
 		var tw = canvas.create_tween(); tw.tween_property(filter, "color:a", 0.0, 0.5); tw.tween_callback(canvas.queue_free)
 	func _draw():
@@ -1337,7 +1413,6 @@ class _BlackBall extends Area2D:
 			if not PC.invincible:
 				var damage = int(boss_ref.atk * 2.0 * (1.0 - PC.damage_reduction_rate))
 				PC.player_hit(damage, boss_ref, "暗影迸裂")
-				Global.emit_signal("player_hit", boss_ref)
 				# 减速90% 4秒
 				Global.emit_signal("buff_added", "slow", 4.0, 9) # 9层 = 90%减速
 

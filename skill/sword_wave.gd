@@ -11,6 +11,7 @@ var damage_timer: Timer
 var SWORD_WAVE_WIDTH = 0.9 * Global.get_attack_range_multiplier() # 剑痕的宽度，可能作为Y轴的缩放值或绝对像素值
 
 func _ready():
+	CharacterEffects.include_enemy_collision_mask(self)
 	add_to_group("sword_wave_trace")
 	# 获取子节点引用，请确保 swordWave.tscn 场景中包含名为 Sprite2D 和 CollisionShape2D 的子节点
 	sword_wave_sprite = get_node_or_null("Sprite2D")

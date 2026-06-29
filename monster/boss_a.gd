@@ -16,6 +16,8 @@ var _petal_loop_generation: int = 0 # 微触发新循环时使旧循环自动退
 @export var bottom_boundary: float = 460.0
 @export var left_boundary: float = -560.0
 @export var right_boundary: float = 550.0
+const ARENA_EDGE_PADDING: float = 28.0
+const CHARGE_EDGE_PADDING: float = 42.0
 
 # 0为从左到右，1为从右向左，2为随机移动，3为靠近角色，4为y轴靠近x轴保持距离，5为从左向右y随机，6为从右向左y随机
 var move_direction: int = 4
@@ -44,7 +46,7 @@ func _drop_boss_rewards() -> void:
 	Global.emit_signal("drop_out_item", fixed_core, 1, global_position)
 
 var attack_timer: Timer # Boss攻击计时器
-var attack_indicator: Node2D # 攻击范围指示器
+var attack_indicator: Node2D # 伤害范围指示器
 var outer_line_node: Line2D
 var inner_line_node: Line2D
 var charge_indicator_direction: Vector2 # 存储冲锋指示器方向
@@ -81,11 +83,15 @@ const DEEP_METEOR_SIZE_MULTIPLIER: float = 1.35
 const CORE_PETAL_SPEED_MULTIPLIER: float = 1.25
 const GOLDEN_PETAL_CHANCE: float = 0.06
 const GOLDEN_PETAL_SCALE_MULTIPLIER: float = 1.485
+const PETAL_BULLET_TINT := Color(2.1, 1.95, 2.0, 1.0)
+const PETAL_BULLET_OUTLINE := Color(1.0, 0.08, 0.08, 1.0)
 const POETRY_BARRAGE_DENSITY_MULTIPLIER: float = 1.3
 const POETRY_EXTRA_METEOR_MIN_COUNT: int = 7
 const POETRY_EXTRA_METEOR_MAX_COUNT: int = 11
 const POETRY_EXTRA_METEOR_MIN_DISTANCE: float = 16.0
 const POETRY_EXTRA_METEOR_MAX_DISTANCE: float = 190.0
+const FLOWER_SKILL_DAMAGE_MULTIPLIER: float = 0.7
+const POETRY_FLOWER_SKILL_DAMAGE_MULTIPLIER: float = 0.8
 
 var stage_difficulty: String = Global.STAGE_DIFFICULTY_SHALLOW
 var forced_poison_attack_index: int = -1
@@ -94,13 +100,13 @@ func _ready():
 	add_to_group("boss")
 	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
 	hpMax *= _get_difficulty_hp_multiplier()
-	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 9
-	match Global.current_stage_difficulty:
+# 根据玩家DPS和难度增加Boss HP
+	var dps_multiplier := 25.0
+	match stage_difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier = 12
+			dps_multiplier *= 1.05
 		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier = 15
+			dps_multiplier *= 1.1
 	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
 		hpMax = Global.get_poetry_boss_max_hp("boss_a", hpMax)
 	else:
@@ -111,9 +117,9 @@ func _ready():
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	hp = hpMax # 初始化当前血量
 	
-	# 浅层难度下Boss只造成50%伤害
+	# 浅层难度下Boss只造成75%伤害
 	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
-		atk *= 0.5
+		atk *= 0.75
 	setup_monster_base()
 	use_debuff_take_damage_multiplier = false
 	check_action_disabled_on_body_entered = false
@@ -125,6 +131,7 @@ func _ready():
 	Global.emit_signal("boss_hp_bar_show")
 	
 	# 初始化移动相关
+	_read_arena_boundaries()
 	update_move_timer = Timer.new()
 	add_child(update_move_timer)
 	update_move_timer.wait_time = 0.5
@@ -136,9 +143,9 @@ func _ready():
 	attack_timer = Timer.new()
 	add_child(attack_timer)
 	attack_timer.wait_time = 2.5
-	# 诗想难度：技能间隔减少60%
+	# 诗想难度：技能间隔减少50%
 	if _is_poetry():
-		attack_timer.wait_time *= 0.4
+		attack_timer.wait_time *= 0.5
 	attack_timer.timeout.connect(_choose_attack)
 	attack_timer.start()
 
@@ -215,11 +222,91 @@ func _get_random_barrage_duration() -> float:
 	return RANDOM_BARRAGE_BULLET_COUNT * RANDOM_BARRAGE_INTERVAL
 
 
+func _get_flower_skill_damage_multiplier() -> float:
+	var multiplier := FLOWER_SKILL_DAMAGE_MULTIPLIER
+	if _is_poetry():
+		multiplier *= POETRY_FLOWER_SKILL_DAMAGE_MULTIPLIER
+	return multiplier
+
+
 func _clamp_position_to_arena(world_pos: Vector2, padding: float = 16.0) -> Vector2:
+	var min_x := left_boundary + padding
+	var max_x := right_boundary - padding
+	var min_y := top_boundary + padding
+	var max_y := bottom_boundary - padding
+	if min_x > max_x:
+		var center_x := (left_boundary + right_boundary) * 0.5
+		min_x = center_x
+		max_x = center_x
+	if min_y > max_y:
+		var center_y := (top_boundary + bottom_boundary) * 0.5
+		min_y = center_y
+		max_y = center_y
 	return Vector2(
-		clamp(world_pos.x, left_boundary + padding, right_boundary - padding),
-		clamp(world_pos.y, top_boundary + padding, bottom_boundary - padding)
+		clamp(world_pos.x, min_x, max_x),
+		clamp(world_pos.y, min_y, max_y)
 	)
+
+
+func _clamp_self_to_arena(padding: float = ARENA_EDGE_PADDING) -> void:
+	var clamped_pos := _clamp_position_to_arena(global_position, padding)
+	if global_position.distance_squared_to(clamped_pos) > 0.01:
+		global_position = clamped_pos
+
+
+func _read_arena_boundaries() -> void:
+	var current_scene = get_tree().current_scene
+	if not current_scene:
+		return
+	var boundary_node := current_scene.find_child("Boundry", true, false) as Node2D
+	if boundary_node == null:
+		return
+	var result: Dictionary = {}
+	var margin := 0.15
+	for child in boundary_node.get_children():
+		if not child is StaticBody2D:
+			continue
+		var static_body := child as StaticBody2D
+		var col_shape: CollisionShape2D = null
+		for sub in static_body.get_children():
+			if sub is CollisionShape2D:
+				col_shape = sub
+				break
+		if col_shape == null:
+			continue
+		if col_shape.shape == null or not col_shape.shape is WorldBoundaryShape2D:
+			continue
+		var wb_shape := col_shape.shape as WorldBoundaryShape2D
+		var rot := fposmod(static_body.global_rotation, TAU)
+		if rot > PI:
+			rot -= TAU
+		var abs_rot := absf(rot)
+		var normal := Vector2(0.0, -1.0).rotated(rot)
+		var boundary_pos := col_shape.global_position + normal * wb_shape.distance
+		if abs_rot < margin or absf(abs_rot - PI) < margin:
+			var y_val := boundary_pos.y
+			if abs_rot < margin:
+				if not result.has("max_y") or y_val < result["max_y"]:
+					result["max_y"] = y_val
+			else:
+				if not result.has("min_y") or y_val > result["min_y"]:
+					result["min_y"] = y_val
+		elif absf(abs_rot - PI / 2.0) < margin:
+			var x_val := boundary_pos.x
+			if rot < 0:
+				if not result.has("max_x") or x_val < result["max_x"]:
+					result["max_x"] = x_val
+			else:
+				if not result.has("min_x") or x_val > result["min_x"]:
+					result["min_x"] = x_val
+	if result.has("min_y"):
+		top_boundary = float(result["min_y"])
+	if result.has("max_y"):
+		bottom_boundary = float(result["max_y"])
+	if result.has("min_x"):
+		left_boundary = float(result["min_x"])
+	if result.has("max_x"):
+		right_boundary = float(result["max_x"])
 
 
 func _get_random_player_side_meteor_position(player_pos: Vector2, min_distance: float, max_distance: float) -> Vector2:
@@ -271,11 +358,13 @@ func _should_spawn_golden_petal() -> bool:
 
 
 func _update_target_position_mode4():
+	if not is_instance_valid(PC.player_instance):
+		return
 	var player_pos = PC.player_instance.global_position
 	var x_offset = 90
 	if global_position.x < player_pos.x:
 		x_offset = -90
-	target_position = Vector2(player_pos.x + x_offset, player_pos.y)
+	target_position = _clamp_position_to_arena(Vector2(player_pos.x + x_offset, player_pos.y), ARENA_EDGE_PADDING)
 
 func _physics_process(delta: float) -> void:
 	# Boss朝向逻辑，仅在允许转向且不处于攻击状态（特别是冲锋）时才根据玩家位置调整朝向
@@ -283,13 +372,15 @@ func _physics_process(delta: float) -> void:
 		var player_pos = PC.player_instance.global_position
 		if player_pos.x < global_position.x:
 			if allow_turning:
-				sprite.flip_h = true
+				CharacterEffects.set_enemy_flip_h(self , sprite, true)
 		else:
 			if allow_turning:
-				sprite.flip_h = false
+				CharacterEffects.set_enemy_flip_h(self , sprite, false)
 		
 	if not is_dead and not is_attacking: # 只有在不攻击的时候才移动
 		_move_pattern(delta)
+	elif not is_dead and not is_charging:
+		_clamp_self_to_arena()
 		
 	if is_attacking:
 		if not is_charging:
@@ -302,9 +393,13 @@ func _physics_process(delta: float) -> void:
 		attack_timer.paused = false
 
 func _move_pattern(delta: float):
-	var direction = position.direction_to(target_position)
-	if position.distance_to(target_position) > 5:
-		position += direction * speed * delta
+	target_position = _clamp_position_to_arena(target_position, ARENA_EDGE_PADDING)
+	_clamp_self_to_arena()
+	var distance := global_position.distance_to(target_position)
+	if distance > 5.0:
+		var direction := global_position.direction_to(target_position)
+		var step: float = minf(speed * delta, distance)
+		global_position = _clamp_position_to_arena(global_position + direction * step, ARENA_EDGE_PADDING)
 
 func _choose_attack():
 	if is_dead:
@@ -328,7 +423,7 @@ func _choose_attack():
 	var attack_type := _get_next_random_attack_type()
 	print("Boss chooses attack: ", attack_type)
 
-	# 显示攻击范围
+	# 显示伤害范围
 	if [3, 4].has(attack_type):
 		var chant_name = "荆棘遍布" if attack_type == 3 else "冲锋"
 		Global.emit_signal("boss_chant_start", chant_name, 1.0)
@@ -369,6 +464,7 @@ func _show_attack_indicator(type: int):
 		attack_indicator = null
 	
 	await get_tree().process_frame # 确保旧指示器被清理
+	_clamp_self_to_arena(CHARGE_EDGE_PADDING if type == 4 else ARENA_EDGE_PADDING)
 
 	attack_indicator = Node2D.new()
 	add_child(attack_indicator)
@@ -530,7 +626,6 @@ func _attack_straight_line():
 		var projection_length = player_to_boss.dot(current_direction)
 		
 		if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
-			Global.emit_signal("player_hit")
 			var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
 			PC.player_hit(int(actual_damage), self , "荆棘之刺")
 			print("Player hit by straight line attack, damage: ", actual_damage)
@@ -687,7 +782,6 @@ func _attack_triple_line():
 			var projection_length = player_to_boss.dot(attack_direction)
 			
 			if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
-				Global.emit_signal("player_hit")
 				var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
 				PC.player_hit(int(actual_damage), self , "分裂荆棘")
 				_player_damaged_this_round = true
@@ -760,7 +854,7 @@ func _attack_eight_directions():
 	SEManager.play("103")
 	print("Attack: Eight Directions")
 
-	# 检查玩家是否在攻击范围内并造成伤害
+	# 检查玩家是否在伤害范围内并造成伤害
 
 	var player_node = PC.player_instance
 	if player_node:
@@ -786,7 +880,6 @@ func _attack_eight_directions():
 			var projection_length = player_to_boss.dot(attack_direction)
 			
 			if distance_to_line <= line_width_tolerance and projection_length >= 0 and projection_length <= attack_range_length:
-				Global.emit_signal("player_hit")
 				var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate))
 				PC.player_hit(int(actual_damage), self , "荆棘遍布")
 				_player_damaged_this_attack = true
@@ -816,20 +909,23 @@ func _attack_charge():
 		# 5秒后再推送墨宁的台词
 		var _t = get_tree().create_timer(5.0)
 		_t.timeout.connect(func():
-			if is_instance_valid(self) and is_inside_tree():
+			if is_instance_valid(self ) and is_inside_tree():
 				Global.emit_signal("teammate_dialogue", "墨宁", "离他远一点更安全，这样能更容易躲开这些藤蔓了。")
 		)
 
 	# 根据锁定的冲锋方向设置 sprite 朝向
 	if charge_indicator_direction.x < 0:
-		sprite.flip_h = true
+		CharacterEffects.set_enemy_flip_h(self , sprite, true)
 	else:
-		sprite.flip_h = false
+		CharacterEffects.set_enemy_flip_h(self , sprite, false)
 
 	# 【核心修复】直接使用指示器生成时锁定的方向矢量，
 	# 不再从「当前 boss 位置 → 存储目标点」重新推算方向。
 	# 这样无论 boss 在预警期间是否有任何位置偏移，冲锋方向与指示器始终完全一致。
-	var charge_dir := charge_indicator_direction # 锁定方向
+	_clamp_self_to_arena(CHARGE_EDGE_PADDING)
+	var charge_dir := charge_indicator_direction.normalized() # 锁定方向
+	if charge_dir == Vector2.ZERO:
+		charge_dir = Vector2.RIGHT
 	var charge_dist := 600.0 # 与指示器一致的预设冲锋距离
 	var ray_origin := global_position
 	var ray_end := ray_origin + charge_dir * 2000.0
@@ -838,11 +934,15 @@ func _attack_charge():
 	var intended_target_pos := ray_origin + charge_dir * charge_dist
 
 	# 边界截断：若落地点超出场地边界则截断到最近边界交点
+	var charge_left := left_boundary + CHARGE_EDGE_PADDING
+	var charge_right := right_boundary - CHARGE_EDGE_PADDING
+	var charge_top := top_boundary + CHARGE_EDGE_PADDING
+	var charge_bottom := bottom_boundary - CHARGE_EDGE_PADDING
 	var boundaries := [
-		[Vector2(left_boundary, top_boundary), Vector2(right_boundary, top_boundary)],
-		[Vector2(left_boundary, bottom_boundary), Vector2(right_boundary, bottom_boundary)],
-		[Vector2(left_boundary, top_boundary), Vector2(left_boundary, bottom_boundary)],
-		[Vector2(right_boundary, top_boundary), Vector2(right_boundary, bottom_boundary)]
+		[Vector2(charge_left, charge_top), Vector2(charge_right, charge_top)],
+		[Vector2(charge_left, charge_bottom), Vector2(charge_right, charge_bottom)],
+		[Vector2(charge_left, charge_top), Vector2(charge_left, charge_bottom)],
+		[Vector2(charge_right, charge_top), Vector2(charge_right, charge_bottom)]
 	]
 
 	var final_target_pos := intended_target_pos
@@ -856,6 +956,7 @@ func _attack_charge():
 			if d_sq < min_dist_sq:
 				min_dist_sq = d_sq
 				final_target_pos = hit_point
+	final_target_pos = _clamp_position_to_arena(final_target_pos, CHARGE_EDGE_PADDING)
 
 	print("执行冲锋: 方向=", charge_dir, " 目标=", final_target_pos)
 
@@ -1025,6 +1126,8 @@ func _attack_random_barrage():
 		else:
 			get_tree().current_scene.add_child(bullet)
 		
+		_apply_petal_bullet_visual(bullet)
+
 		# 设置子弹位置和方向
 		bullet.global_position = global_position
 		var random_angle = randf_range(0, TAU)
@@ -1033,13 +1136,25 @@ func _attack_random_barrage():
 		# 设置子弹方向和速度
 		bullet.set_direction(direction)
 		bullet.bullet_speed = 190.0
-		bullet.bullet_damage = atk
+		bullet.bullet_damage = atk * _get_flower_skill_damage_multiplier()
 		bullet.source_name = "花雨"
 		
 		await get_tree().create_timer(barrage_interval, false).timeout
 	
 	Global.emit_signal("boss_chant_end")
 	is_attacking = false # 攻击结束
+
+
+func _apply_petal_bullet_visual(bullet: Node) -> void:
+	var petal_sprite := bullet.get_node_or_null("Sprite2D") as Sprite2D
+	if petal_sprite == null:
+		return
+	petal_sprite.modulate = Color.WHITE
+	if petal_sprite.material is ShaderMaterial:
+		petal_sprite.material = petal_sprite.material.duplicate()
+		var shader_material := petal_sprite.material as ShaderMaterial
+		shader_material.set_shader_parameter("tint_color", PETAL_BULLET_TINT)
+		shader_material.set_shader_parameter("outline_color", PETAL_BULLET_OUTLINE)
 
 
 #func free_health_bar():
@@ -1401,7 +1516,7 @@ func _spawn_one_petal() -> void:
 	if is_golden_petal:
 		petal_speed *= 0.7
 	p.initialize(
-		atk * 0.6,
+		atk * 0.6 * _get_flower_skill_damage_multiplier(),
 		Vector2(spawn_x, spawn_y),
 		bottom_boundary + 100.0,
 		petal_speed,

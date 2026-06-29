@@ -34,13 +34,13 @@ class ActiveSkill:
 
 # 闪避技能数据
 class DodgeSkill extends ActiveSkill:
-	var dash_distance: float = 30.0
+	var dash_distance: float = 42.0
 	var dash_speed_multiplier: float = 4.0
-	var base_invincible_duration: float = 0.5
-	var invincible_duration: float = 0.5
+	var base_invincible_duration: float = 0.75
+	var invincible_duration: float = 0.75
 	
 	func _init():
-		super ("dodge", "闪避", "向移动方向位移一小段距离并带有短暂的无敌", 6.0)
+		super ("dodge", "闪避", "向移动方向位移一小段距离并带有短暂的无敌。随着移速增加，位移距离也会少量增加", 6.0)
 		is_unlocked = true
 	
 	func update_from_level(level: int):
@@ -104,7 +104,7 @@ class MizongbuSkill extends ActiveSkill:
 	var move_speed_bonus_ratio: float = 0.5
 	var base_damage_reduction_ratio: float = 0.4
 	var damage_reduction_ratio: float = 0.4
-	var outgoing_damage_reduction_ratio: float = 0.5
+	var outgoing_damage_reduction_ratio: float = 0.2
 	
 	func _init():
 		super ("mizongbu", "迷踪步", "短时间提升移速并提升减伤率，但同时造成的伤害也会降低", 9.5)
@@ -267,12 +267,23 @@ class MeditationSkill extends ActiveSkill:
 	var chant_time: float = 3.0
 	
 	func _init():
-		super ("meditation", "冒想", "咏唱后提升1级", 60.0)
+		super ("meditation", "冥想", "咏唱后提升1级", 60.0)
 		is_unlocked = true
 	
 	func update_from_level(_level: int):
 		# 修习树技能篇：冥想冷却减少
 		cooldown_time = max(12.0, base_cooldown_time - Global.study_mingxiang_cd_reduction)
+
+# 破坏乱锤技能数据
+class DestructiveHammerSkill extends ActiveSkill:
+	var damage_ratios: Array[float] = [0.6, 0.6, 1.2]
+	
+	func _init():
+		super ("destructive_hammer", "破坏乱锤", "连续三次砸下巨锤，对范围内敌人造成伤害，施放期间获得40%独立减伤", 18.0)
+		is_unlocked = true
+	
+	func update_from_level(_level: int) -> void:
+		pass
 
 # 神圣灼烧技能数据
 class HolyFireSkill extends ActiveSkill:
@@ -321,7 +332,7 @@ class BeastifySkill extends ActiveSkill:
 	var claw_damage_ratio: float = 0.55
 	
 	func _init():
-		super ("beastify", "魔化", "短时间提升属性，变为趋桀形态，并将剑气改为爪击", 40.0)
+		super ("beastify", "兽化", "短时间提升属性，变为魔狼形态，并将剑气改为爪击", 40.0)
 		is_unlocked = true
 	
 	func update_from_level(level: int):
@@ -374,10 +385,17 @@ const DODGE_SHAKE_DURATION: float = 0.18
 const DODGE_SLOW_TIME_SCALE: float = 0.35
 const DODGE_SLOW_DURATION: float = 0.35
 const DODGE_BOUNDARY_MARGIN: float = 10.0
+const MOBILE_POINT_CHANT_TIME_SCALE: float = 0.8
+const MOBILE_POINT_CHANT_MAGIC_TIME_SCALE: float = 0.7
 # 用请求编号防止旧的慢动作恢复逻辑把新的状态覆盖掉。
 # 虽然闪避本身有冷却，正常不太会重叠，
 # 但这样写更稳，后面即使你调整冷却或做特殊连闪，也不容易出问题。
 var dodge_slow_motion_request_id: int = 0
+var _mobile_cast_direction: Vector2 = Vector2.ZERO
+var _mobile_cast_target: Vector2 = Vector2.INF
+var _mobile_aim_cast_active: bool = false
+var _mobile_aim_source: Callable = Callable()
+var _mobile_point_chant_slow_request_id: int = 0
 
 # 信号
 signal skill_used(skill_id: String)
@@ -472,6 +490,11 @@ func init_skills():
 	meditation_skill.update_from_level(md_level)
 	mastered_skills["meditation"] = meditation_skill
 
+	var destructive_hammer_skill = DestructiveHammerSkill.new()
+	var dh_level = Global.player_active_skill_data.get("destructive_hammer", {}).get("level", 1)
+	destructive_hammer_skill.update_from_level(dh_level)
+	mastered_skills["destructive_hammer"] = destructive_hammer_skill
+
 func refresh_skill_levels():
 	"""刷新技能等级（当技能升级时调用）"""
 	for skill_id in mastered_skills.keys():
@@ -522,24 +545,26 @@ func check_skill_inputs():
 				use_skill(skill_name)
 			set_key_pressed("e")
 
-func use_skill(skill_id: String):
+func use_skill(skill_id: String) -> bool:
 	"""使用技能"""
 	if not skill_id:
 		push_error("技能ID不能为空")
-		return
+		return false
 	if Global.in_town or Global.in_menu or Global.is_level_up or PC.is_game_over:
-		return
+		return false
 	
 	if not mastered_skills.has(skill_id):
 		push_error("未找到技能: " + skill_id)
-		return
+		return false
 	
 	var skill = mastered_skills[skill_id]
+	if skill_id == "destructive_hammer" and PC.player_name != "xueming":
+		return false
 	
 	# 检查技能是否可用
 	if skill.state != SkillState.READY:
 		print("技能冷却中: ", skill_id)
-		return
+		return false
 	
 	# 执行技能效果
 	execute_skill(skill)
@@ -547,6 +572,69 @@ func use_skill(skill_id: String):
 	# 开始冷却
 	start_skill_cooldown(skill)
 	skill_used.emit(skill_id)
+	return true
+
+func use_skill_with_mobile_aim(skill_id: String, cast_direction: Vector2 = Vector2.ZERO, cast_target: Vector2 = Vector2.INF) -> void:
+	_mobile_cast_direction = cast_direction
+	_mobile_cast_target = cast_target
+	var used: bool = bool(use_skill(skill_id))
+	if not used:
+		end_mobile_aim_cast()
+		_clear_mobile_cast_aim()
+		return
+	if not _mobile_aim_cast_active:
+		_clear_mobile_cast_aim()
+
+func begin_mobile_aim_cast(cast_direction: Vector2 = Vector2.ZERO, cast_target: Vector2 = Vector2.INF, aim_source: Callable = Callable()) -> void:
+	_mobile_aim_cast_active = true
+	_mobile_cast_direction = cast_direction
+	_mobile_cast_target = cast_target
+	_mobile_aim_source = aim_source
+	_refresh_mobile_cast_aim_from_source()
+
+func update_mobile_aim_cast(cast_direction: Vector2 = Vector2.ZERO, cast_target: Vector2 = Vector2.INF) -> void:
+	if not _mobile_aim_cast_active:
+		return
+	_mobile_cast_direction = cast_direction
+	_mobile_cast_target = cast_target
+
+func get_mobile_cast_facing_direction() -> Vector2:
+	if not _mobile_aim_cast_active:
+		return Vector2.ZERO
+	_refresh_mobile_cast_aim_from_source()
+	if _mobile_cast_direction.length() > 0.01:
+		return _mobile_cast_direction.normalized()
+	if _mobile_cast_target != Vector2.INF:
+		var local_player: Node2D = player as Node2D
+		if not is_instance_valid(local_player):
+			local_player = get_tree().get_first_node_in_group("player") as Node2D
+		if is_instance_valid(local_player):
+			var target_delta: Vector2 = _mobile_cast_target - local_player.global_position
+			if absf(target_delta.x) > 0.01:
+				return target_delta.normalized()
+	return Vector2.ZERO
+
+func end_mobile_aim_cast() -> void:
+	_refresh_mobile_cast_aim_from_source()
+	_mobile_aim_cast_active = false
+	_mobile_aim_source = Callable()
+
+func _clear_mobile_cast_aim() -> void:
+	_mobile_cast_direction = Vector2.ZERO
+	_mobile_cast_target = Vector2.INF
+	_mobile_aim_source = Callable()
+
+func _refresh_mobile_cast_aim_from_source() -> void:
+	if not _mobile_aim_cast_active:
+		return
+	if not _mobile_aim_source.is_valid():
+		return
+	var aim_state: Dictionary = _mobile_aim_source.call()
+	if bool(aim_state.get("active", false)):
+		var direction: Vector2 = aim_state.get("direction", Vector2.ZERO) as Vector2
+		var target: Vector2 = aim_state.get("target", Vector2.INF) as Vector2
+		_mobile_cast_direction = direction
+		_mobile_cast_target = target
 
 func execute_skill(skill: ActiveSkill):
 	"""执行技能效果"""
@@ -582,8 +670,28 @@ func execute_skill(skill: ActiveSkill):
 			execute_magic_skill(skill as MagicSkill)
 		"meditation":
 			execute_meditation_skill(skill as MeditationSkill)
+		"destructive_hammer":
+			execute_destructive_hammer_skill(skill as DestructiveHammerSkill)
 		_:
 			push_error("未知技能: " + skill.id)
+
+func execute_destructive_hammer_skill(skill: DestructiveHammerSkill) -> void:
+	if not player or PC.player_name != "xueming":
+		return
+	var scene: PackedScene = load("res://Scenes/player/xueming_chongzhuang.tscn") as PackedScene
+	if scene == null:
+		push_warning("破坏乱锤场景加载失败")
+		return
+	var instance: Node2D = scene.instantiate() as Node2D
+	if instance == null:
+		return
+	for child: Node in player.get_children():
+		if child.name == "XuemingChongzhuang":
+			child.queue_free()
+	player.add_child(instance)
+	instance.position = Vector2(0.0, -4.0)
+	if instance.has_method("start"):
+		instance.start(player, skill.damage_ratios)
 
 func execute_heal_hot_skill(skill: HealHotSkill):
 	"""执行疗愈技能"""
@@ -622,6 +730,7 @@ func execute_wind_thunder_skill(skill: WindThunderSkill):
 	"""执行风雷破技能：开始咏唱（可减速移动），咏唱完成后沿提示线方向发射风雷弹"""
 	if not player:
 		return
+	var started_with_mobile_aim := _mobile_aim_cast_active
 	# 咏唱期间允许移动但减速70%
 	PC.is_chanting = true
 	PC.chant_speed_reduction = 0.7
@@ -633,7 +742,13 @@ func execute_wind_thunder_skill(skill: WindThunderSkill):
 	var SkillIndicator = preload("res://Script/skill/skill_indicator.gd")
 	var indicator = SkillIndicator.new()
 	get_tree().current_scene.add_child(indicator)
-	indicator.setup_line(player)
+	if _mobile_cast_direction.length() > 0.01 and indicator.has_method("setup_line_fixed"):
+		indicator.setup_line_fixed(player, _mobile_cast_direction)
+	else:
+		indicator.setup_line(player)
+	var indicator_update_active := started_with_mobile_aim
+	if indicator_update_active:
+		_update_mobile_line_indicator_until_chant_end(indicator)
 	# 哏唱等待（加速时哏唱时间缩短）
 	await get_tree().create_timer(effective_chant, false).timeout
 	# 咏唱结束，恢复正常移动
@@ -645,12 +760,18 @@ func execute_wind_thunder_skill(skill: WindThunderSkill):
 			indicator.queue_free()
 		return
 	Global.emit_signal("player_chant_end")
+	_refresh_mobile_cast_aim_from_source()
 	# 获取提示线最终方向作为发射方向
-	var fire_direction = Vector2.RIGHT
+	var fire_direction := Vector2.RIGHT
+	if _mobile_cast_direction.length() > 0.01:
+		fire_direction = _mobile_cast_direction.normalized()
 	if is_instance_valid(indicator):
-		fire_direction = indicator.get_direction()
+		if _mobile_cast_direction == Vector2.ZERO:
+			fire_direction = indicator.get_direction()
 		# 冻结提示线并渐变消失
 		indicator.freeze_and_fade(0.3)
+	if started_with_mobile_aim:
+		_clear_mobile_cast_aim()
 	# 发射风雷弹
 	var scene = load("res://Scenes/player/wind_thunder.tscn")
 	if scene:
@@ -664,6 +785,8 @@ func execute_magical_ice_skill(skill: MagicalIceSkill):
 	"""执行玄冰技能：咏唱后对鼠标位置释放玄冰阵，造成范围伤害并减速敌人"""
 	if not player:
 		return
+	var started_with_mobile_aim := _mobile_aim_cast_active
+	var mobile_slow_request_id: int = _start_mobile_point_chant_slow_motion(started_with_mobile_aim)
 	# 咏唱期间允许移动但减速70%
 	PC.is_chanting = true
 	PC.chant_speed_reduction = 0.7
@@ -675,23 +798,36 @@ func execute_magical_ice_skill(skill: MagicalIceSkill):
 	var SkillIndicator = preload("res://Script/skill/skill_indicator.gd")
 	var indicator = SkillIndicator.new()
 	get_tree().current_scene.add_child(indicator)
-	indicator.setup_circle(player, skill.indicator_size, true)
+	if _mobile_cast_target != Vector2.INF and indicator.has_method("setup_circle_fixed"):
+		indicator.setup_circle_fixed(player, skill.indicator_size, _mobile_cast_target)
+	else:
+		indicator.setup_circle(player, skill.indicator_size, true)
+	var indicator_update_active := started_with_mobile_aim
+	if indicator_update_active:
+		_update_mobile_circle_indicator_until_chant_end(indicator)
 	# 哏唱等待（加速时哏唱时间缩短）
 	await get_tree().create_timer(effective_chant, false).timeout
 	# 咏唱结束，恢复正常移动
 	PC.is_chanting = false
 	PC.chant_speed_reduction = 0.0
+	_finish_mobile_point_chant_slow_motion(mobile_slow_request_id)
 	if not is_instance_valid(player):
 		Global.emit_signal("player_chant_end")
 		if is_instance_valid(indicator):
 			indicator.queue_free()
 		return
 	Global.emit_signal("player_chant_end")
+	_refresh_mobile_cast_aim_from_source()
 	# 获取提示圈最终位置作为释放目标点
-	var target_pos = player.get_global_mouse_position()
+	var target_pos := player.get_global_mouse_position()
+	if _mobile_cast_target != Vector2.INF:
+		target_pos = _mobile_cast_target
 	if is_instance_valid(indicator):
-		target_pos = indicator.get_target_position()
+		if _mobile_cast_target == Vector2.INF:
+			target_pos = indicator.get_target_position()
 		indicator.freeze_and_fade(0.3)
+	if started_with_mobile_aim:
+		_clear_mobile_cast_aim()
 	# 在目标位置释放玄冰阵
 	SEManager.play("69")
 	var scene = load("res://Scenes/player/magical_ice.tscn")
@@ -706,6 +842,8 @@ func execute_magical_fire_skill(skill: MagicalFireSkill):
 	"""执行炽炎技能：咏唱后对鼠标位置释放炽炎，造成范围伤害"""
 	if not player:
 		return
+	var started_with_mobile_aim := _mobile_aim_cast_active
+	var mobile_slow_request_id: int = _start_mobile_point_chant_slow_motion(started_with_mobile_aim)
 	# 咏唱期间允许移动但减速70%
 	PC.is_chanting = true
 	PC.chant_speed_reduction = 0.7
@@ -717,23 +855,36 @@ func execute_magical_fire_skill(skill: MagicalFireSkill):
 	var SkillIndicator = preload("res://Script/skill/skill_indicator.gd")
 	var indicator = SkillIndicator.new()
 	get_tree().current_scene.add_child(indicator)
-	indicator.setup_circle(player, skill.indicator_size, true)
+	if _mobile_cast_target != Vector2.INF and indicator.has_method("setup_circle_fixed"):
+		indicator.setup_circle_fixed(player, skill.indicator_size, _mobile_cast_target)
+	else:
+		indicator.setup_circle(player, skill.indicator_size, true)
+	var indicator_update_active := started_with_mobile_aim
+	if indicator_update_active:
+		_update_mobile_circle_indicator_until_chant_end(indicator)
 	# 咏唱等待（加速时咏唱时间缩短）
 	await get_tree().create_timer(effective_chant, false).timeout
 	# 咏唱结束，恢复正常移动
 	PC.is_chanting = false
 	PC.chant_speed_reduction = 0.0
+	_finish_mobile_point_chant_slow_motion(mobile_slow_request_id)
 	if not is_instance_valid(player):
 		Global.emit_signal("player_chant_end")
 		if is_instance_valid(indicator):
 			indicator.queue_free()
 		return
 	Global.emit_signal("player_chant_end")
+	_refresh_mobile_cast_aim_from_source()
 	# 获取提示圈最终位置作为释放目标点
-	var target_pos = player.get_global_mouse_position()
+	var target_pos := player.get_global_mouse_position()
+	if _mobile_cast_target != Vector2.INF:
+		target_pos = _mobile_cast_target
 	if is_instance_valid(indicator):
-		target_pos = indicator.get_target_position()
+		if _mobile_cast_target == Vector2.INF:
+			target_pos = indicator.get_target_position()
 		indicator.freeze_and_fade(0.3)
+	if started_with_mobile_aim:
+		_clear_mobile_cast_aim()
 	# 在目标位置释放炽炎
 	var scene = load("res://Scenes/player/magical_fire.tscn")
 	if scene:
@@ -742,6 +893,37 @@ func execute_magical_fire_skill(skill: MagicalFireSkill):
 		instance.global_position = target_pos
 		if instance.has_method("activate"):
 			instance.activate(skill.damage_ratio)
+
+func _update_mobile_line_indicator_until_chant_end(indicator: Node) -> void:
+	while PC.is_chanting and is_instance_valid(indicator):
+		_refresh_mobile_cast_aim_from_source()
+		if _mobile_cast_direction.length() > 0.01 and indicator.has_method("set_fixed_direction"):
+			indicator.set_fixed_direction(_mobile_cast_direction.normalized())
+		await get_tree().process_frame
+
+func _update_mobile_circle_indicator_until_chant_end(indicator: Node) -> void:
+	while PC.is_chanting and is_instance_valid(indicator):
+		_refresh_mobile_cast_aim_from_source()
+		if _mobile_cast_target != Vector2.INF and indicator.has_method("set_fixed_target_position"):
+			indicator.set_fixed_target_position(_mobile_cast_target)
+		await get_tree().process_frame
+
+func _start_mobile_point_chant_slow_motion(started_with_mobile_aim: bool) -> int:
+	if not started_with_mobile_aim or not Global.is_mobile_input_mode():
+		return 0
+	_mobile_point_chant_slow_request_id += 1
+	var request_id: int = _mobile_point_chant_slow_request_id
+	var target_time_scale: float = MOBILE_POINT_CHANT_MAGIC_TIME_SCALE if _is_magic_chant_buff_active() else MOBILE_POINT_CHANT_TIME_SCALE
+	Engine.time_scale = target_time_scale
+	return request_id
+
+func _finish_mobile_point_chant_slow_motion(request_id: int) -> void:
+	if request_id == 0 or request_id != _mobile_point_chant_slow_request_id:
+		return
+	Engine.time_scale = Global.game_speed
+
+func _is_magic_chant_buff_active() -> bool:
+	return PC.chant_time_reduction > 0.0
 
 func execute_magic_skill(skill: MagicSkill):
 	"""执行魔纹阵技能：立即在脚下展开魔纹阵，刷新其他技能冷却"""
@@ -780,7 +962,7 @@ func execute_meditation_skill(skill: MeditationSkill):
 	# 发送咏唱开始信号，通知战斗UI显示咏唱条
 	var icon_path = Global.player_active_skill_data.get("meditation", {}).get("icon", "")
 	var effective_chant = skill.chant_time * (1.0 - PC.chant_time_reduction) / max(Global.game_speed, 1.0)
-	Global.emit_signal("player_chant_start", "冒想", effective_chant, icon_path)
+	Global.emit_signal("player_chant_start", "冥想", effective_chant, icon_path)
 	# 在玩家身上显示冒想动画（图层比角色低）
 	var med_instance: Node = null
 	var med_scene = load("res://Scenes/player/meditation.tscn")
@@ -813,6 +995,8 @@ func _trigger_meditation_level_up():
 			child.add_pending_level_up()
 			break
 	PC.pc_lv += 1
+	if Global.current_stage_difficulty != Global.STAGE_DIFFICULTY_POETRY:
+		LvUp.pre_apply_level_growth_for_pending_level()
 	Global.emit_signal("player_lv_up")
 
 func _on_player_level_up():
@@ -835,9 +1019,10 @@ func execute_dodge_skill(dodge_skill: DodgeSkill):
 	
 	# 获取冲刺方向
 	var dash_direction = get_dash_direction()
+	var dash_distance := _get_dodge_dash_distance(dodge_skill)
 	
 	# 计算目标位置
-	var target_position = _clamp_dodge_target_position(player.global_position + dash_direction * dodge_skill.dash_distance)
+	var target_position = _clamp_dodge_target_position(player.global_position + dash_direction * dash_distance)
 	
 	# 闪避手感增强：
 	# 1. 先给一个轻微震屏，强化"蹬地闪开"的瞬间反馈。
@@ -848,6 +1033,13 @@ func execute_dodge_skill(dodge_skill: DodgeSkill):
 	
 	# 开始冲刺
 	start_dash(target_position, dodge_skill)
+
+
+func _get_dodge_dash_distance(dodge_skill: DodgeSkill) -> float:
+	var speed_bonus_ratio := 0.0
+	if typeof(PC) != TYPE_NIL and PC != null:
+		speed_bonus_ratio = clampf(float(PC.pc_speed), 0.0, 1.0)
+	return dodge_skill.dash_distance * (1.0 + speed_bonus_ratio * 0.3)
 
 
 func execute_random_strike_skill(rs_skill: RandomStrikeSkill):
@@ -891,26 +1083,31 @@ func _execute_random_strike_bullets(rs_skill: RandomStrikeSkill):
 func _spawn_random_strike_bullet(direction: Vector2, damage_ratio: float):
 	"""生成乱击剑气"""
 	# 加载子弹场景
-	var bullet_scene = preload("res://Scenes/bullet.tscn")
-	var bullet = bullet_scene.instantiate()
+	var bullet_scene: PackedScene = preload("res://Scenes/bullet.tscn")
+	var bullet: Area2D = bullet_scene.instantiate() as Area2D
+	if bullet == null:
+		return
 	
 	# 设置位置
 	bullet.global_position = player.global_position
 	
 	# 计算伤害（基于伤害比率）
 	# 修习树技能篇：应用技能总伤害加成
-	var base_damage = PC.pc_atk * damage_ratio * (1.0 + Global.study_skill_damage_bonus)
-	bullet.bullet_damage = base_damage
+	var base_damage: float = float(PC.pc_atk) * damage_ratio * (1.0 + PC.active_skill_multi)
+	bullet.set("damage_override", base_damage)
+	bullet.set("weapon_tag_override", "random_strike")
+	bullet.set("excluded_law_categories_override", ["main", "sword", "bullet"])
 	
 	# 标记为乱击子弹，不触发额外效果
-	bullet.is_other_sword_wave = true
-	bullet.parent_bullet = false
+	bullet.set("is_other_sword_wave", true)
+	bullet.set("parent_bullet", false)
 	
 	# 添加到场景
 	get_tree().current_scene.add_child(bullet)
 	
 	# 在add_child之后使用set_direction设置方向（会同时更新精灵旋转）
-	bullet.set_direction(direction)
+	if bullet.has_method("set_direction"):
+		bullet.set_direction(direction)
 	
 	# 为乱击子弹添加金色滤镜
 	bullet.modulate = Color(1.0, 0.85, 0.4, 1.0) # 金色
@@ -931,8 +1128,11 @@ func execute_beastify_skill(skill: BeastifySkill) -> void:
 		t.tween_property(scene, "modulate", Color(1, 1, 1, 1), 0.1)
 	await get_tree().create_timer(0.05).timeout
 	if is_instance_valid(player) and player.has_method("start_beastify"):
-		# 修习树技能篇：兽化爪击应用技能总伤害加成
-		var final_claw_ratio = skill.claw_damage_ratio * (1.0 + Global.study_skill_damage_bonus)
+		# 修习树技能篇：兽化爪击应用技能总伤害加成；等级平衡按每级 4% 乘算。
+		var beastify_data: Dictionary = Global.player_active_skill_data.get("beastify", {}) as Dictionary
+		var beastify_level: int = int(beastify_data.get("level", 1))
+		var level_damage_multiplier: float = pow(1.04, float(maxi(beastify_level, 0)))
+		var final_claw_ratio: float = skill.claw_damage_ratio * (1.0 + PC.active_skill_multi) * level_damage_multiplier
 		player.start_beastify(skill.duration, skill.atk_bonus_ratio, skill.atk_speed_bonus_ratio, skill.move_bonus_ratio, final_claw_ratio)
 		Global.emit_signal("buff_added", "beastify", skill.duration, 1)
 
@@ -942,19 +1142,10 @@ func execute_mizongbu_skill(skill: MizongbuSkill) -> void:
 
 func get_dash_direction() -> Vector2:
 	"""获取冲刺方向"""
-	# 获取当前移动输入（使用与player_action.gd相同的输入方式）
-	var input_vector = Vector2.ZERO
-	
-	# 检查移动平台
-	if OS.has_feature("mobile"):
-		# 移动设备使用虚拟摇杆
-		if player and player.has_node("virtual_joystick_manager"):
-			var joystick_manager = player.get_node("virtual_joystick_manager")
-			if joystick_manager.has_method("get_left_stick_output"):
-				input_vector = joystick_manager.get_left_stick_output()
-	else:
-		# 桌面设备使用键盘
-		input_vector = Input.get_vector("left", "right", "up", "down")
+	if _mobile_cast_direction.length() > 0.01:
+		return _mobile_cast_direction.normalized()
+	# 移动端摇杆由 MobileInputLayer 写入 InputMap 动作，冲刺方向与移动方向保持一致。
+	var input_vector: Vector2 = Input.get_vector("left", "right", "up", "down")
 	
 	# 如果有移动输入，使用移动方向
 	if input_vector.length() > 0:
@@ -970,6 +1161,16 @@ func get_dash_direction() -> Vector2:
 			return Vector2.RIGHT if not sprite.flip_h else Vector2.LEFT
 		else:
 			return Vector2.RIGHT # 默认向右
+
+func _get_mobile_cast_direction(default_direction: Vector2) -> Vector2:
+	if _mobile_cast_direction.length() > 0.01:
+		return _mobile_cast_direction.normalized()
+	return default_direction
+
+func _get_mobile_cast_target(default_target: Vector2) -> Vector2:
+	if _mobile_cast_target != Vector2.INF:
+		return _mobile_cast_target
+	return default_target
 
 func _clamp_dodge_target_position(target_position: Vector2) -> Vector2:
 	var current_scene := get_tree().current_scene
@@ -1129,25 +1330,28 @@ func start_dash(target_position: Vector2, dodge_skill: DodgeSkill):
 
 func _play_dodge_feedback() -> void:
 	GU.screen_shake(DODGE_SHAKE_INTENSITY, DODGE_SHAKE_DURATION)
+	if Global.is_level_up:
+		return
 	_start_dodge_slow_motion(DODGE_SLOW_TIME_SCALE, DODGE_SLOW_DURATION)
 
 func _start_dodge_slow_motion(target_time_scale: float, duration: float) -> void:
 	dodge_slow_motion_request_id += 1
 	var request_id := dodge_slow_motion_request_id
-	var original_time_scale := Engine.time_scale
 	# 如果当前已经比 0.2 还慢，就保持更慢的那个值，避免反向把时间流速抬高。
-	var applied_time_scale = min(original_time_scale, target_time_scale)
+	var applied_time_scale := minf(Engine.time_scale, target_time_scale)
 	Engine.time_scale = applied_time_scale
-	_restore_dodge_time_scale(duration, request_id, original_time_scale)
+	_restore_dodge_time_scale(duration, request_id)
 
-func _restore_dodge_time_scale(duration: float, request_id: int, original_time_scale: float) -> void:
+func _restore_dodge_time_scale(duration: float, request_id: int) -> void:
 	# 这里显式忽略 `Engine.time_scale`。
 	# 所以写 0.5 秒，就真的是现实时间里的 0.5 秒，
 	# 不会因为时间流速降到 0.2 而被拉长成 2.5 秒。
 	await get_tree().create_timer(duration, true, false, true).timeout
 	if request_id != dodge_slow_motion_request_id:
 		return
-	Engine.time_scale = original_time_scale
+	if PC.is_game_over:
+		return
+	Engine.time_scale = Global.game_speed
 
 func _set_player_ghost_effect(enabled: bool):
 	"""设置玩家半虚化效果"""
@@ -1197,8 +1401,7 @@ func _create_afterimage(source_sprite: AnimatedSprite2D):
 	afterimage.flip_h = source_sprite.flip_h
 	afterimage.z_index = player.z_index # 去掉 - 1 避免被背景层遮挡
 	
-	# 设置残影颜色（淡红色半透明）
-	afterimage.modulate = Color(1.0, 0.5, 0.5, 0.4)
+	afterimage.modulate = _get_dodge_afterimage_color()
 	
 	# 优先添加到 player 同级节点以保证排序（如 YSort），否则回退到 current_scene
 	if player.get_parent():
@@ -1214,6 +1417,20 @@ func _create_afterimage(source_sprite: AnimatedSprite2D):
 	var tween = create_tween()
 	tween.tween_property(afterimage, "modulate:a", 0.0, 0.3)
 	tween.tween_callback(afterimage.queue_free)
+
+func _get_dodge_afterimage_color() -> Color:
+	var player_name := ""
+	if typeof(PC) != TYPE_NIL and PC != null:
+		player_name = str(PC.player_name)
+	match player_name:
+		"moning":
+			return Color(0.55, 0.85, 1.0, 0.4)
+		"noam":
+			return Color(1.0, 0.92, 0.55, 0.4)
+		"kansel":
+			return Color(0.72, 0.45, 1.0, 0.4)
+		_:
+			return Color(1.0, 0.5, 0.5, 0.4)
 
 func on_dash_complete(dodge_skill: DodgeSkill):
 	"""冲刺完成处理"""
@@ -1232,6 +1449,13 @@ func start_skill_cooldown(skill: ActiveSkill):
 	var final_cooldown_time = skill.cooldown_time * (1.0 - Global.get_total_skill_cooldown_reduction())
 	skill.current_cooldown = final_cooldown_time
 	skill_cooldown_started.emit(skill.id, final_cooldown_time)
+
+func reset_all_skill_cooldowns() -> void:
+	"""重置所有主动技能冷却。"""
+	for skill in mastered_skills.values():
+		skill.current_cooldown = 0.0
+		skill.state = SkillState.READY
+		skill_cooldown_finished.emit(skill.id)
 
 # 城镇检测逻辑已移至Global.in_town变量
 
@@ -1270,6 +1494,24 @@ func reset_player_reference():
 	for key in key_states.keys():
 		key_states[key] = false
 	random_strike_active = false
+
+func reset_battle_state() -> void:
+	"""新一局开始时清理上一局残留的主动技能运行状态。"""
+	refresh_skill_levels()
+	player = null
+	for key in key_states.keys():
+		key_states[key] = false
+	random_strike_active = false
+	_mobile_cast_direction = Vector2.ZERO
+	_mobile_cast_target = Vector2.INF
+	_mobile_aim_cast_active = false
+	_mobile_aim_source = Callable()
+	_mobile_point_chant_slow_request_id += 1
+	dodge_slow_motion_request_id += 1
+	for skill in mastered_skills.values():
+		skill.current_cooldown = 0.0
+		skill.state = SkillState.READY
+		skill_cooldown_finished.emit(skill.id)
 
 func get_skill_cooldown_info(skill_id: String) -> Dictionary:
 	"""获取技能冷却信息"""

@@ -36,6 +36,7 @@ var collision_processed_this_frame: bool = false
 var current_frame: int = -1
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	# 记录子弹起始位置
 	start_position = global_position
 	lifetime_timer = 0.0
@@ -55,12 +56,12 @@ func _physics_process(delta: float) -> void:
 	if lifetime_timer >= MAX_LIFETIME:
 		queue_free()
 		return
-	
+
 	# 子弹始终保持移动（包括渐隐过程中）
 	position += direction * bullet_speed * delta
 	# 更新已飞行距离
 	traveled_distance = start_position.distance_to(global_position)
-	
+
 	# 检查是否超出射程，开始渐隐
 	if not is_fading and traveled_distance >= bullet_range:
 		start_fade_out()

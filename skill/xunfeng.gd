@@ -12,9 +12,11 @@ var pierce_decay: float = 0.0
 var start_pos: Vector2
 var traveled_dist: float = 0.0
 var direction: Vector2 = Vector2.RIGHT
+var pseudo_random_hit_reported: bool = false
+var count_for_pseudo_random: bool = false
 
 # State variables moved from PC
-static var main_skill_xunfeng_damage: float = 0.75
+static var main_skill_xunfeng_damage: float = 0.90
 static var xunfeng_final_damage_multi: float = 1.0
 static var xunfeng_range: float = 280.0
 static var xunfeng_size_scale: float = 1.0
@@ -27,9 +29,10 @@ static var xunfeng_extra_blade_damage_ratio: float = 0.6
 
 static var extra_blade_angle_offset: float = 0.0
 static var attack_count: int = 0
+static var random_miss_count: int = 0
 
 static func reset_data() -> void:
-	main_skill_xunfeng_damage = 0.75
+	main_skill_xunfeng_damage = 0.90
 	xunfeng_final_damage_multi = 1.0
 	xunfeng_range = 280.0
 	xunfeng_size_scale = 1.0
@@ -42,6 +45,7 @@ static func reset_data() -> void:
 	
 	extra_blade_angle_offset = 0.0
 	attack_count = 0
+	random_miss_count = 0
 
 static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree) -> void:
 	if not scene:
@@ -49,11 +53,10 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 		
 	var data = _build_data()
 	
-	# 发射主风刃 (随机方向)
-	var random_angle = randf_range(0, 2 * PI)
-	var dir = Vector2(cos(random_angle), sin(random_angle))
+	# 发射主风刃。第一次随机未命中后，第二次锁定最近目标。
+	var dir: Vector2 = _get_pseudo_random_direction(origin_pos, tree)
 	
-	_spawn_blade(scene, tree, origin_pos, dir, 1.0, data)
+	_spawn_blade(scene, tree, origin_pos, dir, 1.0, data, true)
 	
 	attack_count += 1
 	
@@ -90,21 +93,51 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 				_spawn_blade(scene, tree, origin_pos, diag_dr, data.extra_blade_damage_ratio, data)
 				_spawn_blade(scene, tree, origin_pos, diag_dl, data.extra_blade_damage_ratio, data)
 
-static func _spawn_blade(scene: PackedScene, tree: SceneTree, origin_pos: Vector2, dir: Vector2, damage_ratio: float, data: Dictionary) -> void:
+static func _spawn_blade(scene: PackedScene, tree: SceneTree, origin_pos: Vector2, dir: Vector2, damage_ratio: float, data: Dictionary, count_miss: bool = false) -> void:
 	var instance = scene.instantiate()
 	tree.current_scene.add_child(instance)
 	
-	var final_damage = data.damage * damage_ratio
+	var final_damage: float = data.damage * damage_ratio
 	
 	instance.setup(origin_pos, dir, final_damage, data.speed, data.range, data.size_scale, data.penetration_count, data.pierce_decay)
+	instance.count_for_pseudo_random = count_miss
+
+static func _get_pseudo_random_direction(origin_pos: Vector2, tree: SceneTree) -> Vector2:
+	if random_miss_count >= 1:
+		var nearest_enemy: Node2D = _find_nearest_enemy(origin_pos, tree)
+		if nearest_enemy != null:
+			random_miss_count = 0
+			return (nearest_enemy.global_position - origin_pos).normalized()
+	var random_angle: float = randf_range(0, 2 * PI)
+	return Vector2(cos(random_angle), sin(random_angle))
+
+static func _find_nearest_enemy(origin_pos: Vector2, tree: SceneTree) -> Node2D:
+	if tree == null:
+		return null
+	var nearest_enemy: Node2D = null
+	var nearest_distance: float = INF
+	var enemies: Array = tree.get_nodes_in_group("enemies")
+	for enemy in enemies:
+		if not is_instance_valid(enemy):
+			continue
+		if enemy.get("is_dead") == true:
+			continue
+		if not enemy is Node2D:
+			continue
+		var enemy_node: Node2D = enemy as Node2D
+		var distance: float = origin_pos.distance_to(enemy_node.global_position)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_enemy = enemy_node
+	return nearest_enemy
 
 static func _build_data() -> Dictionary:
 	var damage_multiplier = main_skill_xunfeng_damage
 	
 	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
-	damage_multiplier += (Faze.get_bagua_damage_multiplier() - 1.0) # 八卦法则
 	damage_multiplier += (Faze.get_bullet_damage_multiplier(PC.faze_bullet_level) - 1.0) # 弹体法则
 	damage_multiplier += (Faze.get_wind_weapon_damage_multiplier(PC.faze_wind_level) - 1.0) # 风法则
+	damage_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(damage_multiplier, "xunfeng", ["wind"])
 	
 	var d_speed = xunfeng_speed
 	var d_range_val = xunfeng_range
@@ -150,6 +183,7 @@ func setup(pos: Vector2, dir: Vector2, p_damage: float, p_speed: float, p_range:
 	scale = Vector2(base_node_scale.x * final_scale, base_node_scale.y * final_scale)
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	connect("area_entered", Callable(self , "_on_area_entered"))
 	# 如果有 sprite，播放动画
 	if sprite:
@@ -177,9 +211,12 @@ func _on_area_entered(area: Area2D) -> void:
 				
 			var was_alive_for_bagua = area.get("hp") > 0 and not area.get("is_dead")
 			area.take_damage(int(final_damage), _is_crit, false, "xunfeng")
+			pseudo_random_hit_reported = true
+			if count_for_pseudo_random:
+				random_miss_count = 0
 			# 击中粒子崩散特效
 			HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "xunfeng")
-			Faze.on_wind_weapon_hit()
+			Faze.on_wind_weapon_hit(area)
 			
 			Faze.add_bagua_hit_progress(area, was_alive_for_bagua)
 				
@@ -191,3 +228,7 @@ func _on_area_entered(area: Area2D) -> void:
 					damage *= (1.0 - pierce_decay)
 			else:
 				queue_free()
+
+func _exit_tree() -> void:
+	if count_for_pseudo_random and not pseudo_random_hit_reported:
+		random_miss_count += 1

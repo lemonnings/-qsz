@@ -25,6 +25,7 @@ var base_scale: Vector2 = Vector2(1.24, 1.32)
 var default_width: float = 40.0
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	if not sprite:
 		sprite = get_node_or_null("AnimatedSprite2D")
 	if not collision_shape:
@@ -104,7 +105,7 @@ func _update_visuals() -> void:
 	if stride <= 0.01:
 		print("[ThunderBreak] ERROR: stride <= 0! width=", width, " default_width=", default_width, " scale_ratio=", scale_ratio)
 		stride = 35.0 # 回退到默认步长
-	
+
 	var num_sprites = int(ceil(range_val / stride))
 	# 安全上限：防止异常值导致创建过多精灵卡死游戏
 	if num_sprites > 100:
@@ -197,7 +198,11 @@ func _deal_damage(enemy: Area2D) -> void:
 	var law_bonus = 0.0
 	law_bonus += (Faze.get_destroy_damage_multiplier(PC.faze_destroy_level) - 1.0) # 破坏法则
 	law_bonus += (Faze.get_thunder_weapon_damage_multiplier(PC.faze_thunder_level) - 1.0) # 雷鸣法则
-	var final_damage = damage * (1.0 + law_bonus)
+	var atk_base: float = maxf(1.0, float(PC.pc_atk))
+	var base_multiplier: float = damage / atk_base
+	base_multiplier += law_bonus
+	base_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(base_multiplier, "thunder_break", ["destroy", "thunder"])
+	var final_damage = float(PC.pc_atk) * base_multiplier
 	
 	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("has_debuff"):
 		if enemy.debuff_manager.has_debuff("electrified"):
@@ -258,6 +263,6 @@ func _deal_damage(enemy: Area2D) -> void:
 			enemy.apply_debuff_effect("vulnerable")
 		elif enemy.get("debuff_manager") and enemy.debuff_manager.has_method("add_debuff"):
 			enemy.debuff_manager.add_debuff("vulnerable")
-	
+
 	# 鸣雷法则：鸣雷击中敌人时有概率召唤鸣雷劈向目标
 	Faze.on_thunder_weapon_hit(enemy)

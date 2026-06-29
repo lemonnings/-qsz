@@ -92,12 +92,7 @@ func exec_pc_bullet_size() -> void:
 	PC.set_attack_range_value(1 + (Global.bullet_size_level * 0.02))
 
 func exec_lucky_level() -> void:
-	PC.now_lunky_level = Global.lunky_level
-	# 修习树领悟篇：逆天/臻境/悟道概率提升
-	PC.now_red_p = Global.red_p + Global.study_red_chance_bonus
-	PC.now_gold_p = Global.gold_p + Global.study_gold_chance_bonus
-	PC.now_darkorchid_p = Global.darkorchid_p + Global.study_purple_chance_bonus
-	PC.now_blue_p = Global.blue_p
+	PC.exec_lucky_level()
 
 
 func _on_shop_pressed(not_move_background: bool = true) -> void:

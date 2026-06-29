@@ -81,9 +81,7 @@ func _apply_damage_to_enemy(enemy: Node) -> void:
 	# 鸣雷法则加成
 	var thunder_level = PC.faze_thunder_level
 	final_damage *= Faze.get_thunder_weapon_damage_multiplier(thunder_level)
-	
-	# 八卦法则伤害加成
-	final_damage *= Faze.get_bagua_damage_multiplier()
+	final_damage += PC.pc_atk * SettingStudyTreeUp.get_total_damage_bonus_excluding("thunder", ["thunder"])
 	
 	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("has_debuff"): if enemy.debuff_manager.has_debuff("electrified"):
 			final_damage *= (1.0 + Faze.get_thunder_damage_vs_electrified_bonus(thunder_level))

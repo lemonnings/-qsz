@@ -13,6 +13,8 @@ var _scene: PackedScene
 var _free_list: Array[Node] = []
 ## 预热数量上限
 var _warm_up_count: int = 0
+## 是否在预热时短暂入树，提前触发 _ready，避免首次 acquire 集中初始化。
+var _initialize_warm_up_instances: bool = false
 ## 活跃计数（用于外部监控）
 var active_count: int = 0
 ## 追踪待延迟移除的节点 instance_id，防止 reacquire 后被延迟 remove_child 误移除
@@ -20,15 +22,20 @@ var _pending_removes: Dictionary = {}
 
 ## scene   : 要池化的 PackedScene（必须 preload）
 ## warm_up : 预热数量，构造时立即创建缓存
-func _init(scene: PackedScene, warm_up: int = 0) -> void:
+func _init(scene: PackedScene, warm_up: int = 0, initialize_warm_up_instances: bool = false) -> void:
 	_scene = scene
 	_warm_up_count = warm_up
+	_initialize_warm_up_instances = initialize_warm_up_instances
 
 func _ready() -> void:
 	# 预热：提前创建一批实例放入空闲列表
 	for i in range(_warm_up_count):
 		var inst = _scene.instantiate()
+		if _initialize_warm_up_instances:
+			add_child(inst)
 		_deactivate(inst)
+		if _initialize_warm_up_instances and inst.get_parent() == self:
+			remove_child(inst)
 		_free_list.append(inst)
 
 ## 从池中取出一个实例。
@@ -128,6 +135,26 @@ func clear_pool() -> void:
 ## 获取当前缓存的空闲实例数
 func free_count() -> int:
 	return _free_list.size()
+
+func pending_remove_count() -> int:
+	return _pending_removes.size()
+
+func get_debug_stats() -> Dictionary:
+	var valid_free := 0
+	var parented_free := 0
+	for inst in _free_list:
+		if not is_instance_valid(inst):
+			continue
+		valid_free += 1
+		if inst.get_parent() != null:
+			parented_free += 1
+	return {
+		"active": active_count,
+		"free": valid_free,
+		"pending_remove": _pending_removes.size(),
+		"parented_free": parented_free,
+		"pool_children": get_child_count(),
+	}
 
 # ── 内部工具 ──
 

@@ -9,6 +9,9 @@ extends CanvasLayer
 ##   additem_xxx_y   — 添加物品 id=xxx 的 y 个
 ##   mapmech_max     — 将当前关卡的 map_mechanism_num 提升到最大值 -100
 ##   mapmech_min     — 将当前关卡的 map_mechanism_num 重置为 0
+##   test            — 进入 DPS 测试场景
+##   mobile          — 切换为移动设备输入模式
+##   pc              — 切换为 PC 输入模式
 
 var _panel: PanelContainer
 var _input: LineEdit
@@ -82,6 +85,21 @@ func _on_text_submitted(text: String) -> void:
 
 func _execute(cmd: String) -> void:
 	_log_append("[color=gray]> %s[/color]" % cmd)
+	var normalized_cmd: String = cmd.to_lower()
+
+	if normalized_cmd == "mobile" or normalized_cmd == "m":
+		Global.set_input_device_mode(Global.INPUT_DEVICE_MODE_MOBILE)
+		_log_append("[color=green]已切换为移动设备输入模式[/color]")
+		return
+
+	if normalized_cmd == "pc":
+		Global.set_input_device_mode(Global.INPUT_DEVICE_MODE_PC)
+		_log_append("[color=green]已切换为 PC 输入模式[/color]")
+		return
+
+	if not Global.DEBUG_COMMANDS_ENABLED:
+		_log_append("[color=red]调试指令未启用[/color]")
+		return
 
 	# --- help : 显示帮助 ---
 	if cmd == "help":
@@ -101,10 +119,22 @@ func _execute(cmd: String) -> void:
 		_log_append("[color=yellow]mapmech_max[/color]     — 将关卡进度提升到最大值")
 		_log_append("[color=yellow]mapmech_min[/color]     — 将关卡进度重置为 0")
 		_log_append("")
+		_log_append("[color=yellow]test[/color]            — 进入 DPS 测试场景")
+		_log_append("")
+		_log_append("[color=yellow]mobile[/color]          — 切换为移动设备输入模式")
+		_log_append("[color=yellow]pc[/color]              — 切换为 PC 输入模式")
+		_log_append("")
 		_log_append("[color=yellow]lucky_x[/color]         — 提升天命值 x 点")
-		_log_append("  例: [color=white]lucky_10[/color] → PC.lucky += 10")
+		_log_append("  例: [color=white]lucky_10[/color] → 天命 +10")
 		_log_append("")
 		_log_append("[color=yellow]help[/color]            — 显示帮助信息")
+		return
+
+	if cmd == "test":
+		_log_append("[color=green]进入 DPS 测试场景[/color]")
+		_visible = false
+		visible = false
+		SceneChange.change_scene("res://Scenes/level/dps_test.tscn", true)
 		return
 
 	# --- add_xxx : 执行 reward_xxx ---
@@ -199,8 +229,10 @@ func _execute(cmd: String) -> void:
 		if amount == 0 and amount_str != "0":
 			_log_append("[color=red]用法: lucky_x（如 lucky_10），x 必须是整数[/color]")
 			return
-		PC.lucky += amount
-		_log_append("[color=green]天命值 +%d（当前: %d）[/color]" % [amount, PC.lucky])
+		PC.now_lunky_level += amount
+		PC._recalculate_reward_rarity_chances()
+		Global.emit_signal("lucky_level_up", amount)
+		_log_append("[color=green]天命值 +%d（当前: %d）[/color]" % [amount, PC.get_lucky_level()])
 		return
 
 	# --- 未知指令 ---

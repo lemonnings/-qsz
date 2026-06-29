@@ -27,11 +27,11 @@ const CORE_ITEM_IDS = {
 }
 
 const BUTTON_DETAIL_TEMPLATES = {
-	"rui": "武器篇\n[font_size=55][color=yellow]锐之魔核：",
-	"qi": "技能篇\n[font_size=55][color=yellow]启之魔核：",
-	"li": "领悟强化\n[font_size=55][color=yellow]砺之魔核：",
-	"cu": "团队强化\n[font_size=55][color=yellow]簇之魔核：",
-	"yan": "特殊强化\n[font_size=55][color=yellow]衍之魔核："
+	"rui": "淬锐 · 武器\n[font_size=50][color=#ffffcc]锐之魔核：",
+	"qi": "启迪 · 技能\n[font_size=50][color=#ffffcc]启之魔核：",
+	"li": "历练 · 领悟\n[font_size=50][color=#ffffcc]砺之魔核：",
+	"cu": "羁旅 · 团队\n[font_size=50][color=#ffffcc]簇之魔核：",
+	"yan": "奇技 · 特殊\n[font_size=50][color=#ffffcc]衍之魔核："
 }
 
 const STUDY_LAYER_PATH = "tree_control/study_layer"
@@ -59,6 +59,10 @@ const TYPE_CORE_ITEM_IDS = {
 
 const TOOLTIP_FONT_SIZE := 20
 const HOLD_DURATION := 1.0
+const STUDY_LEVEL_UP_BUTTON_MIN_SIZE: Vector2 = Vector2(160.0, 64.0)
+const STUDY_LEVEL_UP_BUTTON_TOP_GAP: float = 8.0
+const MOBILE_STUDY_DUPLICATE_PRESS_GUARD_MS: int = 180
+const MOBILE_CATEGORY_ENTER_HINT := "\n[font_size=26][color=#dddddd]再次点击进入天赋树[/color][/font_size]"
 
 var _tooltip_canvas: CanvasLayer
 var _tooltip_panel: Panel
@@ -72,6 +76,8 @@ var _tooltip_sep_next: HSeparator
 var _tooltip_sep_cost: HSeparator
 var _tooltip_precondition_label: Label
 var _tooltip_sep_precondition: HSeparator
+var _study_level_up_button: Button
+var _study_level_up_button_spacer: Control
 var _tooltip_font: Font
 var _hovered_study_btn: Button = null
 var _tooltip_request_id: int = 0
@@ -88,6 +94,12 @@ var _study_learn_btns_connected: bool = false
 var _study_team_btns_connected: bool = false
 var _study_special_btns_connected: bool = false
 var _btn_level_labels: Dictionary = {}
+var _btn_precondition_overlays: Dictionary = {}
+var _mobile_confirmed_study_btn: Button = null
+var _mobile_last_study_select_btn: Button = null
+var _mobile_last_study_select_msec: int = -100000
+var _mobile_last_study_select_frame: int = -1
+var _mobile_pending_category: String = ""
 
 
 class RingProgress:
@@ -301,6 +313,27 @@ func _process(delta: float) -> void:
 			_upgrade_done = true
 			_try_upgrade(_holding_btn)
 
+func _input(event: InputEvent) -> void:
+	if not Global.is_mobile_input_mode():
+		return
+	if _tooltip_panel == null or not _tooltip_panel.visible:
+		return
+	if event is InputEventScreenTouch:
+		var touch: InputEventScreenTouch = event as InputEventScreenTouch
+		if touch.pressed:
+			_hide_mobile_study_tooltip_if_outside(touch.position)
+	elif event is InputEventScreenDrag:
+		var drag: InputEventScreenDrag = event as InputEventScreenDrag
+		_hide_mobile_study_tooltip_if_outside(drag.position)
+	elif event is InputEventMouseButton:
+		var mouse_button: InputEventMouseButton = event as InputEventMouseButton
+		if mouse_button.button_index == MOUSE_BUTTON_LEFT and mouse_button.pressed:
+			_hide_mobile_study_tooltip_if_outside(mouse_button.position)
+	elif event is InputEventMouseMotion:
+		var mouse_motion: InputEventMouseMotion = event as InputEventMouseMotion
+		if (mouse_motion.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+			_hide_mobile_study_tooltip_if_outside(mouse_motion.position)
+
 
 # ===== 五行按钮信号 =====
 
@@ -312,20 +345,18 @@ func _connect_button_signals(btn: Button, name_str: String):
 
 
 func _on_button_mouse_entered(name_str: String):
+	if Global.is_mobile_input_mode():
+		return
 	var btn = get(name_str) as Button
 	if btn and btn.is_inside_tree():
 		var tween = create_tween()
 		tween.tween_property(btn, "modulate:a", 1.0, 0.2)
-	var item_id = CORE_ITEM_IDS[name_str]
-	var count = Global.player_inventory.get(item_id, 0)
-	detail.text = BUTTON_DETAIL_TEMPLATES[name_str] + str(count) + "[/color][/font_size]"
-	# 显示 study_detail Panel
-	var study_detail_panel = get_node_or_null("study_detail")
-	if study_detail_panel:
-		study_detail_panel.visible = true
+	_show_category_detail(name_str)
 
 
 func _on_button_mouse_exited(name_str: String):
+	if Global.is_mobile_input_mode():
+		return
 	var btn = get(name_str) as Button
 	if btn and btn.is_inside_tree():
 		var tween = create_tween()
@@ -336,9 +367,23 @@ func _on_button_mouse_exited(name_str: String):
 		study_detail_panel.visible = false
 
 
+func _show_category_detail(name_str: String, include_mobile_hint: bool = false) -> void:
+	if not CORE_ITEM_IDS.has(name_str) or not BUTTON_DETAIL_TEMPLATES.has(name_str):
+		return
+	var item_id: String = CORE_ITEM_IDS[name_str]
+	var count: int = Global.player_inventory.get(item_id, 0)
+	detail.text = BUTTON_DETAIL_TEMPLATES[name_str] + str(count) + "[/color][/font_size]"
+	if include_mobile_hint:
+		detail.text += MOBILE_CATEGORY_ENTER_HINT
+	var study_detail_panel = get_node_or_null("study_detail")
+	if study_detail_panel:
+		study_detail_panel.visible = true
+
+
 # ===== 页面切换 =====
 
 func _open_study_tree(tree_type: String) -> void:
+	_mobile_pending_category = ""
 	tree_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var panel = get_node_or_null("Control/Panel")
 	if panel:
@@ -400,29 +445,46 @@ func _open_study_tree(tree_type: String) -> void:
 		_connect_study_tree_special_buttons()
 
 
+func _handle_category_pressed(category_name: String, tree_type: String) -> void:
+	if Global.is_mobile_input_mode():
+		if _mobile_pending_category == category_name:
+			_open_study_tree(tree_type)
+			return
+		_mobile_pending_category = category_name
+		var btn = get(category_name) as Button
+		if btn and btn.is_inside_tree():
+			var tween = create_tween()
+			tween.tween_property(btn, "modulate:a", 1.0, 0.2)
+		_show_category_detail(category_name, true)
+		return
+	_open_study_tree(tree_type)
+
+
 func _on_rui_pressed():
-	_open_study_tree("weapon")
+	_handle_category_pressed("rui", "weapon")
 
 
 func _on_qi_pressed():
-	_open_study_tree("skill")
+	_handle_category_pressed("qi", "skill")
 
 
 func _on_li_pressed():
-	_open_study_tree("learn")
+	_handle_category_pressed("li", "learn")
 
 
 func _on_cu_pressed():
-	_open_study_tree("team")
+	_handle_category_pressed("cu", "team")
 
 
 func _on_yan_pressed():
-	_open_study_tree("special")
+	_handle_category_pressed("yan", "special")
 
 
 func _on_back_pressed():
 	_hide_study_tooltip()
 	_cancel_hold()
+	_clear_mobile_study_confirm()
+	_mobile_pending_category = ""
 
 	tree_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var panel = get_node_or_null("Control/Panel")
@@ -444,6 +506,8 @@ func _on_back_pressed():
 func _on_exit_pressed():
 	_hide_study_tooltip()
 	_cancel_hold()
+	_clear_mobile_study_confirm()
+	_mobile_pending_category = ""
 	exit_requested.emit()
 
 
@@ -518,6 +582,24 @@ func _create_study_tooltip() -> void:
 	_setup_label_style(_tooltip_precondition_label, Color(0.7, 0.7, 0.7))
 	_tooltip_vbox.add_child(_tooltip_precondition_label)
 
+	_study_level_up_button_spacer = Control.new()
+	_study_level_up_button_spacer.name = "study_level_up_spacer"
+	_study_level_up_button_spacer.custom_minimum_size = Vector2(0.0, STUDY_LEVEL_UP_BUTTON_TOP_GAP)
+	_study_level_up_button_spacer.visible = false
+	_tooltip_vbox.add_child(_study_level_up_button_spacer)
+
+	_study_level_up_button = Button.new()
+	_study_level_up_button.name = "study_level_up"
+	_study_level_up_button.text = "修习"
+	_study_level_up_button.visible = false
+	_study_level_up_button.custom_minimum_size = STUDY_LEVEL_UP_BUTTON_MIN_SIZE
+	_study_level_up_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	if _tooltip_font:
+		_study_level_up_button.add_theme_font_override("font", _tooltip_font)
+	_study_level_up_button.add_theme_font_size_override("font_size", TOOLTIP_FONT_SIZE + 2)
+	_study_level_up_button.pressed.connect(_on_study_level_up_pressed)
+	_tooltip_vbox.add_child(_study_level_up_button)
+
 	_ring = RingProgress.new()
 	_ring.name = "RingProgress"
 	_ring.size = Vector2(108, 108)
@@ -537,7 +619,9 @@ func _setup_label_style(label: Label, font_color: Color = Color.WHITE) -> void:
 
 func _setup_richtext_style(rtl: RichTextLabel, font_color: Color = Color.WHITE) -> void:
 	if _tooltip_font:
+		rtl.add_theme_font_override("normal_font", _tooltip_font)
 		rtl.add_theme_font_override("default_font", _tooltip_font)
+	rtl.add_theme_font_size_override("normal_font_size", TOOLTIP_FONT_SIZE)
 	rtl.add_theme_font_size_override("default_font_size", TOOLTIP_FONT_SIZE)
 	rtl.add_theme_color_override("default_color", font_color)
 	rtl.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -557,6 +641,7 @@ func _connect_tree_buttons_at_path(path: String) -> void:
 			child.mouse_exited.connect(_on_study_btn_exited.bind(child))
 			child.button_down.connect(_on_study_btn_down.bind(child))
 			child.button_up.connect(_on_study_btn_up.bind(child))
+			_create_precondition_overlay(child)
 			_create_level_label(child)
 
 
@@ -608,6 +693,27 @@ func _create_level_label(btn: Button) -> void:
 	_update_level_label(btn)
 
 
+func _create_precondition_overlay(btn: Button) -> void:
+	var entry = StudyTreeConfig.get_entry(btn.name)
+	if entry.is_empty():
+		return
+	if _btn_precondition_overlays.has(btn.name):
+		return
+	var overlay = ColorRect.new()
+	overlay.name = "PreconditionOverlay"
+	overlay.color = Color(0.0, 0.0, 0.0, 0.68)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.offset_left = 0.0
+	overlay.offset_top = 0.0
+	overlay.offset_right = 0.0
+	overlay.offset_bottom = 0.0
+	overlay.visible = false
+	btn.add_child(overlay)
+	_btn_precondition_overlays[btn.name] = overlay
+	_update_precondition_overlay(btn)
+
+
 func _update_level_label(btn: Button) -> void:
 	var entry = StudyTreeConfig.get_entry(btn.name)
 	if entry.is_empty():
@@ -624,24 +730,55 @@ func _update_level_label(btn: Button) -> void:
 			lbl.add_theme_color_override("font_color", Color.WHITE)
 
 
+func _update_precondition_overlay(btn: Button) -> void:
+	var entry = StudyTreeConfig.get_entry(btn.name)
+	if entry.is_empty():
+		return
+	var overlay: ColorRect = _btn_precondition_overlays.get(btn.name, null) as ColorRect
+	if overlay == null or not is_instance_valid(overlay):
+		return
+	var id: String = entry["id"]
+	var max_level := int(entry.get("max_level", "1"))
+	var current_level: int = Global.player_study_tree.get(id, 0)
+	overlay.visible = current_level < max_level and _check_precondition(id) != ""
+
+
 func refresh_study_tree_view() -> void:
 	for path in [STUDY_TREE_PATH, STUDY_TREE_SKILL_PATH, STUDY_TREE_LEARN_PATH, STUDY_TREE_TEAM_PATH, STUDY_TREE_SPECIAL_PATH]:
 		var study_tree = get_node_or_null(path)
 		if not study_tree:
 			continue
 		for child in study_tree.get_children():
-			if child is Button and _btn_level_labels.has(child.name):
-				_update_level_label(child)
+			if child is Button:
+				if _btn_level_labels.has(child.name):
+					_update_level_label(child)
+				if _btn_precondition_overlays.has(child.name):
+					_update_precondition_overlay(child)
 	if _hovered_study_btn and is_instance_valid(_hovered_study_btn):
 		_show_study_tooltip(_hovered_study_btn)
 
 
+func _clear_mobile_study_confirm() -> void:
+	_mobile_confirmed_study_btn = null
+	_mobile_last_study_select_btn = null
+	_mobile_last_study_select_msec = -100000
+	_mobile_last_study_select_frame = -1
+	if _study_level_up_button:
+		_study_level_up_button.visible = false
+	if _study_level_up_button_spacer:
+		_study_level_up_button_spacer.visible = false
+
+
 func _on_study_btn_entered(btn: Button) -> void:
+	if Global.is_mobile_input_mode():
+		return
 	_hovered_study_btn = btn
 	_show_study_tooltip(btn)
 
 
 func _on_study_btn_exited(btn: Button) -> void:
+	if Global.is_mobile_input_mode():
+		return
 	if _hovered_study_btn == btn:
 		_hovered_study_btn = null
 	_hide_study_tooltip()
@@ -649,6 +786,9 @@ func _on_study_btn_exited(btn: Button) -> void:
 
 
 func _on_study_btn_down(btn: Button) -> void:
+	if Global.is_mobile_input_mode():
+		_handle_mobile_study_btn_pressed(btn)
+		return
 	var entry = StudyTreeConfig.get_entry(btn.name)
 	if entry.is_empty():
 		return
@@ -687,6 +827,32 @@ func _on_study_btn_down(btn: Button) -> void:
 
 func _on_study_btn_up(_btn: Button) -> void:
 	_cancel_hold()
+
+func _handle_mobile_study_btn_pressed(btn: Button) -> void:
+	if btn == null or not is_instance_valid(btn):
+		return
+	var current_msec: int = Time.get_ticks_msec()
+	var current_frame: int = Engine.get_process_frames()
+	var same_selected := _mobile_confirmed_study_btn == btn and _tooltip_panel != null and _tooltip_panel.visible
+	if same_selected:
+		var duplicated_selection_press := _mobile_last_study_select_btn == btn and (
+			current_frame == _mobile_last_study_select_frame
+			or current_msec - _mobile_last_study_select_msec <= MOBILE_STUDY_DUPLICATE_PRESS_GUARD_MS
+		)
+		if duplicated_selection_press:
+			return
+		_mobile_last_study_select_btn = btn
+		_mobile_last_study_select_msec = current_msec
+		_mobile_last_study_select_frame = current_frame
+		_try_upgrade(btn)
+		return
+	_mobile_confirmed_study_btn = btn
+	_mobile_last_study_select_btn = btn
+	_mobile_last_study_select_msec = current_msec
+	_mobile_last_study_select_frame = current_frame
+	_hovered_study_btn = btn
+	_cancel_hold()
+	_show_study_tooltip(btn)
 
 
 func _cancel_hold() -> void:
@@ -756,6 +922,13 @@ func _show_study_tooltip(btn: Button) -> void:
 		_tooltip_cost_label.text = "消耗 %s %d 个（当前持有：%d）" % [core_name, cast, core_count]
 		_tooltip_cost_label.visible = true
 		_tooltip_sep_cost.visible = true
+	if _study_level_up_button:
+		var show_level_up_button: bool = Global.is_mobile_input_mode()
+		_study_level_up_button.visible = show_level_up_button
+		if _study_level_up_button_spacer:
+			_study_level_up_button_spacer.visible = show_level_up_button
+		_study_level_up_button.disabled = is_maxed
+		_study_level_up_button.text = "已满级" if is_maxed else "修习"
 
 	# 前置条件
 	var precondition_id: String = entry.get("precondition", "")
@@ -827,6 +1000,52 @@ func _hide_study_tooltip() -> void:
 				_tooltip_panel.visible = false
 		)
 
+func _hide_mobile_study_tooltip_if_outside(position: Vector2) -> void:
+	if _is_position_inside_control(_study_level_up_button, position):
+		return
+	if _is_position_inside_any_study_button(position):
+		return
+	_hovered_study_btn = null
+	_clear_mobile_study_confirm()
+	_cancel_hold()
+	_hide_study_tooltip()
+
+func _is_position_inside_any_study_button(position: Vector2) -> bool:
+	var paths: Array[String] = [
+		STUDY_TREE_PATH,
+		STUDY_TREE_SKILL_PATH,
+		STUDY_TREE_LEARN_PATH,
+		STUDY_TREE_TEAM_PATH,
+		STUDY_TREE_SPECIAL_PATH,
+	]
+	for path in paths:
+		var study_tree: Node = get_node_or_null(path)
+		if study_tree == null or not is_instance_valid(study_tree):
+			continue
+		var study_tree_item: CanvasItem = study_tree as CanvasItem
+		if study_tree_item != null and not study_tree_item.is_visible_in_tree():
+			continue
+		for child in study_tree.get_children():
+			var button: Button = child as Button
+			if button != null and _is_position_inside_control(button, position):
+				return true
+	return false
+
+func _is_position_inside_control(control: Control, position: Vector2) -> bool:
+	if control == null or not is_instance_valid(control) or not control.is_visible_in_tree():
+		return false
+	var local_position: Vector2 = control.get_global_transform_with_canvas().affine_inverse() * position
+	return Rect2(Vector2.ZERO, control.size).has_point(local_position)
+
+func _on_study_level_up_pressed() -> void:
+	if not Global.is_mobile_input_mode():
+		return
+	if _mobile_confirmed_study_btn == null or not is_instance_valid(_mobile_confirmed_study_btn):
+		return
+	if _hovered_study_btn != _mobile_confirmed_study_btn:
+		return
+	_try_upgrade(_mobile_confirmed_study_btn)
+
 
 func _format_value(v: String, level: int) -> String:
 	if v == "":
@@ -863,6 +1082,12 @@ func _try_upgrade(btn: Button) -> void:
 	var core_item_id = TYPE_CORE_ITEM_IDS.get(type, "")
 	var core_count = Global.player_inventory.get(core_item_id, 0)
 
+	var fail_reason = _check_precondition(id)
+	if fail_reason != "":
+		if tips:
+			tips.start_animation(fail_reason, 0.5)
+		return
+
 	if core_count < cast:
 		var core_name = TYPE_CORE_NAMES.get(type, type)
 		if tips:
@@ -880,7 +1105,13 @@ func _try_upgrade(btn: Button) -> void:
 	Global.save_game()
 
 	_cancel_hold()
+	if not Global.is_mobile_input_mode():
+		_clear_mobile_study_confirm()
+	else:
+		_mobile_confirmed_study_btn = btn
+		_hovered_study_btn = btn
 	_update_level_label(btn)
+	refresh_study_tree_view()
 	_show_study_tooltip(btn)
 
 	var display_name: String = entry.get("name", id)

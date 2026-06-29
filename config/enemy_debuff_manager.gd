@@ -69,6 +69,16 @@ class DebuffData:
 
 var burn_scene = preload("res://Scenes/player/debuff_burn.tscn")
 
+const MAX_DOT_TICKS_PER_FRAME: int = 18
+const MAX_VISIBLE_BURN_EFFECTS: int = 10
+const MAX_BURN_NEIGHBOR_HITS: int = 16
+const BURN_BASE_RADIUS: float = 45.0
+const BURN_SOUND_COOLDOWN_MSEC: int = 90
+
+static var _dot_tick_frame: int = -1
+static var _dot_tick_count: int = 0
+static var _last_burn_sound_msec: int = -9999
+
 static var debuff_configs: Dictionary = {
 	"slow": DebuffData.new("slow", 5.0, 1, false, "", true, Color.SKY_BLUE, 0.0, 0.0, -0.25, false, 0.0, 1.0, false, 40.0, "减速", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xuanbing.png", "移动速度降低25%"),
 	"vulnerable": DebuffData.new("vulnerable", 5.0, 1, false, "", true, Color(1.0, 0.5, 0.5), -0.25, 0.0, 0.0, false, 0.0, 1.0, false, 40.0, "脆弱", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/genshan.png", "造成的伤害降低25%"),
@@ -76,9 +86,9 @@ static var debuff_configs: Dictionary = {
 	"paralyze": DebuffData.new("paralyze", 3.0, 1, false, "", true, Color(0.7, 0.7, 1.0), 0.0, 0.0, 0.0, true, 0.0, 1.0, false, 40.0, "麻痹", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/thunder.png", "无法行动"),
 	"stun": DebuffData.new("stun", 3.0, 1, false, "", true, Color(0.9, 0.9, 0.9), 0.0, 0.0, 0.0, true, 0.0, 1.0, false, 40.0, "眩晕", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/thunder.png", "无法行动"),
 	"bleed": DebuffData.new("bleed", 5.0, 5, false, "", true, Color(0.9, 0.3, 0.3), 0.0, 0.0, 0.0, false, 0.15, 1.0, false, 40.0, "流血", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_blood.png", "每秒受到攻击力15%的伤害，可叠加5层"),
-	"burn": DebuffData.new("burn", 3.0, 1, false, "", true, Color(1.0, 0.6, 0.2), 0.0, 0.0, 0.0, false, 0.4, 1.0, true, 60.0, "燃烧", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_fire.png", "每秒受到攻击力40%的伤害，影响周围敌人"),
+	"burn": DebuffData.new("burn", 3.0, 1, true, "res://Scenes/player/debuff_burn.tscn", true, Color(1.0, 0.6, 0.2), 0.0, 0.0, 0.0, false, 0.4, 1.0, true, 60.0, "燃烧", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_fire.png", "每秒受到攻击力40%的伤害，影响周围敌人"),
 	"electrified": DebuffData.new("electrified", 3.0, 1, false, "", true, Color(0.8, 0.8, 0.0), 0.0, 0.0, 0.0, false, 0.5, 1.0, false, 40.0, "感电", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_thunder.png", "每秒受到攻击力50%的伤害"),
-	"light_accumulation": DebuffData.new("light_accumulation", 5.0, 20, false, "", true, Color(1.0, 1.0, 0.8), 0.0, 0.05, 0.0, false, 0.0, 1.0, false, 40.0, "蓄光", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/guangdan.png", "每层受到的伤害增加5%，最多20层"),
+	"light_accumulation": DebuffData.new("light_accumulation", 5.0, 5, false, "", true, Color(1.0, 1.0, 0.8), 0.0, 0.05, 0.0, false, 0.0, 1.0, false, 40.0, "蓄光", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/guangdan.png", "每层受到的光弹的伤害增加5%，最多5层"),
 	"corrosion": DebuffData.new("corrosion", 5.0, 1, false, "", true, Color(0.6, 0.8, 0.2), 0.0, 0.2, 0.0, false, 0.0, 1.0, false, 40.0, "腐蚀", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/duize.png", "受到的伤害增加20%"),
 	"corrosion2": DebuffData.new("corrosion2", 5.0, 1, false, "", true, Color(0.5, 0.9, 0.1), 0.0, 0.3, 0.0, false, 0.0, 1.0, false, 40.0, "腐蚀Ⅱ", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/duize.png", "受到的伤害增加30%")
 }
@@ -92,7 +102,8 @@ var death_fade_started: bool = false
 
 func _init(enemy: Node2D):
 	target_enemy = enemy
-	base_modulate = target_enemy.modulate
+	if _has_valid_target():
+		base_modulate = target_enemy.modulate
 
 static func set_debuff_elite_boss_bonus(debuff_id: String, bonus: float) -> void:
 	debuff_elite_boss_damage_bonus[debuff_id] = bonus
@@ -106,11 +117,17 @@ static func get_debuff_elite_boss_damage_multiplier(debuff_id: String, target: N
 	var bonus = get_debuff_elite_boss_bonus(debuff_id)
 	if bonus <= 0.0:
 		return 1.0
+	if target == null or not is_instance_valid(target):
+		return 1.0
 	if target.is_in_group("elite") or target.is_in_group("boss"):
 		return 1.0 + bonus
 	return 1.0
 
 func add_debuff(debuff_id: String, extra_stacks_limit: int = 0, duration_override: float = -1.0):
+	if not _has_valid_target():
+		return
+	if not debuff_configs.has(debuff_id):
+		return
 	var config: DebuffData = debuff_configs[debuff_id]
 	# 若提供了 duration_override（>0），则直接使用；否则使用配置默认时长
 	var effective_duration = duration_override if duration_override > 0.0 else config.duration
@@ -152,6 +169,8 @@ func add_debuff(debuff_id: String, extra_stacks_limit: int = 0, duration_overrid
 		debuff_added_signal.emit(debuff_id, 1)
 
 func _apply_debuff_effects(debuff_id: String):
+	if not _has_valid_target() or not active_debuffs.has(debuff_id):
+		return
 	var debuff_entry = active_debuffs[debuff_id]
 	var config: DebuffData = debuff_entry["config"]
 
@@ -159,32 +178,44 @@ func _apply_debuff_effects(debuff_id: String):
 		target_enemy.modulate = config.modulate_color
 
 	if config.has_effect and config.effect_path != "":
-		var effect_scene = load(config.effect_path)
-		debuff_entry["effect_instance"] = effect_scene.instantiate()
-		target_enemy.add_child(debuff_entry["effect_instance"])
+		var effect_scene: PackedScene = load(config.effect_path) as PackedScene
+		if effect_scene == null:
+			return
+		var effect_instance: Node = effect_scene.instantiate()
+		if effect_instance.has_method("setup_persistent"):
+			effect_instance.call("setup_persistent")
+		debuff_entry["effect_instance"] = effect_instance
+		target_enemy.add_child(effect_instance)
 		active_debuffs[debuff_id] = debuff_entry
 
 func _remove_debuff_effects(debuff_id: String):
+	if not active_debuffs.has(debuff_id):
+		return
 	var debuff_entry = active_debuffs[debuff_id]
 	var config: DebuffData = debuff_entry["config"]
 
-	if config.has_modulate and not target_enemy.is_in_group("boss"):
+	if _has_valid_target() and config.has_modulate and not target_enemy.is_in_group("boss"):
 		target_enemy.modulate = base_modulate
 
-	if debuff_entry["effect_instance"]:
+	if debuff_entry["effect_instance"] and is_instance_valid(debuff_entry["effect_instance"]):
 		debuff_entry["effect_instance"].queue_free()
 		debuff_entry["effect_instance"] = null
 		active_debuffs[debuff_id] = debuff_entry
 
 func _on_debuff_expired(debuff_id: String):
+	if not active_debuffs.has(debuff_id):
+		return
 	_remove_debuff_effects(debuff_id)
 	var debuff_entry = active_debuffs[debuff_id]
-	debuff_entry["timer"].queue_free()
+	if debuff_entry["timer"] and is_instance_valid(debuff_entry["timer"]):
+		debuff_entry["timer"].queue_free()
 	active_debuffs.erase(debuff_id)
 	debuff_removed_signal.emit(debuff_id)
 	_reapply_remaining_debuff_effects()
 
 func _reapply_remaining_debuff_effects():
+	if not _has_valid_target():
+		return
 	if target_enemy.is_in_group("boss"):
 		return
 	if active_debuffs.is_empty():
@@ -285,20 +316,33 @@ func has_debuff(debuff_id: String) -> bool:
 func clear_all_debuffs():
 	var debuff_ids = active_debuffs.keys()
 	for debuff_id in debuff_ids:
-		_on_debuff_expired(debuff_id)
+		_remove_debuff_effects(debuff_id)
+		if not active_debuffs.has(debuff_id):
+			continue
+		var debuff_entry = active_debuffs[debuff_id]
+		if debuff_entry["timer"] and is_instance_valid(debuff_entry["timer"]):
+			debuff_entry["timer"].queue_free()
 	active_debuffs.clear()
+
+func remove_debuff(debuff_id: String) -> void:
+	_on_debuff_expired(debuff_id)
 
 func _notification(what):
 	if what == NOTIFICATION_PREDELETE:
 		clear_all_debuffs()
 
 func _process(delta: float) -> void:
-	if target_enemy.is_dead and not death_fade_started:
+	if not _has_valid_target():
+		_cleanup_invalid_target()
+		return
+	if bool(target_enemy.get("is_dead")) and not death_fade_started:
 		_start_death_fade()
 	if active_debuffs.is_empty():
 		return
 	var debuff_ids = active_debuffs.keys()
 	for debuff_id in debuff_ids:
+		if not active_debuffs.has(debuff_id):
+			continue
 		var debuff_entry = active_debuffs[debuff_id]
 		var config: DebuffData = debuff_entry["config"]
 		if config.dot_damage_ratio <= 0.0:
@@ -308,10 +352,15 @@ func _process(delta: float) -> void:
 			debuff_entry["dot_elapsed"] = dot_elapsed
 			active_debuffs[debuff_id] = debuff_entry
 			continue
+		if not _consume_dot_tick_budget():
+			debuff_entry["dot_elapsed"] = dot_elapsed
+			active_debuffs[debuff_id] = debuff_entry
+			continue
 		dot_elapsed -= config.dot_tick_interval
 		debuff_entry["dot_elapsed"] = dot_elapsed
 		active_debuffs[debuff_id] = debuff_entry
 		var damage = PC.pc_atk * config.dot_damage_ratio * debuff_entry["stacks"]
+		damage *= _get_player_level_dot_damage_multiplier()
 		
 		# DoT damage bonus check
 		var dot_bonus_multiplier = 1.0
@@ -345,12 +394,12 @@ func _process(delta: float) -> void:
 			elif PC.selected_rewards.has("SSR37"): dot_bonus_multiplier += 0.55
 			elif PC.selected_rewards.has("SR37"): dot_bonus_multiplier += 0.45
 			elif PC.selected_rewards.has("R37"): dot_bonus_multiplier += 0.35
-			
+
 		damage *= dot_bonus_multiplier
 		_apply_dot_damage(debuff_id, damage)
-		
+
 		# 鸣雷法则：感电触发时有概率召唤鸣雷劈向目标
-		if debuff_id == "electrified":
+		if debuff_id == "electrified" and _has_valid_target():
 			Faze.on_electrified_trigger(target_enemy)
 
 func _start_death_fade() -> void:
@@ -358,85 +407,149 @@ func _start_death_fade() -> void:
 	var debuff_ids = active_debuffs.keys()
 	for debuff_id in debuff_ids:
 		var debuff_entry = active_debuffs[debuff_id]
-		debuff_entry["timer"].stop()
-		debuff_entry["timer"].queue_free()
-		if debuff_entry["effect_instance"]:
+		if debuff_entry["timer"] and is_instance_valid(debuff_entry["timer"]):
+			debuff_entry["timer"].stop()
+			debuff_entry["timer"].queue_free()
+		if debuff_entry["effect_instance"] and is_instance_valid(debuff_entry["effect_instance"]):
 			debuff_entry["effect_instance"].queue_free()
 	active_debuffs.clear()
 	# 立即恢复颜色（Boss不受滤镜影响所以无需恢复）
-	if not target_enemy.is_in_group("boss"):
+	if _has_valid_target() and not target_enemy.is_in_group("boss"):
 		target_enemy.modulate = base_modulate
 	# 清除刀剑法则冷光图像效果
-	Faze.clear_sword_faze_effects(target_enemy)
+	if _has_valid_target():
+		Faze.clear_sword_faze_effects(target_enemy)
 
 func _apply_dot_damage(debuff_id: String, damage: float) -> void:
+	if not _has_valid_target() or not active_debuffs.has(debuff_id):
+		return
 	var debuff_entry = active_debuffs[debuff_id]
 	var config: DebuffData = debuff_entry["config"]
 	var damage_type_int = _get_dot_damage_type_int(debuff_id)
 	if debuff_id == "burn":
-		SEManager.play("50")
-		var burn_instance = Global.debuff_burn_pool.acquire(get_tree().current_scene)
-		burn_instance.global_position = target_enemy.global_position
-		burn_instance.scale = Vector2.ONE * Faze.get_burn_range_multiplier(PC.faze_fire_level)
-		burn_instance.setup()
+		_play_burn_sound_limited()
+		var target_position := target_enemy.global_position
+		var burn_range_multiplier := Faze.get_burn_range_multiplier(PC.faze_fire_level)
+		_try_show_burn_effect(target_position, burn_range_multiplier)
 		
 		var burn_dmg_val = damage * Faze.get_burn_damage_multiplier(PC.faze_fire_level)
 		var burn_main_multiplier = 1.0
 		if target_enemy.is_in_group("elite") or target_enemy.is_in_group("boss"):
 			burn_main_multiplier = Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
 		var burn_final_dmg = burn_dmg_val * burn_main_multiplier
-		target_enemy.take_damage(int(burn_final_dmg), false, false, debuff_id)
-		Global.emit_signal("monster_damage", damage_type_int, burn_final_dmg, target_enemy.global_position - Vector2(16, 6))
-		
-		var burn_radius = burn_instance.collision.shape.radius * burn_instance.collision.global_scale.x
 		var burn_space_state = target_enemy.get_world_2d().direct_space_state
+		target_enemy.take_damage(int(burn_final_dmg), false, false, debuff_id)
+		Global.emit_signal("monster_damage", damage_type_int, burn_final_dmg, target_position - Vector2(16, 6), debuff_id)
+		
+		var burn_radius = BURN_BASE_RADIUS * burn_range_multiplier
 		var burn_query = PhysicsShapeQueryParameters2D.new()
 		var burn_circle_shape = CircleShape2D.new()
 		burn_circle_shape.radius = burn_radius
 		burn_query.set_shape(burn_circle_shape)
-		burn_query.transform = Transform2D(0, target_enemy.global_position)
+		burn_query.transform = Transform2D(0, target_position)
 		burn_query.collide_with_areas = true
 		burn_query.collide_with_bodies = false
-		burn_query.collision_mask = target_enemy.collision_mask
-		var burn_results = burn_space_state.intersect_shape(burn_query)
+		burn_query.collision_mask = CharacterEffects.ENEMY_COLLISION_LAYER
+		var burn_results = burn_space_state.intersect_shape(burn_query, MAX_BURN_NEIGHBOR_HITS)
 		for hit in burn_results:
 			var area = hit.collider
 			if area == target_enemy:
 				continue
-			if area.is_in_group("enemies"):
-				var burn_neighbor_multiplier = 1.0
-				if area.is_in_group("elite") or area.is_in_group("boss"):
-					burn_neighbor_multiplier = Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
-				var burn_neighbor_damage = burn_dmg_val * 0.5 * burn_neighbor_multiplier
-				area.take_damage(int(burn_neighbor_damage), false, false, debuff_id)
-				Global.emit_signal("monster_damage", damage_type_int, burn_neighbor_damage, area.global_position)
+			if not _is_valid_dot_damage_target(area):
+				continue
+			var burn_neighbor_multiplier = 1.0
+			if area.is_in_group("elite") or area.is_in_group("boss"):
+				burn_neighbor_multiplier = Faze.get_fire_elite_boss_multiplier(PC.faze_fire_level)
+			var burn_neighbor_position: Vector2 = area.global_position
+			var burn_neighbor_damage = burn_dmg_val * 0.5 * burn_neighbor_multiplier
+			area.take_damage(int(burn_neighbor_damage), false, false, debuff_id)
+			Global.emit_signal("monster_damage", damage_type_int, burn_neighbor_damage, burn_neighbor_position, debuff_id)
 		return
 	var main_target_multiplier = EnemyDebuffManager.get_debuff_elite_boss_damage_multiplier(debuff_id, target_enemy)
 	var final_damage = damage * main_target_multiplier
+	var target_position := target_enemy.global_position
+	var space_state = target_enemy.get_world_2d().direct_space_state
 	target_enemy.take_damage(int(final_damage), false, false, debuff_id)
-	Global.emit_signal("monster_damage", damage_type_int, final_damage, target_enemy.global_position - Vector2(16, 6))
+	Global.emit_signal("monster_damage", damage_type_int, final_damage, target_position - Vector2(16, 6), debuff_id)
 	if not config.dot_affect_neighbors:
 		return
-	var space_state = target_enemy.get_world_2d().direct_space_state
 	var query = PhysicsShapeQueryParameters2D.new()
 	var circle_shape = CircleShape2D.new()
 	circle_shape.radius = config.dot_neighbor_radius
 	query.set_shape(circle_shape)
-	query.transform = Transform2D(0, target_enemy.global_position)
+	query.transform = Transform2D(0, target_position)
 	query.collide_with_areas = true
 	query.collide_with_bodies = false
-	query.collision_mask = target_enemy.collision_mask
+	query.collision_mask = CharacterEffects.ENEMY_COLLISION_LAYER
 	# intersect_shape 用于使用形状在物理空间中查询重叠对象
-	var results = space_state.intersect_shape(query)
+	var results = space_state.intersect_shape(query, MAX_BURN_NEIGHBOR_HITS)
 	for hit in results:
 		var area = hit.collider
 		if area == target_enemy:
 			continue
-		if area.is_in_group("enemies"):
-			var neighbor_multiplier = EnemyDebuffManager.get_debuff_elite_boss_damage_multiplier(debuff_id, area)
-			var neighbor_damage = Global.apply_enemy_damage_bonus(damage * neighbor_multiplier, area)
-			area.take_damage(int(neighbor_damage), false, false, debuff_id)
-			Global.emit_signal("monster_damage", damage_type_int, neighbor_damage, area.global_position)
+		if not _is_valid_dot_damage_target(area):
+			continue
+		var neighbor_multiplier = EnemyDebuffManager.get_debuff_elite_boss_damage_multiplier(debuff_id, area)
+		var neighbor_damage = Global.apply_enemy_damage_bonus(damage * neighbor_multiplier, area)
+		var neighbor_position: Vector2 = area.global_position
+		area.take_damage(int(neighbor_damage), false, false, debuff_id)
+		Global.emit_signal("monster_damage", damage_type_int, neighbor_damage, neighbor_position, debuff_id)
+
+func _has_valid_target() -> bool:
+	return target_enemy != null and is_instance_valid(target_enemy)
+
+func _cleanup_invalid_target() -> void:
+	var debuff_ids = active_debuffs.keys()
+	for debuff_id in debuff_ids:
+		var debuff_entry = active_debuffs[debuff_id]
+		if debuff_entry["timer"] and is_instance_valid(debuff_entry["timer"]):
+			debuff_entry["timer"].queue_free()
+		if debuff_entry["effect_instance"] and is_instance_valid(debuff_entry["effect_instance"]):
+			debuff_entry["effect_instance"].queue_free()
+	active_debuffs.clear()
+	set_process(false)
+
+static func _consume_dot_tick_budget() -> bool:
+	var frame := Engine.get_process_frames()
+	if _dot_tick_frame != frame:
+		_dot_tick_frame = frame
+		_dot_tick_count = 0
+	if _dot_tick_count >= MAX_DOT_TICKS_PER_FRAME:
+		return false
+	_dot_tick_count += 1
+	return true
+
+static func _get_player_level_dot_damage_multiplier() -> float:
+	return 1.0 + float(maxi(0, PC.pc_lv - 1)) * 0.02
+
+static func _is_valid_dot_damage_target(area: Node) -> bool:
+	if area == null or not is_instance_valid(area):
+		return false
+	if not area.is_in_group("enemies"):
+		return false
+	if not area.has_method("take_damage"):
+		return false
+	return not bool(area.get("is_dead"))
+
+func _try_show_burn_effect(effect_position: Vector2, range_multiplier: float) -> void:
+	if Global.debuff_burn_pool == null:
+		return
+	if Global.debuff_burn_pool.active_count >= MAX_VISIBLE_BURN_EFFECTS:
+		return
+	var burn_instance = Global.debuff_burn_pool.acquire(get_tree().current_scene)
+	if burn_instance == null or not is_instance_valid(burn_instance):
+		return
+	burn_instance.global_position = effect_position
+	burn_instance.scale = Vector2.ONE * range_multiplier
+	if burn_instance.has_method("setup"):
+		burn_instance.call("setup")
+
+static func _play_burn_sound_limited() -> void:
+	var now := Time.get_ticks_msec()
+	if now - _last_burn_sound_msec < BURN_SOUND_COOLDOWN_MSEC:
+		return
+	_last_burn_sound_msec = now
+	SEManager.play("50")
 
 func _get_dot_damage_type_int(debuff_id: String) -> int:
 	if debuff_id == "electrified":

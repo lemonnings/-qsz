@@ -31,6 +31,7 @@ var locked_enemy_ref: WeakRef = null
 var locked_direction: Vector2 = Vector2.RIGHT
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self )
 	# 初始状态
 	modulate.a = 0.0
 	if circleAnimate:
@@ -48,9 +49,8 @@ func _ready() -> void:
 func setup_water(pos: Vector2, p_damage: float, p_range: float, p_heal: int, options: Dictionary = {}) -> void:
 	global_position = pos
 	# 伤害仅由奖励直接累加（main_skill_water_damage），不再叠加生灵法则乘数，避免奖励加成 × 法则加成的双重放大
-	var life_range_multiplier = Faze.get_life_range_multiplier(PC.faze_life_level)
 	damage = p_damage
-	range_val = p_range * life_range_multiplier * Global.get_attack_range_multiplier()
+	range_val = p_range
 	heal_amount = p_heal
 	player_ref = get_tree().get_first_node_in_group("player")
 	
@@ -80,7 +80,7 @@ func setup_water(pos: Vector2, p_damage: float, p_range: float, p_heal: int, opt
 		var hp_ratio = float(PC.pc_hp) / float(PC.pc_max_hp)
 		if hp_ratio < shield_hp_threshold:
 			shield_value = int(actual_heal * shield_bonus)
-			PC.add_shield(shield_value, 12.0)
+			PC.add_shield(shield_value, 12.0, "water")
 
 	
 	if player_ref and not conditional_heal_bonus:
@@ -193,18 +193,18 @@ func _process_enemy_hit(area: Area2D) -> void:
 	if not hit_targets_circle.has(enemy_id):
 		hit_targets_circle[enemy_id] = true
 		should_deal_circle = true
-		
-		# Water33: 击中敌人额外治疗
-		if conditional_heal_bonus and player_ref:
-			# 只在第一次击中时触发额外治疗
-			if hit_targets_circle.size() == 1:
-				# 计算额外治疗量
-				var max_hp = player_ref.maxHP
-				var target_heal = max(10, int(float(max_hp) * 0.025 * heal_multiplier))
-				var current_base_heal = max(1, int(heal_amount * heal_reduction * heal_multiplier))
-				var extra_heal = target_heal - current_base_heal
-				if extra_heal > 0:
-					_perform_heal(extra_heal)
+	
+	# Water33: 击中敌人额外治疗
+	if conditional_heal_bonus and player_ref:
+		# 只在第一次击中时触发额外治疗
+		if hit_targets_circle.size() == 1:
+			# 计算额外治疗量
+			var max_hp = player_ref.maxHP
+			var target_heal = max(40, int(float(max_hp) * 0.025 * heal_multiplier))
+			var current_base_heal = max(1, int(heal_amount * heal_reduction * heal_multiplier))
+			var extra_heal = target_heal - current_base_heal
+			if extra_heal > 0:
+				_perform_heal(extra_heal)
 
 	# 扇形伤害判定 (Water1)
 	if enable_sector and player_ref:
@@ -248,6 +248,7 @@ func _deal_damage(enemy: Area2D, deal_circle: bool, deal_sector: bool) -> void:
 	
 	# 统一造成伤害，避免因无敌帧导致第二次伤害丢失
 	if total_damage > 0:
+		var was_alive_for_bagua = enemy.get("hp") > 0 and not enemy.get("is_dead")
 		var final_damage = total_damage
 		if is_crit:
 			final_damage *= PC.crit_damage_multi
@@ -258,6 +259,7 @@ func _deal_damage(enemy: Area2D, deal_circle: bool, deal_sector: bool) -> void:
 			
 		if enemy.has_method("take_damage"):
 			enemy.take_damage(int(final_damage), is_crit, false, "water") # 击中粒子崩散特效
+			Faze.add_bagua_hit_progress(enemy, was_alive_for_bagua)
 		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "water")
 			
 		# Water2: 迟滞 - 减速 (只要造成伤害且开启了减速)
@@ -271,4 +273,4 @@ func _perform_heal(amount: int) -> void:
 	if amount > 0:
 		var actual_heal := int(player_ref.heal(amount))
 		if actual_heal > 0:
-			Global.emit_signal("player_heal", actual_heal, player_ref.global_position)
+			Global.emit_signal("player_heal", actual_heal, player_ref.global_position, "water")

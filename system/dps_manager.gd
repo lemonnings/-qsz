@@ -17,6 +17,11 @@ var weapon_dps: Dictionary = {}
 var dps_timer: Timer
 
 func _ready() -> void:
+	_ensure_dps_timer()
+
+func _ensure_dps_timer() -> void:
+	if dps_timer != null and is_instance_valid(dps_timer):
+		return
 	dps_timer = Timer.new()
 	dps_timer.wait_time = 1.0 # 每秒计算一次
 	dps_timer.timeout.connect(_calculate_dps)
@@ -29,9 +34,11 @@ func reset_dps_counter() -> void:
 	weapon_damage_records.clear()
 	current_total_dps = 0.0
 	weapon_dps.clear()
+	_ensure_dps_timer()
 	dps_timer.start()
 
 func stop_dps_counter() -> void:
+	_ensure_dps_timer()
 	dps_timer.stop()
 
 # 记录整体与单武器伤害

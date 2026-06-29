@@ -19,7 +19,7 @@ extends Node
 #   - enhance_level: 强化等级
 #   属性字段包括：pc_atk(攻击), pc_atk_speed(攻速), crit_chance(暴击率), crit_damage_multi(暴击伤害), 
 #   pc_final_atk(最终伤害), point_multi(真气获取), spirit_multi(精魄获取), exp_multi(经验获取), drop_multi(掉落率),
-#   attack_range(攻击范围), damage_reduction_rate(减伤率), pc_hp(HP), pc_speed(移速), tianming(天命)
+#   attack_range(伤害范围), damage_reduction_rate(减伤率), pc_hp(HP), pc_speed(移速), tianming(天命)
 #   每个属性包含：value(当前值), base_value(原始值)
 
 const ITEM_SORT_DEFAULT := 999999
@@ -487,7 +487,7 @@ var items_data = {
 			"item_price": 300,
 			"item_source": "合成获得",
 			"item_use_condition": "",
-			"item_detail": "愈灵回复效果提升10%（最多10次）",
+			"item_detail": "治愈灵气回复效果提升5%（最多10次）",
 			"item_rare": "rare",
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
@@ -1089,7 +1089,7 @@ var items_data = {
 			"item_price": 300,
 			"item_source": "合成获得",
 			"item_use_condition": "",
-			"item_detail": "体型大小降低0.3%，攻击范围提升0.3%（最多50次）",
+			"item_detail": "体型大小降低0.3%，伤害范围提升0.3%（最多50次）",
 			"item_rare": "rare",
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
@@ -1101,7 +1101,7 @@ var items_data = {
 			"item_price": 600,
 			"item_source": "合成获得",
 			"item_use_condition": "",
-			"item_detail": "体型大小降低0.5%，攻击范围提升0.5%（最多20次）",
+			"item_detail": "体型大小降低0.5%，伤害范围提升0.5%（最多20次）",
 			"item_rare": "epic",
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
@@ -1113,7 +1113,7 @@ var items_data = {
 			"item_price": 1000,
 			"item_source": "合成获得",
 			"item_use_condition": "",
-			"item_detail": "体型大小降低0.75%，攻击范围提升0.75%（最多10次）",
+			"item_detail": "体型大小降低0.75%，伤害范围提升0.75%（最多10次）",
 			"item_rare": "legendary",
 			"item_anime": "res://assets/animations/item_pickup_epic.tres"
 		},
@@ -1488,7 +1488,9 @@ func _ensure_item_sort_values() -> void:
 func get_item_all_data(item_id: String) -> Dictionary:
 	_ensure_item_sort_values()
 	if items_data.has(item_id):
-		return items_data[item_id]
+		var item_data: Dictionary = items_data[item_id].duplicate(true)
+		item_data["item_detail"] = _get_dynamic_item_detail(item_id, str(item_data.get("item_detail", "")))
+		return item_data
 	else:
 		printerr("Item not found: ", item_id)
 		return {}
@@ -1499,6 +1501,8 @@ func get_item_property(item_id: String, property_name: String):
 	if items_data.has(item_id):
 		var item_info = items_data[item_id]
 		if item_info.has(property_name):
+			if property_name == "item_detail":
+				return _get_dynamic_item_detail(item_id, str(item_info[property_name]))
 			return item_info[property_name]
 		else:
 			printerr("Property not found for item '", item_id, "': ", property_name)
@@ -1528,6 +1532,11 @@ func get_limited_pill_use_info(item_id: String) -> Dictionary:
 		"used": int(Global.pill_used_counts.get(item_id, 0)),
 		"max_uses": max_uses
 	}
+
+func _get_dynamic_item_detail(item_id: String, base_detail: String) -> String:
+	if item_id == "item_040":
+		return base_detail + "\n已使用：" + str(Global.fruit_heal_multi_used_count) + "/10"
+	return base_detail
 
 # 野果拾取函数
 var _heal_aura_buff_timer: SceneTreeTimer = null # 治愈灵气临时buff计时器
@@ -1564,7 +1573,7 @@ func _on_item_001_picked_up(_player, _item_id := "", force_pickup := false):
 		PC.pc_speed *= (1.0 + speed_bonus)
 		PC.damage_reduction_rate += dr_bonus
 		# 3秒后自动移除
-		_heal_aura_buff_timer = _player.get_tree().create_timer(3.0)
+		_heal_aura_buff_timer = _player.get_tree().create_timer(3.0, false)
 		_heal_aura_buff_timer.timeout.connect(_remove_heal_aura_buff)
 
 	return true # 表示成功拾取
@@ -1705,12 +1714,12 @@ func _execute_item_use_effect(item_id: String, count: int) -> bool:
 	match item_id:
 		"item_008":
 			return true
-		"item_040": # 回春露 - 果实回复效果提升10%（最多10次）
+		"item_040": # 回春露 - 治愈灵气回复效果提升5%（最多10次）
 			var remaining_uses = 10 - Global.fruit_heal_multi_used_count
 			if remaining_uses <= 0:
 				return false
 			var actual_uses = min(count, remaining_uses)
-			Global.fruit_heal_multi += 0.1 * actual_uses
+			Global.fruit_heal_multi += 0.05 * actual_uses
 			Global.fruit_heal_multi_used_count += actual_uses
 			return true
 		_:
@@ -1726,6 +1735,8 @@ func can_use_item(item_id: String) -> bool:
 # 获取物品使用描述
 func get_item_use_description(item_id: String) -> String:
 	match item_id:
+		"item_040":
+			return "使用后治愈灵气回复效果提升5%。已使用：" + str(Global.fruit_heal_multi_used_count) + "/10。"
 		"item_103":
 			return "使用后获得5000真气。"
 		"item_104":

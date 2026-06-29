@@ -38,6 +38,7 @@ var wave_direction: Vector2 = Vector2.RIGHT
 var apply_bleed: bool = false
 var extra_crit_chance: float = 0.0
 var extra_crit_damage: float = 0.0
+var wave_range_scale: float = 1.0
 var sprite_base_scale: Vector2
 var collision_base_scale: Vector2
 var base_range: float = 0.0
@@ -79,7 +80,7 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 	
 	var bloodwave_instance = scene.instantiate()
 	tree.current_scene.add_child(bloodwave_instance)
-	bloodwave_instance.setup_blood_wave(origin_pos, base_direction, data.range, data.damage, data.apply_bleed, data.extra_crit_chance, data.extra_crit_damage)
+	bloodwave_instance.setup_blood_wave(origin_pos, base_direction, data.range, data.damage, data.apply_bleed, data.extra_crit_chance, data.extra_crit_damage, data.range_scale)
 
 static func _build_data() -> Dictionary:
 	var _base_damage = PC.pc_atk * main_skill_bloodwave_damage
@@ -104,18 +105,22 @@ static func _build_data() -> Dictionary:
 	var wide_range_mult = Faze.get_wide_range_multiplier()
 	var wide_damage_mult = Faze.get_wide_damage_multiplier(range_bonus_ratio) # 这里range_bonus_ratio是血气波自身的范围加成
 	
-	var final_damage = (PC.pc_atk * damage_multiplier) * (1.0 + damage_bonus_ratio) * wide_damage_mult
-	var final_range = base_wave_range * (1.0 + range_bonus_ratio) * wide_range_mult * Global.get_attack_range_multiplier()
+	damage_multiplier += wide_damage_mult - 1.0
+	damage_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(damage_multiplier, "blood_wave", ["wide"])
+	var final_damage = (PC.pc_atk * damage_multiplier) * (1.0 + damage_bonus_ratio)
+	var final_range_scale = (1.0 + range_bonus_ratio) * wide_range_mult * Global.get_attack_range_multiplier()
 	
 	return {
 		"damage": final_damage,
-		"range": final_range,
+		"range": base_wave_range,
+		"range_scale": final_range_scale,
 		"apply_bleed": bloodwave_apply_bleed,
 		"extra_crit_chance": bloodwave_extra_crit_chance,
 		"extra_crit_damage": bloodwave_extra_crit_damage
 	}
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	sprite_base_scale = sprite.scale
 	collision_base_scale = collision_shape.scale
 	var rect_shape = collision_shape.shape as RectangleShape2D
@@ -137,7 +142,7 @@ func _process(delta: float) -> void:
 	if travel_elapsed >= travel_duration:
 		queue_free()
 
-func setup_blood_wave(p_start_position: Vector2, p_direction: Vector2, p_range: float, p_damage: float, p_apply_bleed: bool, p_extra_crit_chance: float, p_extra_crit_damage: float) -> void:
+func setup_blood_wave(p_start_position: Vector2, p_direction: Vector2, p_range: float, p_damage: float, p_apply_bleed: bool, p_extra_crit_chance: float, p_extra_crit_damage: float, p_range_scale: float = 1.0) -> void:
 	start_position = p_start_position
 	wave_direction = p_direction.normalized()
 	wave_range = p_range
@@ -147,6 +152,7 @@ func setup_blood_wave(p_start_position: Vector2, p_direction: Vector2, p_range: 
 	apply_bleed = p_apply_bleed
 	extra_crit_chance = p_extra_crit_chance
 	extra_crit_damage = p_extra_crit_damage
+	wave_range_scale = max(p_range_scale, 0.01)
 	end_position = start_position + wave_direction * wave_range
 	travel_duration = wave_range / travel_speed
 	
@@ -155,8 +161,8 @@ func setup_blood_wave(p_start_position: Vector2, p_direction: Vector2, p_range: 
 func _apply_visual() -> void:
 	rotation = wave_direction.angle() + rotation_offset
 	global_position = start_position
-	sprite.scale = sprite_base_scale
-	collision_shape.scale = collision_base_scale
+	sprite.scale = sprite_base_scale * wave_range_scale
+	collision_shape.scale = collision_base_scale * wave_range_scale
 
 func _apply_damage() -> void:
 	var crit_chance = PC.crit_chance + extra_crit_chance

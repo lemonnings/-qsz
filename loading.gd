@@ -12,7 +12,7 @@ var scene_load_status = 0
 # 预定义的提示文本列表
 var tip_texts = [
 	"等级非常重要，升级可以提升大量的攻击与少量的体力上限",
-	"每升2级可以获取一次领悟的刷新次数",
+	"初始拥有2次领悟刷新次数，每升3级可以再获取1次",
 	"每升5级可以获取一次领悟的锁定次数",
 	"天命可以提升获取更高品质领悟选项的概率",
 	"感电会让目标每秒受到50%角色攻击的伤害",
@@ -41,6 +41,9 @@ var tip_texts = [
 ]
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	get_tree().paused = false
+	Global.in_menu = false
 	progressBar.max_value = 100.0
 	# 播放当前角色的奔跑动画
 	var anim_name = _get_character_anim_name()
@@ -75,5 +78,7 @@ func _get_character_anim_name() -> String:
 			return "noam"
 		"kansel":
 			return "kansel"
+		"xueming":
+			return "xueming"
 		_:
 			return "moning"

@@ -12,6 +12,7 @@ var _elapsed: float = 0.0
 var _base_scale: Vector2 = Vector2.ONE
 
 func _ready() -> void:
+	CharacterEffects.include_enemy_collision_mask(self)
 	if not sprite:
 		sprite = get_node_or_null("AnimatedSprite2D")
 	if not collision_shape:
@@ -28,8 +29,8 @@ func setup_detonation(pos: Vector2, p_damage: float, p_can_crit: bool, p_destroy
 	scale = _base_scale
 	modulate.a = 1.0
 	
-	# 25阶: 在原有scale基础上大幅增加范围
-	if destroy_level >= 25:
+	# 29阶: 在原有scale基础上大幅增加范围
+	if destroy_level >= 29:
 		scale *= 2.25
 	
 	# 播放动画
@@ -62,6 +63,8 @@ func _deal_damage_to_overlapping() -> void:
 				continue
 			
 			var final_damage = damage
+			if destroy_level >= 16 and area.is_in_group("boss"):
+				final_damage *= 4.0
 			
 			# 引爆伤害可暴击
 			var is_crit = false

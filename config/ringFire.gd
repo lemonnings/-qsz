@@ -16,18 +16,31 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if player:
 		global_position = player.global_position
+		if player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("Ringfire"):
+			visible = false
+			return
+		visible = true
 		current_angle += rotation_speed * delta
 		if current_angle > 2 * PI:
 			current_angle -= 2 * PI
 
-		for i in range(get_child_count()):
-			var child = get_child(i)
-			var angle = current_angle + (2 * PI * i) / fire_count
+		var child_count: int = get_child_count()
+		for i in range(child_count):
+			var child: Node2D = get_child(i) as Node2D
+			if child == null:
+				continue
+			var angle: float = current_angle + (2 * PI * i) / float(child_count)
 			child.position = Vector2(cos(angle), sin(angle)) * radius
 			child.rotation = angle + PI / 2
 
 
 func _on_ringFire_damage_triggered():
+	if player and player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("Ringfire"):
+		for raw_child in get_children():
+			var existing_child: Node = raw_child as Node
+			remove_child(existing_child)
+			existing_child.queue_free()
+		return
 	var current_fire_count = fire_count
 	var current_rotation_speed = PI * 1 # 始终从基础值出发，避免累乘
 
@@ -41,13 +54,15 @@ func _on_ringFire_damage_triggered():
 
 	rotation_speed = current_rotation_speed
 	
-	for child in get_children():
+	for raw_child in get_children():
+		var child: Node = raw_child as Node
+		remove_child(child)
 		child.queue_free()
 
 	# 确保只实例化一次
 	for i in range(current_fire_count):
-		var fire_instance = preload("res://Scenes/player/ring_fire.tscn").instantiate()
+		var fire_instance: Node2D = preload("res://Scenes/player/ring_fire.tscn").instantiate() as Node2D
 		add_child(fire_instance)
 		var angle = (2 * PI * i) / current_fire_count
 		fire_instance.position = Vector2(cos(angle), sin(angle)) * radius
-		fire_instance.hit_cooldown = hit_cooldown
+		fire_instance.set("hit_cooldown", hit_cooldown)

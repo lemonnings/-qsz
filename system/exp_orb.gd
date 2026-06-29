@@ -38,10 +38,13 @@ var fade_timer: float = 0.0
 
 # 视觉组件
 var sprite: Sprite2D = null
+var collision_shape: CollisionShape2D = null
 
 func _ready() -> void:
 	if sprite == null:
 		_create_sprite()
+	if collision_shape == null:
+		collision_shape = get_node_or_null("CollisionShape2D") as CollisionShape2D
 	
 	# 添加到经验光点组
 	if not is_in_group("exp_orb"):
@@ -145,7 +148,7 @@ func _process_rise(delta: float) -> void:
 	
 	# 检查是否向上飘动了20像素
 	if global_position.y <= rise_start_y - rise_distance:
-		current_state = State.TRACK
+		_set_state(State.TRACK)
 
 func _process_track(delta: float) -> void:
 	# 追踪玩家
@@ -158,7 +161,7 @@ func _process_track(delta: float) -> void:
 	
 	# 飞入玩家身体内部7像素再进入渐隐状态（而非碰到边缘就消失）
 	if distance <= 7.0:
-		current_state = State.FADE
+		_set_state(State.FADE)
 		fade_timer = fade_duration
 		# 给玩家添加经验
 		_give_exp_to_player()
@@ -185,20 +188,23 @@ func _give_exp_to_player() -> void:
 	if exp_value <= 0:
 		return
 	PC.pc_exp += exp_value
+	exp_value = 0
 
 func _on_area_entered(area: Area2D) -> void:
 	# 如果碰到玩家，立即进入追踪状态
 	if area.is_in_group("player") or area.get_parent().is_in_group("player"):
 		if current_state == State.RISE:
-			current_state = State.TRACK
+			_set_state(State.TRACK)
 
 func setup(value: int, spawn_position: Vector2) -> void:
 	if sprite == null:
 		_create_sprite()
+	if collision_shape == null:
+		collision_shape = get_node_or_null("CollisionShape2D") as CollisionShape2D
 	exp_value = value
 	global_position = spawn_position
 	# 以怪物当前位置为起点，向上偏移20像素后开始追踪
-	current_state = State.RISE
+	_set_state(State.RISE)
 	fade_timer = 0.0
 	breath_time = randf() * PI * 2
 	rise_start_y = spawn_position.y
@@ -208,13 +214,27 @@ func setup(value: int, spawn_position: Vector2) -> void:
 		sprite.modulate.a = 0.75
 		sprite.rotation = 0.0
 		sprite.scale = Vector2(base_sprite_scale, base_sprite_scale)
-	var collision_shape := get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if collision_shape:
 		collision_shape.set_deferred("disabled", false)
 
+func add_exp(value: int) -> void:
+	if value <= 0:
+		return
+	exp_value += value
+	if current_state == State.FADE:
+		_set_state(State.TRACK)
+		fade_timer = 0.0
+	if sprite:
+		sprite.modulate.a = 0.75
+
+func _set_state(new_state: State) -> void:
+	current_state = new_state
+	if collision_shape:
+		collision_shape.set_deferred("disabled", new_state != State.RISE)
+
 func reset_for_pool() -> void:
 	exp_value = 1
-	current_state = State.RISE
+	_set_state(State.RISE)
 	fade_timer = 0.0
 	rise_start_y = 0.0
 	rise_target_y = -rise_distance
@@ -226,6 +246,5 @@ func reset_for_pool() -> void:
 		sprite.modulate.a = 0.75
 		sprite.rotation = 0.0
 		sprite.scale = Vector2(base_sprite_scale, base_sprite_scale)
-	var collision_shape := get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if collision_shape:
 		collision_shape.set_deferred("disabled", false)

@@ -12,6 +12,7 @@ extends CanvasLayer
 # 材料A  （ [color=#777]0[/color] / 1） 用#777表示没有满足的，这个要随着合成数量变动
 # 材料B  （ [color=green]2[/color] / 1） 用green表示已经满足的，这个要随着合成数量变动
 @export var synthesis_confirm_button: Button # 合成确认按钮
+@export var synthesis_max_button: Button # 合成数量调整到当前最大可合成数量
 @export var synthesis_num: LineEdit # 合成数量输入框
 
 @export var v_box_container: VBoxContainer # 选择了合成分类后，用来装载item_msg这些button的容器，按竖排排列
@@ -126,7 +127,7 @@ var recipes_data = {
 	},
 	"recipe_005": {
 		"recipe_name": "回春露",
-		"recipe_description": "愈疗气息回复效果提升10%（最多10次）",
+		"recipe_description": "治愈灵气回复效果提升5%（最多10次）",
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huichunlu.png",
 		"category": "danyao",
 		"required_items": [
@@ -405,12 +406,16 @@ var recipes_data = {
 }
 
 # 当前选中的分类和配方
-var current_category = "danyao"
-var current_recipe_id = ""
-var current_craft_count = 1
+var current_category: String = "danyao"
+var current_recipe_id: String = ""
+var current_craft_count: int = 1
+const RECIPE_BUTTON_FONT_SIZE := 24
 
 # 界面状态变量
 var transition_tween: Tween
+var _recipe_scroll_container: ScrollContainer = null
+var _mobile_scroll_touch_index: int = -1
+var _mobile_scroll_mouse_dragging: bool = false
 
 func _ready():
 	# 连接按钮信号
@@ -422,6 +427,8 @@ func _ready():
 		yitai_button.pressed.connect(_on_yitai_button_pressed)
 	if synthesis_confirm_button:
 		synthesis_confirm_button.pressed.connect(_on_synthesis_confirm_pressed)
+	if synthesis_max_button:
+		synthesis_max_button.pressed.connect(_on_synthesis_max_pressed)
 	if synthesis_num:
 		synthesis_num.text_changed.connect(_on_synthesis_num_changed)
 	
@@ -435,6 +442,53 @@ func _ready():
 	
 	# 默认选择丹药类分类
 	_select_category("danyao")
+	_recipe_scroll_container = _find_recipe_scroll_container()
+
+func _input(event: InputEvent) -> void:
+	if not visible or not Global.is_mobile_input_mode():
+		return
+	if _recipe_scroll_container == null:
+		_recipe_scroll_container = _find_recipe_scroll_container()
+	if _recipe_scroll_container == null:
+		return
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		if touch.pressed:
+			if _mobile_scroll_touch_index == -1 and _is_mobile_scroll_point_inside(touch.position):
+				_mobile_scroll_touch_index = touch.index
+		elif touch.index == _mobile_scroll_touch_index:
+			_mobile_scroll_touch_index = -1
+	elif event is InputEventScreenDrag:
+		var drag := event as InputEventScreenDrag
+		if drag.index == _mobile_scroll_touch_index:
+			_apply_mobile_scroll_delta(drag.relative.y)
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton:
+		var mouse_button := event as InputEventMouseButton
+		if mouse_button.button_index == MOUSE_BUTTON_LEFT:
+			if mouse_button.pressed:
+				_mobile_scroll_mouse_dragging = _is_mobile_scroll_point_inside(mouse_button.position)
+			else:
+				_mobile_scroll_mouse_dragging = false
+	elif event is InputEventMouseMotion and _mobile_scroll_mouse_dragging:
+		var motion := event as InputEventMouseMotion
+		_apply_mobile_scroll_delta(motion.relative.y)
+		get_viewport().set_input_as_handled()
+
+func _find_recipe_scroll_container() -> ScrollContainer:
+	if v_box_container == null:
+		return null
+	return v_box_container.get_parent() as ScrollContainer
+
+func _is_mobile_scroll_point_inside(point: Vector2) -> bool:
+	if _recipe_scroll_container == null:
+		return false
+	return _recipe_scroll_container.get_global_rect().has_point(point)
+
+func _apply_mobile_scroll_delta(relative_y: float) -> void:
+	if _recipe_scroll_container == null:
+		return
+	_recipe_scroll_container.scroll_vertical = maxi(0, _recipe_scroll_container.scroll_vertical + roundi(-relative_y))
 
 # 分类按钮点击事件
 func _on_shang_button_pressed():
@@ -465,11 +519,11 @@ func _update_recipe_list():
 			child.queue_free()
 	
 	# 获取当前分类的配方
-	var category_recipes = _get_recipes_by_category(current_category)
+	var category_recipes: Array = _get_recipes_by_category(current_category)
 	
 	# 为每个配方创建按钮
 	for recipe_id in category_recipes:
-		var recipe = get_recipe_data(recipe_id)
+		var recipe: Dictionary = get_recipe_data(recipe_id)
 		if recipe.is_empty():
 			continue
 		
@@ -478,13 +532,14 @@ func _update_recipe_list():
 			#continue
 		
 		# 复制item_msg按钮样式
-		var recipe_button = item_msg.duplicate()
+		var recipe_button: Button = item_msg.duplicate() as Button
 		recipe_button.visible = true
-		recipe_button.text = recipe.recipe_name
+		recipe_button.text = "%s(%s)" % [str(recipe.recipe_name), _format_craftable_count(_get_max_craft_count(recipe_id))]
+		recipe_button.add_theme_font_size_override("font_size", RECIPE_BUTTON_FONT_SIZE)
 		
 		# 设置配方图标
 		if recipe.has("recipe_icon") and recipe.recipe_icon != "":
-			var icon_texture = load(recipe.recipe_icon)
+			var icon_texture: Resource = load(recipe.recipe_icon)
 			if icon_texture:
 				recipe_button.icon = icon_texture
 		
@@ -496,9 +551,9 @@ func _update_recipe_list():
 
 # 获取指定分类的配方
 func _get_recipes_by_category(category: String) -> Array:
-	var category_recipes = []
+	var category_recipes: Array = []
 	for recipe_id in recipes_data.keys():
-		var recipe = recipes_data[recipe_id]
+		var recipe: Dictionary = recipes_data[recipe_id]
 		if recipe.has("category") and recipe.category == category:
 			category_recipes.append(recipe_id)
 	return category_recipes
@@ -508,42 +563,63 @@ func _on_recipe_button_pressed(recipe_id: String):
 	current_recipe_id = recipe_id
 	_update_synthesis_detail()
 
+func _get_max_craft_count(recipe_id: String) -> int:
+	var recipe: Dictionary = get_recipe_data(recipe_id)
+	if recipe.is_empty():
+		return 0
+	var max_count := 2147483647
+	for required_item in recipe.required_items:
+		var item_id := str(required_item.item_id)
+		var required_count := int(required_item.count)
+		if required_count <= 0:
+			continue
+		var owned_count: int = Global.get_item_count(item_id)
+		max_count = mini(max_count, owned_count / required_count)
+	if max_count == 2147483647:
+		return 0
+	return max_count
+
+func _format_craftable_count(count: int) -> String:
+	if count > 99:
+		return "99+"
+	return str(maxi(count, 0))
+
 # 更新合成详情
 func _update_synthesis_detail():
 	if !synthesis_detail or current_recipe_id.is_empty():
 		return
 	
-	var recipe = get_recipe_data(current_recipe_id)
+	var recipe: Dictionary = get_recipe_data(current_recipe_id)
 	if recipe.is_empty():
 		return
 	
 	# 获取合成数量
-	var craft_count = current_craft_count
+	var craft_count: int = current_craft_count
 	
 	# 构建详情文本
-	var detail_text = ""
+	var detail_text: String = ""
 	
 	# 配方名称和描述
 	detail_text += recipe.recipe_description + "\n"
 	
 	# 已持有数量（显示第一个结果物品的持有数量）
 	if recipe.result_items.size() > 0:
-		var result_item_id = recipe.result_items[0].item_id
-		var owned_count = Global.get_item_count(result_item_id)
+		var result_item_id: String = str(recipe.result_items[0].item_id)
+		var owned_count: int = Global.get_item_count(result_item_id)
 		detail_text += "\n已持有 " + str(owned_count) + "\n\n"
 	
 	# 合成材料需求
 	detail_text += "合成材料需求\n"
 	for required_item in recipe.required_items:
-		var item_id = required_item.item_id
-		var needed_count = required_item.count * craft_count
-		var owned_count = Global.get_item_count(item_id)
-		var item_name = ItemManager.get_item_property(item_id, "item_name")
+		var item_id: String = str(required_item.item_id)
+		var needed_count: int = int(required_item.count) * craft_count
+		var owned_count: int = Global.get_item_count(item_id)
+		var item_name: Variant = ItemManager.get_item_property(item_id, "item_name")
 		if item_name == null:
 			item_name = item_id
 		
 		# 根据是否满足需求设置颜色
-		var color = "green" if owned_count >= needed_count else "#777"
+		var color: String = "green" if owned_count >= needed_count else "#777"
 		detail_text += item_name + "  （[color=" + color + "]" + str(owned_count) + "[/color] / " + str(needed_count) + "）\n"
 	
 	synthesis_detail.text = detail_text
@@ -555,7 +631,7 @@ func _clear_synthesis_detail():
 
 # 合成数量改变事件
 func _on_synthesis_num_changed(new_text: String):
-	var num = new_text.to_int()
+	var num: int = new_text.to_int()
 	if num <= 0:
 		num = 1
 		if synthesis_num:
@@ -563,25 +639,42 @@ func _on_synthesis_num_changed(new_text: String):
 	current_craft_count = num
 	_update_synthesis_detail()
 
+func _on_synthesis_max_pressed() -> void:
+	if current_recipe_id.is_empty():
+		_show_message("请先选择要合成的物品")
+		return
+	var max_count := _get_max_craft_count(current_recipe_id)
+	if max_count <= 0:
+		_show_message("当前材料不足")
+		return
+	current_craft_count = max_count
+	if synthesis_num:
+		synthesis_num.text = str(max_count)
+	_update_synthesis_detail()
+
 # 合成确认按钮点击事件
 func _on_synthesis_confirm_pressed():
 	if current_recipe_id.is_empty():
 		_show_message("请先选择要合成的物品")
 		return
+	if current_craft_count <= 0:
+		_show_message("合成数量错误")
+		return
 	
-	var craft_result = craft_items(current_recipe_id, current_craft_count)
+	var craft_result: Dictionary = craft_items(current_recipe_id, current_craft_count)
 	if craft_result.success:
 		_show_message("合成成功！获得物品：" + _format_obtained_items(craft_result.obtained_items))
 		_update_synthesis_detail() # 更新显示
+		_update_recipe_list()
 	else:
 		_show_message("合成失败：" + craft_result.message)
 
 # 格式化获得的物品信息
 func _format_obtained_items(obtained_items: Array) -> String:
-	var items_text = ""
+	var items_text: String = ""
 	for i in range(obtained_items.size()):
-		var item_info = obtained_items[i]
-		var item_name = ItemManager.get_item_property(item_info.item_id, "item_name")
+		var item_info: Dictionary = obtained_items[i]
+		var item_name: Variant = ItemManager.get_item_property(item_info.item_id, "item_name")
 		if item_name == null:
 			item_name = item_info.item_id
 		items_text += item_name + " *" + str(item_info.count)
@@ -604,7 +697,9 @@ func get_recipe_data(recipe_id: String) -> Dictionary:
 
 # 检查是否有足够的材料进行合成
 func can_craft(recipe_id: String, craft_count: int = 1) -> bool:
-	var recipe = get_recipe_data(recipe_id)
+	if craft_count <= 0:
+		return false
+	var recipe: Dictionary = get_recipe_data(recipe_id)
 	if recipe.is_empty():
 		return false
 	
@@ -614,8 +709,8 @@ func can_craft(recipe_id: String, craft_count: int = 1) -> bool:
 	
 	# 检查每个需求物品是否足够
 	for required_item in recipe.required_items:
-		var item_id = required_item.item_id
-		var needed_count = required_item.count * craft_count
+		var item_id: String = str(required_item.item_id)
+		var needed_count: int = int(required_item.count) * craft_count
 		if Global.get_item_count(item_id) < needed_count:
 			return false
 	
@@ -623,14 +718,17 @@ func can_craft(recipe_id: String, craft_count: int = 1) -> bool:
 
 # 执行合成操作
 func craft_items(recipe_id: String, craft_count: int = 1) -> Dictionary:
-	var result = {
+	var result: Dictionary = {
 		"success": false,
 		"message": "",
 		"obtained_items": []
 	}
+	if craft_count <= 0:
+		result.message = "合成数量错误"
+		return result
 	
 	# 检查配方是否存在
-	var recipe = get_recipe_data(recipe_id)
+	var recipe: Dictionary = get_recipe_data(recipe_id)
 	if recipe.is_empty():
 		result.message = "配方不存在"
 		return result
@@ -647,22 +745,22 @@ func craft_items(recipe_id: String, craft_count: int = 1) -> Dictionary:
 	
 	# 消耗材料
 	for required_item in recipe.required_items:
-		var item_id = required_item.item_id
-		var consume_count = required_item.count * craft_count
+		var item_id: String = str(required_item.item_id)
+		var consume_count: int = int(required_item.count) * craft_count
 		if !Global.consume_item_count(item_id, consume_count):
 			result.message = "材料不足"
 			return result
 	
 	# 执行合成并获得物品
-	var total_obtained_items = []
+	var total_obtained_items: Array = []
 	for i in range(craft_count):
-		var obtained_items = _process_craft_results(recipe.result_items)
+		var obtained_items: Array = _process_craft_results(recipe.result_items)
 		total_obtained_items.append_array(obtained_items)
 	
 	# 将获得的物品添加到背包/货币
 	for item_info in total_obtained_items:
-		var item_id = item_info.item_id
-		var count = item_info.count
+		var item_id: String = str(item_info.item_id)
+		var count: int = int(item_info.count)
 		Global.add_item_count(item_id, count)
 	
 	result.success = true

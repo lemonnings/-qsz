@@ -12,6 +12,7 @@ var timer: float = 0.0
 @onready var player = get_tree().get_first_node_in_group("player")
 
 func start(duration_time: float, dmg_ratio: float):
+	CharacterEffects.include_enemy_collision_mask(self)
 	duration = duration_time
 	damage_ratio = dmg_ratio
 	
@@ -43,6 +44,8 @@ func _create_screen_flash(color: Color):
 	tween.tween_callback(canvas_layer.queue_free)
 
 func _process(delta):
+	if Global.is_battle_time_paused():
+		return
 	duration -= delta
 	timer += delta
 	
@@ -68,9 +71,9 @@ func check_collision():
 	for target in all_targets:
 		if target.is_in_group("enemies"):
 			# 造成伤害 — 修习树技能篇：应用技能总伤害加成
-			var damage = PC.pc_atk * damage_ratio * (1.0 + Global.study_skill_damage_bonus)
+			var damage = PC.pc_atk * damage_ratio * (1.0 + PC.active_skill_multi)
 			if target.has_method("take_damage"):
-				target.take_damage(damage, false, false, "")
+				target.take_damage(damage, false, false, "holy_fire")
 				hit_enemy = true
 	
 	if hit_enemy:
@@ -87,6 +90,6 @@ func check_collision():
 			
 		PC.pc_hp = min(PC.pc_max_hp, PC.pc_hp + heal_amount)
 		if player:
-			Global.emit_signal("player_heal", heal_amount, player.global_position)
+			Global.emit_signal("player_heal", heal_amount, player.global_position, "holy_fire")
 		else:
-			Global.emit_signal("player_heal", heal_amount, global_position)
+			Global.emit_signal("player_heal", heal_amount, global_position, "holy_fire")

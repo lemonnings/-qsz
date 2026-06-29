@@ -32,6 +32,7 @@ var bullet_packed_scene: PackedScene
 var last_shot_time: float = 0.0
 var player_node: Node2D
 var enemies_in_scene: Array = []
+var blue_random_miss_count: int = 0
 
 var move_target_position: Vector2
 var move_timer: float = 0.0
@@ -130,13 +131,21 @@ func _on_fire_timer_timeout() -> void:
 			fire_sword_spirit_bullet()
 
 func fire_random_bullet() -> void:
-	# 蓝色召唤物：向左侧或右侧30度发射
-	var side = randi() % 2 # 0为左侧，1为右侧
-	var base_angle = PI if side == 0 else 0.0 # 左侧180度，右侧0度
-	var random_offset = randf_range(-PI / 6, PI / 6) # ±30度范围
-	var final_angle = base_angle + random_offset
-	var direction = Vector2(cos(final_angle), sin(final_angle))
-	create_bullet(direction, damage_multiplier)
+	# 蓝色召唤物：连续两次随机未命中后，第三次锁定最近目标。
+	var direction: Vector2 = _get_blue_random_direction()
+	create_bullet(direction, damage_multiplier, 1.0, null, true)
+
+func _get_blue_random_direction() -> Vector2:
+	if blue_random_miss_count >= 2:
+		var target_enemy: Node2D = find_nearest_enemy()
+		if target_enemy != null:
+			blue_random_miss_count = 0
+			return (target_enemy.global_position - global_position).normalized()
+	var side: int = randi() % 2 # 0为左侧，1为右侧
+	var base_angle: float = PI if side == 0 else 0.0 # 左侧180度，右侧0度
+	var random_offset: float = randf_range(-PI / 6, PI / 6) # ±30度范围
+	var final_angle: float = base_angle + random_offset
+	return Vector2(cos(final_angle), sin(final_angle))
 
 func fire_directed_bullets() -> void:
 	if not player_node:
@@ -215,14 +224,14 @@ func fire_heal_bullet(_color: Color) -> void:
 		PC.pc_hp = PC.pc_max_hp
 	
 	if player_node:
-		Global.emit_signal("player_heal", heal_amount, player_node.global_position)
+		Global.emit_signal("player_heal", heal_amount, player_node.global_position, "summon")
 
 # 辅助型召唤：主要提供持续增益，定时器触发时无需额外行为
 func fire_aux_bullet(_color: Color) -> void:
 	# 辅助效果在 set_summon_type 中一次性应用，这里不做额外处理
 	pass
 
-func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1.0, spawn_position_override: Variant = null) -> void:
+func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1.0, spawn_position_override: Variant = null, report_blue_random_result: bool = false) -> void:
 	if PC.is_game_over:
 		return
 	# 创建召唤物子弹
@@ -244,6 +253,8 @@ func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1
 	bullet.summon_damage = final_damage
 	bullet.is_summon_bullet = true
 	bullet.penetration_count = 1 # 设置穿透次数
+	if report_blue_random_result and bullet.has_method("setup_pseudo_random_reporter"):
+		bullet.setup_pseudo_random_reporter(self, &"_on_blue_random_bullet_hit", &"_on_blue_random_bullet_miss")
 	
 	# 设置子弹大小
 	var bullet_size = Global.get_attack_range_multiplier() * PC.summon_bullet_size_multiplier
@@ -257,6 +268,12 @@ func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1
 	
 	# 添加到场景
 	get_tree().current_scene.add_child(bullet)
+
+func _on_blue_random_bullet_hit() -> void:
+	blue_random_miss_count = 0
+
+func _on_blue_random_bullet_miss() -> void:
+	blue_random_miss_count += 1
 
 func create_sword_spirit_bullet(direction: Vector2) -> void:
 	if PC.is_game_over:

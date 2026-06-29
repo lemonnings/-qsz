@@ -197,6 +197,8 @@ func update_buff(new_remaining_time: float, new_stack: int):
 	_update_display()
 
 func _process(delta: float):
+	if Global.is_battle_time_paused():
+		return
 	if not is_permanent and remaining_time > 0:
 		remaining_time -= delta
 		if remaining_time <= 0:
