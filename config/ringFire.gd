@@ -3,7 +3,7 @@ extends Node2D
 @export var rotation_speed: float = PI * 1
 @export var radius: float = 70.0
 @export var fire_count: int = 4
-@export var hit_cooldown: float = 0.3
+@export var hit_cooldown: float = 0.4
 
 @onready var player = get_tree().get_first_node_in_group("player")
 
@@ -16,7 +16,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if player:
 		global_position = player.global_position
-		if player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("Ringfire"):
+		if player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("RingFire"):
 			visible = false
 			return
 		visible = true
@@ -35,7 +35,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _on_ringFire_damage_triggered():
-	if player and player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("Ringfire"):
+	if player and player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("RingFire"):
 		for raw_child in get_children():
 			var existing_child: Node = raw_child as Node
 			remove_child(existing_child)

@@ -34,6 +34,7 @@ const SEPARATION_BLOCK_GRID_MOVEMENT: bool = false
 const ENEMY_FLIP_COOLDOWN_SECONDS: float = 0.5
 const ENEMY_FLIP_TIME_META: String = "_last_enemy_flip_change_time"
 const PLAYER_PUSH_MAX_STEP: float = 4.0
+const CHARGE_SIDE_KNOCKBACK_DISTANCE: float = 18.0
 const PLAYER_DEATH_SCATTER_ANGLE_DEGREES: float = 55.0
 const PLAYER_DEATH_SCATTER_META: String = "_player_death_scatter_direction"
 
@@ -95,6 +96,24 @@ static func include_enemy_collision_mask(area: CollisionObject2D) -> void:
 	if area == null:
 		return
 	area.collision_mask = int(area.collision_mask) | ENEMY_COLLISION_LAYER
+
+static func apply_player_charge_side_knockback(player_body: Node2D, charge_direction: Vector2, source_position: Vector2, distance: float = CHARGE_SIDE_KNOCKBACK_DISTANCE) -> void:
+	if player_body == null or not is_instance_valid(player_body) or distance <= 0.0:
+		return
+	var body := player_body as CharacterBody2D
+	if body == null or not body.is_inside_tree():
+		return
+	var forward := charge_direction.normalized()
+	if forward == Vector2.ZERO:
+		forward = (body.global_position - source_position).normalized()
+	if forward == Vector2.ZERO:
+		forward = Vector2.RIGHT
+	var side := forward.orthogonal().normalized()
+	var source_to_player := body.global_position - source_position
+	if source_to_player.dot(side) < 0.0:
+		side = -side
+	var motion := side * distance
+	body.move_and_collide(motion)
 
 static func set_enemy_flip_h(enemy: Node, sprite_node: Node, flip_h: bool, cooldown_seconds: float = ENEMY_FLIP_COOLDOWN_SECONDS) -> bool:
 	if sprite_node == null or not is_instance_valid(sprite_node):

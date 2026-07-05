@@ -6,7 +6,7 @@ class_name HolyLight
 
 static var main_skill_holylight_damage: float = 1.10
 static var holylight_final_damage_multi: float = 1.0
-static var holylight_range_scale: float = 1.0
+static var holylight_range_scale: float = 1.35
 static var holylight_duration: float = 1.5
 static var holylight_center_extra_damage: float = 0.0
 static var holylight_heal_base: int = 30
@@ -17,10 +17,13 @@ static var holylight_size_multiplier: float = 1.0
 static var holylight_vulnerable_damage_bonus: float = 0.0
 static var holylight_vulnerable_crit: bool = false
 
+const DAMAGE_TICK_ADVANCE: float = 0.2
+const HEAL_WINDOW_AFTER_FADE_START: float = 0.2
+
 static func reset_data() -> void:
 	main_skill_holylight_damage = 1.10
 	holylight_final_damage_multi = 1.0
-	holylight_range_scale = 1.0
+	holylight_range_scale = 1.35
 	holylight_duration = 1.5
 	holylight_center_extra_damage = 0.0
 	holylight_heal_base = 30
@@ -41,6 +44,9 @@ var range_scale: float = 1.0
 var vulnerable_damage_bonus: float = 0.0
 var vulnerable_crit: bool = false
 var base_collision_scale: Vector2 = Vector2.ONE
+var damage_applied: bool = false
+var heal_applied: bool = false
+var heal_window_active: bool = false
 
 var elapsed_time: float = 0.0 # 填充进度计时器
 var draw_rotation: float = 0.0 # 仅十字架旋转，椭圆外形保持不动
@@ -228,7 +234,11 @@ func setup(pos: Vector2, p_damage: float, p_heal_base: int, p_heal_ratio: float,
 	tween.tween_property(self , "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	monitoring = true
 	monitorable = true
+	if not body_entered.is_connected(_on_body_entered):
+		body_entered.connect(_on_body_entered)
 	
+	var damage_delay := maxf(0.0, duration - DAMAGE_TICK_ADVANCE)
+	get_tree().create_timer(damage_delay, false).timeout.connect(_on_damage_tick)
 	# 倒计时结束前闪烁并消失（process_always=false，暂停时停止计时）
 	get_tree().create_timer(duration, false).timeout.connect(_on_burst)
 
@@ -313,6 +323,10 @@ func _on_burst() -> void:
 	if not is_instance_valid(self ):
 		return
 	
+	heal_window_active = true
+	_try_apply_heal()
+	get_tree().create_timer(HEAL_WINDOW_AFTER_FADE_START, false).timeout.connect(_on_heal_window_timeout)
+	
 	# 闪烁并提高曝光度后消失
 	var tween = create_tween()
 	tween.tween_property(self , "modulate", Color(3, 3, 3, 1), 0.08)
@@ -321,11 +335,14 @@ func _on_burst() -> void:
 	tween.finished.connect(_on_burst_finished)
 
 func _on_burst_finished() -> void:
-	_apply_end_damage_and_heal()
 	queue_free()
-# 1 +12 3 +3 5 blue 3 purple 2 gold
-#
-func _apply_end_damage_and_heal() -> void:
+
+func _on_damage_tick() -> void:
+	if not is_instance_valid(self):
+		return
+	if damage_applied:
+		return
+	damage_applied = true
 	var areas = get_overlapping_areas()
 	for area in areas:
 		if area.is_in_group("enemies") and area.has_method("take_damage"):
@@ -342,6 +359,17 @@ func _apply_end_damage_and_heal() -> void:
 				is_crit = true
 				final_damage *= PC.crit_damage_multi
 			area.take_damage(int(final_damage), is_crit, false, "holylight")
+
+func _on_heal_window_timeout() -> void:
+	heal_window_active = false
+
+func _on_body_entered(body: Node) -> void:
+	if heal_window_active:
+		_try_apply_heal()
+
+func _try_apply_heal() -> void:
+	if heal_applied:
+		return
 	var bodies = get_overlapping_bodies()
 	for body in bodies:
 		if body.is_in_group("player") and body.has_method("heal"):
@@ -351,3 +379,5 @@ func _apply_end_damage_and_heal() -> void:
 			var actual_heal := int(body.heal(heal_val))
 			if actual_heal > 0:
 				Global.emit_signal("player_heal", actual_heal, body.global_position, "holylight")
+			heal_applied = true
+			return

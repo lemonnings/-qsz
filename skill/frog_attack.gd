@@ -83,11 +83,12 @@ func play_animation(anim_name: String):
 
 # 当火球碰撞到其他物体时触发
 func _on_body_entered(body: Node2D) -> void:
-	# 检查碰撞对象是否为玩家角色且玩家非无敌状态
-	if body is CharacterBody2D and not PC.invincible:
+	if not (body is CharacterBody2D and body.is_in_group("player")):
+		return
+	if not PC.invincible:
 		var actual_damage = int(atk * (1.0 - PC.damage_reduction_rate)) # 计算实际伤害，考虑减伤
 		PC.player_hit(int(actual_damage), self , "") # 扣除玩家血量
-		ObjectPool.recycle(self ) # 火球击中目标后消失
+	ObjectPool.recycle(self ) # 火球击中目标后消失
 
 func reset_for_pool() -> void:
 	speed = DEFAULT_SPEED

@@ -23,11 +23,14 @@ const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 var attack_warning_started: bool = false
 var attack_warning_overlay: AnimatedSprite2D = null
 var attack_warning_tween: Tween = null
+const WANDER_DIRECTION_CHANGE_INTERVAL: float = 2.0
+const WANDER_VIEW_MARGIN_PIXELS: float = 48.0
+var wander_direction_timer: float = 0.0
 
 # 精英怪相关
 
-# 边界检测标志，防止重复触发转向
-var is_out_of_bounds: bool = false
+# 视野检测标志，防止重复触发转向
+var is_out_of_view: bool = false
 
 func _ready():
 	player_hit_emit_self = true
@@ -70,6 +73,8 @@ func _physics_process(delta: float) -> void:
 		speed = get_effective_move_speed(base_speed)
 		if CharacterEffects.is_player_dead_or_game_over():
 			move_vector = CharacterEffects.get_player_death_scatter_direction(self)
+		else:
+			_update_wander_direction(delta)
 		position += CharacterEffects.apply_soft_separation_to_direction(self, move_vector) * speed * delta
 		# 根据水平移动方向翻转精灵
 		if not _is_offscreen:
@@ -77,14 +82,7 @@ func _physics_process(delta: float) -> void:
 				CharacterEffects.set_enemy_flip_h(self, sprite, true)
 			elif move_vector.x < 0:
 				CharacterEffects.set_enemy_flip_h(self, sprite, false)
-		
-		# 游走型弹幕怪不追人，必须用地图边界钳制，避免长期漂移到地图外。
-		var currently_out_of_bounds := clamp_self_to_scene_bounds(16.0)
-		if currently_out_of_bounds and not is_out_of_bounds:
-			move_vector = steer_direction_toward_scene_bounds_center(move_vector, 30.0, 16.0)
-			is_out_of_bounds = true
-		elif not currently_out_of_bounds:
-			is_out_of_bounds = false
+		clamp_self_to_scene_bounds(16.0)
 		
 	if hp <= 0:
 		free_health_bar()
@@ -166,23 +164,23 @@ func _on_area_entered(area: Area2D) -> void:
 
 # 随机选择一个移动方向
 func _pick_random_direction() -> void:
-	var angle = randf() * TAU
-	move_vector = Vector2(cos(angle), sin(angle))
+	move_vector = choose_camera_wander_direction(move_vector, 35.0, WANDER_VIEW_MARGIN_PIXELS, 16.0)
+	wander_direction_timer = randf_range(0.0, WANDER_DIRECTION_CHANGE_INTERVAL)
+
+func _update_wander_direction(delta: float) -> void:
+	wander_direction_timer -= delta
+	var wander_bounds := get_camera_wander_bounds(WANDER_VIEW_MARGIN_PIXELS, 16.0)
+	var currently_out_of_view := is_position_outside_rect(global_position, wander_bounds)
+	if currently_out_of_view and not is_out_of_view:
+		wander_direction_timer = 0.0
+	if wander_direction_timer <= 0.0:
+		move_vector = choose_camera_wander_direction(move_vector, 35.0, WANDER_VIEW_MARGIN_PIXELS, 16.0)
+		wander_direction_timer = WANDER_DIRECTION_CHANGE_INTERVAL
+	is_out_of_view = currently_out_of_view
 
 # 朝向安全区域中心选择方向（避免再次越界）
 func _pick_direction_to_safe_zone() -> void:
-	# 计算朝向玩家的方向
-	var direction_to_player: Vector2
-	if CharacterEffects.is_player_dead_or_game_over():
-		direction_to_player = CharacterEffects.get_player_death_scatter_direction(self)
-	elif PC.player_instance:
-		direction_to_player = (PC.player_instance.global_position - global_position).normalized()
-	else:
-		# 如果没有玩家实例，使用默认方向
-		direction_to_player = Vector2.LEFT
-	# 添加随机偏移（±30度），增加变化性
-	var random_offset = deg_to_rad(randf_range(-30, 30))
-	move_vector = direction_to_player.rotated(random_offset)
+	move_vector = choose_camera_wander_direction(move_vector, 25.0, WANDER_VIEW_MARGIN_PIXELS, 16.0)
 
 # 每隔 FIRE_INTERVAL 秒向玩家发射一次子弹
 func _shoot_bullet() -> void:

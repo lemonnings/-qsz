@@ -1,4 +1,4 @@
-extends "res://Script/monster/monster_base.gd"
+extends "res://Script/monster/boss_base.gd"
 
 # ================= 被封印的石碑 (boss_stele.gd) =================
 # 核心机制：暗影拘束、位移置换、高额腐蚀伤害
@@ -7,9 +7,9 @@ var is_attacking: bool = false
 
 # 属性配置
 var speed: float = 0.0 # 石碑不移动
-var hpMax: float = SettingMoster.stone_man("hp") * 14
+var hpMax: float = SettingMoster.stone_man("hp") * 10
 var hp: float = hpMax
-var atk: float = SettingMoster.stone_man("atk") * 0.85
+var atk: float = SettingMoster.stone_man("atk") * 0.935
 var get_point: int = SettingMoster.stone_man("point") * 75
 var get_exp: int = 0
 
@@ -90,27 +90,7 @@ func _create_non_blocking_screen_filter(color: Color) -> Dictionary:
 	return {"canvas": canvas, "filter": filter}
 
 func _ready():
-	add_to_group("boss")
-	process_mode = Node.PROCESS_MODE_PAUSABLE
-	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
-# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 25.0
-	match stage_difficulty:
-		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier *= 1.05
-		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier *= 1.1
-	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
-		hpMax = Global.get_poetry_boss_max_hp("boss_stele", hpMax)
-	else:
-		hpMax += Global.get_current_dps() * dps_multiplier
-	hp = hpMax
-	
-	# 浅层难度下Boss只造成75%伤害
-	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
-		atk *= 0.75
-
-	setup_monster_base()
+	stage_difficulty = setup_boss_base("boss_stele")
 	player_hit_emit_self = true
 	use_debuff_take_damage_multiplier = false
 	check_action_disabled_on_body_entered = false

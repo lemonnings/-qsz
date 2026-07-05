@@ -168,6 +168,10 @@ func _present_reward_choices(main_skill_name: String, choice_count: int) -> void
 func _roll_rewards(main_skill_name: String, choice_count: int) -> Array:
 	var rewards: Array = []
 	var exclude_reward_ids: Array[String] = []
+	if main_skill_name == "" and level_up_manager and level_up_manager.has_method("get_locked_reward_ids"):
+		for locked_id in level_up_manager.get_locked_reward_ids():
+			if not exclude_reward_ids.has(locked_id):
+				exclude_reward_ids.append(locked_id)
 	var advance_pool_is_empty := false
 	if main_skill_name != "":
 		advance_pool_is_empty = LvUp.is_advance_pool_empty(main_skill_name)
@@ -288,9 +292,9 @@ func _close_shop() -> void:
 	if shop_ui:
 		shop_ui.visible = false
 		shop_ui.modulate.a = 1.0
+	Global.is_level_up = false
 	if level_up_manager:
 		level_up_manager.resume_battle_from_external_popup(get_tree())
-	Global.is_level_up = false
 	if canvas_layer and canvas_layer.has_method("set_qi_vortex_shop_manual_level_up_hidden"):
 		canvas_layer.set_qi_vortex_shop_manual_level_up_hidden(false)
 	if canvas_layer and canvas_layer.has_method("_update_lv_up_start_button_badge"):

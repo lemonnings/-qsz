@@ -45,6 +45,7 @@ var last_wind_stack_atk_speed_bonus: float = 0.0
 var last_wind_stack_move_speed_bonus: float = 0.0
 var wind_huanfeng_expiries: Array[float] = []
 var _blood_thud_trigger_frame: int = -1
+var _last_blood_independent_dr_multiplier: float = 1.0
 # 生灵法则 9阶：神圣光辉计时器
 var life_sacred_light_timer: float = 0.0
 var life_sacred_light_interval: float = 20.0
@@ -52,6 +53,7 @@ var life_sacred_light_interval: float = 20.0
 func setup(p_player: Node2D) -> void:
 	player = p_player
 	_reset_bagua_hit_progress_records()
+	_last_blood_independent_dr_multiplier = 1.0
 	Global.connect("player_hit", Callable(self , "_on_player_hit"))
 	Global.connect("player_healed", Callable(self , "_on_player_healed"))
 	Global.connect("player_shield_damaged", Callable(self , "_on_player_shield_damaged"))
@@ -83,7 +85,9 @@ func _process(delta: float) -> void:
 		life_sacred_light_timer = 0.0
 		
 	if PC.faze_blood_level < 4:
+		_update_blood_independent_damage_reduction()
 		return
+	_update_blood_independent_damage_reduction()
 	electrified_timer += delta
 	if electrified_timer >= electrified_interval:
 		electrified_timer -= electrified_interval
@@ -236,13 +240,17 @@ func _trigger_electrified(source: String = "unknown") -> void:
 	PC.add_shield(shield_amount, 4.0, "faze_bath_blood_thud")
 
 func _get_blood_electrified_damage_multiplier(level: int) -> float:
+	if level >= 29:
+		return 8.0
 	if level >= 22:
-		return 5.0
+		return 4.0
 	if level >= 9:
 		return 2.0
 	return 1.0
 
 func _get_blood_electrified_elite_bonus(level: int) -> float:
+	if level >= 29:
+		return 16.0
 	if level >= 9:
 		return 2.0
 	return 0.0
@@ -254,18 +262,16 @@ func _get_blood_bleed_chance(level: int) -> float:
 
 func _get_blood_electrified_range_scale(level: int) -> float:
 	if level >= 22:
-		return 3.4 # 极大幅提升
+		return 4.5 # 范围提升350%
 	if level >= 16:
-		return 1.7 # 大幅提升
+		return 2.0 # 范围提升100%
 	if level >= 4:
 		return 1.35 # 基础 +35%
 	return 1.0
 
 func _get_blood_shield_ratio(level: int) -> float:
-	if level >= 22:
-		return 0.07
-	if level >= 16:
-		return 0.04
+	if level >= 29:
+		return 0.10
 	if level >= 9:
 		return 0.03
 	return 0.025
@@ -276,9 +282,38 @@ func _update_blood_debuff_bonus() -> void:
 		return
 	last_blood_level = level
 	var bleed_elite_bonus = 0.0
-	if level >= 16:
+	if level >= 29:
+		bleed_elite_bonus = 16.0
+	elif level >= 16:
 		bleed_elite_bonus = 5.0
 	EnemyDebuffManager.set_debuff_elite_boss_bonus("bleed", bleed_elite_bonus)
+
+func _update_blood_independent_damage_reduction() -> void:
+	const SOURCE_ID := "faze_blood_missing_hp"
+	var multiplier := get_blood_missing_hp_independent_damage_multiplier()
+	if is_equal_approx(multiplier, _last_blood_independent_dr_multiplier):
+		return
+	_last_blood_independent_dr_multiplier = multiplier
+	if multiplier >= 0.999:
+		PC.remove_independent_damage_reduction_source(SOURCE_ID)
+	else:
+		PC.add_independent_damage_reduction_source(SOURCE_ID, multiplier)
+
+static func get_blood_missing_hp_independent_damage_reduction_per_step(level: int) -> float:
+	if level >= 29:
+		return 0.06
+	if level >= 22:
+		return 0.03
+	return 0.0
+
+static func get_blood_missing_hp_independent_damage_multiplier() -> float:
+	var per_step := get_blood_missing_hp_independent_damage_reduction_per_step(PC.faze_blood_level)
+	if per_step <= 0.0 or PC.pc_max_hp <= 0:
+		return 1.0
+	var hp_ratio := clampf(float(PC.pc_hp) / float(PC.pc_max_hp), 0.0, 1.0)
+	var missing_steps := int(floor((1.0 - hp_ratio) / 0.10))
+	var reduction := clampf(float(missing_steps) * per_step, 0.0, 0.95)
+	return 1.0 - reduction
 
 func _update_thunder_debuff_bonus() -> void:
 	var level = PC.faze_thunder_level
@@ -310,18 +345,18 @@ func _update_summon_bonus() -> void:
 	PC.faze_summon_extra_capacity = 0
 	PC.faze_summon_bullet_size_bonus = 0.0
 	
-	# 4阶：召唤物伤害与治疗+20%，触发间隔-10%
+	# 4阶：召唤物伤害与治疗+25%，触发间隔-10%
 	if level >= 4:
-		PC.faze_summon_damage_bonus += 0.20
+		PC.faze_summon_damage_bonus += 0.25
 		PC.faze_summon_interval_reduction += 0.1
 		
-	# 9阶：最大召唤物容量+1，召唤物弹体大小+20%
+	# 9阶：最大召唤物容量+1，召唤物弹体大小+25%
 	if level >= 9:
 		PC.faze_summon_extra_capacity += 1
-		PC.faze_summon_bullet_size_bonus += 0.2
-	# 16阶：召唤1个不占容量的双极魔剑，召唤物伤害与治疗+40%
+		PC.faze_summon_bullet_size_bonus += 0.25
+	# 16阶：召唤1个不占容量的双极魔剑，召唤物伤害与治疗+50%
 	if level >= 16:
-		PC.faze_summon_damage_bonus += 0.40
+		PC.faze_summon_damage_bonus += 0.50
 	# 29阶：召唤1个不占容量的陨灭剑灵，召唤物伤害与治疗+100%，触发间隔-30%
 	if level >= 29:
 		PC.faze_summon_damage_bonus += 1.0
@@ -344,13 +379,13 @@ func _update_summon_bonus_implementation() -> void:
 	var size_bonus = 0.0
 	
 	if level >= 4:
-		damage_bonus += 0.20
+		damage_bonus += 0.25
 		interval_reduction += 0.1
 	if level >= 9:
 		extra_cap += 1
-		size_bonus += 0.2
+		size_bonus += 0.25
 	if level >= 16:
-		damage_bonus += 0.40
+		damage_bonus += 0.50
 	if level >= 29:
 		damage_bonus += 1.0
 		interval_reduction += 0.3
@@ -388,7 +423,7 @@ func _update_summon_bonus_implementation() -> void:
 			_summon_sword_spirit()
 			PC.has_summoned_sword_spirit = true
 	
-	# 22阶：每个召唤物使角色攻击力+10%，攻速+8%（动态更新）
+	# 22阶：每个召唤物使角色攻击力+10%，攻速+10%（动态更新）
 	_update_summon_count_bonus()
 
 func _summon_bipolar_sword() -> void:
@@ -422,7 +457,7 @@ func _has_special_summon(type_int: int) -> bool:
 			return true
 	return false
 
-# 22阶：每个召唤物使角色攻击力+10%，攻速+8%（动态，随召唤物数量变化）
+# 22阶：每个召唤物使角色攻击力+10%，攻速+10%（动态，随召唤物数量变化）
 func _update_summon_count_bonus() -> void:
 	var level = PC.faze_summon_level
 	var count = PC.summon_count
@@ -431,8 +466,8 @@ func _update_summon_count_bonus() -> void:
 	var target_atk_speed_bonus = 0.0
 	
 	if level >= 22:
-		target_atk_bonus = int(count * PC.pc_start_atk * 0.10)
-		target_atk_speed_bonus = float(count) * 0.08
+		target_atk_bonus = int(count * PC.base_atk * 0.10)
+		target_atk_speed_bonus = float(count) * 0.10
 	
 	# 应用攻击力差值
 	var delta_atk = target_atk_bonus - _last_applied_summon_atk_bonus
@@ -441,7 +476,7 @@ func _update_summon_count_bonus() -> void:
 	
 	# 应用攻速差值
 	var delta_atk_speed = target_atk_speed_bonus - _last_applied_summon_atk_speed_bonus
-	PC.pc_atk_speed += delta_atk_speed
+	PC.attack_speed_bonus += delta_atk_speed
 	_last_applied_summon_atk_speed_bonus = target_atk_speed_bonus
 
 var _last_applied_shield_hp_bonus: float = 0.0
@@ -540,12 +575,12 @@ func _update_wind_bonus() -> void:
 	var level = PC.faze_wind_level
 	var base_move_bonus = Faze.get_wind_base_move_speed_bonus(level)
 	if base_move_bonus != last_wind_base_move_speed_bonus:
-		PC.pc_speed += base_move_bonus - last_wind_base_move_speed_bonus
+		PC.move_speed_bonus += base_move_bonus - last_wind_base_move_speed_bonus
 		last_wind_base_move_speed_bonus = base_move_bonus
 	# 9阶：啸风类攻击速度+30%；16阶：再次+40%
 	var base_atk_speed_bonus = Faze.get_wind_base_atk_speed_bonus(level)
 	if base_atk_speed_bonus != last_wind_base_atk_speed_bonus:
-		PC.pc_atk_speed += base_atk_speed_bonus - last_wind_base_atk_speed_bonus
+		PC.attack_speed_bonus += base_atk_speed_bonus - last_wind_base_atk_speed_bonus
 		last_wind_base_atk_speed_bonus = base_atk_speed_bonus
 	var max_stacks = Faze.get_wind_huanfeng_max_stacks(level)
 	PC.wind_huanfeng_max_stacks = max_stacks
@@ -586,10 +621,10 @@ func _update_wind_huanfeng() -> void:
 	var stacks = wind_huanfeng_expiries.size()
 	var target_bonus = float(stacks) * Faze.get_wind_huanfeng_speed_bonus_per_stack(PC.faze_wind_level)
 	var delta_atk = target_bonus - last_wind_stack_atk_speed_bonus
-	PC.pc_atk_speed += delta_atk
+	PC.attack_speed_bonus += delta_atk
 	last_wind_stack_atk_speed_bonus = target_bonus
 	var delta_move = target_bonus - last_wind_stack_move_speed_bonus
-	PC.pc_speed += delta_move
+	PC.move_speed_bonus += delta_move
 	last_wind_stack_move_speed_bonus = target_bonus
 	PC.wind_huanfeng_stacks = stacks
 	PC.wind_huanfeng_max_stacks = Faze.get_wind_huanfeng_max_stacks(PC.faze_wind_level)
@@ -613,10 +648,10 @@ func _get_wind_huanfeng_remaining_time(now: float) -> float:
 
 func _clear_wind_huanfeng() -> void:
 	if last_wind_stack_atk_speed_bonus != 0.0:
-		PC.pc_atk_speed -= last_wind_stack_atk_speed_bonus
+		PC.attack_speed_bonus -= last_wind_stack_atk_speed_bonus
 		last_wind_stack_atk_speed_bonus = 0.0
 	if last_wind_stack_move_speed_bonus != 0.0:
-		PC.pc_speed -= last_wind_stack_move_speed_bonus
+		PC.move_speed_bonus -= last_wind_stack_move_speed_bonus
 		last_wind_stack_move_speed_bonus = 0.0
 	wind_huanfeng_expiries.clear()
 	PC.wind_huanfeng_stacks = 0
@@ -649,10 +684,10 @@ func _update_wide_bonus() -> void:
 		PC.faze_wide_damage_bonus += 0.45
 		PC.faze_wide_range_bonus += 0.20
 	
-	# 22阶：角色的伤害范围提升25%，广域类武器的范围加成每提高1%，伤害提升量由1%提升到3%
+	# 22阶：角色的伤害范围提升25%，广域类武器的范围加成每提高1%，伤害提升量由1%提升到2%
 	if level >= 22:
 		target_global_attack_range_bonus += 0.25
-		PC.faze_wide_range_to_damage_ratio = 3.0
+		PC.faze_wide_range_to_damage_ratio = 2.0
 	
 	# 29阶：广域类武器伤害及伤害范围再次提升65%
 	if level >= 29:
@@ -797,7 +832,7 @@ static func get_wide_damage_multiplier(base_range_bonus: float) -> float:
 	# 总范围加成 = 基础范围加成 + 法则范围加成
 	var total_range_bonus = base_range_bonus + PC.faze_wide_range_bonus
 	
-	# 转化率 (1%范围 -> 1%或3%伤害)
+	# 转化率 (1%范围 -> 1%或2%伤害)
 	# total_range_bonus is like 0.5 for 50%
 	# ratio is 1.0 or 3.0
 	# bonus = (total_range_bonus * 100) * (ratio / 100) = total_range_bonus * ratio
@@ -848,9 +883,12 @@ static func apply_destroy_crit_overflow(base_chance: float, base_crit_multi: flo
 # ============ 破坏法则 - 引爆 ============
 
 static func get_destroy_detonation_chance(level: int) -> float:
-	# 9阶：6%概率引爆
+	if level >= 22:
+		return 0.16
+	if level >= 16:
+		return 0.12
 	if level >= 9:
-		return 0.06
+		return 0.09
 	return 0.0
 
 static func get_destroy_detonation_damage_multiplier(level: int) -> float:
@@ -915,7 +953,7 @@ static func get_life_exp_multiplier(level: int) -> float:
 	return 1.0
 
 static func get_exp_multiplier() -> float:
-	var multiplier = 1.0 + PC.exp_multi
+	var multiplier = Global.get_effective_exp_multiplier()
 	multiplier = multiplier * get_life_exp_multiplier(PC.faze_life_level)
 	multiplier = multiplier * get_chaos_exp_multiplier(get_current_chaos_level())
 	return multiplier
@@ -978,11 +1016,11 @@ static func get_treasure_lucky_bonus(level: int) -> int:
 	if level >= 9:
 		bonus += 6
 	if level >= 16:
-		bonus += 12
+		bonus += 9
 	if level >= 22:
-		bonus += 8
+		bonus += 14
 	if level >= 29:
-		bonus += 12
+		bonus += 20
 	return bonus
 
 static func get_treasure_weapon_damage_multiplier(level: int, lucky: int) -> float:
@@ -990,7 +1028,7 @@ static func get_treasure_weapon_damage_multiplier(level: int, lucky: int) -> flo
 	if level >= 4:
 		bonus += 0.15
 	if level >= 9:
-		bonus += float(lucky) * 0.03
+		bonus += float(lucky) * 0.02
 	if level >= 22:
 		bonus += 0.35
 	if level >= 29:
@@ -1080,6 +1118,9 @@ static func get_sixsense_multiplier(level: int) -> float:
 	return 1.0
 
 static func get_chaos_final_damage_multiplier(level: int) -> float:
+	return 1.0 + get_chaos_final_damage_bonus(level)
+
+static func get_chaos_final_damage_bonus(level: int) -> float:
 	var bonus = 0.0
 	if level >= 3:
 		bonus += 0.15
@@ -1089,7 +1130,7 @@ static func get_chaos_final_damage_multiplier(level: int) -> float:
 		bonus += 0.60
 	if level >= 11:
 		bonus += 1.20
-	return 1.0 + bonus
+	return bonus
 
 static func get_chaos_exp_multiplier(level: int) -> float:
 	var bonus = 0.0
@@ -1115,9 +1156,15 @@ static func get_chaos_point_multiplier(level: int) -> float:
 		bonus += 0.80
 	return 1.0 + bonus
 
+static func get_final_damage_additive_bonus() -> float:
+	var additive_bonus := PC.final_damage_bonus
+	additive_bonus += get_chaos_final_damage_bonus(get_current_chaos_level())
+	additive_bonus += Global.study_final_damage_bonus
+	additive_bonus += Global.get_poetry_player_final_damage_multiplier() - 1.0
+	return additive_bonus
+
 static func get_final_damage_multiplier() -> float:
-	# 修习树团队篇：最终伤害百分比加成
-	return (1.0 + PC.pc_final_atk) * get_chaos_final_damage_multiplier(get_current_chaos_level()) * (1.0 + Global.study_final_damage_bonus) * Global.get_poetry_player_final_damage_multiplier()
+	return maxf(0.0, 1.0 + get_final_damage_additive_bonus()) * Global.get_stage_boss_player_damage_multiplier()
 
 static func get_point_multiplier() -> float:
 	return max(0.0, 1.0 + PC.point_multi) * get_chaos_point_multiplier(get_current_chaos_level())
@@ -1164,7 +1211,7 @@ func _update_treasure_bonus() -> void:
 	# 16阶：宝器类武器攻击速度+25%
 	var atk_speed_bonus = 0.25 if level >= 16 else 0.0
 	if atk_speed_bonus != last_treasure_atk_speed_bonus:
-		PC.pc_atk_speed += atk_speed_bonus - last_treasure_atk_speed_bonus
+		PC.attack_speed_bonus += atk_speed_bonus - last_treasure_atk_speed_bonus
 		last_treasure_atk_speed_bonus = atk_speed_bonus
 	
 	if bonus == last_treasure_lucky_bonus:
@@ -1199,9 +1246,9 @@ static func get_deep_knockback_multiplier(level: int) -> float:
 
 static func get_deep_displacement_damage_ratio_per_knockback(level: int) -> float:
 	if level >= 22:
-		return 0.10
+		return 0.06
 	if level >= 9:
-		return 0.04
+		return 0.025
 	return 0.0
 
 static func get_deep_boss_displacement_extra_multiplier(level: int) -> float:
@@ -1210,7 +1257,7 @@ static func get_deep_boss_displacement_extra_multiplier(level: int) -> float:
 	if level >= 22:
 		return 3.0
 	if level >= 9:
-		return 1.0
+		return 1.5
 	return 0.0
 
 static func apply_deep_displacement_damage(target: Node, base_damage: float, knockback_amount: float, _damage_type: String) -> void:
@@ -1253,13 +1300,13 @@ func _update_sixsense_bonus() -> void:
 	var base_final_damage = PC.sixsense_base_final_damage
 	var target_final_damage_bonus = base_final_damage * (multiplier - 1.0)
 	var delta_final_damage = target_final_damage_bonus - PC.sixsense_applied_final_damage
-	PC.pc_final_atk += delta_final_damage
+	PC.final_damage_bonus += delta_final_damage
 	PC.sixsense_applied_final_damage = target_final_damage_bonus
 	
 	var base_atk_speed = PC.sixsense_base_atk_speed
 	var target_atk_speed_bonus = base_atk_speed * (multiplier - 1.0)
 	var delta_atk_speed = target_atk_speed_bonus - PC.sixsense_applied_atk_speed
-	PC.pc_atk_speed += delta_atk_speed
+	PC.attack_speed_bonus += delta_atk_speed
 	PC.sixsense_applied_atk_speed = target_atk_speed_bonus
 	
 	var base_damage_reduction = PC.sixsense_base_damage_reduction
@@ -1269,7 +1316,7 @@ func _update_sixsense_bonus() -> void:
 	PC.sixsense_applied_damage_reduction = target_damage_reduction_bonus
 	
 	var base_atk = PC.sixsense_base_atk
-	var target_atk_bonus = base_atk * PC.pc_start_atk * (multiplier - 1.0)
+	var target_atk_bonus = base_atk * PC.base_atk * (multiplier - 1.0)
 	var delta_atk = target_atk_bonus - PC.sixsense_applied_atk
 	PC.pc_atk += int(round(delta_atk))
 	PC.sixsense_applied_atk = target_atk_bonus
@@ -1279,9 +1326,9 @@ static func get_bullet_damage_multiplier(level: int) -> float:
 	if level >= 4:
 		bonus += 0.12
 	if level >= 18:
-		bonus += 0.28
+		bonus += 0.38
 	if level >= 24:
-		bonus += 0.40
+		bonus += 0.60
 	if level >= 31:
 		bonus += 0.90
 	return 1.0 + bonus
@@ -1314,9 +1361,9 @@ static func get_sword_crit_damage_multiplier(level: int) -> float:
 
 static func get_coldlight_damage_multiplier(level: int) -> float:
 	if level >= 29:
-		return 5.0
+		return 3.0
 	if level >= 9:
-		return 2.4
+		return 1.44
 	return 0.0
 
 static func on_sword_weapon_hit(enemy: Node) -> void:
@@ -1343,7 +1390,7 @@ static func on_sword_weapon_hit(enemy: Node) -> void:
 	fade_in.tween_property(effect, "modulate:a", 1.0, 0.25)
 	nodes.append(effect)
 	
-	if stack >= 5:
+	if stack >= 3:
 		SEManager.play("35")
 		var damage_multiplier = get_coldlight_damage_multiplier(PC.faze_sword_level)
 		var damage = PC.pc_atk * damage_multiplier
@@ -1471,11 +1518,11 @@ static func _get_barrage_wave_count(level: int) -> int:
 
 static func _get_barrage_damage_multiplier(level: int) -> float:
 	if level >= 31:
-		return 5.0
+		return 4.0
 	if level >= 24:
-		return 1.5
+		return 1.2
 	if level >= 18:
-		return 0.8
+		return 0.75
 	return 0.45
 
 static func get_barrage_debug_stats() -> Dictionary:
@@ -1527,19 +1574,21 @@ static func get_thunder_electrified_elite_bonus(level: int) -> float:
 static func get_heal_shield_bonus(level: int) -> float:
 	var bonus = 0.0
 	if level >= 4:
-		bonus += 0.30
+		bonus += 0.20
+	if level >= 9:
+		bonus += 0.10
 	if level >= 16:
-		bonus += 0.35
+		bonus += 0.25
 	if level >= 22:
-		bonus += 0.50
+		bonus += 0.30
 	return bonus
 
 # ============ 鸣雷法则 - 鸣雷劈向目标 ============
 
 static func get_thunder_strike_trigger_chance(level: int) -> float:
-	# 9阶：5%，16阶：15%，22阶：60%
+	# 9阶：5%，16阶：15%，22阶：35%
 	if level >= 22:
-		return 0.60
+		return 0.35
 	if level >= 16:
 		return 0.15
 	if level >= 9:

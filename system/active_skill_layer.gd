@@ -496,7 +496,7 @@ func _setup_rich_text_style(rich_label: RichTextLabel) -> void:
 
 func _show_tooltip(skill_id: String, panel: Panel) -> void:
 	var skill_data = Global.player_active_skill_data.get(skill_id, {})
-	var level = skill_data.get("level", 1)
+	var level = Global.get_active_skill_effective_level(skill_id)
 	var vbox = tooltip_panel.get_node("VBox")
 	var header = vbox.get_node("Header")
 	var icon = header.get_node("Icon")
@@ -506,7 +506,7 @@ func _show_tooltip(skill_id: String, panel: Panel) -> void:
 	var icon_path = skill_data.get("icon", _get_default_icon_path(skill_id))
 	icon.texture = load(icon_path)
 	name_label.add_theme_font_size_override("font_size", 22)
-	name_label.text = "  " + _get_skill_display_name(skill_id) + "  LV." + str(level)
+	name_label.text = "  " + _get_skill_display_name(skill_id) + "  " + Global.format_active_skill_level_text(skill_id)
 	detail_label.text = _build_skill_detail_text(skill_id, level)
 
 	tooltip_panel.size = Vector2.ZERO
@@ -563,7 +563,7 @@ func _get_skill_display_name(skill_id: String) -> String:
 		"meditation":
 			return "冥想"
 		"destructive_hammer":
-			return "破坏乱锤"
+			return "破坏圣锤"
 		_:
 			return skill_id
 
@@ -614,12 +614,12 @@ func _build_heal_hot_skill_text(level: int) -> String:
 		if level >= lv:
 			duration += 1.0
 
-	var heal_base = 30.0
+	var heal_base = 60.0
 	for lv in [2, 5, 8, 11, 14]:
 		if level >= lv:
 			heal_base += 10.0
 
-	var cooldown = 30.0
+	var cooldown = 26.0
 	for lv in [3, 6, 9, 12, 15]:
 		if level >= lv:
 			cooldown -= 1.0
@@ -627,7 +627,7 @@ func _build_heal_hot_skill_text(level: int) -> String:
 	var final_cooldown = cooldown * (1 - PC.cooldown)
 	return _format_skill_text("持续恢复自身体力", [
 		"持续时间：" + ("%.1f" % duration) + "秒",
-		"基础回复：" + ("%.0f" % heal_base) + "点",
+		"每跳回复：" + ("%.0f" % 6.0) + "%已损体力+" + ("%.0f" % heal_base) + "点",
 		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	])
 
@@ -788,12 +788,13 @@ func _build_meditation_skill_text(_level: int) -> String:
 	])
 
 func _build_destructive_hammer_skill_text(_level: int) -> String:
-	var cooldown := 18.0
+	var cooldown := 16.0
 	var final_cooldown := cooldown * (1 - PC.cooldown)
 	return _format_skill_text("连续三次砸下巨锤，对范围内敌人造成伤害", [
-		"前两次锤击：" + "60%攻击力",
-		"第三次锤击：" + "120%攻击力",
-		"施放期间获得40%独立减伤",
+		"第一次锤击：" + "100%攻击力",
+		"第二次锤击：" + "150%攻击力",
+		"第三次锤击：" + "300%攻击力",
+		"施放期间获得50%独立减伤",
 		"冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	])
 

@@ -83,6 +83,7 @@ func _on_stage_2_pressed() -> void:
 
 func exec_pc_atk() -> void:
 	PC.pc_atk = int(15 + int(get_total_increase(Global.atk_level)))
+	PC.base_atk = PC.pc_atk
 	
 func exec_pc_hp() -> void:
 	PC.pc_max_hp = int(15 + int(get_total_increase_hp(Global.hp_level)))

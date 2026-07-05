@@ -106,7 +106,7 @@ func _spawn_fireball():
 
 func _determine_flee_target():
 	if not PC.player_instance:
-		target_position = global_position + Vector2(-100 if sprite.flip_h else 100, 0) # 默认逃跑方向
+		target_position = _clamp_target_to_movement_bounds(global_position + Vector2(-100 if sprite.flip_h else 100, 0)) # 默认逃跑方向
 		return
 	var player_pos = PC.player_instance.global_position
 	# 只允许向正左或正右方向逃跑
@@ -117,7 +117,7 @@ func _determine_flee_target():
 	else:
 		# 青蛙在玩家左侧或同一位置，向左逃跑
 		flee_direction = Vector2.LEFT
-	target_position = global_position + flee_direction * speed * FLEE_DURATION * 1.2 # 目标设远一点确保能持续移动
+	target_position = _clamp_target_to_movement_bounds(global_position + flee_direction * speed * FLEE_DURATION * 1.2) # 目标设远一点确保能持续移动
 
 func _on_flee_timeout():
 	if is_dead:
@@ -128,9 +128,15 @@ func _on_flee_timeout():
 
 func _update_target_position_seeking():
 	if hp > 0 and CharacterEffects.is_player_dead_or_game_over():
-		target_position = global_position + CharacterEffects.get_player_death_scatter_direction(self) * max(speed, base_speed) * FLEE_DURATION
+		target_position = _clamp_target_to_movement_bounds(global_position + CharacterEffects.get_player_death_scatter_direction(self) * max(speed, base_speed) * FLEE_DURATION)
 	elif PC.player_instance:
 		target_position = PC.player_instance.global_position
+
+func _clamp_target_to_movement_bounds(world_position: Vector2) -> Vector2:
+	var bounds := get_scene_movement_bounds(16.0)
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		return world_position
+	return world_position.clamp(bounds.position, bounds.position + bounds.size)
 
 func _move_pattern(delta: float):
 	var direction_to_target = global_position.direction_to(target_position)

@@ -1,5 +1,7 @@
 extends Node2D
 
+const ZHUAZHUAJUCHUI_SCRIPT = preload("res://Script/skill/zhuazhuajuchui.gd")
+
 # ============== 通用导出变量 ==============
 @export var boss_robot_scene: PackedScene
 @export var warning_scene: Control
@@ -69,6 +71,7 @@ const CORRUPTED_ELITE_SPAWN_MARGIN: float = 72.0
 const PLAYER_SPAWN_SAFE_RADIUS: float = 300.0
 const PLAYER_SPAWN_SAFE_RADIUS_SQ: float = PLAYER_SPAWN_SAFE_RADIUS * PLAYER_SPAWN_SAFE_RADIUS
 const PLAYER_SPAWN_SAFE_REROLL_ATTEMPTS: int = 10
+const MONSTER_SPAWN_OFFSCREEN_MARGIN: float = 28.0
 
 # 精英怪配置（所有关卡一致）
 const ELITE_SPAWN_CHANCE: float = 0.02 # 2%概率生成精英怪
@@ -122,6 +125,7 @@ var _wave_spawning: bool = false
 
 var boss_event_triggered: bool = false
 var _boss_fight_active: bool = false
+var _boss_fight_start_real_time: float = 0.0
 
 var other_type_alive: int = 0 # 非基础类型怪物当前存活数
 var elite_alive: int = 0 # 当前存活精英怪数量
@@ -185,6 +189,7 @@ func _ready() -> void:
 	Global.victory_collecting = false
 	Global.stage_boss_fight_time = 0.0
 	_boss_fight_active = false
+	_boss_fight_start_real_time = 0.0
 	if Global.current_stage_difficulty == Global.STAGE_DIFFICULTY_CORE:
 		Global.current_core_depth = Global.clamp_core_depth(Global.current_core_depth)
 	else:
@@ -413,22 +418,24 @@ func _apply_poetry_weapon_damage_bonus(w_id: String, level: int) -> void:
 			PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
 		"Qigong":
 			Qigong.main_skill_qigong_damage += bonus
+		"Zhuazhuajuchui":
+			ZHUAZHUAJUCHUI_SCRIPT.main_skill_zhuazhuajuchui_damage += bonus
 
 func _normalize_poetry_weapon_id(w_id: String) -> String:
 	match str(w_id):
-		"Swordqi":
+		"SwordQi":
 			return "SwordQi"
-		"Ringfire":
+		"RingFire":
 			return "RingFire"
-		"Bloodboardsword":
+		"BloodBoardSword":
 			return "BloodBoardSword"
-		"Thunderbreak":
+		"ThunderBreak":
 			return "ThunderBreak"
-		"Lightbullet":
+		"LightBullet":
 			return "LightBullet"
-		"Holylight":
+		"HolyLight":
 			return "HolyLight"
-		"Dragonwind":
+		"DragonWind":
 			return "DragonWind"
 		_:
 			return str(w_id)
@@ -440,11 +447,8 @@ func _grant_poetry_advancement(adv_id: String):
 
 ## 诗想难度单次属性成长（模拟 global_level_up 中的纯属性部分）
 func _poetry_stat_growth() -> void:
-	PC.pc_atk += LvUp.LEVEL_UP_BASE_ATK_FLAT_BONUS
-	PC.pc_start_atk += LvUp.LEVEL_UP_BASE_ATK_FLAT_BONUS
-	var atk_growth_multiplier := 1.0 + LvUp.LEVEL_UP_BASE_ATK_RATE * (1.0 + PC.lingwu_atk_bonus)
-	PC.pc_atk = int(PC.pc_atk * atk_growth_multiplier)
-	PC.pc_start_atk = int(PC.pc_start_atk * atk_growth_multiplier)
+	var atk_flat_bonus: int = LvUp.LEVEL_UP_BASE_ATK_FLAT_BONUS + PC.lingwu_atk_flat_bonus
+	PC.add_base_attack_growth(atk_flat_bonus, LvUp.LEVEL_UP_BASE_ATK_RATE + PC.lingwu_atk_bonus)
 	PC.pc_max_hp += 20
 	PC.pc_start_max_hp += 20
 	PC.pc_hp += 20
@@ -454,6 +458,62 @@ func _poetry_stat_growth() -> void:
 
 func _spawn_wave() -> void:
 	pass # 子类覆盖，实现怪物波生成
+
+func _spawn_weighted_wave(spawn_callable: Callable) -> void:
+	if not _begin_wave_spawn():
+		return
+
+	spawn_count += 1
+	_update_wave_monster_limit()
+	if current_monster_count >= max_monster_limit:
+		_finish_wave_spawn()
+		return
+
+	var spawn_multiplier := _calculate_spawn_count_multiplier()
+	current_wave_hp_reduction = _calculate_hp_reduction()
+
+	var base_wave_spawn_count := _get_wave_spawn_count()
+	var wave_spawn_count := int(ceil(float(base_wave_spawn_count) * spawn_multiplier))
+	var available_slots := max_monster_limit - current_monster_count
+	var spawn_target_count: int = mini(wave_spawn_count, available_slots)
+	if spawn_target_count <= 0:
+		_finish_wave_spawn()
+		return
+
+	var wave_other_type_counts: Dictionary = {}
+	var spawn_list: Array[String] = []
+	for i in range(spawn_target_count):
+		var chosen_type := _choose_individual_type(wave_other_type_counts)
+		if not BASIC_TYPES.has(chosen_type):
+			wave_other_type_counts[chosen_type] = int(wave_other_type_counts.get(chosen_type, 0)) + 1
+			other_type_alive += 1
+		spawn_list.append(chosen_type)
+
+	var spawned_this_frame := 0
+	for i in range(spawn_list.size()):
+		if boss_event_triggered:
+			_finish_wave_spawn(false)
+			return
+		if current_monster_count >= max_monster_limit:
+			break
+		spawn_callable.call(spawn_list[i])
+		if i < spawn_list.size() - 1:
+			spawned_this_frame += 1
+			if spawned_this_frame < WAVE_SPAWNS_PER_FRAME:
+				continue
+			spawned_this_frame = 0
+			if not is_inside_tree() or boss_event_triggered:
+				_finish_wave_spawn(false)
+				return
+			await get_tree().process_frame
+			if not is_inside_tree() or boss_event_triggered:
+				_finish_wave_spawn(false)
+				return
+
+	if boss_event_triggered:
+		_finish_wave_spawn(false)
+		return
+	_finish_wave_spawn()
 
 func _begin_wave_spawn() -> bool:
 	if boss_event_triggered or _wave_spawning:
@@ -593,6 +653,17 @@ func _trigger_boss_event() -> void:
 
 	_on_warning_finished()
 
+func debug_enter_boss_phase() -> bool:
+	if boss_event_triggered:
+		return false
+	if boss_robot_scene == null:
+		return false
+	boss_event_triggered = true
+	map_mechanism_num = map_mechanism_num_max
+	Global.stage_boss_fight_time = 0.0
+	_trigger_boss_event()
+	return true
+
 func _on_warning_finished() -> void:
 	if not is_inside_tree():
 		return
@@ -616,6 +687,7 @@ func _on_warning_finished() -> void:
 	boss_node.modulate.a = 0.0
 	get_tree().current_scene.add_child(boss_node)
 	_boss_fight_active = true
+	_boss_fight_start_real_time = PC.real_time
 	Global.stage_boss_fight_time = 0.0
 	_apply_mobile_boss_balance(boss_node)
 	var boss_tween = boss_node.create_tween()
@@ -1183,6 +1255,44 @@ func _get_camera_visible_rect(camera: Camera2D) -> Rect2:
 	var center := camera.get_screen_center_position()
 	return Rect2(center - half_size, half_size * 2.0)
 
+func _get_monster_spawn_position_for_edge(edge: int, fallback_position: Vector2) -> Vector2:
+	var player := $Player as Node2D
+	var camera := (player.get_node_or_null("Camera2D") as Camera2D) if player != null else null
+	var visible_rect := _get_camera_visible_rect(camera)
+	if camera == null or visible_rect.size == Vector2.ZERO:
+		return fallback_position
+	var limit_rect := Rect2(
+		Vector2(float(camera.limit_left), float(camera.limit_top)),
+		Vector2(float(camera.limit_right - camera.limit_left), float(camera.limit_bottom - camera.limit_top))
+	)
+	if limit_rect.size.x <= 1.0 or limit_rect.size.y <= 1.0:
+		return fallback_position
+	var left := limit_rect.position.x
+	var top := limit_rect.position.y
+	var right := limit_rect.position.x + limit_rect.size.x
+	var bottom := limit_rect.position.y + limit_rect.size.y
+	match edge:
+		0:
+			var spawn_y := visible_rect.position.y - MONSTER_SPAWN_OFFSCREEN_MARGIN
+			if spawn_y < top:
+				return fallback_position
+			return Vector2(clamp(fallback_position.x, left, right), spawn_y)
+		1:
+			var spawn_y := visible_rect.position.y + visible_rect.size.y + MONSTER_SPAWN_OFFSCREEN_MARGIN
+			if spawn_y > bottom:
+				return fallback_position
+			return Vector2(clamp(fallback_position.x, left, right), spawn_y)
+		2:
+			var spawn_x := visible_rect.position.x - MONSTER_SPAWN_OFFSCREEN_MARGIN
+			if spawn_x < left:
+				return fallback_position
+			return Vector2(spawn_x, clamp(fallback_position.y, top, bottom))
+		_:
+			var spawn_x := visible_rect.position.x + visible_rect.size.x + MONSTER_SPAWN_OFFSCREEN_MARGIN
+			if spawn_x > right:
+				return fallback_position
+			return Vector2(spawn_x, clamp(fallback_position.y, top, bottom))
+
 func _random_point_in_rect(rect: Rect2) -> Vector2:
 	return Vector2(
 		randf_range(rect.position.x, rect.position.x + rect.size.x),
@@ -1598,7 +1708,6 @@ func _try_spawn_gold_ball() -> void:
 	if _gold_ball_scene == null:
 		return
 	var gold_ball_node = _gold_ball_scene.instantiate()
-	gold_ball_node.move_direction = 2 # 朝向角色移动
 	var spawn_edge = randi_range(0, 3)
 	var spawn_position = Vector2.ZERO
 	match spawn_edge:
@@ -1659,6 +1768,13 @@ func show_game_over():
 		return
 	SceneChange.change_scene("res://Scenes/main_town.tscn", true)
 
+func _get_boss_defeat_elapsed_time() -> float:
+	if _boss_fight_start_real_time > 0.0:
+		return maxf(0.0, PC.real_time - _boss_fight_start_real_time)
+	if Global.stage_boss_fight_time > 0.0:
+		return Global.stage_boss_fight_time
+	return PC.real_time
+
 func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 	if not PC.is_game_over:
 		# 标记游戏结束状态，防止后续逻辑触发
@@ -1666,11 +1782,12 @@ func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 		
 		# 采样结算数据并停止DPS计数器
 		Global.refresh_dps_counter()
+		var boss_defeat_time := _get_boss_defeat_elapsed_time()
 		var victory_snapshot := AchievementManager.build_victory_snapshot(
 			STAGE_ID,
 			Global.current_stage_difficulty,
 			Global.current_core_depth,
-			PC.real_time,
+			boss_defeat_time,
 			GU.get_kill_count(),
 			Global.get_highest_dps(),
 			battle_lost_hp,
@@ -1684,7 +1801,7 @@ func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 		
 		if layer_ui and layer_ui.has_method("set_victory_summary_data"):
 			layer_ui.set_victory_summary_data({
-				"boss_defeat_time": PC.real_time,
+				"boss_defeat_time": boss_defeat_time,
 				"kill_count": GU.get_kill_count(),
 				"highest_dps": Global.get_highest_dps(),
 				"lost_hp": battle_lost_hp,

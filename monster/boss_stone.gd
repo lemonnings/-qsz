@@ -1,4 +1,4 @@
-extends "res://Script/monster/monster_base.gd"
+extends "res://Script/monster/boss_base.gd"
 
 ## ========================================================
 ## Boss Stone — 石巨人Boss
@@ -37,9 +37,9 @@ var update_move_timer: Timer
 
 # 属性 — 基于stone_man基准 × Boss倍率
 var speed: float = SettingMoster.stone_man("speed") * 1.2
-var hpMax: float = SettingMoster.stone_man("hp") * 13
+var hpMax: float = SettingMoster.stone_man("hp") * 9
 var hp: float = hpMax
-var atk: float = SettingMoster.stone_man("atk") * 1.0
+var atk: float = SettingMoster.stone_man("atk") * 1.1
 var get_point: int = SettingMoster.stone_man("point") * 30
 var get_exp: int = 0
 
@@ -117,6 +117,10 @@ var _charge_speed_reduction_stacks: int = 0
 const POETRY_STONE_SIZE_BOOST: float = 1.2 # 诗想难度石头大小额外+20%
 const POETRY_CHARGE_HIT_SPEED_REDUCTION: float = 0.2 # 诗想难度撞石只降20%
 const POETRY_CHARGE_MAX_REDUCTION_STACKS: int = 3 # 诗想难度最多叠加3次
+const POETRY_ROLLING_STONE_EXTRA_COUNT: int = 1
+const POETRY_ROLLING_STONE_DAMAGE_MULTIPLIER: float = 1.2
+const POETRY_STONE_GLOW_DAMAGE_MULTIPLIER: float = 1.5
+const POETRY_CHARGE_SPEED_MULTIPLIER: float = 1.2
 
 # 落石场景
 const STONE_STONE_SCENE = preload("res://Scenes/moster/stone_stone.tscn")
@@ -129,25 +133,7 @@ static var _stone_impact_frames_cache: SpriteFrames = null
 static var _stone_block_texture_cache: ImageTexture = null
 
 func _ready():
-	add_to_group("boss")
-	process_mode = Node.PROCESS_MODE_PAUSABLE
-	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
-	# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 25.0
-	match stage_difficulty:
-		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier *= 1.05
-		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier *= 1.1
-	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
-		hpMax = Global.get_poetry_boss_max_hp("boss_stone", hpMax)
-	else:
-		hpMax += Global.get_current_dps() * dps_multiplier
-	hp = hpMax
-	
-	# 浅层难度下Boss只造成75%伤害
-	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
-		atk *= 0.75
+	stage_difficulty = setup_boss_base("boss_stone")
 
 	# 石甲初始化：浅层2/深层4/核心6/诗想9
 	match stage_difficulty:
@@ -163,7 +149,6 @@ func _ready():
 			stone_armor_max = 2
 	stone_armor = stone_armor_max
 
-	setup_monster_base()
 	use_debuff_take_damage_multiplier = false
 	check_action_disabled_on_body_entered = false
 
@@ -372,6 +357,8 @@ func _attack_rolling_stones():
 	stone_timer.one_shot = false
 	var stones_spawned := [0]
 	var total_stones := int(duration * stones_per_second)
+	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
+		total_stones += POETRY_ROLLING_STONE_EXTRA_COUNT
 	stone_timer.timeout.connect(func():
 		if is_dead or stones_spawned[0] >= total_stones:
 			stone_timer.stop()
@@ -456,7 +443,8 @@ func _spawn_rolling_stone(start_pos: Vector2, end_pos: Vector2, warn_node: Node)
 	# 连接碰撞信号
 	stone.body_entered.connect(func(body: Node2D):
 		if body is CharacterBody2D and not PC.invincible:
-			var actual_damage = int(atk * 0.84 * (1.0 - PC.damage_reduction_rate))
+			var damage_multiplier := POETRY_ROLLING_STONE_DAMAGE_MULTIPLIER if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY else 1.0
+			var actual_damage = int(atk * 0.84 * damage_multiplier * (1.0 - PC.damage_reduction_rate))
 			PC.player_hit(int(actual_damage), self , "滚石")
 	)
 
@@ -468,6 +456,7 @@ func _attack_consecutive_charge():
 	print("Attack: Consecutive Charge")
 	allow_turning = false
 	is_charging = true
+	set_boss_body_blocker_enabled(false)
 	# 每次冲锋技能开始时重置速度降低栈
 	_charge_speed_reduction_stacks = 0
 
@@ -502,6 +491,8 @@ func _attack_consecutive_charge():
 		# 冲锋速度 = 基础速度 × 倍率 × 增速50% × 撞石减速累积
 		var speed_reduction = max(0.1, 1.0 - hit_speed_reduction * _charge_speed_reduction_stacks)
 		var charge_speed_val = speed * CHARGE_SPEED_MULT * CHARGE_SPEED_BOOST * speed_reduction
+		if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
+			charge_speed_val *= POETRY_CHARGE_SPEED_MULTIPLIER
 		var charge_time = CHARGE_DISTANCE / charge_speed_val if charge_speed_val > 0 else 0.5
 
 		# 冲锋动画速度：初始200%，每撞石减少等量百分比，最低120%
@@ -565,6 +556,7 @@ func _attack_consecutive_charge():
 				if global_position.distance_to(PC.player_instance.global_position) < 25.0:
 					var dmg = int(atk * 1.5 * (1.0 - PC.damage_reduction_rate))
 					PC.player_hit(int(dmg), self , "冲锋")
+					CharacterEffects.apply_player_charge_side_knockback(PC.player_instance, charge_dir, global_position)
 			await get_tree().process_frame
 
 		# 冲锋结束：还原视觉
@@ -575,6 +567,7 @@ func _attack_consecutive_charge():
 		await get_tree().create_timer(0.3).timeout
 
 	is_charging = false
+	set_boss_body_blocker_enabled(true)
 	allow_turning = true
 	# 重置动画速度
 	$BossStone.speed_scale = 1.0
@@ -649,6 +642,7 @@ func _apply_stun(duration: float):
 	is_stunned = true
 	is_attacking = true
 	is_charging = false
+	set_boss_body_blocker_enabled(true)
 	$BossStone.play("idle")
 
 	# 眩晕视觉：闪白
@@ -1420,7 +1414,8 @@ func _attack_stone_glow():
 			if bullet.has_method("set_direction"):
 				bullet.set_direction(dir)
 			bullet.bullet_speed = 320.0 * 0.7 * 0.8 # 再降低30%
-			bullet.bullet_damage = atk * 0.5
+			var damage_multiplier := POETRY_STONE_GLOW_DAMAGE_MULTIPLIER if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY else 1.0
+			bullet.bullet_damage = atk * 0.5 * damage_multiplier
 			bullet.source_name = "石头发光！"
 			
 			await get_tree().create_timer(interval, false).timeout

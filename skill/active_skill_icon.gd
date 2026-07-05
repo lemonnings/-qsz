@@ -183,7 +183,7 @@ func _get_skill_cooldown(skill_id: String) -> float:
 			cd_reduction = cd_reduction * PC.cooldown_multi * PC.random_strike_multi
 			return max(5.0, base_cd - cd_reduction) * cooldown_multiplier
 		"destructive_hammer":
-			return 18.0 * cooldown_multiplier
+			return 16.0 * cooldown_multiplier
 		_:
 			return 10.0
 

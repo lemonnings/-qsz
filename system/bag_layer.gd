@@ -509,12 +509,6 @@ func _create_tooltip():
 	# 分隔线
 	var separator2 = HSeparator.new()
 	vbox.add_child(separator2)
-	# 售价
-	var price_label = Label.new()
-	price_label.name = "PriceLabel"
-	_setup_label_style(price_label, Color(1.0, 0.85, 0.0))
-	vbox.add_child(price_label)
-	
 	# 使用提示（消耗品专用）
 	var use_hint_label = Label.new()
 	use_hint_label.name = "UseHintLabel"
@@ -534,7 +528,6 @@ func _get_tooltip_nodes() -> Dictionary:
 		"name_label": header.get_node("NameLabel") as Label,
 		"type_label": vbox.get_node("TypeLabel") as Label,
 		"desc_label": vbox.get_node("DescLabel") as Label,
-		"price_label": vbox.get_node("PriceLabel") as Label,
 		"use_hint_label": vbox.get_node("UseHintLabel") as Label
 	}
 
@@ -544,7 +537,7 @@ func _reset_tooltip_layout(desc_min_width: float) -> Dictionary:
 	var header = nodes["header"] as HBoxContainer
 	var desc_label = nodes["desc_label"] as Label
 	
-	# 这里不能把 `NameLabel`、`PriceLabel` 这些子控件的尺寸都强行清成 `0`。
+	# 这里不能把 `NameLabel` 这些子控件的尺寸都强行清成 `0`。
 	# 在 Godot 4.7 里，容器会根据子控件的“最小尺寸”重新排版；
 	# 如果把标题标签本体也硬清零，有时会让标题行的宽度缓存进入不稳定状态。
 	# 这样就会出现你说的现象：
@@ -591,7 +584,6 @@ func _show_tooltip(slot_index: int, request_id: int):
 	var name_label = nodes["name_label"] as Label
 	var type_label = nodes["type_label"] as Label
 	var desc_label = nodes["desc_label"] as Label
-	var price_label = nodes["price_label"] as Label
 	var use_hint_label = nodes["use_hint_label"] as Label
 
 	
@@ -627,10 +619,6 @@ func _show_tooltip(slot_index: int, request_id: int):
 	if source != "":
 		full_desc += "\n[\u6765\u6e90] \n" + source
 	desc_label.text = full_desc
-	
-	# 设置售价
-	var price = item_info.get("item_price", 0)
-	price_label.text = "售价: " + str(price)
 	
 	# 设置使用提示
 	if item_type == "consumable" and ItemManager.can_use_item(item_data.item_id):

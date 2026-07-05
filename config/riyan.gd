@@ -65,6 +65,10 @@ func _on_damage_timer_timeout() -> void:
 		for area in get_overlapping_areas():
 			if _is_valid_riyan_target(area):
 				var final_damage = damage_amount
+				var is_crit = false
+				if randf() < PC.crit_chance:
+					is_crit = true
+					final_damage *= PC.crit_damage_multi
 				
 				# Riyan33: 对燃烧敌人额外伤害
 				if PC.selected_rewards.has("Riyan33"):
@@ -73,7 +77,7 @@ func _on_damage_timer_timeout() -> void:
 				if Global.is_elite_or_boss_target(area):
 					final_damage *= 1.0 + ELITE_BOSS_DAMAGE_BONUS
 						
-				area.take_damage(final_damage, false, false, "riyan")
+				area.take_damage(final_damage, is_crit, false, "riyan")
 				# 击中粒子崩散特效
 				HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "riyan")
 

@@ -17,6 +17,7 @@ const STRIKE_SHAKE_BASE: float = 6.015
 const STRIKE_SHAKE_DURATION: float = 0.22
 const KNOCKBACK_BASE_FORCE: float = 18.0
 const KNOCKBACK_MAX_FORCE: float = 46.0
+const STRIKE_KNOCKBACK_FACTORS: Array[float] = [0.5, 0.5, 1.0]
 const THIRD_STRIKE_OFFSET: Vector2 = Vector2(0.0, -20.0)
 const THIRD_STRIKE_RISE_TIME: float = 0.14
 const THIRD_STRIKE_FALL_TIME: float = 0.18
@@ -26,7 +27,8 @@ const THIRD_STRIKE_FALL_DELAY: float = 0.22
 @export var wu_sprite: AnimatedSprite2D
 @export var hit_area: Area2D
 @export var hit_shape: CollisionShape2D
-
+# 4.8 =7 9.6=14
+# 0.4*14=4+1.6=5.6+2=7.6
 var owner_player: Node2D = null
 var damage_ratios: Array[float] = DEFAULT_DAMAGE_RATIOS.duplicate()
 var triggered_strikes: Dictionary = {}
@@ -170,7 +172,7 @@ func _perform_strike(strike_index: int) -> void:
 	var damage_ratio: float = float(damage_ratios[strike_index])
 	print("[DestructiveHammer] strike=", strike_index + 1, " frame=", frame, " hammer_scale=", hammer_scale, " impact_scale=", impact_scale)
 	_update_hit_shape_scale(impact_scale)
-	_spawn_hammer_visual(hammer_scale, impact_scale, damage_ratio)
+	_spawn_hammer_visual(hammer_scale, impact_scale, damage_ratio, strike_index)
 
 
 func _tween_effect_position(target_position: Vector2, duration: float) -> void:
@@ -183,7 +185,7 @@ func _tween_effect_position(target_position: Vector2, duration: float) -> void:
 	effect_position_tween = create_tween()
 	effect_position_tween.set_trans(Tween.TRANS_SINE)
 	effect_position_tween.set_ease(Tween.EASE_IN_OUT)
-	effect_position_tween.tween_property(self, "position", target_position, duration)
+	effect_position_tween.tween_property(self , "position", target_position, duration)
 	await effect_position_tween.finished
 	effect_position_tween = null
 
@@ -201,7 +203,7 @@ func _update_hit_shape_scale(visual_scale: float) -> void:
 		hit_shape.scale = base_hit_shape_scale * visual_scale
 
 
-func _spawn_hammer_visual(hammer_scale: float, impact_scale: float, damage_ratio: float) -> void:
+func _spawn_hammer_visual(hammer_scale: float, impact_scale: float, damage_ratio: float, strike_index: int) -> void:
 	if hammer_sprite == null:
 		return
 	var strike_hammer: Sprite2D = hammer_sprite.duplicate() as Sprite2D
@@ -215,10 +217,10 @@ func _spawn_hammer_visual(hammer_scale: float, impact_scale: float, damage_ratio
 	strike_hammer.rotation = HAMMER_START_ROTATION
 	strike_hammer.modulate = base_hammer_modulate
 	strike_hammer.modulate.a = 0.0
-	_run_hammer_visual(strike_hammer, hammer_scale, impact_scale, damage_ratio)
+	_run_hammer_visual(strike_hammer, hammer_scale, impact_scale, damage_ratio, strike_index)
 
 
-func _run_hammer_visual(strike_hammer: Sprite2D, hammer_scale: float, impact_scale: float, damage_ratio: float) -> void:
+func _run_hammer_visual(strike_hammer: Sprite2D, hammer_scale: float, impact_scale: float, damage_ratio: float, strike_index: int) -> void:
 	var target_alpha: float = 1.0
 	target_alpha = base_hammer_modulate.a
 	var elapsed: float = 0.0
@@ -244,7 +246,7 @@ func _run_hammer_visual(strike_hammer: Sprite2D, hammer_scale: float, impact_sca
 	_spawn_wu_visual(impact_scale)
 	GU.screen_shake(STRIKE_SHAKE_BASE * hammer_scale, STRIKE_SHAKE_DURATION)
 	SEManager.play("111")
-	_apply_strike_damage_after_frame(impact_scale, damage_ratio)
+	_apply_strike_damage_after_frame(impact_scale, damage_ratio, strike_index)
 	elapsed = 0.0
 	while elapsed < HAMMER_FADE_OUT_TIME and is_instance_valid(strike_hammer):
 		var delta: float = get_process_delta_time()
@@ -280,23 +282,23 @@ func _free_wu_after_finished(strike_wu: AnimatedSprite2D) -> void:
 		strike_wu.queue_free()
 
 
-func _apply_strike_damage_after_frame(visual_scale: float, damage_ratio: float) -> void:
+func _apply_strike_damage_after_frame(visual_scale: float, damage_ratio: float, strike_index: int) -> void:
 	await get_tree().create_timer(1.0 / ANIMATION_FPS, false).timeout
 	if not is_started or not is_inside_tree():
 		return
-	_apply_strike_damage(visual_scale, damage_ratio)
+	_apply_strike_damage(visual_scale, damage_ratio, _get_strike_knockback_force_multiplier(strike_index))
 
 
-func _apply_strike_damage(visual_scale: float, damage_ratio: float) -> void:
+func _apply_strike_damage(visual_scale: float, damage_ratio: float, knockback_force_multiplier: float) -> void:
 	var center_position: Vector2 = _get_hit_center_position()
 	var hit_radius: float = _get_hit_radius(visual_scale)
 	var base_damage: float = float(PC.pc_atk) * damage_ratio * (1.0 + PC.active_skill_multi)
 	var damaged_targets: Dictionary = {}
-	_damage_targets_in_group("enemies", center_position, hit_radius, base_damage, damaged_targets)
-	_damage_targets_in_group("boss", center_position, hit_radius, base_damage, damaged_targets)
+	_damage_targets_in_group("enemies", center_position, hit_radius, base_damage, knockback_force_multiplier, damaged_targets)
+	_damage_targets_in_group("boss", center_position, hit_radius, base_damage, knockback_force_multiplier, damaged_targets)
 
 
-func _damage_targets_in_group(group_name: String, center_position: Vector2, hit_radius: float, base_damage: float, damaged_targets: Dictionary) -> void:
+func _damage_targets_in_group(group_name: String, center_position: Vector2, hit_radius: float, base_damage: float, knockback_force_multiplier: float, damaged_targets: Dictionary) -> void:
 	var targets: Array[Node] = get_tree().get_nodes_in_group(group_name)
 	for target_node: Node in targets:
 		if not is_instance_valid(target_node) or not target_node.has_method("take_damage"):
@@ -312,18 +314,31 @@ func _damage_targets_in_group(group_name: String, center_position: Vector2, hit_
 		damaged_targets[target_id] = true
 		target_node.take_damage(int(round(base_damage)), false, false, "destructive_hammer")
 		if not target_node.is_in_group("boss"):
-			_apply_knockback_to_target(target_2d, center_position, hit_radius)
+			_apply_knockback_to_target(target_2d, center_position, hit_radius, knockback_force_multiplier)
 
 
-func _apply_knockback_to_target(target: Node2D, center_position: Vector2, hit_radius: float) -> void:
+func _apply_knockback_to_target(target: Node2D, center_position: Vector2, hit_radius: float, knockback_force_multiplier: float) -> void:
 	if target == null or not is_instance_valid(target) or not target.has_method("apply_knockback"):
 		return
 	var direction: Vector2 = target.global_position - center_position
 	if direction.length_squared() < 0.01:
 		direction = Vector2.RIGHT if scale.x >= 0.0 else Vector2.LEFT
 	var normalized_direction: Vector2 = direction.normalized()
-	var force: float = minf(KNOCKBACK_MAX_FORCE, KNOCKBACK_BASE_FORCE + hit_radius * 0.08)
+	var force: float = minf(KNOCKBACK_MAX_FORCE, KNOCKBACK_BASE_FORCE + hit_radius * 0.08) * knockback_force_multiplier * PC.get_knockback_multiplier()
 	target.apply_knockback(normalized_direction, force)
+
+
+func _get_strike_knockback_force_multiplier(strike_index: int) -> float:
+	if strike_index == 2:
+		var first_force := minf(KNOCKBACK_MAX_FORCE, KNOCKBACK_BASE_FORCE + _get_hit_radius(float(WU_AND_HIT_SCALES[0])) * 0.08)
+		var second_force := minf(KNOCKBACK_MAX_FORCE, KNOCKBACK_BASE_FORCE + _get_hit_radius(float(WU_AND_HIT_SCALES[1])) * 0.08)
+		var third_force := minf(KNOCKBACK_MAX_FORCE, KNOCKBACK_BASE_FORCE + _get_hit_radius(float(WU_AND_HIT_SCALES[2])) * 0.08)
+		if third_force <= 0.0:
+			return 1.0
+		return 1.0 + (first_force * 0.5 + second_force * 0.5) / third_force
+	if strike_index >= 0 and strike_index < STRIKE_KNOCKBACK_FACTORS.size():
+		return float(STRIKE_KNOCKBACK_FACTORS[strike_index])
+	return 1.0
 
 
 func _get_hit_center_position() -> Vector2:

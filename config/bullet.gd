@@ -41,6 +41,7 @@ var wave_bullet_damage_multiplier: float = 1.0 # 浪形子弹伤害倍数
 var if_summon: bool = false
 var is_summon_bullet: bool = false # 标记是否为召唤物子弹
 var summon_damage: float = 0.0 # 召唤物子弹伤害
+var summon_pierce_damage_decay: float = 0.5
 var extra_damage_multiplier: float = 1.0 # 额外伤害倍率
 var is_extra_attack_flag: bool = false # 是否为额外攻击
 var base_node_scale: Vector2 = Vector2.ONE
@@ -61,13 +62,13 @@ var trace_lifetime: float = 2.0 # 痕迹持续时间
 var trace_fade_start_time: float = 1.0 # 开始渐隐的时间
 var trace_damage_percent: float = 0.15 # 痕迹伤害百分比
 
-# SwordQi4 追踪相关变量
-var sword_qi4_enabled: bool = false
+# 分裂子剑气索敌相关变量
 var target_enemy: Node = null
 var speed_boost_timer: float = 0.0
 var speed_boost_interval: float = 0.1 # 每0.1秒提升速度
 var speed_boost_amount: float = 50.0 # 每次提升50速度
 var has_hit_target: bool = false # 是否已击中目标
+var preset_damage: float = -1.0
 
 func _ready() -> void:
 	CharacterEffects.include_enemy_collision_mask(self)
@@ -79,11 +80,6 @@ func _ready() -> void:
 	# 检查是否启用剑波痕迹
 	if PC.selected_rewards.has("SplitSwordQi2"):
 		sword_wave_trace_enabled = true
-	
-	# 检查是否启用SwordQi4追踪功能（只对主剑气生效，不影响子剑气）
-	if PC.selected_rewards.has("SplitSwordQi4") and not is_other_sword_wave:
-		sword_qi4_enabled = true
-		find_nearest_enemy()
 	
 	# 初始化子弹伤害和暴击状态
 	initialize_bullet_damage()
@@ -105,13 +101,9 @@ func _physics_process(delta: float) -> void:
 		sprite.visible = false
 		sprite_summon.visible = true
 		
-	# SwordQi4 追踪逻辑
-	if sword_qi4_enabled and not has_hit_target:
-		update_sword_qi4_tracking(delta)
-		
-	# 或者是分裂可以追踪
+	# 分裂子剑气会持续朝最近敌人校准方向
 	if !parent_bullet and PC.selected_rewards.has("SplitSwordQi12") and not has_hit_target:
-		update_sword_qi4_tracking(delta)
+		update_split_sword_qi_tracking(delta)
 		
 	# 子弹始终保持移动（包括渐隐过程中）
 	position += direction * bullet_speed * delta
@@ -196,7 +188,7 @@ func initialize_bullet_damage() -> void:
 		bullet_law_bonus += (Faze.get_bullet_damage_multiplier(PC.faze_bullet_level) - 1.0) # 弹体法则
 	
 	if is_summon_bullet:
-		base_damage = summon_damage * PC.main_skill_swordQi_damage
+		base_damage = summon_damage
 	elif is_ring_bullet:
 		var skill_law_bonus = (Faze.get_skill_damage_multiplier(PC.faze_skill_level) - 1.0) # 技能法则
 		base_damage = PC.pc_atk * (ring_bullet_damage_multiplier + bullet_law_bonus + skill_law_bonus) * PC.main_skill_swordQi_damage
@@ -215,9 +207,14 @@ func initialize_bullet_damage() -> void:
 	bullet_damage = base_damage
 	
 	if can_crit:
-		if randf() < PC.crit_chance:
+		var crit_chance = PC.crit_chance
+		var crit_damage_multiplier = Faze.get_sword_crit_damage_multiplier(PC.faze_sword_level)
+		if PC.selected_rewards.has("SplitSwordQi4") and not is_summon_bullet and not if_summon and not is_ring_bullet and not is_wave_bullet:
+			crit_chance += 0.10
+			crit_damage_multiplier += 0.30
+		if randf() < crit_chance:
 			is_crit_hit = true
-			bullet_damage *= Faze.get_sword_crit_damage_multiplier(PC.faze_sword_level)
+			bullet_damage *= crit_damage_multiplier
 	
 	# 应用buff效果到基础伤害
 	bullet_damage = apply_buff_effects_to_damage(bullet_damage, is_summon_bullet)
@@ -227,6 +224,8 @@ func initialize_bullet_damage() -> void:
 
 	if damage_override >= 0.0:
 		bullet_damage = damage_override
+	elif preset_damage >= 0.0:
+		bullet_damage = preset_damage
 
 # 应用buff效果到伤害
 func apply_buff_effects_to_damage(base_damage: float, p_is_summon_bullet: bool) -> float:
@@ -240,7 +239,7 @@ func apply_buff_effects_to_damage(base_damage: float, p_is_summon_bullet: bool) 
 
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary: # Returns {"damage": float, "is_crit": bool}
-	var weapon_tag: String = weapon_tag_override if not weapon_tag_override.is_empty() else "swordqi"
+	var weapon_tag: String = weapon_tag_override if not weapon_tag_override.is_empty() else ("summon" if is_summon_bullet else "swordqi")
 	var excluded_law_categories: Array[String] = []
 	if excluded_law_categories_override.is_empty():
 		excluded_law_categories.append("main")
@@ -263,9 +262,10 @@ var current_frame: int = -1
 # 如果返回false，表示这一帧已经处理过碰撞，应该忽略当前碰撞
 func handle_penetration() -> bool:
 	var frame = Engine.get_process_frames()
-	if PC.swordQi_penetration_count > 1 and !PC.selected_rewards.has("SplitSwordQi31"):
+	if PC.swordQi_penetration_count > 1 and not is_summon_bullet and not if_summon:
 		var now_penetration_count = PC.swordQi_penetration_count - penetration_count + 1
-		bullet_damage = bullet_damage * pow(0.35, now_penetration_count)
+		var retained_damage = 0.70 if PC.selected_rewards.has("SplitSwordQi31") else 0.35
+		bullet_damage = bullet_damage * pow(retained_damage, now_penetration_count)
 	# 如果是新的一帧，重置处理标志
 	if frame != current_frame:
 		current_frame = frame
@@ -275,8 +275,8 @@ func handle_penetration() -> bool:
 	if collision_processed_this_frame:
 		return false # 返回false表示忽略这次碰撞
 	
-	# SplitSwordQi12: Each sword Qi has 25% chance to split a sub-sword Qi when hitting an enemy
-	if PC.selected_rewards.has("SplitSwordQi12") and randf() < 0.25 and !is_other_sword_wave:
+	# SplitSwordQi12: Each sword Qi has 40% chance to split a sub-sword Qi when hitting an enemy
+	if PC.selected_rewards.has("SplitSwordQi12") and randf() < 0.40 and !is_other_sword_wave:
 		spawn_sub_sword_wave()
 	
 	# 返回true表示处理这次碰撞，如果穿透计数<=0则销毁子弹
@@ -294,6 +294,8 @@ func handle_penetration() -> bool:
 	
 	# 减少穿透计数
 	penetration_count -= 1
+	if is_summon_bullet and penetration_count > 0:
+		bullet_damage *= summon_pierce_damage_decay
 	
 	return true
 
@@ -341,7 +343,7 @@ func spawn_sub_sword_wave():
 		sub_bullet.set_direction(direction_to_enemy)
 		sub_bullet.position = global_position
 		sub_bullet.penetration_count = penetration_count # Inherit remaining penetration count
-		sub_bullet.bullet_damage = bullet_damage * 0.5 # 50% of mother sword wave damage
+		sub_bullet.preset_damage = bullet_damage * 0.5 # 50% of mother sword wave damage
 		sub_bullet.is_other_sword_wave = true # Mark as additional sword wave
 		get_tree().current_scene.call_deferred("add_child", sub_bullet)
 
@@ -462,7 +464,7 @@ func find_nearest_enemy() -> void:
 	if nearest_enemy:
 		target_enemy = nearest_enemy
 
-func update_sword_qi4_tracking(delta: float) -> void:
+func update_split_sword_qi_tracking(delta: float) -> void:
 	# 检查目标敌人是否仍然有效且未死亡
 	if not target_enemy or not is_instance_valid(target_enemy) or target_enemy.get("is_dead") == true:
 		# 目标无效或已死亡，重新寻找最近的敌人
@@ -482,8 +484,8 @@ func update_sword_qi4_tracking(delta: float) -> void:
 		bullet_speed += speed_boost_amount
 
 func on_hit_target() -> void:
-	if sword_qi4_enabled:
-		# 穿透追踪剑气：击中后重新寻找下一个目标继续追踪
+	if is_other_sword_wave:
+		# 分裂子剑气命中后重新寻找下一个目标
 		target_enemy = null
 		find_nearest_enemy()
 		if not target_enemy:

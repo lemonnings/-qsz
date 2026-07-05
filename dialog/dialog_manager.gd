@@ -35,9 +35,11 @@ var _left_click_block_until_msec: int = 0 # 内联对话开场保护，防止左
 # 颜色
 const COLOR_DIM: Color = Color("#5b5b5b")
 const COLOR_NORMAL: Color = Color.WHITE
+const PORTRAIT_SIZE: Vector2 = Vector2(450.0, 833.0)
 
 func _ready():
 	Global.connect("start_dialog", Callable(self , "_on_start_dialog"))
+	_apply_portrait_rects()
 	# 使用 VC_CHARS_AFTER_SHAPING：基于完整文本预计算换行布局，
 	# visible_characters 仅控制渲染数量，避免逐字显示时换行边界闪烁
 	dialog_text_label.visible_characters_behavior = TextServer.VC_CHARS_AFTER_SHAPING
@@ -52,6 +54,20 @@ func _ready():
 	change_button_2.pressed.connect(_on_choice_pressed.bind(2))
 	change_button_3.pressed.connect(_on_choice_pressed.bind(3))
 	change_button_4.pressed.connect(_on_choice_pressed.bind(4))
+
+func _apply_portrait_rects() -> void:
+	_apply_portrait_rect(speaker_left, -587.0)
+	_apply_portrait_rect(speaker_right, 123.0)
+
+func _apply_portrait_rect(texture_rect: TextureRect, left: float) -> void:
+	texture_rect.custom_minimum_size = Vector2.ZERO
+	texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	texture_rect.stretch_mode = TextureRect.STRETCH_SCALE
+	texture_rect.offset_left = left
+	texture_rect.offset_top = -PORTRAIT_SIZE.y
+	texture_rect.offset_right = left + PORTRAIT_SIZE.x
+	texture_rect.offset_bottom = 0.0
+	texture_rect.size = PORTRAIT_SIZE
 
 func _is_visible_control_under_mouse(control: Control) -> bool:
 	return control.is_visible_in_tree() and control.get_global_rect().has_point(control.get_global_mouse_position())
@@ -80,6 +96,7 @@ func _is_story_skip_mouse_event(event: InputEvent) -> bool:
 	return child_skip_button is Control and _is_visible_control_under_mouse(child_skip_button)
 
 func _on_start_dialog(dialog_file_path: String):
+	_apply_portrait_rects()
 	current_dialog_data = _read_dialog_data(dialog_file_path)
 	if current_dialog_data.is_empty():
 		printerr("Dialog data is empty or failed to load: ", dialog_file_path)
@@ -238,6 +255,11 @@ func _normalize_resource_path(path: String) -> String:
 	return "res://" + normalized_path
 
 func _update_illustration(texture_rect: TextureRect, path: String, is_speaking: bool, use_transition: bool = false):
+	if texture_rect == speaker_left:
+		_apply_portrait_rect(speaker_left, -587.0)
+	elif texture_rect == speaker_right:
+		_apply_portrait_rect(speaker_right, 123.0)
+
 	var target_modulate = COLOR_NORMAL if is_speaking else COLOR_DIM
 	var normalized_path := _normalize_resource_path(path)
 	var should_be_visible = not normalized_path.is_empty() and ResourceLoader.exists(normalized_path)
@@ -574,6 +596,7 @@ func set_text_display_speed(speed: float):
 ## 通过内联数组启动对话（替代 CSV 文件方式）
 ## data 格式：与 CSV 解析结果一致的 Dictionary 数组
 func start_dialog_from_data(data: Array):
+	_apply_portrait_rects()
 	# 杀灭残留 tween，防止旧状态干扰
 	if current_text_tween and current_text_tween.is_valid():
 		current_text_tween.kill()

@@ -4,8 +4,8 @@ extends Area2D
 enum SummonType {
 	BLUE_RANDOM, # 蓝色：随机方向射击
 	DARK_DIRECTED, # 紫色：定向射击（角色上下30px）
-	ORANGE_TRACKING, # 橙色：追踪射击
-	GOLD_ENHANCED, # 金色：强化追踪射击
+	ORANGE_TRACKING, # 金色：追踪射击
+	GOLD_ENHANCED, # 红色：强化追踪射击
 	HEAL_DARK, # 治疗-紫色
 	HEAL_GOLD, # 治疗-金色
 	HEAL_RED, # 治疗-红色
@@ -20,6 +20,8 @@ enum SummonType {
 @export var fire_interval: float = 1 # 发射间隔
 @export var bullet_speed_multiplier: float = 1.0 # 子弹速度倍数
 @export var bullets_per_shot: int = 1 # 每次发射子弹数量
+
+const BASE_SUMMON_RANGE_MULTIPLIER: float = 1.20
 
 # 辅助/治疗相关的临时加成记录，便于召唤物移除时回退
 var applied_atk_bonus: int = 0
@@ -52,7 +54,7 @@ func _ready() -> void:
 		bullet_packed_scene = load("res://Scenes/bullet.tscn")
 	
 	# 设置发射定时器
-	fire_timer.wait_time = fire_interval * PC.summon_interval_multiplier
+	fire_timer.wait_time = fire_interval * PC.summon_interval_multiplier * PC.yujian_applied_interval_multiplier
 	fire_timer.timeout.connect(_on_fire_timer_timeout)
 	fire_timer.start()
 
@@ -209,13 +211,13 @@ func find_nearest_enemy() -> Node2D:
 	
 	return nearest_enemy
 
-# 治疗型召唤：按间隔为角色回复生命，回复量为攻击力的一定比例
+# 治疗型召唤：按间隔为角色回复生命，回复量为最大体力的一定比例
 func fire_heal_bullet(_color: Color) -> void:
 	if PC.is_game_over:
 		return
-	# 计算治疗量：攻击力 * heal_ratio，并受召唤物增伤（用于“增强其他召唤物的治疗/伤害提升”）影响
+	# 计算治疗量：最大体力 * heal_ratio，并受召唤物增伤（用于“增强其他召唤物的治疗/伤害提升”）影响
 	# 修习树领悟篇：唤灵系伤害提升加成
-	var heal_amount: int = int(PC.pc_atk * heal_ratio * (1.0 + PC.summon_damage_multiplier + Global.study_summon_damage_bonus + Global.get_achievement_summon_damage_bonus()) * (1.0 + PC.heal_multi) * Global.get_heal_shield_effect_multiplier())
+	var heal_amount: int = int(PC.pc_max_hp * heal_ratio * (1.0 + PC.summon_damage_multiplier + Global.study_summon_damage_bonus + Global.get_achievement_summon_damage_bonus()) * (1.0 + PC.heal_multi) * Global.get_heal_shield_effect_multiplier())
 	if heal_amount == 0:
 		heal_amount = 1
 	PC.pc_hp += heal_amount
@@ -252,7 +254,10 @@ func create_bullet(direction: Vector2, base_damage: float, speed_mult: float = 1
 	var final_damage = PC.pc_atk * base_damage * (1.0 + PC.summon_damage_multiplier + Global.study_summon_damage_bonus + Global.get_achievement_summon_damage_bonus())
 	bullet.summon_damage = final_damage
 	bullet.is_summon_bullet = true
-	bullet.penetration_count = 1 # 设置穿透次数
+	bullet.weapon_tag_override = "summon"
+	bullet.penetration_count = maxi(1, PC.summon_penetration_count + 1)
+	bullet.summon_pierce_damage_decay = 0.5
+	bullet.bullet_range *= BASE_SUMMON_RANGE_MULTIPLIER * PC.summon_range_multiplier
 	if report_blue_random_result and bullet.has_method("setup_pseudo_random_reporter"):
 		bullet.setup_pseudo_random_reporter(self, &"_on_blue_random_bullet_hit", &"_on_blue_random_bullet_miss")
 	
@@ -284,8 +289,10 @@ func create_sword_spirit_bullet(direction: Vector2) -> void:
 		return
 	bullet.if_summon = true
 	bullet.is_summon_bullet = true
+	bullet.weapon_tag_override = "summon"
 	bullet.penetration_count = 9999
-	bullet.bullet_range = 3000.0
+	bullet.summon_pierce_damage_decay = 0.5
+	bullet.bullet_range = 3000.0 * BASE_SUMMON_RANGE_MULTIPLIER * PC.summon_range_multiplier
 	bullet.position = position
 	bullet.direction = direction
 	bullet.rotation = direction.angle()
@@ -307,7 +314,7 @@ func update_fire_interval() -> void:
 		return
 		
 	# 修习树领悟篇：唤灵系攻击间隔缩短加成
-	var new_wait_time = fire_interval * PC.summon_interval_multiplier * (1.0 - Global.study_summon_interval_reduction)
+	var new_wait_time = fire_interval * PC.summon_interval_multiplier * PC.yujian_applied_interval_multiplier * (1.0 - Global.study_summon_interval_reduction)
 	
 	if fire_timer.is_stopped():
 		fire_timer.wait_time = new_wait_time
@@ -337,41 +344,41 @@ func set_summon_type(type: SummonType) -> void:
 	# 根据类型设置属性
 	match type:
 		SummonType.BLUE_RANDOM:
-			damage_multiplier = 0.70
-			fire_interval = 0.85
+			damage_multiplier = 1.50
+			fire_interval = 0.4
 			bullets_per_shot = 1
 		SummonType.DARK_DIRECTED:
-			damage_multiplier = 0.35
-			fire_interval = 0.8
+			damage_multiplier = 0.55
+			fire_interval = 0.7
 			bullets_per_shot = 2
 		SummonType.ORANGE_TRACKING:
-			damage_multiplier = 0.65
-			fire_interval = 0.65
+			damage_multiplier = 1.40
+			fire_interval = 0.6
 			bullets_per_shot = 1
 			bullet_speed_multiplier = 2.0
 		SummonType.GOLD_ENHANCED:
-			damage_multiplier = 0.55
-			fire_interval = 0.70
+			damage_multiplier = 1.20
+			fire_interval = 0.65
 			bullets_per_shot = 2
 			bullet_speed_multiplier = 2.0
 		# --- 治疗类 ---
 		SummonType.HEAL_DARK:
 			heal_ratio = 0.015
-			fire_interval = 4.0
+			fire_interval = 5.5
 		SummonType.HEAL_GOLD:
-			heal_ratio = 0.02
-			fire_interval = 3
+			heal_ratio = 0.015
+			fire_interval = 5.0
 		SummonType.HEAL_RED:
 			heal_ratio = 0.015
-			fire_interval = 2.4
+			fire_interval = 5.0
 			applied_damage_reduction_bonus = 0.05
 			PC.damage_reduction_rate = min(PC.damage_reduction_rate + applied_damage_reduction_bonus, 0.9)
 		# --- 辅助类（提供攻击与移速，并增强其他召唤物伤害/治疗） ---
 		SummonType.AUX_DARK:
 			# SR22 谐灵：+5%攻击力与移速；其他召唤物提升10%
 			applied_speed_bonus = 0.05
-			PC.pc_speed += applied_speed_bonus
-			applied_atk_bonus = int(PC.pc_start_atk * 0.05)
+			PC.move_speed_bonus += applied_speed_bonus
+			applied_atk_bonus = int(PC.base_atk * 0.05)
 			PC.pc_atk += applied_atk_bonus
 			applied_summon_enhance_bonus = 0.10
 			PC.summon_damage_multiplier += applied_summon_enhance_bonus
@@ -380,8 +387,8 @@ func set_summon_type(type: SummonType) -> void:
 		SummonType.AUX_GOLD:
 			# SSR22 灵律：+6%攻击力与移速；其他召唤物提升13%
 			applied_speed_bonus = 0.06
-			PC.pc_speed += applied_speed_bonus
-			applied_atk_bonus = int(PC.pc_start_atk * 0.06)
+			PC.move_speed_bonus += applied_speed_bonus
+			applied_atk_bonus = int(PC.base_atk * 0.06)
 			PC.pc_atk += applied_atk_bonus
 			applied_summon_enhance_bonus = 0.13
 			PC.summon_damage_multiplier += applied_summon_enhance_bonus
@@ -389,27 +396,27 @@ func set_summon_type(type: SummonType) -> void:
 		SummonType.AUX_RED:
 			# UR22 灵枢：+8%攻击力与移速；其他召唤物提升20%
 			applied_speed_bonus = 0.08
-			PC.pc_speed += applied_speed_bonus
-			applied_atk_bonus = int(PC.pc_start_atk * 0.08)
+			PC.move_speed_bonus += applied_speed_bonus
+			applied_atk_bonus = int(PC.base_atk * 0.08)
 			PC.pc_atk += applied_atk_bonus
 			applied_summon_enhance_bonus = 0.20
 			PC.summon_damage_multiplier += applied_summon_enhance_bonus
 			fire_interval = 1.5
 		SummonType.SWORD_SPIRIT:
-			damage_multiplier = 2.0
-			fire_interval = 1.3
+			damage_multiplier = 3.20
+			fire_interval = 1.2
 			bullets_per_shot = 1
 			bullet_speed_multiplier = 1.0
 	
 	# 更新定时器
 	if fire_timer:
-		fire_timer.wait_time = fire_interval * PC.summon_interval_multiplier
+		fire_timer.wait_time = fire_interval * PC.summon_interval_multiplier * PC.yujian_applied_interval_multiplier
 
 # 节点移除时回退辅助与治疗带来的持续加成
 func _exit_tree() -> void:
 	# 回退 AUX 持续增益
 	if applied_speed_bonus != 0.0:
-		PC.pc_speed -= applied_speed_bonus
+		PC.move_speed_bonus -= applied_speed_bonus
 		applied_speed_bonus = 0.0
 	if applied_atk_bonus != 0:
 		PC.pc_atk -= applied_atk_bonus

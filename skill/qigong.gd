@@ -211,7 +211,7 @@ func _trigger_explosion(direct_hit_target: Area2D) -> void:
 		if qigong_knockback > 0 and direct_hit_target.has_method("apply_knockback"):
 			# Qigong2/55: 距离越近击退越远
 			var dist = global_position.distance_to(start_position)
-			var knockback_force = _get_knockback_force(dist)
+			var knockback_force = _get_knockback_force(dist) * PC.get_knockback_multiplier()
 			var knockback_dir = (direct_hit_target.global_position - start_position).normalized()
 			direct_hit_target.apply_knockback(knockback_dir, knockback_force)
 			
@@ -326,6 +326,6 @@ func _apply_splash_knockback(target: Node2D, main_target_position: Vector2) -> v
 	if not target.has_method("apply_knockback"):
 		return
 	var dist = start_position.distance_to(target.global_position)
-	var knockback_force = _get_knockback_force(dist)
+	var knockback_force = _get_knockback_force(dist) * PC.get_knockback_multiplier()
 	var knockback_dir = (target.global_position - main_target_position).normalized()
 	target.apply_knockback(knockback_dir, knockback_force)

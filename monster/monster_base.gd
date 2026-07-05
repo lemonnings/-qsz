@@ -7,6 +7,7 @@ const MONSTER_FIREBALL_SCENE = preload("res://Scenes/moster/frog_attack.tscn")
 const CORRUPTED_ELITE_DEFAULT_DROP_ID: String = "item_102"
 const CORRUPTED_ELITE_CHARGE_PREPARING_META: String = "corrupted_elite_charge_preparing"
 const CORRUPTED_ELITE_CHARGING_META: String = "corrupted_elite_charging"
+const CORRUPTED_ELITE_CHARGE_DIRECTION_META: String = "corrupted_elite_charge_direction"
 const CORRUPTED_SPREAD_ANGLE_DEGREES: float = 35.0
 
 var debuff_manager: EnemyDebuffManager
@@ -35,6 +36,9 @@ const OFFSCREEN_SPEED_MULTIPLIER_MIN: float = 1 # 超出视野后，移动速度
 const OFFSCREEN_SPEED_MULTIPLIER_MAX: float = 5.0
 const RANDOM_SPEED_VARIATION_MIN: float = 0.85
 const RANDOM_SPEED_VARIATION_MAX: float = 1.15
+const PLAYER_DAMAGE_VARIANCE_MIN: float = 0.95
+const PLAYER_DAMAGE_VARIANCE_MAX: float = 1.05
+const CAMERA_WANDER_VIEW_MARGIN: float = 48.0
 
 # 离屏优化：缓存每帧的离屏状态，避免重复计算
 const OFFSCREEN_OPTIMIZATION_MARGIN: float = 40.0
@@ -384,6 +388,63 @@ func steer_direction_toward_scene_bounds_center(current_direction: Vector2, rand
 		return current_direction
 	return to_center.normalized().rotated(deg_to_rad(randf_range(-random_degrees, random_degrees)))
 
+func get_camera_visible_world_rect(margin_pixels: float = 0.0) -> Rect2:
+	var viewport := get_viewport()
+	var camera := viewport.get_camera_2d() if viewport != null else null
+	if camera == null:
+		return Rect2()
+	var viewport_size := viewport.get_visible_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return Rect2()
+	var zoom := camera.zoom
+	var visible_size := Vector2(
+		viewport_size.x / maxf(zoom.x, 0.01),
+		viewport_size.y / maxf(zoom.y, 0.01)
+	)
+	var margin := Vector2(
+		margin_pixels / maxf(zoom.x, 0.01),
+		margin_pixels / maxf(zoom.y, 0.01)
+	)
+	var rect := Rect2(camera.get_screen_center_position() - visible_size * 0.5, visible_size)
+	if margin_pixels > 0.0:
+		rect = rect.grow_individual(-margin.x, -margin.y, -margin.x, -margin.y)
+	return rect if rect.size.x > 0.0 and rect.size.y > 0.0 else Rect2()
+
+func get_camera_wander_bounds(margin_pixels: float = CAMERA_WANDER_VIEW_MARGIN, scene_padding: float = 16.0) -> Rect2:
+	var visible_rect := get_camera_visible_world_rect(margin_pixels)
+	if visible_rect.size.x <= 0.0 or visible_rect.size.y <= 0.0:
+		return get_scene_movement_bounds(scene_padding)
+	var scene_bounds := get_scene_movement_bounds(scene_padding)
+	if scene_bounds.size.x <= 0.0 or scene_bounds.size.y <= 0.0:
+		return visible_rect
+	var intersection := visible_rect.intersection(scene_bounds)
+	return intersection if intersection.size.x > 0.0 and intersection.size.y > 0.0 else visible_rect
+
+func is_position_outside_rect(world_position: Vector2, rect: Rect2) -> bool:
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return false
+	return not rect.has_point(world_position)
+
+func choose_camera_wander_direction(current_direction: Vector2 = Vector2.LEFT, random_degrees: float = 35.0, margin_pixels: float = CAMERA_WANDER_VIEW_MARGIN, scene_padding: float = 16.0) -> Vector2:
+	var bounds := get_camera_wander_bounds(margin_pixels, scene_padding)
+	return choose_direction_to_rect(bounds, current_direction, random_degrees)
+
+func choose_direction_to_rect(bounds: Rect2, current_direction: Vector2 = Vector2.LEFT, random_degrees: float = 35.0) -> Vector2:
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		var angle := randf() * TAU
+		return Vector2(cos(angle), sin(angle))
+	var target := Vector2(
+		randf_range(bounds.position.x, bounds.position.x + bounds.size.x),
+		randf_range(bounds.position.y, bounds.position.y + bounds.size.y)
+	)
+	var to_target := target - global_position
+	if to_target.length_squared() > 0.0001:
+		return to_target.normalized()
+	if current_direction.length_squared() > 0.0001:
+		return current_direction.normalized().rotated(deg_to_rad(randf_range(-random_degrees, random_degrees)))
+	var angle := randf() * TAU
+	return Vector2(cos(angle), sin(angle))
+
 func _build_scene_movement_bounds(padding: float) -> Rect2:
 	var tree := get_tree()
 	if tree == null or tree.current_scene == null:
@@ -502,7 +563,34 @@ func handle_common_body_entered(body: Node2D) -> void:
 		if use_debuff_take_damage_multiplier and debuff_manager != null and is_instance_valid(debuff_manager):
 			actual_damage *= debuff_manager.get_take_damage_multiplier()
 		PC.player_hit(int(actual_damage), self , "")
+		if _is_currently_charging_for_contact():
+			CharacterEffects.apply_player_charge_side_knockback(body, _get_current_charge_direction_for_contact(body), global_position)
 		_last_contact_damage_msec = now_msec
+
+func _is_currently_charging_for_contact() -> bool:
+	return get_meta(CORRUPTED_ELITE_CHARGING_META, false) == true or (_has_property("is_charging") and bool(get("is_charging")))
+
+func _get_current_charge_direction_for_contact(body: Node2D) -> Vector2:
+	if has_meta(CORRUPTED_ELITE_CHARGE_DIRECTION_META):
+		var meta_direction = get_meta(CORRUPTED_ELITE_CHARGE_DIRECTION_META)
+		if meta_direction is Vector2:
+			var meta_charge_direction := meta_direction as Vector2
+			if meta_charge_direction.length_squared() > 0.0001:
+				return meta_charge_direction.normalized()
+	if _has_property("charge_direction"):
+		var charge_dir = get("charge_direction")
+		if charge_dir is Vector2:
+			var property_charge_direction := charge_dir as Vector2
+			if property_charge_direction.length_squared() > 0.0001:
+				return property_charge_direction.normalized()
+	if _has_property("charge_indicator_direction"):
+		var indicator_dir = get("charge_indicator_direction")
+		if indicator_dir is Vector2:
+			var indicator_charge_direction := indicator_dir as Vector2
+			if indicator_charge_direction.length_squared() > 0.0001:
+				return indicator_charge_direction.normalized()
+	var fallback := body.global_position - global_position
+	return fallback.normalized() if fallback.length_squared() > 0.0001 else Vector2.RIGHT
 
 func _on_body_entered(body: Node2D) -> void:
 	handle_common_body_entered(body)
@@ -565,14 +653,24 @@ func get_player_total_damage_multiplier() -> float:
 func apply_common_final_damage_multipliers(damage: float) -> float:
 	if damage <= 0.0:
 		return 0.0
-	var final_damage = BulletCalculator.apply_global_buff_effects(damage)
-	final_damage *= get_player_total_damage_multiplier()
-	return final_damage
+	var global_buff_bonus := BulletCalculator.get_global_buff_damage_multiplier() - 1.0
+	var additive_bonus := Faze.get_final_damage_additive_bonus() + global_buff_bonus
+	var stage_boss_multiplier := Global.get_stage_boss_player_damage_multiplier()
+	var damage_deal_multiplier := 1.0
+	if typeof(PC) != TYPE_NIL and PC != null:
+		damage_deal_multiplier = PC.damage_deal_multiplier
+	return damage * maxf(0.0, 1.0 + additive_bonus) * stage_boss_multiplier * damage_deal_multiplier
+
+func apply_player_outgoing_damage_variance(damage: float) -> float:
+	if damage <= 0.0:
+		return damage
+	return damage * randf_range(PLAYER_DAMAGE_VARIANCE_MIN, PLAYER_DAMAGE_VARIANCE_MAX)
 
 func get_common_bullet_damage_value(base_damage: float) -> int:
 	var final_damage = apply_common_final_damage_multipliers(base_damage)
 	if debuff_manager != null and is_instance_valid(debuff_manager):
 		final_damage *= debuff_manager.get_damage_multiplier()
+	final_damage = apply_player_outgoing_damage_variance(final_damage)
 	return int(final_damage)
 
 func get_non_bullet_damage_value(damage: float, use_debuff_multiplier: bool = true) -> int:
@@ -606,6 +704,8 @@ func apply_common_take_damage(damage: int, is_crit: bool, is_summon: bool, damag
 	var study_weapon_bonus = SettingStudyTreeUp.get_total_damage_bonus(damage_type)
 	var adjusted_damage = float(damage) * (1.0 + study_weapon_bonus)
 	var final_damage = get_non_bullet_damage_value(adjusted_damage, use_debuff_multiplier)
+	if damage_type != "bullet":
+		final_damage = int(apply_player_outgoing_damage_variance(float(final_damage)))
 	result["applied"] = true
 	result["final_damage"] = final_damage
 

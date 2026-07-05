@@ -25,9 +25,9 @@ func _ready():
 	# 初始化生命周期定时器
 	lifetime_timer = Timer.new()
 	if PC.selected_rewards.has("SplitSwordQi21"):
-		lifetime_timer.wait_time = 4.0
-	else:
 		lifetime_timer.wait_time = 3.0
+	else:
+		lifetime_timer.wait_time = 2.0
 	lifetime_timer.one_shot = true
 	lifetime_timer.timeout.connect(_on_lifetime_timer_timeout)
 	add_child(lifetime_timer)
@@ -91,7 +91,7 @@ func setup_wave(wave_target_position: Vector2):
 	# 阶段1: 0.5秒内，透明度从0到1
 	tween.tween_property(self , "modulate:a", 0.5, 0.15)
 	# 阶段2: 保持1.5秒
-	tween.tween_interval(2.35)
+	tween.tween_interval(lifetime_timer.wait_time - 0.65)
 	# 阶段3: 1秒内，透明度从1到0
 	tween.tween_property(self , "modulate:a", 0.0, 0.5)
 	# 总持续时间 0.5 + 1.5 + 1.0 = 3.0秒，与 lifetime_timer 匹配

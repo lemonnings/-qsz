@@ -3,10 +3,11 @@ extends Node
 const DEFAULT_STAGE_ID := "peach_grove"
 
 const STAGE_STAT_BASES := {
-	"peach_grove": {"atk": 150.0, "hp": 22.0},
-	"ruin": {"atk": 280.0, "hp": 32.0},
-	"cave": {"atk": 360.0, "hp": 48.0},
-	"forest": {"atk": 440.0, "hp": 68.0}
+	"peach_grove": {"atk": 160.0, "hp": 22.0},
+	"ruin": {"atk": 300.0, "hp": 33.0},
+	"cave": {"atk": 390.0, "hp": 50.0},
+	"forest": {"atk": 480.0, "hp": 72.0},
+	"difu": {"atk": 580.0, "hp": 90.0}
 }
 
 const MONSTER_STAT_MULTIPLIERS := {
@@ -25,7 +26,8 @@ const MONSTER_STAT_MULTIPLIERS := {
 	"slime_green": {"default_stage": "cave", "atk": 420.0 / 500.0, "hp": 65.0 / 75.0},
 	"shen": {"default_stage": "forest", "atk": 1.0, "hp": 1.0},
 	"frog_new": {"default_stage": "forest", "atk": 500.0 / 600.0, "hp": 110.0 / 120.0},
-	"ball": {"default_stage": "forest", "atk": 550.0 / 600.0, "hp": 1.0}
+	"ball": {"default_stage": "forest", "atk": 550.0 / 600.0, "hp": 1.0},
+	"youling": {"default_stage": "difu", "atk": 1.0, "hp": 1.0}
 }
 
 
@@ -77,25 +79,27 @@ func _calc_monster_hp(monster_id: String) -> float:
 	return _calc_hp(_get_monster_base_stat(monster_id, "hp"))
 
 func _calc_atk(base_atk: float) -> float:
-	var t = PC.real_time
-	var raw_mult = _get_current_stage_multiplier()
+	var t: float = float(PC.real_time)
+	var raw_mult: float = _get_current_stage_multiplier()
 	var growth_mult := Global.get_core_attack_growth_multiplier() if typeof(Global) != TYPE_NIL else 1.0
-	return ((base_atk * raw_mult) + (0.6 * t) * pow(1.035, PC.pc_lv - 1) * growth_mult) * PC.enemy_damage_multiplier
+	var base_part: float = base_atk * raw_mult * 0.75
+	var time_part: float = (0.3 * t + 0.0015 * t * t) * pow(1.035, PC.pc_lv - 1) * growth_mult
+	return (base_part + time_part) * PC.enemy_damage_multiplier
 
 # 计算新武器带来的怪物血量加成
 func _get_new_weapon_hp_multiplier() -> float:
 	var count = PC.new_weapon_obtained_count
 	var multiplier = 1.0
 	if count >= 1:
-		multiplier *= 1.65
+		multiplier *= 1.6
 	if count >= 2:
-		multiplier *= 1.45
-	if count >= 3:
 		multiplier *= 1.325
-	if count >= 4:
+	if count >= 3:
 		multiplier *= 1.225
-	if count >= 5:
+	if count >= 4:
 		multiplier *= 1.175
+	if count >= 5:
+		multiplier *= 1.125
 	return multiplier
 
 func _calc_hp(base_hp: float) -> float:
@@ -115,12 +119,12 @@ func _calc_hp(base_hp: float) -> float:
 	var fifth_jump_time = 390.0
 	var sixth_jump_time = 450.0
 
-	var first_jump_multiplier = 1.25
-	var second_jump_multiplier = 1.85
-	var third_jump_multiplier = 3
-	var fourth_jump_multiplier = 4.2
+	var first_jump_multiplier = 1.6
+	var second_jump_multiplier = 2.4
+	var third_jump_multiplier = 3.6
+	var fourth_jump_multiplier = 5.4
 	var fifth_jump_multiplier = 8
-	var sixth_jump_multiplier = 12.5
+	var sixth_jump_multiplier = 12
 
 	var jump_multiplier = 1.0
 	if t < first_jump_time:
@@ -203,6 +207,8 @@ func _get_reference_normal_exp_for_current_stage() -> int:
 			return int(armor_stone("exp"))
 		"forest":
 			return int(shen("exp"))
+		"difu":
+			return int(youling("exp"))
 		_:
 			return int(slime_blue("exp"))
 
@@ -214,6 +220,8 @@ func _get_reference_normal_point_for_current_stage() -> float:
 			return float(armor_stone("point"))
 		"forest":
 			return float(shen("point"))
+		"difu":
+			return float(youling("point"))
 		_:
 			return float(slime_blue("point"))
 
@@ -388,6 +396,21 @@ func ball(query: String): # 弹跳兽 / 特殊怪
 		"point": 26 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
 		"mechanism": 16,
 		"itemdrop": {"item_001": 0.01, "item_046": 0.05 * Global.get_effective_drop_multiplier(), "item_010": 0.015 * Global.get_effective_drop_multiplier(), "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
+	}
+	return _finalize_monster_data(data, query)
+
+
+# ============== 关卡5 九幽冥府(DIFU) ==============
+
+func youling(query: String): # 幽灵 / 地府普通怪
+	var data = {
+		"atk": _calc_monster_atk("youling"),
+		"hp": _calc_monster_hp("youling"),
+		"speed": 40,
+		"exp": 600,
+		"point": 26 * _get_difficulty_point_multiplier() * min(((1 + (PC.current_time / 100))), 8) * (1 + (Global.cultivation_hualing_level * 0.03)),
+		"mechanism": 14,
+		"itemdrop": {"item_001": 0.01, "item_007": 0.01 * Global.get_effective_drop_multiplier(), "item_004": 0.002 * Global.get_effective_drop_multiplier()}
 	}
 	return _finalize_monster_data(data, query)
 

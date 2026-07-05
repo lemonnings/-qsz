@@ -127,7 +127,7 @@ var recipes_data = {
 	},
 	"recipe_005": {
 		"recipe_name": "回春露",
-		"recipe_description": "治愈灵气回复效果提升5%（最多10次）",
+		"recipe_description": "治愈精华治疗量提升2%（最多10次）",
 		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/huichunlu.png",
 		"category": "danyao",
 		"required_items": [

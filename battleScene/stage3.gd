@@ -200,14 +200,19 @@ func _get_spawn_position() -> Vector2:
 	return _get_player_spawn_safe_position(_get_raw_spawn_position(), Callable(self , "_get_raw_spawn_position"))
 
 func _get_raw_spawn_position() -> Vector2:
-	var spawn_edge = randi_range(0, 2)
+	var spawn_edge: int = randi_range(0, 2)
+	var resolved_edge: int = spawn_edge
+	var fallback_position := Vector2.ZERO
 	match spawn_edge:
 		0:
-			return Vector2(randf_range(SPAWN_TOP_X_MIN, SPAWN_TOP_X_MAX), SPAWN_TOP_Y)
+			fallback_position = Vector2(randf_range(SPAWN_TOP_X_MIN, SPAWN_TOP_X_MAX), SPAWN_TOP_Y)
 		1:
-			return Vector2(SPAWN_LEFT_X, randf_range(SPAWN_LEFT_Y_MIN, SPAWN_LEFT_Y_MAX))
+			resolved_edge = 2
+			fallback_position = Vector2(SPAWN_LEFT_X, randf_range(SPAWN_LEFT_Y_MIN, SPAWN_LEFT_Y_MAX))
 		_:
-			return Vector2(SPAWN_RIGHT_X, randf_range(SPAWN_RIGHT_Y_MIN, SPAWN_RIGHT_Y_MAX))
+			resolved_edge = 3
+			fallback_position = Vector2(SPAWN_RIGHT_X, randf_range(SPAWN_RIGHT_Y_MIN, SPAWN_RIGHT_Y_MAX))
+	return _get_monster_spawn_position_for_edge(resolved_edge, fallback_position)
 
 func _spawn_single_slime() -> void:
 	if not is_inside_tree() or get_tree().current_scene == null or slime_scene == null:
@@ -219,6 +224,9 @@ func _spawn_single_slime() -> void:
 		return
 	var slime_node = slime_scene.instantiate()
 	var spawn_position = _get_spawn_position()
+	var bounds := _get_scene_boundary_rect()
+	if bounds.size.x > 1.0 and bounds.size.y > 1.0:
+		spawn_position = _clamp_point_to_rect(spawn_position, _shrink_rect(bounds, 24.0))
 	slime_node.position = spawn_position
 	get_tree().current_scene.add_child(slime_node)
 	_mark_spirit_enemy_type(slime_node, true)
@@ -260,6 +268,9 @@ func _spawn_single_frog() -> void:
 	var frog_node = frog_scene.instantiate()
 	frog_node.move_direction = 2 # 朝向角色移动
 	var spawn_position = _get_spawn_position()
+	var bounds := _get_scene_boundary_rect()
+	if bounds.size.x > 1.0 and bounds.size.y > 1.0:
+		spawn_position = _clamp_point_to_rect(spawn_position, _shrink_rect(bounds, 24.0))
 	frog_node.position = spawn_position
 	get_tree().current_scene.add_child(frog_node)
 	_mark_spirit_enemy_type(frog_node, true)

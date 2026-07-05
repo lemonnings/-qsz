@@ -29,11 +29,14 @@ const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
 var attack_warning_started: bool = false
 var attack_warning_overlay: AnimatedSprite2D = null
 var attack_warning_tween: Tween = null
+const WANDER_DIRECTION_CHANGE_INTERVAL: float = 2.0
+const WANDER_VIEW_MARGIN_PIXELS: float = 48.0
+var wander_direction_timer: float = 0.0
 
 # 精英怪相关
 
-# 边界检测标志，防止重复触发转向
-var is_out_of_bounds: bool = false
+# 视野检测标志，防止重复触发转向
+var is_out_of_view: bool = false
 
 func _ready():
 	player_hit_emit_self = true
@@ -73,6 +76,8 @@ func _physics_process(delta: float) -> void:
 		speed = get_effective_move_speed(base_speed)
 		if CharacterEffects.is_player_dead_or_game_over():
 			move_vector = CharacterEffects.get_player_death_scatter_direction(self)
+		else:
+			_update_wander_direction(delta)
 		position += CharacterEffects.apply_soft_separation_to_direction(self, move_vector) * speed * delta
 		# 根据水平移动方向翻转精灵
 		if move_vector.x > 0:
@@ -85,11 +90,7 @@ func _physics_process(delta: float) -> void:
 		var currently_out_of_bounds: bool = not clamped_position.is_equal_approx(global_position)
 		if currently_out_of_bounds:
 			global_position = clamped_position
-		if currently_out_of_bounds and not is_out_of_bounds:
 			_pick_direction_to_safe_zone()
-			is_out_of_bounds = true
-		elif not currently_out_of_bounds:
-			is_out_of_bounds = false
 
 	if hp <= 0:
 		free_health_bar()
@@ -175,31 +176,35 @@ func _on_area_entered(area: Area2D) -> void:
 
 # 随机选择一个移动方向
 func _pick_random_direction() -> void:
-	var angle = randf() * TAU
-	move_vector = Vector2(cos(angle), sin(angle))
+	move_vector = _choose_ghost_wander_direction(35.0)
+	wander_direction_timer = randf_range(0.0, WANDER_DIRECTION_CHANGE_INTERVAL)
 
 func _get_movement_bounds() -> Rect2:
 	var min_y: float = BOUNDS_MIN_Y_CAVE if Global.current_stage_id == "cave" else BOUNDS_MIN_Y_DEFAULT
 	return Rect2(Vector2(BOUNDS_MIN_X, min_y), Vector2(BOUNDS_MAX_X - BOUNDS_MIN_X, BOUNDS_MAX_Y - min_y))
 
+func _update_wander_direction(delta: float) -> void:
+	wander_direction_timer -= delta
+	var wander_bounds := get_camera_wander_bounds(WANDER_VIEW_MARGIN_PIXELS, 16.0).intersection(_get_movement_bounds())
+	if wander_bounds.size.x <= 0.0 or wander_bounds.size.y <= 0.0:
+		wander_bounds = _get_movement_bounds()
+	var currently_out_of_view := is_position_outside_rect(global_position, wander_bounds)
+	if currently_out_of_view and not is_out_of_view:
+		wander_direction_timer = 0.0
+	if wander_direction_timer <= 0.0:
+		move_vector = _choose_ghost_wander_direction(35.0)
+		wander_direction_timer = WANDER_DIRECTION_CHANGE_INTERVAL
+	is_out_of_view = currently_out_of_view
+
 # 朝向安全区域中心选择方向（避免再次越界）
 func _pick_direction_to_safe_zone() -> void:
-	var bounds_rect: Rect2 = _get_movement_bounds()
-	var safe_center: Vector2 = bounds_rect.position + bounds_rect.size * 0.5
-	var direction_to_center: Vector2 = safe_center - global_position
-	if direction_to_center.length_squared() > 0.0001:
-		var random_offset: float = deg_to_rad(randf_range(-30, 30))
-		move_vector = direction_to_center.normalized().rotated(random_offset)
-		return
-	var direction_to_player: Vector2
-	if CharacterEffects.is_player_dead_or_game_over():
-		direction_to_player = CharacterEffects.get_player_death_scatter_direction(self)
-	elif PC.player_instance:
-		direction_to_player = (PC.player_instance.global_position - global_position).normalized()
-	else:
-		direction_to_player = Vector2.LEFT
-	var random_offset: float = deg_to_rad(randf_range(-30, 30))
-	move_vector = direction_to_player.rotated(random_offset)
+	move_vector = _choose_ghost_wander_direction(25.0)
+
+func _choose_ghost_wander_direction(random_degrees: float) -> Vector2:
+	var bounds := get_camera_wander_bounds(WANDER_VIEW_MARGIN_PIXELS, 16.0).intersection(_get_movement_bounds())
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		bounds = _get_movement_bounds()
+	return choose_direction_to_rect(bounds, move_vector, random_degrees)
 
 # 每隔 FIRE_INTERVAL 秒向玩家发射一次子弹
 func _shoot_bullet() -> void:

@@ -1,4 +1,4 @@
-extends "res://Script/monster/monster_base.gd"
+extends "res://Script/monster/boss_base.gd"
 
 @onready var sprite = $BossStone # 使用与 boss_stone 相同的节点结构
 var is_attacking: bool = false
@@ -17,9 +17,9 @@ var update_move_timer: Timer
 
 # 属性
 var speed: float = SettingMoster.stone_man("speed") * 1.2
-var hpMax: float = SettingMoster.stone_man("hp") * 13
+var hpMax: float = SettingMoster.stone_man("hp") * 9
 var hp: float = hpMax
-var atk: float = SettingMoster.stone_man("atk") * 0.75
+var atk: float = SettingMoster.stone_man("atk") * 0.825
 var get_point: int = SettingMoster.stone_man("point") * 50
 var get_exp: int = 0
 
@@ -86,38 +86,20 @@ const POETRY_CHAIN_CHANT_PAIRS := [
 	[2, 6], # 极冰+x形冰
 	[1, 5], # 炽炎+十字火
 ]
+const POETRY_RING_THUNDER_SAFE_RANGE_MULTIPLIER: float = 1.2
+const POETRY_CROSS_WIDTH_MULTIPLIER: float = 0.85
 
 func _create_skill_timer(duration: float) -> SceneTreeTimer:
 	return get_tree().create_timer(duration, false)
 
 func _ready():
-	add_to_group("boss")
-	process_mode = Node.PROCESS_MODE_PAUSABLE
-	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
+	stage_difficulty = setup_boss_base("boss_cansel")
 	# 红色描边
 	if sprite:
 		sprite.material = ShaderMaterial.new()
 		sprite.material.shader = _get_outline_shader()
 		sprite.material.set_shader_parameter("outline_color", Color.RED)
 		sprite.material.set_shader_parameter("outline_width", 1.0)
-# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 25.0
-	match stage_difficulty:
-		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier *= 1.05
-		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier *= 1.1
-	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
-		hpMax = Global.get_poetry_boss_max_hp("boss_cansel", hpMax)
-	else:
-		hpMax += Global.get_current_dps() * dps_multiplier
-	hp = hpMax
-	
-	# 浅层难度下Boss只造成75%伤害
-	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
-		atk *= 0.75
-
-	setup_monster_base()
 	player_hit_emit_self = true
 	use_debuff_take_damage_multiplier = false
 	check_action_disabled_on_body_entered = false
@@ -540,6 +522,10 @@ func _create_spark_bullet(is_fire: bool, pos: Vector2, _direction: Vector2):
 	
 	var trigger_damage = func(body: Node2D):
 		if body is CharacterBody2D and body.is_in_group("player"):
+			if PC.invincible:
+				if is_instance_valid(bullet):
+					bullet.queue_free()
+				return
 			var consumed = false
 			var player_pos = body.global_position
 			if is_fire:
@@ -829,6 +815,8 @@ func _attack_ring_thunder():
 	var ring_warn = _RingWarn.new()
 	ring_warn.center = boss_pos
 	ring_warn.inner_r = 94
+	if _is_poetry():
+		ring_warn.inner_r *= POETRY_RING_THUNDER_SAFE_RANGE_MULTIPLIER
 	ring_warn.duration = chant_time if not _combo_mode else 1
 	get_tree().current_scene.add_child(ring_warn)
 	
@@ -856,10 +844,11 @@ func _apply_ring_thunder_effect(boss_pos: Vector2, ring_warn: Node2D):
 		var player_radius = hitbox_info.get("radius", 0.0) if not hitbox_info.is_empty() else 0.0
 		
 		var diff = player_pos - boss_pos
-		var norm_x = diff.x / 95
-		var norm_y = diff.y / 65.0
+		var safe_range_multiplier := POETRY_RING_THUNDER_SAFE_RANGE_MULTIPLIER if _is_poetry() else 1.0
+		var norm_x = diff.x / (95.0 * safe_range_multiplier)
+		var norm_y = diff.y / (65.0 * safe_range_multiplier)
 		# 椭圆坐标系中扩展玩家碰撞半径（使用短半轴作为保守估计）
-		var effective_threshold = 1.0 + player_radius / 65.0
+		var effective_threshold = 1.0 + player_radius / (65.0 * safe_range_multiplier)
 		if (norm_x * norm_x + norm_y * norm_y) > effective_threshold * effective_threshold:
 			PC.player_hit(int(atk * 1.5 * (1.0 - PC.damage_reduction_rate)), self , "环雷")
 	
@@ -1143,7 +1132,7 @@ func _attack_cross_fire():
 	if _is_core_or_harder():
 		cross_width *= 1.25
 	if _is_poetry():
-		cross_width *= 0.6
+		cross_width *= 0.6 * POETRY_CROSS_WIDTH_MULTIPLIER
 	
 	var warn1 = WarnRectUtil.new(); add_child(warn1)
 	var warn2 = WarnRectUtil.new(); add_child(warn2)
@@ -1187,7 +1176,7 @@ func _attack_x_ice():
 		x_width *= 1.25
 	
 	if _is_poetry():
-		x_width *= 0.6
+		x_width *= 0.6 * POETRY_CROSS_WIDTH_MULTIPLIER
 	
 	var warn1 = WarnRectUtil.new(); add_child(warn1)
 	var warn2 = WarnRectUtil.new(); add_child(warn2)

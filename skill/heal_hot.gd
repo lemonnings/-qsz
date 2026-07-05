@@ -60,8 +60,9 @@ func _process(delta):
 
 func perform_heal():
 	var max_hp = PC.pc_max_hp
+	var missing_hp = max(0, max_hp - PC.pc_hp)
 	# 修习树技能篇：疗愈回复量加成
-	var heal_amount = int((max_hp * heal_percent + heal_base) * (1.0 + PC.heal_multi) * (1.0 + Global.study_liaoyu_recovery_bonus) * Global.get_heal_shield_effect_multiplier())
+	var heal_amount = int((missing_hp * heal_percent + heal_base) * (1.0 + PC.heal_multi) * (1.0 + Global.study_liaoyu_recovery_bonus) * Global.get_heal_shield_effect_multiplier())
 	
 	var player = get_tree().get_first_node_in_group("player")
 	

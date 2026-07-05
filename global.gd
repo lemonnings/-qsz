@@ -9,7 +9,7 @@ const LEGACY_INITIAL_REFRESH_BASE_NUM: int = 5
 const REFRESH_BASE_VERSION: int = 2
 
 const DEBUG_F1_ZHENQI_AMOUNT := 1000000
-const DEBUG_COMMANDS_ENABLED: bool = true
+var DEBUG_COMMANDS_ENABLED: bool = false
 
 const INPUT_DEVICE_MODE_PC: String = "pc"
 const INPUT_DEVICE_MODE_MOBILE: String = "mobile"
@@ -50,8 +50,8 @@ const STAGE_DIFFICULTY_LIST := [
 ]
 
 # 关卡ID列表。
-# 这里只先接你当前提出的 4 个正式关卡。
-const STAGE_ID_LIST := ["peach_grove", "ruin", "cave", "forest"]
+# 关卡列表，包含正式关卡与已开放的秘境关卡。
+const STAGE_ID_LIST := ["peach_grove", "ruin", "cave", "forest", "difu"]
 
 const CORE_DEPTH_MIN := 1
 const CORE_DEPTH_MAX := 10
@@ -106,6 +106,18 @@ const STAGE_CORE_DEPTH_STAT_MULTIPLIERS := {
 		8: 2.46,
 		9: 2.58,
 		10: 2.7
+	},
+	"difu": {
+		1: 1.62,
+		2: 1.74,
+		3: 1.86,
+		4: 1.98,
+		5: 2.1,
+		6: 2.22,
+		7: 2.34,
+		8: 2.46,
+		9: 2.58,
+		10: 2.7
 	}
 }
 const SHALLOW_DIFFICULTY_QI_GAIN_MULTIPLIER := 1.0
@@ -117,11 +129,13 @@ const POETRY_BOSS_DAMAGE_BASE_BONUS := 0.9
 const POETRY_BOSS_DAMAGE_XUANYUAN_STEP := 0.005
 const POETRY_BOSS_DAMAGE_HUTI_STEP := 0.01
 const POETRY_BOSS_DAMAGE_CORRECTION_STEP := 0.05
+const POETRY_BOSS_DAMAGE_FINAL_MULTIPLIER := 0.65
 const POETRY_MODIFIER_STEP_SECONDS := 10.0
 const POETRY_MODIFIER_DOUBLE_AFTER_SECONDS := 60.0
 const POETRY_PLAYER_FINAL_DAMAGE_STEP := 0.08
 const POETRY_HEAL_SHIELD_STEP_PENALTY := 0.05
-const POETRY_BOSS_HP_OUTPUT_SCALE := 1200.0
+const POETRY_BOSS_HP_OUTPUT_SCALE := 900.0
+const POETRY_BOSS_HP_FINAL_MULTIPLIER := 0.95
 const POETRY_BOSS_HP_FACTORS := {
 	"boss_a": 0.81,
 	"boss_stone": 0.6525,
@@ -130,33 +144,33 @@ const POETRY_BOSS_HP_FACTORS := {
 }
 const DEFAULT_START_WEAPON_BY_HERO := {
 	"moning": "Qigong",
-	"yiqiu": "Swordqi",
-	"noam": "Lightbullet",
+	"yiqiu": "SwordQi",
+	"noam": "LightBullet",
 	"kansel": "Ice",
 	"xueming": "Zhuazhuajuchui"
 }
 const START_WEAPON_ORDER: Array[String] = [
-	"Swordqi",
+	"SwordQi",
 	"Qigong",
-	"Lightbullet",
+	"LightBullet",
 	"Ice",
 	"Xunfeng",
 	"Genshan",
 	"Bloodwave",
 	"Xuanwu",
 	"Water",
-	"Holylight",
+	"HolyLight",
 	"Branch",
 	"Thunder",
-	"Thunderbreak",
+	"ThunderBreak",
 	"Moyan",
 	"Qiankun",
-	"Bloodboardsword",
+	"BloodBoardSword",
 	"Zhuazhuajuchui",
 	"Riyan",
-	"Ringfire",
+	"RingFire",
 	"Duize",
-	"Dragonwind"
+	"DragonWind"
 ]
 const FAZE_LEVEL_PROPERTIES := [
 	"faze_blood_level",
@@ -200,6 +214,12 @@ const STAGE_DIFFICULTY_MULTIPLIERS := {
 		STAGE_DIFFICULTY_POETRY: 2.25
 	},
 	"forest": {
+		STAGE_DIFFICULTY_SHALLOW: 1.0,
+		STAGE_DIFFICULTY_DEEP: 1.5,
+		STAGE_DIFFICULTY_CORE: 2.25,
+		STAGE_DIFFICULTY_POETRY: 2.25
+	},
+	"difu": {
 		STAGE_DIFFICULTY_SHALLOW: 1.0,
 		STAGE_DIFFICULTY_DEEP: 1.5,
 		STAGE_DIFFICULTY_CORE: 2.25,
@@ -328,6 +348,12 @@ var shop_saved_items: Array = []
 		STAGE_DIFFICULTY_DEEP: false,
 		STAGE_DIFFICULTY_CORE: false,
 		STAGE_DIFFICULTY_POETRY: false
+	},
+	"difu": {
+		STAGE_DIFFICULTY_SHALLOW: false,
+		STAGE_DIFFICULTY_DEEP: false,
+		STAGE_DIFFICULTY_CORE: false,
+		STAGE_DIFFICULTY_POETRY: false
 	}
 }
 
@@ -336,7 +362,8 @@ var shop_saved_items: Array = []
 	"peach_grove": 0,
 	"ruin": 0,
 	"cave": 0,
-	"forest": 0
+	"forest": 0,
+	"difu": 0
 }
 
 # 当前在关卡选择界面里选中的难度
@@ -597,10 +624,10 @@ var stage_boss_fight_time: float = 0.0
 	"xueming": {"space": {"name": "dodge"}, "q": {"name": "destructive_hammer"}, "e": {"name": ""}}
 }
 
-@export var selected_start_weapon: String = "Swordqi"
+@export var selected_start_weapon: String = "SwordQi"
 @export var selected_start_weapons_by_hero: Dictionary = {}
 @export var available_start_weapons: Array[String] = [
-	"Swordqi",
+	"SwordQi",
 	"Qigong"
 ]
 
@@ -832,9 +859,23 @@ const DPS_DETAIL_ACTIVE_SKILL_SOURCES: Dictionary = {
 	"water_sheild": {"name": "水幕护体", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shuimu.png"},
 	"random_strike": {"name": "乱击", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/luanji.png"},
 	"beastify": {"name": "兽化", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shouhua.png"},
-	"destructive_hammer": {"name": "破坏乱锤", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/juchui.png"},
+	"destructive_hammer": {"name": "破坏圣锤", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/juchui.png"},
 	"zhuazhuajuchui": {"name": "爪爪巨锤", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/zhuazhuachui.png"},
 	"summon": {"name": "召唤物", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/zhaohuan.png"},
+}
+const ACTIVE_SKILL_STUDY_LEVEL_NODES: Dictionary = {
+	"mizongbu": "skill2-1-1",
+	"beastify": "skill2-2-1",
+	"holy_fire": "skill2-3-1",
+	"magic": "skill2-4-1",
+	"magical_ice": "skill2-5-1",
+	"random_strike": "skill2-6-1",
+	"heal_hot": "skill2-7-1",
+	"water_sheild": "skill2-8-1",
+	"dodge": "skill2-8-2",
+	"meditation": "skill2-9-1",
+	"wind_thunder": "skill2-9-2",
+	"magical_fire": "skill2-10-1",
 }
 const DPS_DETAIL_FAZE_SOURCES: Dictionary = {
 	"faze_rain": {"name": "弹雨法则", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_bullet.png"},
@@ -1464,6 +1505,7 @@ func _build_heal_shield_detail_snapshot(total_rate_value: float, source_rates: D
 	}
 
 func _ready():
+	DEBUG_COMMANDS_ENABLED = OS.has_feature("editor")
 	set_process(true)
 	set_process_input(true)
 	_init_input_device_mode()
@@ -1511,6 +1553,29 @@ func set_input_device_mode(mode: String, emit_feedback: bool = true) -> void:
 func is_mobile_input_mode() -> bool:
 	return input_device_mode == INPUT_DEVICE_MODE_MOBILE
 
+func reset_mobile_input_now() -> void:
+	if not is_mobile_input_mode():
+		return
+	emit_signal("mobile_input_reset_requested")
+
+func request_mobile_input_restore() -> void:
+	if not is_mobile_input_mode():
+		return
+	_restore_mobile_input_when_ready()
+
+func _restore_mobile_input_when_ready() -> void:
+	var tree := get_tree()
+	if tree == null:
+		emit_signal("mobile_input_reset_requested")
+		return
+	for _i in range(4):
+		if not is_level_up and not tree.paused:
+			break
+		await tree.process_frame
+	emit_signal("mobile_input_reset_requested")
+	await tree.process_frame
+	emit_signal("mobile_input_reset_requested")
+
 func get_input_device_mode_display_name() -> String:
 	if input_device_mode == INPUT_DEVICE_MODE_MOBILE:
 		return "移动设备"
@@ -1555,11 +1620,11 @@ func _process(delta: float) -> void:
 	_print_stutter_snapshot(frame_ms, fps)
 
 func _input(event: InputEvent) -> void:
+	if not DEBUG_COMMANDS_ENABLED:
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_F12:
 			_debug_command_f12()
-			return
-		if not DEBUG_COMMANDS_ENABLED:
 			return
 		_handle_debug_function_key(event.keycode)
 
@@ -1877,7 +1942,7 @@ func _normalize_stage_difficulty_clear_progress() -> void:
 	if typeof(stage_difficulty_clear_progress) != TYPE_DICTIONARY:
 		stage_difficulty_clear_progress = {}
 	for stage_id in STAGE_ID_LIST:
-		if typeof(stage_difficulty_clear_progress.get(stage_id, {})) != TYPE_DICTIONARY:
+		if not stage_difficulty_clear_progress.has(stage_id) or typeof(stage_difficulty_clear_progress.get(stage_id, {})) != TYPE_DICTIONARY:
 			stage_difficulty_clear_progress[stage_id] = {}
 		var stage_progress: Dictionary = stage_difficulty_clear_progress[stage_id]
 		for difficulty_id in [STAGE_DIFFICULTY_SHALLOW, STAGE_DIFFICULTY_DEEP, STAGE_DIFFICULTY_CORE, STAGE_DIFFICULTY_POETRY]:
@@ -2074,7 +2139,7 @@ func get_poetry_boss_damage_correction(real_time: float = -1.0) -> float:
 func get_poetry_boss_damage_multiplier(real_time: float = -1.0) -> float:
 	if not is_current_poetry_difficulty():
 		return 1.0
-	return maxf(0.0, 1.0 + POETRY_BOSS_DAMAGE_BASE_BONUS + get_poetry_boss_damage_correction(real_time) + get_poetry_boss_cultivation_damage_bonus())
+	return maxf(0.0, 1.0 + POETRY_BOSS_DAMAGE_BASE_BONUS + get_poetry_boss_damage_correction(real_time) + get_poetry_boss_cultivation_damage_bonus()) * POETRY_BOSS_DAMAGE_FINAL_MULTIPLIER
 
 func get_poetry_boss_cultivation_damage_bonus() -> float:
 	var xuanyuan_bonus := float(maxi(0, cultivation_xuanyuan_level)) * POETRY_BOSS_DAMAGE_XUANYUAN_STEP
@@ -2090,10 +2155,10 @@ func get_stage_boss_modifier_step_count() -> int:
 
 func get_stage_boss_player_damage_multiplier() -> float:
 	var step_count := get_stage_boss_modifier_step_count()
-	var bonus := 0.0
+	var multiplier := 1.0
 	for i in range(step_count):
-		bonus += 0.08 + float(mini(i, 5)) * 0.02
-	return 1.0 + bonus
+		multiplier *= 1.0 + 0.08 + float(mini(i, 5)) * 0.02
+	return multiplier
 
 func get_stage_boss_damage_multiplier() -> float:
 	return 1.0 + float(get_stage_boss_modifier_step_count()) * 0.05
@@ -2126,7 +2191,7 @@ func get_poetry_boss_expected_output() -> float:
 		return 0.0
 	var crit_chance := clampf(PC.crit_chance, 0.0, 1.0)
 	var crit_expected_multiplier := 1.0 + crit_chance * maxf(0.0, PC.crit_damage_multi - 1.0)
-	var attack_speed_multiplier := maxf(0.01, 1.0 + PC.pc_atk_speed)
+	var attack_speed_multiplier := maxf(0.01, 1.0 + PC.attack_speed_bonus)
 	var final_damage_multiplier := Faze.get_final_damage_multiplier()
 	return maxf(0.0, float(PC.pc_atk) * crit_expected_multiplier * attack_speed_multiplier * final_damage_multiplier)
 
@@ -2136,7 +2201,7 @@ func get_poetry_boss_max_hp(boss_id: String, fallback_hp: float = 1.0) -> float:
 	var expected_output := get_poetry_boss_expected_output()
 	var faze_overflow_multiplier := 1.0 + float(get_poetry_total_faze_overflow()) * 0.18
 	var boss_factor := float(POETRY_BOSS_HP_FACTORS.get(boss_id, 1.0))
-	var hp_value := expected_output * POETRY_BOSS_HP_OUTPUT_SCALE * faze_overflow_multiplier * boss_factor
+	var hp_value := expected_output * POETRY_BOSS_HP_OUTPUT_SCALE * faze_overflow_multiplier * boss_factor * POETRY_BOSS_HP_FINAL_MULTIPLIER
 	return maxf(hp_value, 1.0)
 
 func should_use_reduced_qi_vortex_times() -> bool:
@@ -2199,6 +2264,8 @@ func can_enter_stage_difficulty(stage_id: String, difficulty_id: String) -> bool
 	var valid_difficulty := validate_stage_difficulty_id(difficulty_id)
 	var stage_index := STAGE_ID_LIST.find(resolved_stage_id)
 	if stage_index == -1:
+		return false
+	if resolved_stage_id == "difu" and valid_difficulty == STAGE_DIFFICULTY_POETRY:
 		return false
 	# 诗想难度：需要通关cave后才能进入
 	if valid_difficulty == STAGE_DIFFICULTY_POETRY and not is_stage_cleared("cave"):
@@ -2341,7 +2408,15 @@ func get_effective_exp_multiplier() -> float:
 	var effective_exp_bonus = exp_multi
 	if typeof(PC) != TYPE_NIL:
 		effective_exp_bonus = PC.exp_multi
-	return max(0.0, 1.0 + effective_exp_bonus)
+	return max(0.0, 1.0 + get_diminished_exp_bonus(effective_exp_bonus))
+
+func get_diminished_exp_bonus(raw_bonus: float) -> float:
+	if raw_bonus <= 1.0:
+		return raw_bonus
+	var diminished_bonus := 1.0 + (raw_bonus - 1.0) * 0.4
+	if diminished_bonus <= 1.5:
+		return diminished_bonus
+	return 1.5 + (diminished_bonus - 1.5) * 0.3
 
 func get_effective_drop_multiplier() -> float:
 	var effective_drop_bonus = drop_multi
@@ -2401,8 +2476,6 @@ func get_enemy_damage_bonus_multiplier(target: Node) -> float:
 	if is_elite_or_boss_target(target):
 		bonus = _get_effective_boss_bonus()
 	var multiplier: float = max(0.0, 1.0 + bonus)
-	if target != null and is_instance_valid(target) and target.is_in_group("boss"):
-		multiplier *= get_stage_boss_player_damage_multiplier()
 	return multiplier
 
 func apply_enemy_damage_bonus(damage: float, target: Node) -> float:
@@ -2462,27 +2535,27 @@ func get_available_start_weapons() -> Array[Dictionary]:
 
 func _get_start_weapon_config() -> Dictionary:
 	return {
-		"Swordqi": {"id": "Swordqi", "display_name": "剑气诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianqi.png", "faze_levels": {"faze_sword_level": 3, "faze_bullet_level": 3}, "faze_text": "刀剑法则+3，弹雨法则+3"},
+		"SwordQi": {"id": "SwordQi", "display_name": "剑气诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianqi.png", "faze_levels": {"faze_sword_level": 3, "faze_bullet_level": 3}, "faze_text": "刀剑法则+3，弹雨法则+3"},
 		"Qigong": {"id": "Qigong", "display_name": "气功波", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/qigong.png", "faze_levels": {"faze_wind_level": 3, "faze_wide_level": 3}, "faze_text": "啸风法则+3，广域法则+3"},
-		"Lightbullet": {"id": "Lightbullet", "display_name": "光弹", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/guangdan.png", "faze_levels": {"faze_life_level": 3, "faze_bullet_level": 3}, "faze_text": "生灵法则+3，弹雨法则+3"},
+		"LightBullet": {"id": "LightBullet", "display_name": "光弹", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/guangdan.png", "faze_levels": {"faze_life_level": 3, "faze_bullet_level": 3}, "faze_text": "生灵法则+3，弹雨法则+3"},
 		"Ice": {"id": "Ice", "display_name": "冰刺术", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/binghua.png", "faze_levels": {"faze_destroy_level": 3, "faze_bullet_level": 3}, "faze_text": "破坏法则+3，弹雨法则+3"},
 		"Xunfeng": {"id": "Xunfeng", "display_name": "巽风诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunfeng.png", "faze_levels": {"faze_wind_level": 3, "faze_bullet_level": 3}, "faze_text": "啸风法则+3，弹雨法则+3"},
 		"Genshan": {"id": "Genshan", "display_name": "艮山诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/genshan.png", "faze_levels": {"faze_bagua_level": 3, "faze_shield_level": 3}, "faze_text": "八卦法则+3，护佑法则+3"},
 		"Bloodwave": {"id": "Bloodwave", "display_name": "血气波", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xueqibo.png", "faze_levels": {"faze_wide_level": 3, "faze_blood_level": 3}, "faze_text": "广域法则+3，浴血法则+3"},
 		"Xuanwu": {"id": "Xuanwu", "display_name": "玄武盾", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xuanwu.png", "faze_levels": {"faze_shield_level": 3, "faze_treasure_level": 3}, "faze_text": "护佑法则+3，宝器法则+3"},
 		"Water": {"id": "Water", "display_name": "坎水诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/kanshui.png", "faze_levels": {"faze_bagua_level": 3, "faze_heal_level": 3}, "faze_text": "八卦法则+3，愈疗法则+3"},
-		"Holylight": {"id": "Holylight", "display_name": "圣光术", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png", "faze_levels": {"faze_life_level": 3, "faze_heal_level": 3}, "faze_text": "生灵法则+3，愈疗法则+3"},
+		"HolyLight": {"id": "HolyLight", "display_name": "圣光术", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shenshengzhuoshao.png", "faze_levels": {"faze_life_level": 3, "faze_heal_level": 3}, "faze_text": "生灵法则+3，愈疗法则+3"},
 		"Branch": {"id": "Branch", "display_name": "仙枝", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xianzhi.png", "faze_levels": {"faze_treasure_level": 3, "faze_bullet_level": 3}, "faze_text": "宝器法则+3，弹雨法则+3"},
 		"Thunder": {"id": "Thunder", "display_name": "震雷诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/thunder.png", "faze_levels": {"faze_bagua_level": 3, "faze_thunder_level": 3}, "faze_text": "八卦法则+3，鸣雷法则+3"},
-		"Thunderbreak": {"id": "Thunderbreak", "display_name": "天雷破", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/tianleipo2.png", "faze_levels": {"faze_thunder_level": 3, "faze_destroy_level": 3}, "faze_text": "鸣雷法则+3，破坏法则+3"},
+		"ThunderBreak": {"id": "ThunderBreak", "display_name": "天雷破", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/tianleipo2.png", "faze_levels": {"faze_thunder_level": 3, "faze_destroy_level": 3}, "faze_text": "鸣雷法则+3，破坏法则+3"},
 		"Moyan": {"id": "Moyan", "display_name": "爆炎诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/moyan.png", "faze_levels": {"faze_fire_level": 3, "faze_destroy_level": 3}, "faze_text": "炽焰法则+3，破坏法则+3"},
 		"Qiankun": {"id": "Qiankun", "display_name": "乾坤双剑", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/qiankun.png", "faze_levels": {"faze_sword_level": 3, "faze_bagua_level": 3}, "faze_text": "刀剑法则+3，八卦法则+3"},
-		"Bloodboardsword": {"id": "Bloodboardsword", "display_name": "饮血刀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yinxue.png", "faze_levels": {"faze_sword_level": 3, "faze_blood_level": 3}, "faze_text": "刀剑法则+3，浴血法则+3"},
+		"BloodBoardSword": {"id": "BloodBoardSword", "display_name": "饮血刀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yinxue.png", "faze_levels": {"faze_sword_level": 3, "faze_blood_level": 3}, "faze_text": "刀剑法则+3，浴血法则+3"},
 		"Zhuazhuajuchui": {"id": "Zhuazhuajuchui", "display_name": "爪爪巨锤", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/zhuazhuachui.png", "faze_levels": {"faze_deep_level": 3, "faze_blood_level": 3}, "faze_text": "沉渊法则+3，浴血法则+3"},
 		"Riyan": {"id": "Riyan", "display_name": "赤曜", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/riyan.png", "faze_levels": {"faze_fire_level": 3, "faze_wide_level": 3}, "faze_text": "炽焰法则+3，广域法则+3"},
-		"Ringfire": {"id": "Ringfire", "display_name": "离火诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/lihuo.png", "faze_levels": {"faze_fire_level": 3, "faze_bagua_level": 3}, "faze_text": "炽焰法则+3，八卦法则+3"},
+		"RingFire": {"id": "RingFire", "display_name": "离火诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/lihuo.png", "faze_levels": {"faze_fire_level": 3, "faze_bagua_level": 3}, "faze_text": "炽焰法则+3，八卦法则+3"},
 		"Duize": {"id": "Duize", "display_name": "兑泽诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/duize.png", "faze_levels": {"faze_bagua_level": 3, "faze_wide_level": 3}, "faze_text": "八卦法则+3，广域法则+3"},
-		"Dragonwind": {"id": "Dragonwind", "display_name": "风龙杖", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/fenglongzhang.png", "faze_levels": {"faze_treasure_level": 3, "faze_wind_level": 3}, "faze_text": "宝器法则+3，啸风法则+3"},
+		"DragonWind": {"id": "DragonWind", "display_name": "风龙杖", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/fenglongzhang.png", "faze_levels": {"faze_treasure_level": 3, "faze_wind_level": 3}, "faze_text": "宝器法则+3，啸风法则+3"},
 	}
 
 func get_start_weapon_faze_levels(weapon_id: String = "") -> Dictionary:
@@ -2506,10 +2579,10 @@ func get_start_weapon_faze_text(weapon_id: String = "") -> String:
 func sync_available_start_weapons() -> void:
 	var weapon_config := _get_start_weapon_config()
 	var normalized_weapons: Array[String] = []
-	for weapon_id in ["Swordqi", "Qigong"]:
+	for weapon_id in ["SwordQi", "Qigong"]:
 		_add_available_start_weapon_id(normalized_weapons, weapon_config, weapon_id)
 	if unlock_noam:
-		_add_available_start_weapon_id(normalized_weapons, weapon_config, "Lightbullet")
+		_add_available_start_weapon_id(normalized_weapons, weapon_config, "LightBullet")
 	if unlock_kansel:
 		_add_available_start_weapon_id(normalized_weapons, weapon_config, "Ice")
 	if unlock_xueming:
@@ -2556,27 +2629,27 @@ func _get_current_start_weapon_hero(hero_name: String = "") -> String:
 func normalize_start_weapon_id(weapon_id: String) -> String:
 	match weapon_id:
 		"SwordQi":
-			return "Swordqi"
+			return "SwordQi"
 		"RingFire":
-			return "Ringfire"
+			return "RingFire"
 		"BloodBoardSword":
-			return "Bloodboardsword"
+			return "BloodBoardSword"
 		"LightBullet":
-			return "Lightbullet"
+			return "LightBullet"
 		"ThunderBreak":
-			return "Thunderbreak"
+			return "ThunderBreak"
 		"HolyLight":
-			return "Holylight"
+			return "HolyLight"
 		"DragonWind":
-			return "Dragonwind"
-		"ZhuaZhuaJuChui", "ZhuazhuaJuchui", "zhuazhuajuchui":
+			return "DragonWind"
+		"Zhuazhuajuchui":
 			return "Zhuazhuajuchui"
 		_:
 			return weapon_id
 
 func get_default_start_weapon_for_hero(hero_name: String = "") -> String:
 	var hero := _get_current_start_weapon_hero(hero_name)
-	var weapon_id := normalize_start_weapon_id(str(DEFAULT_START_WEAPON_BY_HERO.get(hero, "Swordqi")))
+	var weapon_id := normalize_start_weapon_id(str(DEFAULT_START_WEAPON_BY_HERO.get(hero, "SwordQi")))
 	if is_start_weapon_available(weapon_id):
 		return weapon_id
 	return _get_first_available_start_weapon_id()
@@ -2584,8 +2657,8 @@ func get_default_start_weapon_for_hero(hero_name: String = "") -> String:
 func _get_first_available_start_weapon_id() -> String:
 	var available_weapons := get_available_start_weapons()
 	if available_weapons.is_empty():
-		return "Swordqi"
-	return str(available_weapons[0].get("id", "Swordqi"))
+		return "SwordQi"
+	return str(available_weapons[0].get("id", "SwordQi"))
 
 func get_selected_start_weapon(hero_name: String = "") -> String:
 	var hero := _get_current_start_weapon_hero(hero_name)
@@ -2651,6 +2724,25 @@ func _get_default_q_skill(hero_name: String) -> String:
 			return "destructive_hammer"
 		_:
 			return ""
+
+func get_active_skill_base_level(skill_id: String) -> int:
+	return int(player_active_skill_data.get(skill_id, {}).get("level", 1))
+
+func get_active_skill_study_level_bonus(skill_id: String) -> int:
+	var study_node := str(ACTIVE_SKILL_STUDY_LEVEL_NODES.get(skill_id, ""))
+	if study_node.is_empty():
+		return 0
+	return int(player_study_tree.get(study_node, 0))
+
+func get_active_skill_effective_level(skill_id: String) -> int:
+	return max(1, get_active_skill_base_level(skill_id) + get_active_skill_study_level_bonus(skill_id))
+
+func format_active_skill_level_text(skill_id: String) -> String:
+	var effective_level := get_active_skill_effective_level(skill_id)
+	var study_bonus := get_active_skill_study_level_bonus(skill_id)
+	if study_bonus > 0:
+		return "LV." + str(effective_level) + "(+" + str(study_bonus) + ")"
+	return "LV." + str(effective_level)
 
 
 func _show_save_indicator() -> void:

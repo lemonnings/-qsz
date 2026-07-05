@@ -82,10 +82,10 @@ func get_equipped_items() -> Array:
 func calculate_total_equipment_stats() -> Dictionary:
 	var total_stats = {
 		"pc_atk": 0,
-		"pc_atk_speed": 0.0,
+		"attack_speed_bonus": 0.0,
 		"crit_chance": 0.0,
 		"crit_damage_multi": 0.0,
-		"pc_final_atk": 0.0,
+		"final_damage_bonus": 0.0,
 		"point_multi": 0.0,
 		"spirit_multi": 0.0,
 		"exp_multi": 0.0,
@@ -93,7 +93,7 @@ func calculate_total_equipment_stats() -> Dictionary:
 		"attack_range": 0.0,
 		"damage_reduction_rate": 0.0,
 		"pc_hp": 0,
-		"pc_speed": 0.0,
+		"move_speed_bonus": 0.0,
 		"tianming": 0.0
 	}
 	

@@ -211,15 +211,17 @@ func _get_spawn_position(top_y: float = 100.0) -> Vector2:
 
 func _get_raw_spawn_position(top_y: float = 100.0) -> Vector2:
 	var spawn_edge = randi_range(0, 3)
+	var fallback_position := Vector2.ZERO
 	match spawn_edge:
 		0:
-			return Vector2(randf_range(-590, 590), top_y)
+			fallback_position = Vector2(randf_range(-590, 590), top_y)
 		1:
-			return Vector2(randf_range(-590, 590), 480)
+			fallback_position = Vector2(randf_range(-590, 590), 480)
 		2:
-			return Vector2(-590, randf_range(0, 480))
+			fallback_position = Vector2(-590, randf_range(0, 480))
 		_:
-			return Vector2(590, randf_range(0, 480))
+			fallback_position = Vector2(590, randf_range(0, 480))
+	return _get_monster_spawn_position_for_edge(spawn_edge, fallback_position)
 
 func _spawn_single_slime() -> void:
 	if not is_inside_tree() or get_tree().current_scene == null:

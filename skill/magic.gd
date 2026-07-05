@@ -104,7 +104,7 @@ func _apply_buffs():
 	if _buff_active:
 		return
 	_buff_active = true
-	PC.pc_atk_speed += atk_speed_bonus
+	PC.attack_speed_bonus += atk_speed_bonus
 	PC.chant_cooldown_acceleration += chant_cd_accel
 	PC.chant_time_reduction += chant_time_reduce
 
@@ -112,7 +112,7 @@ func _remove_buffs():
 	if not _buff_active:
 		return
 	_buff_active = false
-	PC.pc_atk_speed -= atk_speed_bonus
+	PC.attack_speed_bonus -= atk_speed_bonus
 	PC.chant_cooldown_acceleration -= chant_cd_accel
 	PC.chant_time_reduction -= chant_time_reduce
 

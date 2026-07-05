@@ -106,7 +106,7 @@ func _physics_process(delta: float) -> void:
 			var spawned_grandson_bullet = Global.branch_pool.acquire(get_parent())
 			spawned_grandson_bullet.global_position = global_position
 			spawned_grandson_bullet.parent_bullet = false
-			spawned_grandson_bullet.is_rebound = true
+			spawned_grandson_bullet.is_rebound = false
 			spawned_grandson_bullet.grandson_bullet = true
 			spawned_grandson_bullet.set_direction(Vector2.from_angle(randf() * 2 * PI))
 			spawned_grandson_bullet.activate_bullet()
@@ -221,7 +221,7 @@ func handle_penetration() -> bool:
 		for body in bodies:
 			if body.is_in_group("enemies"):
 				if body.has_method("apply_knockback"):
-					body.apply_knockback(direction, 30)
+					body.apply_knockback(direction, 30.0 * PC.get_knockback_multiplier())
 
 	# 减少穿透计数
 	penetration_count -= 1
@@ -311,7 +311,7 @@ func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("enemies") and PC.selected_rewards.has("Branch4") and parent_bullet and not is_rebound:
 		# 应用击退效果（只对父级子弹生效）
 		if area.has_method("apply_knockback"):
-			area.apply_knockback(direction, 30)
+			area.apply_knockback(direction, 30.0 * PC.get_knockback_multiplier())
 
 ## 对象池重置：清除状态供复用
 func reset_for_pool() -> void:

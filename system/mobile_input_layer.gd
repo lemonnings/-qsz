@@ -40,10 +40,7 @@ func _input(event: InputEvent) -> void:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
 			if _pending_touch_index == -1 and _is_point_inside_joystick_area(touch.position):
-				_pending_touch_index = touch.index
-				_pending_touch_position = touch.position
-				_joystick_drag_active = false
-				_release_movement_actions()
+				_begin_joystick_touch(touch.index, touch.position)
 		else:
 			if touch.index == _pending_touch_index:
 				var was_drag_active: bool = _joystick_drag_active
@@ -56,6 +53,11 @@ func _input(event: InputEvent) -> void:
 					get_viewport().set_input_as_handled()
 	elif event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
+		if _pending_touch_index == -1:
+			var previous_position: Vector2 = drag.position - drag.relative
+			if _is_point_inside_joystick_area(previous_position) or _is_point_inside_joystick_area(drag.position):
+				_begin_joystick_touch(drag.index, previous_position)
+				_joystick_drag_active = true
 		if drag.index == _pending_touch_index:
 			if not _joystick_drag_active and drag.position.distance_to(_pending_touch_position) >= JOYSTICK_ACTIVATION_DRAG_DISTANCE:
 				_joystick_drag_active = true
@@ -72,10 +74,7 @@ func _input(event: InputEvent) -> void:
 		if mouse_button.button_index == MOUSE_BUTTON_LEFT:
 			if mouse_button.pressed:
 				if _pending_touch_index == -1 and _is_point_inside_joystick_area(mouse_button.position):
-					_pending_touch_index = -2
-					_pending_touch_position = mouse_button.position
-					_joystick_drag_active = false
-					_release_movement_actions()
+					_begin_joystick_touch(-2, mouse_button.position)
 			elif _pending_touch_index == -2:
 				var was_drag_active: bool = _joystick_drag_active
 				_release_movement_actions()
@@ -98,6 +97,12 @@ func _input(event: InputEvent) -> void:
 				_apply_movement_from_drag_position(motion.position)
 				_update_joystick_visual(motion.position)
 			get_viewport().set_input_as_handled()
+
+func _begin_joystick_touch(touch_index: int, position: Vector2) -> void:
+	_pending_touch_index = touch_index
+	_pending_touch_position = position
+	_joystick_drag_active = false
+	_release_movement_actions()
 
 func _create_virtual_joystick() -> void:
 	if _joystick != null:
@@ -183,6 +188,12 @@ func reset_mobile_movement_input() -> void:
 	_pending_touch_position = Vector2.ZERO
 	_joystick_drag_active = false
 	_reset_joystick_visual()
+
+func is_movement_touch_index(touch_index: int) -> bool:
+	return touch_index == _pending_touch_index
+
+func is_movement_drag_active() -> bool:
+	return _joystick_drag_active
 
 func _should_show_joystick() -> bool:
 	if _joystick == null:

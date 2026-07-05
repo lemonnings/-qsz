@@ -8,8 +8,13 @@ static var main_skill_genshan_damage: float = 1.0
 static var genshan_final_damage_multi: float = 1.0
 static var genshan_range: float = 350.0
 
-const MIN_DISTANCE_DAMAGE_MULTIPLIER: float = 0.4
-const MAX_DISTANCE_DAMAGE_MULTIPLIER: float = 1.2
+const BASE_DAMAGE_MULTIPLIER: float = 0.30
+const LIANSHAN_DAMAGE_MULTIPLIER: float = 0.60
+const DIAGONAL_DAMAGE_MULTIPLIER: float = 0.65
+const BASE_SHIELD_VALUE: int = 20
+const BASE_SHIELD_MAX_HP_RATIO: float = 0.02
+const BASE_SHIELD_DURATION: float = 5.0
+const HUSHAN_SHIELD_MULTIPLIER: float = 1.4
 
 static func reset_data() -> void:
 	main_skill_genshan_damage = 1.0
@@ -28,7 +33,7 @@ var current_length: float = 0.0
 var current_collision_height: float = 51.0
 var step_length: float = 0.1 # 每3像素生成一个sprite
 var spawn_timer: float = 0.0
-var spawn_interval: float = 0.3 # 0.3秒后生成下一个
+var spawn_interval: float = 0.25 # 0.25秒后生成下一个
 var is_spawning: bool = true
 
 # 伤害判定相关
@@ -45,7 +50,7 @@ var sprite_fade_out_time: float = 0.15
 var base_scale_val: float = 1.0 # 基础 scale，来自 setup
 var has_applied_shield: bool = false
 
-var can_apply_shield: bool = false # 控制当前实例是否可以施加护盾
+var shield_cast_state: Dictionary = {} # 同一次释放共享，确保任意方向命中后只给一次护盾
 
 # 静态变量记录敌人受伤时间戳 {enemy_id: [timestamp1, timestamp2, ...]}
 static var enemy_hit_records: Dictionary = {}
@@ -59,28 +64,26 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 	var directions = [Vector2.LEFT, Vector2.RIGHT]
 	var dmg_multi = 1.0
 	
-	# Genshan1 (连山): 增加上下，总伤害降低30%
+	# Genshan1 (连山): 增加上下，总伤害降低40%
 	if PC.selected_rewards.has("Genshan1"):
 		directions.append(Vector2.UP)
 		directions.append(Vector2.DOWN)
-		dmg_multi *= 0.75
+		dmg_multi *= LIANSHAN_DAMAGE_MULTIPLIER
 		
-	# Genshan22 (连山-崩山): 四个斜向，总伤害额外降低30%
+	# Genshan22 (连山-崩山): 四个斜向，总伤害额外降低35%
 	if PC.selected_rewards.has("Genshan22"):
 		# 四个斜向：左上，右上，左下，右下
 		directions.append(Vector2(-1, -1).normalized())
 		directions.append(Vector2(1, -1).normalized())
 		directions.append(Vector2(-1, 1).normalized())
 		directions.append(Vector2(1, 1).normalized())
-		dmg_multi *= 0.75
+		dmg_multi *= DIAGONAL_DAMAGE_MULTIPLIER
 	
-	# 只有第一个生成的实例可以施加护盾
-	var is_first = true
+	var cast_state = {"shield_applied": false}
 	for dir in directions:
-		_spawn_genshan(scene, tree, origin_pos, dir, dmg_multi, is_first)
-		is_first = false
+		_spawn_genshan(scene, tree, origin_pos, dir, dmg_multi, cast_state)
 
-static func _spawn_genshan(scene: PackedScene, tree: SceneTree, origin_pos: Vector2, dir: Vector2, multiplier: float, should_apply_shield: bool) -> void:
+static func _spawn_genshan(scene: PackedScene, tree: SceneTree, origin_pos: Vector2, dir: Vector2, multiplier: float, cast_state: Dictionary) -> void:
 	var instance = scene.instantiate()
 	tree.current_scene.add_child(instance)
 	
@@ -90,16 +93,16 @@ static func _spawn_genshan(scene: PackedScene, tree: SceneTree, origin_pos: Vect
 	# 从全局伤害范围倍率获取基础 scale
 	var base_scale = Global.get_attack_range_multiplier()
 	
-	instance.setup(origin_pos, dir, spawn_damage, genshan_range * Global.get_attack_range_multiplier(), multiplier, base_scale, should_apply_shield)
+	instance.setup(origin_pos, dir, spawn_damage, genshan_range * Global.get_attack_range_multiplier(), multiplier, base_scale, cast_state)
 
-func setup(pos: Vector2, dir: Vector2, p_damage: float, p_range: float, p_multiplier: float, p_base_scale: float, p_can_apply_shield: bool) -> void:
+func setup(pos: Vector2, dir: Vector2, p_damage: float, p_range: float, p_multiplier: float, p_base_scale: float, p_cast_state: Dictionary) -> void:
 	global_position = pos
 	direction = dir.normalized()
 	damage = p_damage
 	range_val = p_range
 	total_damage_multiplier = p_multiplier
 	base_scale_val = p_base_scale # 新增变量存储 base_scale
-	can_apply_shield = p_can_apply_shield
+	shield_cast_state = p_cast_state
 	
 	# rotation = direction.angle() # 取消旋转，使用原始方向
 	
@@ -270,9 +273,9 @@ func _deal_damage(enemy: Area2D) -> void:
 	# 确定伤害限制次数
 	var max_hits = 2
 	if PC.selected_rewards.has("Genshan1"):
-		max_hits = 4
+		max_hits = 3
 	if PC.selected_rewards.has("Genshan22"):
-		max_hits = 6
+		max_hits = 4
 		
 	# 初始化或清理记录
 	if not enemy_hit_records.has(enemy_id):
@@ -302,23 +305,18 @@ func _deal_damage(enemy: Area2D) -> void:
 		is_crit = true
 		final_damage *= PC.crit_damage_multi
 		
-	# Genshan3 (崩山): 精英，首领及血量低于30%额外50%伤害
-	if PC.selected_rewards.has("Genshan3"):
-		var is_elite_or_boss = enemy.is_in_group("boss") or enemy.is_in_group("elite")
-		var low_hp = false
-		if enemy.has_method("get_hp_percent"):
-			low_hp = enemy.get_hp_percent() < 0.3
-		elif "hp" in enemy and "max_hp" in enemy:
-			low_hp = (float(enemy.hp) / float(enemy.max_hp)) < 0.3
+	var is_elite_or_boss = enemy.is_in_group("boss") or enemy.is_in_group("elite")
+	if is_elite_or_boss:
+		if PC.selected_rewards.has("Genshan33"):
+			final_damage *= 2.5
+		elif PC.selected_rewards.has("Genshan3"):
+			final_damage *= 1.75
 			
-		if is_elite_or_boss or low_hp:
-			final_damage *= 1.5
-			
-	# Genshan33 (震山-崩山): 对脆弱状态敌人额外50%伤害
+	# Genshan33 (震山-崩山): 对脆弱状态敌人额外40%伤害
 	if PC.selected_rewards.has("Genshan33"):
 		if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("has_debuff"):
 			if enemy.debuff_manager.has_debuff("vulnerable"):
-				final_damage *= 1.5
+				final_damage *= 1.4
 	
 	# 应用伤害
 	if enemy.has_method("take_damage"):
@@ -335,35 +333,37 @@ func _deal_damage(enemy: Area2D) -> void:
 	# Genshan2 (震山): 施加脆弱
 	if PC.selected_rewards.has("Genshan2"):
 		if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("add_debuff"):
-			enemy.debuff_manager.add_debuff("vulnerable", 4.0)
+			enemy.debuff_manager.add_debuff("vulnerable", 0, 4.0)
 
-	# Genshan4 (护山): 获得护盾
-	if PC.selected_rewards.has("Genshan4"):
-		_apply_shield()
+	if PC.selected_rewards.has("Genshan11"):
+		_apply_slow_to_vulnerable_enemy(enemy)
 
-func _get_distance_damage_multiplier(enemy: Area2D) -> float:
-	var local_x := 0.0
-	if is_instance_valid(enemy):
-		local_x = (enemy.global_position - global_position).dot(direction)
-	var ratio := clampf(local_x / maxf(range_val, 1.0), 0.0, 1.0)
-	return lerpf(MIN_DISTANCE_DAMAGE_MULTIPLIER, MAX_DISTANCE_DAMAGE_MULTIPLIER, ratio)
+	_apply_shield()
+
+func _get_distance_damage_multiplier(_enemy: Area2D) -> float:
+	return BASE_DAMAGE_MULTIPLIER
 
 func _apply_shield() -> void:
-	if not can_apply_shield:
+	if shield_cast_state.is_empty():
 		return
-	if has_applied_shield:
+	if shield_cast_state.get("shield_applied", false):
 		return
+	shield_cast_state["shield_applied"] = true
 	has_applied_shield = true
 	
-	var base_shield = 30
-	var hp_ratio = 0.03
-	var shield_duration = 5.0
-	
-	# Genshan11 (震山-护山): 护盾提升50%，持续10秒
-	if PC.selected_rewards.has("Genshan11"):
-		base_shield = int(base_shield * 1.5)
-		hp_ratio *= 1.5
-		shield_duration = 10.0
-		
+	var base_shield = BASE_SHIELD_VALUE
+	var hp_ratio = BASE_SHIELD_MAX_HP_RATIO
+	var shield_duration = BASE_SHIELD_DURATION
+	if PC.selected_rewards.has("Genshan4"):
+		base_shield = int(round(base_shield * HUSHAN_SHIELD_MULTIPLIER))
+		hp_ratio *= HUSHAN_SHIELD_MULTIPLIER
 	var shield_val = base_shield + (PC.pc_max_hp * hp_ratio)
 	PC.add_shield(int(shield_val), shield_duration, "genshan")
+
+func _apply_slow_to_vulnerable_enemy(enemy: Area2D) -> void:
+	if not enemy.get("debuff_manager"):
+		return
+	if not enemy.debuff_manager.has_method("has_debuff") or not enemy.debuff_manager.has_method("add_debuff"):
+		return
+	if enemy.debuff_manager.has_debuff("vulnerable"):
+		enemy.debuff_manager.add_debuff("slow", 0, 5.0)

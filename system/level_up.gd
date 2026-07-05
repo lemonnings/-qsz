@@ -22,6 +22,18 @@ var tentative_locked_rewards: Dictionary = {}
 # 当前显示的奖励数据 {button_id: reward_data}
 var current_rewards: Dictionary = {}
 
+func get_locked_reward_ids() -> Array[String]:
+	var ids: Array[String] = []
+	for btn_id in locked_rewards.keys():
+		var reward = locked_rewards[btn_id]
+		if reward != null and not ids.has(reward.id):
+			ids.append(reward.id)
+	for btn_id in tentative_locked_rewards.keys():
+		var reward = tentative_locked_rewards[btn_id]
+		if reward != null and not ids.has(reward.id):
+			ids.append(reward.id)
+	return ids
+
 # UI节点引用（通过参数传递）
 var canvas_layer: CanvasLayer
 var lv_up_change: Control
@@ -32,6 +44,7 @@ var layer_ui: CanvasLayer
 var skill_nodes: Array[TextureButton] = []
 var _active_icon_mouse_filters: Dictionary = {}
 var _active_icon_child_mouse_filters: Dictionary = {}
+var _skill_bar_mouse_filters: Dictionary = {}
 var _skip_next_level_up_delay: bool = false
 var _skill_resume_request_id: int = 0
 var _slow_motion_focus_request_id: int = 0
@@ -123,8 +136,8 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	if not is_refresh:
 		_fade_instant_level_up_button(true, true)
 	
-	PC.last_speed = PC.pc_speed
-	PC.last_atk_speed = PC.pc_atk_speed
+	PC.last_speed = PC.move_speed_bonus
+	PC.last_atk_speed = PC.attack_speed_bonus
 	PC.last_lunky_level = PC.now_lunky_level
 	
 	# 确定刷出来的三个升级奖励的等级
@@ -311,6 +324,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	var is_locked_3 = show_locked_style and (locked_rewards.has(3) or tentative_locked_rewards.has(3))
 	if main_skill_name == "":
 		var deduped_rewards: Array = _dedupe_same_weapon_upgrade_rewards([reward1, reward2, reward3], [is_locked_1, is_locked_2, is_locked_3], exclude_reward_ids)
+		deduped_rewards = _dedupe_same_lingwu_series_rewards(deduped_rewards, [is_locked_1, is_locked_2, is_locked_3], exclude_reward_ids)
 		reward1 = deduped_rewards[0]
 		reward2 = deduped_rewards[1]
 		reward3 = deduped_rewards[2]
@@ -449,6 +463,58 @@ func _reroll_without_weapon_upgrade_duplicates(used_weapon_keys: Dictionary, bas
 		exclude_ids.append(reward.id)
 	return null
 
+func _dedupe_same_lingwu_series_rewards(rewards: Array, locked_flags: Array, base_exclude_ids: Array[String]) -> Array:
+	var used_series_keys: Dictionary = {}
+	var used_weapon_keys: Dictionary = {}
+	var result: Array = rewards.duplicate()
+	for i in range(result.size()):
+		var reward = result[i]
+		var weapon_key: String = _get_weapon_upgrade_key(reward)
+		if not weapon_key.is_empty() and not used_weapon_keys.has(weapon_key):
+			used_weapon_keys[weapon_key] = true
+		var series_key: String = _get_lingwu_series_key_for_reward(reward)
+		if series_key.is_empty():
+			continue
+		if not used_series_keys.has(series_key):
+			used_series_keys[series_key] = true
+			continue
+		if i < locked_flags.size() and bool(locked_flags[i]):
+			continue
+		result[i] = _reroll_without_lingwu_series_duplicates(used_series_keys, used_weapon_keys, base_exclude_ids)
+		var new_key: String = _get_lingwu_series_key_for_reward(result[i])
+		if not new_key.is_empty():
+			used_series_keys[new_key] = true
+		var new_weapon_key: String = _get_weapon_upgrade_key(result[i])
+		if not new_weapon_key.is_empty():
+			used_weapon_keys[new_weapon_key] = true
+	return result
+
+func _reroll_without_lingwu_series_duplicates(used_series_keys: Dictionary, used_weapon_keys: Dictionary, base_exclude_ids: Array[String]):
+	var exclude_ids: Array[String] = base_exclude_ids.duplicate()
+	for attempt in range(24):
+		var reward = LvUp.get_reward_level(randf_range(0.0, 100.0), "", exclude_ids)
+		if reward == null:
+			return null
+		if reward.reward_name == "noReward":
+			return reward
+		var series_key: String = _get_lingwu_series_key_for_reward(reward)
+		var weapon_key: String = _get_weapon_upgrade_key(reward)
+		var repeats_series := not series_key.is_empty() and used_series_keys.has(series_key)
+		var repeats_weapon := not weapon_key.is_empty() and used_weapon_keys.has(weapon_key)
+		if not repeats_series and not repeats_weapon:
+			return reward
+		exclude_ids.append(reward.id)
+	return null
+
+func _get_lingwu_series_key_for_reward(reward) -> String:
+	if reward == null:
+		return ""
+	if bool(reward.if_main_skill) or bool(reward.if_advance):
+		return ""
+	if LvUp == null or not LvUp.has_method("get_lingwu_series_key"):
+		return ""
+	return str(LvUp.get_lingwu_series_key(str(reward.id)))
+
 func _get_weapon_upgrade_key(reward) -> String:
 	if reward == null:
 		return ""
@@ -547,7 +613,7 @@ func _begin_mobile_level_up_input_guard(refresh_id: int, main_skill_name: String
 		return
 	if refresh_id != 0:
 		return
-	Global.emit_signal("mobile_input_reset_requested")
+	Global.reset_mobile_input_now()
 	_mobile_reward_guard_request_id += 1
 	var request_id: int = _mobile_reward_guard_request_id
 	var guard_seconds: float = MOBILE_LEVEL_UP_INPUT_GUARD_SECONDS + _get_level_up_open_animation_seconds(main_skill_name)
@@ -647,10 +713,35 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 	var wrapped_callback = func():
 		if _is_mobile_level_up_input_guard_active():
 			return
+		if _should_block_main_weapon_reward(reward):
+			_show_level_up_tip("武器数量已达上限")
+			return
 		_on_reward_button_selected(button_id)
 		LvUp._last_applied_reward_faction = reward_faction
+		LvUp._last_applied_reward = reward
 		callback.call()
 	button.pressed.connect(wrapped_callback)
+
+func _should_block_main_weapon_reward(reward) -> bool:
+	if reward == null:
+		return false
+	if not bool(reward.if_main_skill):
+		return false
+	if bool(reward.if_advance):
+		return false
+	if PC.selected_rewards.has(str(reward.id)):
+		return false
+	return PC.current_weapon_num >= Global.max_weapon_num
+
+func _show_level_up_tip(text: String) -> void:
+	if canvas_layer and canvas_layer.has_method("_show_level_up_tip"):
+		canvas_layer._show_level_up_tip(text)
+		return
+	var current_scene := get_tree().current_scene if get_tree() else null
+	if current_scene != null:
+		var tip = current_scene.get("tip")
+		if tip and tip.has_method("start_animation"):
+			tip.start_animation(text, 0.5)
 
 func _update_reward_buff_hint(button: Button, detail: String) -> void:
 	var hint_label: RichTextLabel = _get_or_create_reward_buff_hint(button)
@@ -771,8 +862,12 @@ func configure_reward_button_for_external(button: Button, reward, button_id: int
 	var wrapped_callback = func():
 		if _is_mobile_level_up_input_guard_active():
 			return
+		if _should_block_main_weapon_reward(reward):
+			_show_level_up_tip("武器数量已达上限")
+			return
 		SEManager.play("212")
 		LvUp._last_applied_reward_faction = reward_faction
+		LvUp._last_applied_reward = reward
 		selected_callback.call(reward)
 	button.pressed.connect(wrapped_callback)
 
@@ -802,7 +897,7 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 	var advance_change = int(PC.main_skill_swordQi / 3.0)
 	if PC.main_skill_swordQi != 0 and PC.main_skill_swordQi_advance < advance_change:
 		PC.main_skill_swordQi_advance += 1
-		handle_level_up("Swordqi", 0, scene_tree, viewport)
+		handle_level_up("SwordQi", 0, scene_tree, viewport)
 		# 主技能进阶完成后清空now_main_skill_name
 	elif PC.main_skill_branch != 0 and PC.main_skill_branch_advance < int(PC.main_skill_branch / 3.0):
 		PC.main_skill_branch_advance += 1
@@ -815,7 +910,7 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 		handle_level_up("Riyan", 0, scene_tree, viewport)
 	elif PC.main_skill_ringFire != 0 and PC.main_skill_ringFire_advance < int(PC.main_skill_ringFire / 3.0):
 		PC.main_skill_ringFire_advance += 1
-		handle_level_up("Ringfire", 0, scene_tree, viewport)
+		handle_level_up("RingFire", 0, scene_tree, viewport)
 	elif PC.main_skill_thunder != 0 and PC.main_skill_thunder_advance < int(PC.main_skill_thunder / 3.0):
 		PC.main_skill_thunder_advance += 1
 		handle_level_up("Thunder", 0, scene_tree, viewport)
@@ -824,16 +919,16 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 		handle_level_up("Bloodwave", 0, scene_tree, viewport)
 	elif PC.main_skill_bloodboardsword != 0 and PC.main_skill_bloodboardsword_advance < int(PC.main_skill_bloodboardsword / 3.0):
 		PC.main_skill_bloodboardsword_advance += 1
-		handle_level_up("Bloodboardsword", 0, scene_tree, viewport)
+		handle_level_up("BloodBoardSword", 0, scene_tree, viewport)
 	elif PC.main_skill_ice != 0 and PC.main_skill_ice_advance < int(PC.main_skill_ice / 3.0):
 		PC.main_skill_ice_advance += 1
 		handle_level_up("Ice", 0, scene_tree, viewport)
 	elif PC.main_skill_thunder_break != 0 and PC.main_skill_thunder_break_advance < int(PC.main_skill_thunder_break / 3.0):
 		PC.main_skill_thunder_break_advance += 1
-		handle_level_up("Thunderbreak", 0, scene_tree, viewport)
+		handle_level_up("ThunderBreak", 0, scene_tree, viewport)
 	elif PC.main_skill_light_bullet != 0 and PC.main_skill_light_bullet_advance < int(PC.main_skill_light_bullet / 3.0):
 		PC.main_skill_light_bullet_advance += 1
-		handle_level_up("Lightbullet", 0, scene_tree, viewport)
+		handle_level_up("LightBullet", 0, scene_tree, viewport)
 	elif PC.main_skill_qigong != 0 and PC.main_skill_qigong_advance < int(PC.main_skill_qigong / 3.0):
 		PC.main_skill_qigong_advance += 1
 		handle_level_up("Qigong", 0, scene_tree, viewport)
@@ -857,13 +952,16 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 		handle_level_up("Duize", 0, scene_tree, viewport)
 	elif PC.main_skill_dragonwind != 0 and PC.main_skill_dragonwind_advance < int(PC.main_skill_dragonwind / 3.0):
 		PC.main_skill_dragonwind_advance += 1
-		handle_level_up("Dragonwind", 0, scene_tree, viewport)
+		handle_level_up("DragonWind", 0, scene_tree, viewport)
 	elif PC.main_skill_holylight != 0 and PC.main_skill_holylight_advance < int(PC.main_skill_holylight / 3.0):
 		PC.main_skill_holylight_advance += 1
-		handle_level_up("Holylight", 0, scene_tree, viewport)
+		handle_level_up("HolyLight", 0, scene_tree, viewport)
 	elif PC.main_skill_zhuazhuajuchui != 0 and PC.main_skill_zhuazhuajuchui_advance < int(PC.main_skill_zhuazhuajuchui / 3.0):
 		PC.main_skill_zhuazhuajuchui_advance += 1
 		handle_level_up("Zhuazhuajuchui", 0, scene_tree, viewport)
+	elif PC.main_skill_yujian != 0 and PC.main_skill_yujian_advance < int(PC.main_skill_yujian / 3.0):
+		PC.main_skill_yujian_advance += 1
+		handle_level_up("Yujian", 0, scene_tree, viewport)
 	# 如果没有主技能进阶，或者主技能进阶处理完毕后，再处理普通待升级
 	elif pending_level_ups > 0:
 		handle_level_up("", 0, scene_tree, viewport)
@@ -874,7 +972,7 @@ func pop_next_pending_advance_name() -> String:
 	var advance_change = int(PC.main_skill_swordQi / 3.0)
 	if PC.main_skill_swordQi != 0 and PC.main_skill_swordQi_advance < advance_change:
 		PC.main_skill_swordQi_advance += 1
-		return "Swordqi"
+		return "SwordQi"
 	if PC.main_skill_branch != 0 and PC.main_skill_branch_advance < int(PC.main_skill_branch / 3.0):
 		PC.main_skill_branch_advance += 1
 		return "Branch"
@@ -886,7 +984,7 @@ func pop_next_pending_advance_name() -> String:
 		return "Riyan"
 	if PC.main_skill_ringFire != 0 and PC.main_skill_ringFire_advance < int(PC.main_skill_ringFire / 3.0):
 		PC.main_skill_ringFire_advance += 1
-		return "Ringfire"
+		return "RingFire"
 	if PC.main_skill_thunder != 0 and PC.main_skill_thunder_advance < int(PC.main_skill_thunder / 3.0):
 		PC.main_skill_thunder_advance += 1
 		return "Thunder"
@@ -895,16 +993,16 @@ func pop_next_pending_advance_name() -> String:
 		return "Bloodwave"
 	if PC.main_skill_bloodboardsword != 0 and PC.main_skill_bloodboardsword_advance < int(PC.main_skill_bloodboardsword / 3.0):
 		PC.main_skill_bloodboardsword_advance += 1
-		return "Bloodboardsword"
+		return "BloodBoardSword"
 	if PC.main_skill_ice != 0 and PC.main_skill_ice_advance < int(PC.main_skill_ice / 3.0):
 		PC.main_skill_ice_advance += 1
 		return "Ice"
 	if PC.main_skill_thunder_break != 0 and PC.main_skill_thunder_break_advance < int(PC.main_skill_thunder_break / 3.0):
 		PC.main_skill_thunder_break_advance += 1
-		return "Thunderbreak"
+		return "ThunderBreak"
 	if PC.main_skill_light_bullet != 0 and PC.main_skill_light_bullet_advance < int(PC.main_skill_light_bullet / 3.0):
 		PC.main_skill_light_bullet_advance += 1
-		return "Lightbullet"
+		return "LightBullet"
 	if PC.main_skill_qigong != 0 and PC.main_skill_qigong_advance < int(PC.main_skill_qigong / 3.0):
 		PC.main_skill_qigong_advance += 1
 		return "Qigong"
@@ -928,21 +1026,24 @@ func pop_next_pending_advance_name() -> String:
 		return "Duize"
 	if PC.main_skill_dragonwind != 0 and PC.main_skill_dragonwind_advance < int(PC.main_skill_dragonwind / 3.0):
 		PC.main_skill_dragonwind_advance += 1
-		return "Dragonwind"
+		return "DragonWind"
 	if PC.main_skill_holylight != 0 and PC.main_skill_holylight_advance < int(PC.main_skill_holylight / 3.0):
 		PC.main_skill_holylight_advance += 1
-		return "Holylight"
+		return "HolyLight"
 	if PC.main_skill_zhuazhuajuchui != 0 and PC.main_skill_zhuazhuajuchui_advance < int(PC.main_skill_zhuazhuajuchui / 3.0):
 		PC.main_skill_zhuazhuajuchui_advance += 1
 		return "Zhuazhuajuchui"
+	if PC.main_skill_yujian != 0 and PC.main_skill_yujian_advance < int(PC.main_skill_yujian / 3.0):
+		PC.main_skill_yujian_advance += 1
+		return "Yujian"
 	return ""
 
 func pop_pending_advance_name_for(main_skill_name: String) -> String:
 	match main_skill_name:
-		"Swordqi":
+		"SwordQi":
 			if PC.main_skill_swordQi != 0 and PC.main_skill_swordQi_advance < int(PC.main_skill_swordQi / 3.0):
 				PC.main_skill_swordQi_advance += 1
-				return "Swordqi"
+				return "SwordQi"
 		"Branch":
 			if PC.main_skill_branch != 0 and PC.main_skill_branch_advance < int(PC.main_skill_branch / 3.0):
 				PC.main_skill_branch_advance += 1
@@ -955,10 +1056,10 @@ func pop_pending_advance_name_for(main_skill_name: String) -> String:
 			if PC.main_skill_riyan != 0 and PC.main_skill_riyan_advance < int(PC.main_skill_riyan / 3.0):
 				PC.main_skill_riyan_advance += 1
 				return "Riyan"
-		"Ringfire":
+		"RingFire":
 			if PC.main_skill_ringFire != 0 and PC.main_skill_ringFire_advance < int(PC.main_skill_ringFire / 3.0):
 				PC.main_skill_ringFire_advance += 1
-				return "Ringfire"
+				return "RingFire"
 		"Thunder":
 			if PC.main_skill_thunder != 0 and PC.main_skill_thunder_advance < int(PC.main_skill_thunder / 3.0):
 				PC.main_skill_thunder_advance += 1
@@ -967,22 +1068,22 @@ func pop_pending_advance_name_for(main_skill_name: String) -> String:
 			if PC.main_skill_bloodwave != 0 and PC.main_skill_bloodwave_advance < int(PC.main_skill_bloodwave / 3.0):
 				PC.main_skill_bloodwave_advance += 1
 				return "Bloodwave"
-		"Bloodboardsword":
+		"BloodBoardSword":
 			if PC.main_skill_bloodboardsword != 0 and PC.main_skill_bloodboardsword_advance < int(PC.main_skill_bloodboardsword / 3.0):
 				PC.main_skill_bloodboardsword_advance += 1
-				return "Bloodboardsword"
+				return "BloodBoardSword"
 		"Ice":
 			if PC.main_skill_ice != 0 and PC.main_skill_ice_advance < int(PC.main_skill_ice / 3.0):
 				PC.main_skill_ice_advance += 1
 				return "Ice"
-		"Thunderbreak":
+		"ThunderBreak":
 			if PC.main_skill_thunder_break != 0 and PC.main_skill_thunder_break_advance < int(PC.main_skill_thunder_break / 3.0):
 				PC.main_skill_thunder_break_advance += 1
-				return "Thunderbreak"
-		"Lightbullet":
+				return "ThunderBreak"
+		"LightBullet":
 			if PC.main_skill_light_bullet != 0 and PC.main_skill_light_bullet_advance < int(PC.main_skill_light_bullet / 3.0):
 				PC.main_skill_light_bullet_advance += 1
-				return "Lightbullet"
+				return "LightBullet"
 		"Qigong":
 			if PC.main_skill_qigong != 0 and PC.main_skill_qigong_advance < int(PC.main_skill_qigong / 3.0):
 				PC.main_skill_qigong_advance += 1
@@ -1011,18 +1112,22 @@ func pop_pending_advance_name_for(main_skill_name: String) -> String:
 			if PC.main_skill_duize != 0 and PC.main_skill_duize_advance < int(PC.main_skill_duize / 3.0):
 				PC.main_skill_duize_advance += 1
 				return "Duize"
-		"Dragonwind":
+		"DragonWind":
 			if PC.main_skill_dragonwind != 0 and PC.main_skill_dragonwind_advance < int(PC.main_skill_dragonwind / 3.0):
 				PC.main_skill_dragonwind_advance += 1
-				return "Dragonwind"
-		"Holylight":
+				return "DragonWind"
+		"HolyLight":
 			if PC.main_skill_holylight != 0 and PC.main_skill_holylight_advance < int(PC.main_skill_holylight / 3.0):
 				PC.main_skill_holylight_advance += 1
-				return "Holylight"
+				return "HolyLight"
 		"Zhuazhuajuchui":
 			if PC.main_skill_zhuazhuajuchui != 0 and PC.main_skill_zhuazhuajuchui_advance < int(PC.main_skill_zhuazhuajuchui / 3.0):
 				PC.main_skill_zhuazhuajuchui_advance += 1
 				return "Zhuazhuajuchui"
+		"Yujian":
+			if PC.main_skill_yujian != 0 and PC.main_skill_yujian_advance < int(PC.main_skill_yujian / 3.0):
+				PC.main_skill_yujian_advance += 1
+				return "Yujian"
 	return ""
 
 # 玩家点击某个奖励按钮时的处理（在奖励效果应用前调用）
@@ -1073,8 +1178,6 @@ func _on_level_up_selection_complete(_viewport: Viewport = null) -> void:
 	lv_up_change_b3.disabled = false
 	_mobile_reward_guard_request_id += 1
 	_mobile_reward_guard_until_msec = 0
-	if Global.is_mobile_input_mode():
-		Global.emit_signal("mobile_input_reset_requested")
 	# 清空当前奖励数据（已确认锁定数据保留到下次）
 	current_rewards.clear()
 	
@@ -1120,14 +1223,13 @@ func _on_level_up_selection_complete(_viewport: Viewport = null) -> void:
 		# 渐出 instant_level_up_button（与升级选项一同消失）
 		_fade_instant_level_up_button(false)
 		Global.is_level_up = false
-		if Global.is_mobile_input_mode():
-			Global.emit_signal("mobile_input_reset_requested")
 		if canvas_layer and canvas_layer.has_method("_update_lv_up_start_button_badge"):
 			canvas_layer._update_lv_up_start_button_badge()
 		if get_tree():
 			get_tree().set_pause(false)
 			# 恢复人物和怪物的动画
 			_resume_all_animations(get_tree())
+		Global.request_mobile_input_restore()
 		# 技能冷却分批恢复，避免暂停解除后一帧内多个冷却同时 timeout。
 		_resume_skill_nodes_staggered()
 		# 只有普通升级结束时播放0.5秒缓速；如果是advance升级后结束则跳过
@@ -1281,6 +1383,7 @@ func _force_cleanup_level_up_ui() -> void:
 	# 取消游戏树暂停
 	if get_tree():
 		get_tree().set_pause(false)
+	Global.request_mobile_input_restore()
 	print("[LvUp] _force_cleanup_level_up_ui: 战败后强制清理升级界面")
 
 func _resolve_poetry_level_up_without_popup(scene_tree: SceneTree = null, apply_level_growth: bool = true) -> void:
@@ -1315,6 +1418,7 @@ func _resolve_poetry_level_up_without_popup(scene_tree: SceneTree = null, apply_
 	elif get_tree():
 		get_tree().set_pause(false)
 		_resume_all_animations(get_tree())
+	Global.request_mobile_input_restore()
 	if apply_level_growth:
 		LvUp.global_level_up()
 		if Faze.manager_instance:
@@ -1348,6 +1452,7 @@ func _clear_poetry_advance_pending() -> void:
 	PC.main_skill_dragonwind_advance = int(PC.main_skill_dragonwind / 3.0)
 	PC.main_skill_holylight_advance = int(PC.main_skill_holylight / 3.0)
 	PC.main_skill_zhuazhuajuchui_advance = int(PC.main_skill_zhuazhuajuchui / 3.0)
+	PC.main_skill_yujian_advance = int(PC.main_skill_yujian / 3.0)
 
 func pause_battle_for_external_popup(scene_tree: SceneTree) -> void:
 	_skill_resume_request_id += 1
@@ -1368,6 +1473,7 @@ func resume_battle_from_external_popup(scene_tree: SceneTree) -> void:
 	if scene_tree:
 		scene_tree.set_pause(false)
 		_resume_all_animations(scene_tree)
+	Global.request_mobile_input_restore()
 	_resume_skill_nodes_staggered()
 
 func _resume_skill_nodes_staggered() -> void:
@@ -1435,8 +1541,10 @@ func _resume_all_animations(scene_tree: SceneTree) -> void:
 func _set_active_skill_icons_interactive(interactive: bool) -> void:
 	if not canvas_layer:
 		return
+	_reset_mobile_runtime_input_state()
 	if not interactive and canvas_layer.has_method("hide_active_skill_label"):
 		canvas_layer.hide_active_skill_label()
+	_set_skill_bar_interactive(interactive)
 	var active_icons: Array[Control] = [
 		canvas_layer.get("active1") as Control,
 		canvas_layer.get("active2") as Control,
@@ -1445,6 +1553,8 @@ func _set_active_skill_icons_interactive(interactive: bool) -> void:
 	for icon in active_icons:
 		if not icon or not is_instance_valid(icon):
 			continue
+		if icon.has_method("set_game_paused"):
+			icon.set_game_paused(not interactive)
 		if interactive:
 			if _active_icon_mouse_filters.has(icon):
 				icon.mouse_filter = int(_active_icon_mouse_filters[icon])
@@ -1459,6 +1569,41 @@ func _set_active_skill_icons_interactive(interactive: bool) -> void:
 	if interactive:
 		_active_icon_mouse_filters.clear()
 		_active_icon_child_mouse_filters.clear()
+		_skill_bar_mouse_filters.clear()
+		_reset_mobile_runtime_input_state()
+
+func _reset_mobile_runtime_input_state() -> void:
+	if not Global.is_mobile_input_mode():
+		return
+	if canvas_layer and canvas_layer.has_method("_force_clear_mobile_skill_input"):
+		canvas_layer.call("_force_clear_mobile_skill_input")
+
+func _set_skill_bar_interactive(interactive: bool) -> void:
+	if not canvas_layer:
+		return
+	var skill_bar := canvas_layer.get_node_or_null("SkillBar") as Control
+	if skill_bar == null:
+		return
+	if interactive:
+		_restore_skill_bar_mouse_filters(skill_bar)
+	else:
+		_set_skill_bar_mouse_filter_ignore(skill_bar)
+
+func _set_skill_bar_mouse_filter_ignore(node: Node) -> void:
+	var control := node as Control
+	if control != null:
+		if not _skill_bar_mouse_filters.has(control):
+			_skill_bar_mouse_filters[control] = control.mouse_filter
+		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child in node.get_children():
+		_set_skill_bar_mouse_filter_ignore(child)
+
+func _restore_skill_bar_mouse_filters(node: Node) -> void:
+	var control := node as Control
+	if control != null and _skill_bar_mouse_filters.has(control):
+		control.mouse_filter = int(_skill_bar_mouse_filters[control])
+	for child in node.get_children():
+		_restore_skill_bar_mouse_filters(child)
 
 func _set_active_icon_children_ignore(node: Node) -> void:
 	for child in node.get_children():
@@ -1529,6 +1674,8 @@ func _check_any_advance_pending() -> bool:
 		return true
 	if PC.main_skill_zhuazhuajuchui != 0 and PC.main_skill_zhuazhuajuchui_advance < int(PC.main_skill_zhuazhuajuchui / 3.0):
 		return true
+	if PC.main_skill_yujian != 0 and PC.main_skill_yujian_advance < int(PC.main_skill_yujian / 3.0):
+		return true
 	return false
 
 # 计算待 advance 数量（用于 badge 显示）
@@ -1555,6 +1702,7 @@ func count_pending_advances() -> int:
 	if PC.main_skill_dragonwind != 0 and PC.main_skill_dragonwind_advance < int(PC.main_skill_dragonwind / 3.0): count += 1
 	if PC.main_skill_holylight != 0 and PC.main_skill_holylight_advance < int(PC.main_skill_holylight / 3.0): count += 1
 	if PC.main_skill_zhuazhuajuchui != 0 and PC.main_skill_zhuazhuajuchui_advance < int(PC.main_skill_zhuazhuajuchui / 3.0): count += 1
+	if PC.main_skill_yujian != 0 and PC.main_skill_yujian_advance < int(PC.main_skill_yujian / 3.0): count += 1
 	return count
 
 # 升级完成后0.5秒引擎减速效果，让玩家看清当前位置

@@ -31,6 +31,31 @@ const VERSION = 1
 const TOOLTIP_POSITION_OFFSET := Vector2(20, 20)
 const TIP_DEFAULT_DURATION := 0.5
 const TIP_SUCCESS_DURATION := 0.6
+const LOCAL_WEAPON_NAMES := {
+	"Zhuazhuajuchui": "爪爪巨锤",
+	"RZhuazhuajuchui": "爪爪巨锤+",
+	"SRZhuazhuajuchui": "爪爪巨锤+",
+	"SSRZhuazhuajuchui": "爪爪巨锤+",
+	"URZhuazhuajuchui": "爪爪巨锤+",
+	"Zhuazhuajuchui1": "震击",
+	"Zhuazhuajuchui2": "震慑",
+	"Zhuazhuajuchui3": "震撼",
+	"Zhuazhuajuchui4": "震爆",
+	"Zhuazhuajuchui11": "震击-震爆",
+	"Zhuazhuajuchui22": "震慑-震击",
+	"Zhuazhuajuchui33": "震撼-震爆",
+}
+const LOCAL_ADVANCEMENTS := {
+	"Zhuazhuajuchui": [
+		{"id": "Zhuazhuajuchui1", "precondition": "check_Zhuazhuajuchui_condition", "requires": ["Zhuazhuajuchui"]},
+		{"id": "Zhuazhuajuchui2", "precondition": "check_Zhuazhuajuchui_condition", "requires": ["Zhuazhuajuchui"]},
+		{"id": "Zhuazhuajuchui3", "precondition": "check_Zhuazhuajuchui_condition", "requires": ["Zhuazhuajuchui"]},
+		{"id": "Zhuazhuajuchui4", "precondition": "check_Zhuazhuajuchui_condition", "requires": ["Zhuazhuajuchui"]},
+		{"id": "Zhuazhuajuchui11", "precondition": "check_Zhuazhuajuchui1", "requires": ["Zhuazhuajuchui1", "Zhuazhuajuchui4"]},
+		{"id": "Zhuazhuajuchui22", "precondition": "check_Zhuazhuajuchui2", "requires": ["Zhuazhuajuchui2", "Zhuazhuajuchui1"]},
+		{"id": "Zhuazhuajuchui33", "precondition": "check_Zhuazhuajuchui3", "requires": ["Zhuazhuajuchui3", "Zhuazhuajuchui4"]},
+	],
+}
 
 var available_weapons = []
 var updating_ui = false
@@ -242,7 +267,7 @@ func _validate_adv_selection(dropdowns: Array, w_dd: OptionButton) -> bool:
 		var w_id = w_dd.get_item_metadata(w_dd.selected)
 		selected_advs.append(w_id)
 		# 同时添加faction名，确保requires中引用faction名的进阶也能匹配
-		var faction_key = WeapDataExport.WEAP_TO_FACTION.get(w_id, "")
+		var faction_key = _get_weapon_faction(w_id)
 		if faction_key != "" and not faction_key in selected_advs:
 			selected_advs.append(faction_key)
 		
@@ -258,11 +283,28 @@ func _validate_adv_selection(dropdowns: Array, w_dd: OptionButton) -> bool:
 	return true
 
 func _get_adv_requires(adv_id: String) -> Array:
+	for fac in LOCAL_ADVANCEMENTS:
+		for adv in LOCAL_ADVANCEMENTS[fac]:
+			if adv["id"] == adv_id:
+				return adv.get("requires", [])
 	for fac in WeapDataExport.ADVANCEMENTS:
 		for adv in WeapDataExport.ADVANCEMENTS[fac]:
 			if adv["id"] == adv_id:
 				return adv.get("requires", [])
 	return []
+
+func _get_weapon_display_name(reward_id: String) -> String:
+	return str(LOCAL_WEAPON_NAMES.get(reward_id, WeapDataExport.WEAPON_NAMES.get(reward_id, reward_id)))
+
+func _get_weapon_faction(weapon_id: String) -> String:
+	if weapon_id == "Zhuazhuajuchui":
+		return "Zhuazhuajuchui"
+	return str(WeapDataExport.WEAP_TO_FACTION.get(weapon_id, ""))
+
+func _get_advancements_for_faction(faction: String) -> Array:
+	if LOCAL_ADVANCEMENTS.has(faction):
+		return LOCAL_ADVANCEMENTS[faction]
+	return WeapDataExport.ADVANCEMENTS.get(faction, [])
 
 func _update_all_dropdowns():
 	updating_ui = true
@@ -331,7 +373,7 @@ func _populate_weapon_dropdown(dropdown: OptionButton, selected_weapons: Array):
 	for w_id in available_weapons:
 		if w_id in selected_weapons and w_id != current_sel:
 			continue
-		dropdown.add_item(WeapDataExport.WEAPON_NAMES.get(w_id, w_id))
+		dropdown.add_item(_get_weapon_display_name(w_id))
 		dropdown.set_item_metadata(idx, w_id)
 		if w_id == current_sel:
 			to_select = idx
@@ -344,16 +386,16 @@ func _populate_adv_dropdowns(weapon_dropdown: OptionButton, adv_dropdowns: Array
 	if weapon_dropdown.selected > 0:
 		w_id = weapon_dropdown.get_item_metadata(weapon_dropdown.selected)
 		
-	var faction = WeapDataExport.WEAP_TO_FACTION.get(w_id, "")
+	var faction = _get_weapon_faction(w_id)
 	var available_advs = []
-	if faction != "" and WeapDataExport.ADVANCEMENTS.has(faction):
-		available_advs = WeapDataExport.ADVANCEMENTS[faction]
+	if faction != "":
+		available_advs = _get_advancements_for_faction(faction)
 		
 	var current_selections = []
 	if w_id != "":
 		current_selections.append(w_id)
 		# 同时添加faction名，确保requires中引用faction名的进阶也能匹配
-		var faction_key = WeapDataExport.WEAP_TO_FACTION.get(w_id, "")
+		var faction_key = _get_weapon_faction(w_id)
 		if faction_key != "" and not faction_key in current_selections:
 			current_selections.append(faction_key)
 		
@@ -387,7 +429,7 @@ func _populate_adv_dropdowns(weapon_dropdown: OptionButton, adv_dropdowns: Array
 						break
 			if not can_add: continue
 				
-			dd.add_item(WeapDataExport.WEAPON_NAMES.get(adv_id, adv_id))
+			dd.add_item(_get_weapon_display_name(adv_id))
 			dd.set_item_metadata(idx, adv_id)
 			if adv_id == current_sel:
 				to_select = idx
@@ -440,11 +482,12 @@ func _encode_adv(dd: OptionButton, w_dd: OptionButton) -> String:
 	if not dd or not w_dd or dd.selected <= 0 or w_dd.selected <= 0: return "_"
 	var adv_id = dd.get_item_metadata(dd.selected)
 	var w_id = w_dd.get_item_metadata(w_dd.selected)
-	var faction = WeapDataExport.WEAP_TO_FACTION.get(w_id, "")
-	if not WeapDataExport.ADVANCEMENTS.has(faction): return "_"
+	var faction = _get_weapon_faction(w_id)
+	var advancements := _get_advancements_for_faction(faction)
+	if advancements.is_empty(): return "_"
 	
 	var idx = 0
-	for adv in WeapDataExport.ADVANCEMENTS[faction]:
+	for adv in advancements:
 		if adv["id"] == adv_id:
 			return _encode_char(idx)
 		idx += 1
@@ -490,7 +533,7 @@ func _on_use_other_code(code: String, silent: bool = false) -> bool:
 			var w_id = WeapDataExport.WEAPON_IDS[idx]
 			if not w_id in available_weapons:
 				if not silent:
-					_show_tips("备战码包含未解锁的武器: " + WeapDataExport.WEAPON_NAMES.get(w_id, w_id), TIP_SUCCESS_DURATION)
+					_show_tips("备战码包含未解锁的武器: " + _get_weapon_display_name(w_id), TIP_SUCCESS_DURATION)
 				return false
 			if w_id in needed_weapons:
 				if not silent:
@@ -531,7 +574,7 @@ func _apply_weapon(dd: OptionButton, idx: int):
 	dd.set_item_metadata(0, "")
 	if idx >= 0 and idx < WeapDataExport.WEAPON_IDS.size():
 		var w_id = WeapDataExport.WEAPON_IDS[idx]
-		dd.add_item(WeapDataExport.WEAPON_NAMES.get(w_id, w_id))
+		dd.add_item(_get_weapon_display_name(w_id))
 		dd.set_item_metadata(1, w_id)
 		dd.select(1)
 	else:
@@ -543,12 +586,12 @@ func _apply_adv(dd: OptionButton, w_dd: OptionButton, idx: int):
 	dd.set_item_metadata(0, "")
 	if w_dd and w_dd.selected > 0 and idx >= 0:
 		var w_id = w_dd.get_item_metadata(w_dd.selected)
-		var faction = WeapDataExport.WEAP_TO_FACTION.get(w_id, "")
-		if WeapDataExport.ADVANCEMENTS.has(faction):
-			var advs = WeapDataExport.ADVANCEMENTS[faction]
+		var faction = _get_weapon_faction(w_id)
+		var advs = _get_advancements_for_faction(faction)
+		if not advs.is_empty():
 			if idx < advs.size():
 				var adv_id = advs[idx]["id"]
-				dd.add_item(WeapDataExport.WEAPON_NAMES.get(adv_id, adv_id))
+				dd.add_item(_get_weapon_display_name(adv_id))
 				dd.set_item_metadata(1, adv_id)
 				dd.select(1)
 				return

@@ -16,7 +16,7 @@ const CONTROL_PANEL_POSITION: Vector2 = Vector2(12, 82)
 const CONTROL_PANEL_MIN_SIZE: Vector2 = Vector2(378, 146)
 const TEST_UI_FONT: FontFile = preload("res://AssetBundle/Uranus_Pixel_11Px.ttf")
 const RING_FIRE_WEAPON_ID: String = "RingFire"
-const RING_FIRE_REWARD_ID: String = "Ringfire"
+const RING_FIRE_REWARD_ID: String = "RingFire"
 const RING_FIRE_SKILL_ICON: String = "res://AssetBundle/Sprites/Sprite sheets/skillIcon/lihuo.png"
 const PLAYER_ATTACK_NODE_NAMES: Array[String] = [
 	"BloodWave",
@@ -301,7 +301,7 @@ func _reset_main_weapon_state() -> void:
 	PC.riyan_atk_damage = 0.24
 	PC.main_skill_ringFire = 0
 	PC.main_skill_ringFire_advance = 0
-	PC.main_skill_ringFire_damage = 0.4
+	PC.main_skill_ringFire_damage = 0.35
 	PC.main_skill_thunder = 0
 	PC.main_skill_thunder_advance = 0
 	PC.main_skill_thunder_damage = 0.85

@@ -3,8 +3,11 @@ extends CharacterBody2D
 const PLAYER_HP_BAR_SCENE: PackedScene = preload("res://Scenes/global/player_hp_bar.tscn")
 const PLAYER_HP_BAR_OFFSET_DEFAULT: Vector2 = Vector2(-13, -28)
 const PLAYER_HP_BAR_OFFSET_KANSEL: Vector2 = Vector2(-13, -42)
+const YUJIAN_SCENE: PackedScene = preload("res://Scenes/player/yujian.tscn")
+const YUJIAN_FLOAT_AMPLITUDE: float = 2.5
+const YUJIAN_FLOAT_SPEED: float = 3.0
 
-@export var move_speed: float = 120.0 * (1 + (Global.cultivation_zhuifeng_level * 0.01) + PC.pc_speed)
+@export var move_speed: float = 120.0 * (1 + PC.get_total_move_speed_bonus())
 
 @export var hp: int = 0
 @export var maxHP: int = 0
@@ -18,6 +21,15 @@ var _last_applied_pozhen_crit_damage_bonus: float = 0.0
 var _last_applied_emblem_atk_bonus: float = 0.0
 var _last_applied_emblem_hp_bonus: float = 0.0
 var _last_applied_tafeng_cooldown_bonus: float = 0.0
+const POZHEN_CRIT_DAMAGE_BONUS_PER_CRIT_PERCENT: float = 0.002
+const JIANBU_MOVE_SPEED_GROUP_PERCENT: float = 4.0
+const JIANBU_STAT_BONUS_PER_GROUP: float = 0.0025
+const JIANBU_MAX_STAT_BONUS: float = 0.20
+const JIAHU_STAT_BONUS_PER_LUCKY: float = 0.0015
+const JIAHU_MAX_STAT_BONUS: float = 0.20
+const GUIYUAN_ATK_SPEED_GROUP_PERCENT: float = 10.0
+const GUIYUAN_STAT_BONUS_PER_GROUP: float = 0.0015
+const GUIYUAN_MAX_STAT_BONUS: float = 0.20
 
 #@export var joystick_left : VirtualJoystick
 #
@@ -74,6 +86,13 @@ var _last_applied_tafeng_cooldown_bonus: float = 0.0
 @export var invincible_time: Timer
 
 var active_summons: Array = [] # 当前活跃的召唤物列表
+var yujian_extra_summons: Array = []
+var yujian_visual: Node2D = null
+var yujian_visual_base_position: Vector2 = Vector2.ZERO
+var player_shadow: Sprite2D = null
+var yujian_float_time: float = 0.0
+var yujian_last_total_move_bonus: float = -999.0
+var hero_sprite_base_positions: Dictionary = {}
 
 
 @onready var yiqiu_sprite: AnimatedSprite2D = $yiqiu
@@ -86,7 +105,7 @@ var sprite: AnimatedSprite2D
 @export var sprite_direction_right: bool
 
 var beastify_active: bool = false
-var beastify_prev_atk: int = 0
+var beastify_applied_atk_bonus: int = 0
 var beastify_prev_atk_speed: float = 0.0
 var beastify_prev_move_speed: float = 0.0
 var beastify_prev_sprite: AnimatedSprite2D = null
@@ -101,6 +120,9 @@ var beastify_replaced_weapon_id: String = ""
 var beastify_replaced_weapon_level: int = 0
 var beastify_replaced_weapon_attack_id: String = "swordqi"
 var beastify_attack_loop_active: bool = false
+var beastify_weapon_advancements: Dictionary = {}
+var beastify_weapon_to_faction: Dictionary = {}
+var beastify_weapon_advancements_loaded: bool = false
 var weapon_runtime_reset_id: int = 0
 var mizongbu_active: bool = false
 var mizongbu_run_id: int = 0
@@ -114,54 +136,56 @@ var destructive_hammer_locked_direction_right: bool = true
 const DESTRUCTIVE_HAMMER_MOVE_FACTOR: float = 0.18
 
 const BEASTIFY_WEAPON_LEVEL_PROPS: Dictionary = {
-	"Swordqi": "main_skill_swordQi",
+	"SwordQi": "main_skill_swordQi",
 	"Qigong": "main_skill_qigong",
-	"Lightbullet": "main_skill_light_bullet",
+	"LightBullet": "main_skill_light_bullet",
 	"Ice": "main_skill_ice",
 	"Xunfeng": "main_skill_xunfeng",
 	"Genshan": "main_skill_genshan",
 	"Bloodwave": "main_skill_bloodwave",
 	"Xuanwu": "main_skill_xuanwu",
 	"Water": "main_skill_water",
-	"Holylight": "main_skill_holylight",
+	"HolyLight": "main_skill_holylight",
 	"Branch": "main_skill_branch",
 	"Thunder": "main_skill_thunder",
-	"Thunderbreak": "main_skill_thunder_break",
+	"ThunderBreak": "main_skill_thunder_break",
 	"Moyan": "main_skill_moyan",
 	"Qiankun": "main_skill_qiankun",
-	"Bloodboardsword": "main_skill_bloodboardsword",
+	"BloodBoardSword": "main_skill_bloodboardsword",
 	"Riyan": "main_skill_riyan",
-	"Ringfire": "main_skill_ringFire",
+	"RingFire": "main_skill_ringFire",
 	"Duize": "main_skill_duize",
-	"Dragonwind": "main_skill_dragonwind",
+	"DragonWind": "main_skill_dragonwind",
 	"Zhuazhuajuchui": "main_skill_zhuazhuajuchui",
 }
 
 const BEASTIFY_WEAPON_ATTACK_IDS: Dictionary = {
-	"Swordqi": "swordqi",
+	"SwordQi": "swordqi",
 	"Qigong": "qigong",
-	"Lightbullet": "light_bullet",
+	"LightBullet": "light_bullet",
 	"Ice": "ice",
 	"Xunfeng": "xunfeng",
 	"Genshan": "genshan",
 	"Bloodwave": "bloodwave",
 	"Xuanwu": "xuanwu",
 	"Water": "water",
-	"Holylight": "holylight",
+	"HolyLight": "holylight",
 	"Branch": "branch",
 	"Thunder": "thunder",
-	"Thunderbreak": "thunder_break",
+	"ThunderBreak": "thunder_break",
 	"Moyan": "moyan",
 	"Qiankun": "qiankun",
-	"Bloodboardsword": "bloodboardsword",
+	"BloodBoardSword": "bloodboardsword",
 	"Riyan": "riyan",
-	"Ringfire": "ringFire",
+	"RingFire": "ringFire",
 	"Duize": "duize",
-	"Dragonwind": "dragonwind",
+	"DragonWind": "dragonwind",
 	"Zhuazhuajuchui": "zhuazhuajuchui",
 }
 
 const BEASTIFY_BASE_ATTACK_INTERVAL: float = 0.7
+const BEASTIFY_ADVANCEMENT_DAMAGE_MULTIPLIER: float = 1.15
+const BEASTIFY_ADVANCEMENT_RANGE_MULTIPLIER: float = 1.10
 
 
 # 摄像头缩放相关变量
@@ -186,7 +210,7 @@ func _ready() -> void:
 		camera.scale = Vector2.ONE
 	
 	# 创建脚底阴影
-	CharacterEffects.create_shadow(self , 22.0, 9.0, 7.5)
+	player_shadow = CharacterEffects.create_shadow(self , 22.0, 9.0, 7.5)
 	var faze_manager = Faze.new()
 	add_child(faze_manager)
 	faze_manager.setup(self )
@@ -205,6 +229,8 @@ func _ready() -> void:
 	update_skill_attack_speeds()
 	
 	_set_active_hero(PC.player_name)
+	_cache_hero_sprite_base_positions()
+	sync_yujian_state()
 	_setup_player_hp_bar()
 	_update_start_weapon_timers()
 	_cache_beastify_hitbox()
@@ -283,6 +309,7 @@ func _set_active_hero(hero_key: String) -> void:
 	sprite = hero_sprite
 	sprite_direction_right = not animator.flip_h
 	_update_player_hp_bar_position()
+	_apply_yujian_float_offset()
 
 func _set_all_player_sprites_idle() -> void:
 	var all_player_sprites: Array[AnimatedSprite2D] = [yiqiu_sprite, moning_sprite, noam_sprite, kansel_sprite, xueming_sprite, qujie_sprite]
@@ -295,6 +322,85 @@ func _sync_player_sprite_facing(target_sprite: AnimatedSprite2D = null) -> void:
 	if target == null:
 		return
 	target.flip_h = not sprite_direction_right
+
+func _get_all_player_sprites() -> Array[AnimatedSprite2D]:
+	return [yiqiu_sprite, moning_sprite, noam_sprite, kansel_sprite, xueming_sprite, qujie_sprite]
+
+func _cache_hero_sprite_base_positions() -> void:
+	hero_sprite_base_positions.clear()
+	for hero_sprite in _get_all_player_sprites():
+		if hero_sprite:
+			hero_sprite_base_positions[hero_sprite] = hero_sprite.position
+
+func _has_yujian() -> bool:
+	return PC.selected_rewards.has("Yujian")
+
+func sync_yujian_state() -> void:
+	var enabled := _has_yujian()
+	if player_shadow:
+		player_shadow.visible = not enabled
+	if enabled:
+		_ensure_yujian_visual()
+	else:
+		_remove_yujian_visual()
+		_reset_yujian_float_offset()
+
+func _ensure_yujian_visual() -> void:
+	if yujian_visual and is_instance_valid(yujian_visual):
+		return
+	yujian_visual = YUJIAN_SCENE.instantiate()
+	yujian_visual.name = "YujianVisual"
+	yujian_visual_base_position = Vector2(0.0, 9.0)
+	yujian_visual.position = yujian_visual_base_position
+	yujian_visual.z_index = -1
+	add_child(yujian_visual)
+
+func _remove_yujian_visual() -> void:
+	if yujian_visual and is_instance_valid(yujian_visual):
+		yujian_visual.queue_free()
+	yujian_visual = null
+
+func _process_yujian_visual(delta: float) -> void:
+	sync_yujian_state()
+	if not _has_yujian():
+		return
+	yujian_float_time += delta
+	_apply_yujian_float_offset()
+	_sync_yujian_visual_facing()
+
+func _refresh_yujian_dynamic_move_bonus_if_needed() -> void:
+	if not _has_yujian() or PC.yujian_move_summon_damage_per_10 <= 0.0:
+		yujian_last_total_move_bonus = -999.0
+		return
+	var total_move_bonus := PC.get_total_move_speed_bonus()
+	if is_equal_approx(total_move_bonus, yujian_last_total_move_bonus):
+		return
+	yujian_last_total_move_bonus = total_move_bonus
+	PC.refresh_yujian_summon_bonuses()
+
+func _apply_yujian_float_offset() -> void:
+	if not _has_yujian():
+		return
+	var offset_y := sin(yujian_float_time * YUJIAN_FLOAT_SPEED) * YUJIAN_FLOAT_AMPLITUDE
+	for hero_sprite in _get_all_player_sprites():
+		if hero_sprite and hero_sprite_base_positions.has(hero_sprite):
+			hero_sprite.position = hero_sprite_base_positions[hero_sprite] + Vector2(0.0, offset_y)
+	if yujian_visual and is_instance_valid(yujian_visual):
+		yujian_visual.position = yujian_visual_base_position + Vector2(0.0, offset_y)
+
+func _sync_yujian_visual_facing() -> void:
+	if not yujian_visual or not is_instance_valid(yujian_visual):
+		return
+	var yujian_sprite := yujian_visual.get_node_or_null("Sprite2D") as Sprite2D
+	if yujian_sprite:
+		yujian_sprite.flip_h = not sprite_direction_right
+
+func _reset_yujian_float_offset() -> void:
+	for hero_sprite in _get_all_player_sprites():
+		if hero_sprite and hero_sprite_base_positions.has(hero_sprite):
+			hero_sprite.position = hero_sprite_base_positions[hero_sprite]
+	if yujian_visual and is_instance_valid(yujian_visual):
+		yujian_visual.position = yujian_visual_base_position
 
 func _cache_beastify_hitbox() -> void:
 	var temp: Node = beastify_effect_scene.instantiate()
@@ -372,11 +478,11 @@ func _update_start_weapon_timers() -> void:
 	if dragonwind_fire_speed: dragonwind_fire_speed.stop()
 	if zhuazhuajuchui_fire_speed: zhuazhuajuchui_fire_speed.stop()
 	match _resolve_beastify_replaced_weapon_id():
-		"Swordqi":
+		"SwordQi":
 			if fire_speed: fire_speed.start()
 		"Qigong":
 			if qigong_fire_speed: qigong_fire_speed.start()
-		"Lightbullet":
+		"LightBullet":
 			if light_bullet_fire_speed: light_bullet_fire_speed.start()
 		"Ice":
 			if ice_flower_fire_speed: ice_flower_fire_speed.start()
@@ -390,27 +496,27 @@ func _update_start_weapon_timers() -> void:
 			if xuanwu_fire_speed: xuanwu_fire_speed.start()
 		"Water":
 			if water_fire_speed: water_fire_speed.start()
-		"Holylight":
+		"HolyLight":
 			if holy_light_fire_speed: holy_light_fire_speed.start()
 		"Branch":
 			if branch_fire_speed: branch_fire_speed.start()
 		"Thunder":
 			if thunder_fire_speed: thunder_fire_speed.start()
-		"Thunderbreak":
+		"ThunderBreak":
 			if thunder_break_fire_speed: thunder_break_fire_speed.start()
 		"Moyan":
 			if moyan_fire_speed: moyan_fire_speed.start()
 		"Riyan":
 			if riyan_fire_speed: riyan_fire_speed.start()
-		"Ringfire":
+		"RingFire":
 			if ringFire_fire_speed: ringFire_fire_speed.start()
 		"Qiankun":
 			if qiankun_fire_speed: qiankun_fire_speed.start()
-		"Bloodboardsword":
+		"BloodBoardSword":
 			if bloodboardsword_fire_speed: bloodboardsword_fire_speed.start()
 		"Duize":
 			if duize_fire_speed: duize_fire_speed.start()
-		"Dragonwind":
+		"DragonWind":
 			if dragonwind_fire_speed: dragonwind_fire_speed.start()
 		"Zhuazhuajuchui":
 			if zhuazhuajuchui_fire_speed: zhuazhuajuchui_fire_speed.start()
@@ -453,11 +559,13 @@ func _process(_delta: float) -> void:
 		raw_move_bonus = (Global.cultivation_zhuifeng_level * 0.01)
 		move_speed = 140 * (1 + (raw_move_bonus / 2))
 	else:
-		# 修习树团队篇：移速百分比加成
-		raw_move_bonus = (Global.cultivation_zhuifeng_level * 0.01) + PC.pc_speed + bloodwave_speed_bonus
-		move_speed = 100.0 * (1 + _diminishing_returns(raw_move_bonus)) * (1.0 + Global.study_move_speed_bonus)
+		raw_move_bonus = PC.get_total_move_speed_bonus() + bloodwave_speed_bonus
+		move_speed = 100.0 * (1 + _diminishing_returns(raw_move_bonus))
+	_process_yujian_visual(_delta)
+	_refresh_yujian_dynamic_move_bonus_if_needed()
 		
-	_update_dynamic_emblem_effects()
+	if not PC.is_game_over:
+		_update_dynamic_emblem_effects()
 	_update_player_hp_bar()
 	
 	if velocity == Vector2.ZERO or PC.is_game_over:
@@ -467,11 +575,11 @@ func _process(_delta: float) -> void:
 	
 	#if !Global.in_town :
 	# 更新技能攻速（当攻速属性改变时）
-	if PC.last_atk_speed != PC.pc_atk_speed:
+	if PC.last_atk_speed != PC.attack_speed_bonus:
 		update_skill_attack_speeds()
 		# 发射信号通知技能攻速更新
 		Global.emit_signal("skill_attack_speed_updated")
-		PC.last_atk_speed = PC.pc_atk_speed
+		PC.last_atk_speed = PC.attack_speed_bonus
 		
 	# 环形子弹逻辑
 	if PC.selected_rewards.has("ring_bullet") and not PC.is_game_over and not Global.in_menu:
@@ -690,7 +798,11 @@ func _physics_process(_delta: float) -> void:
 		if destructive_hammer_lock_active:
 			_sync_player_sprite_facing()
 		
-		if velocity == Vector2.ZERO:
+		if _has_yujian():
+			animator.play("idle")
+			if velocity != Vector2.ZERO:
+				last_move_time = Time.get_unix_time_from_system()
+		elif velocity == Vector2.ZERO:
 			animator.play("idle")
 		else:
 			animator.play("run")
@@ -715,7 +827,7 @@ func _physics_process(_delta: float) -> void:
 func start_destructive_hammer_lock() -> void:
 	destructive_hammer_lock_active = true
 	destructive_hammer_slow_active = true
-	PC.add_independent_damage_reduction_source("destructive_hammer", 0.6)
+	PC.add_independent_damage_reduction_source("destructive_hammer", 0.5)
 	destructive_hammer_locked_direction_right = sprite_direction_right
 	_sync_player_sprite_facing()
 
@@ -847,7 +959,7 @@ func _check_distance_buffs() -> void:
 				else:
 					Global.emit_signal("buff_stack_changed", "move_lucky_ssr75", new_stack)
 
-	# 苦修·佑(SR77)：每300米护甲+1
+	# 苦修·佑(SR77)：每300米护甲+2
 	if PC.selected_rewards.has("SR77"):
 		var offset = PC.distance_buff_offsets.get("SR77", 0.0)
 		var effective_meters = max(meters - offset, 0.0)
@@ -857,7 +969,7 @@ func _check_distance_buffs() -> void:
 			current_stack = BuffManager.get_buff_stack("move_armor_sr77")
 		var new_stack = mini(sr77_layers, 9999)
 		if new_stack != current_stack:
-			var delta_armor = (new_stack - current_stack) * 1
+			var delta_armor = (new_stack - current_stack) * 2
 			PC.pc_armor += delta_armor
 			if new_stack > 0:
 				if current_stack == 0:
@@ -865,7 +977,7 @@ func _check_distance_buffs() -> void:
 				else:
 					Global.emit_signal("buff_stack_changed", "move_armor_sr77", new_stack)
 
-	# 行修·佑(SSR78)：每200米护甲+1
+	# 行修·佑(SSR78)：每200米护甲+2
 	if PC.selected_rewards.has("SSR78"):
 		var offset = PC.distance_buff_offsets.get("SSR78", 0.0)
 		var effective_meters = max(meters - offset, 0.0)
@@ -875,7 +987,7 @@ func _check_distance_buffs() -> void:
 			current_stack = BuffManager.get_buff_stack("move_armor_ssr78")
 		var new_stack = mini(ssr78_layers, 9999)
 		if new_stack != current_stack:
-			var delta_armor = (new_stack - current_stack) * 1
+			var delta_armor = (new_stack - current_stack) * 2
 			PC.pc_armor += delta_armor
 			if new_stack > 0:
 				if current_stack == 0:
@@ -987,19 +1099,19 @@ func pause_all_skill_cooldowns(pause: bool) -> void:
 func _normalize_beastify_weapon_id(weapon_id: String) -> String:
 	match str(weapon_id):
 		"SwordQi":
-			return "Swordqi"
+			return "SwordQi"
 		"RingFire":
-			return "Ringfire"
+			return "RingFire"
 		"BloodBoardSword":
-			return "Bloodboardsword"
+			return "BloodBoardSword"
 		"ThunderBreak":
-			return "Thunderbreak"
+			return "ThunderBreak"
 		"LightBullet":
-			return "Lightbullet"
+			return "LightBullet"
 		"HolyLight":
-			return "Holylight"
+			return "HolyLight"
 		"DragonWind":
-			return "Dragonwind"
+			return "DragonWind"
 		_:
 			return Global.normalize_start_weapon_id(str(weapon_id))
 
@@ -1023,6 +1135,60 @@ func _get_beastify_weapon_level(weapon_id: String) -> int:
 		return 0
 	return maxi(0, int(PC.get(level_prop)))
 
+func _ensure_beastify_weapon_advancements_loaded() -> void:
+	if beastify_weapon_advancements_loaded:
+		return
+	beastify_weapon_advancements_loaded = true
+	var file := FileAccess.open("res://Config/weap_data.json", FileAccess.READ)
+	if file == null:
+		return
+	var parsed = JSON.parse_string(file.get_as_text())
+	file.close()
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	var data: Dictionary = parsed
+	var advancements = data.get("advancements", {})
+	if typeof(advancements) == TYPE_DICTIONARY:
+		beastify_weapon_advancements = advancements
+	var weapon_to_faction = data.get("weap_to_faction", {})
+	if typeof(weapon_to_faction) == TYPE_DICTIONARY:
+		beastify_weapon_to_faction = weapon_to_faction
+
+func _get_beastify_advancement_key(weapon_id: String) -> String:
+	_ensure_beastify_weapon_advancements_loaded()
+	if beastify_weapon_advancements.has(weapon_id):
+		return weapon_id
+	var mapped_key := str(beastify_weapon_to_faction.get(weapon_id, ""))
+	if not mapped_key.is_empty() and beastify_weapon_advancements.has(mapped_key):
+		return mapped_key
+	var lower_weapon_id := weapon_id.to_lower()
+	for key in beastify_weapon_advancements.keys():
+		if str(key).to_lower() == lower_weapon_id:
+			return str(key)
+	return ""
+
+func _get_beastify_advancement_count() -> int:
+	var advancement_key := _get_beastify_advancement_key(beastify_replaced_weapon_id)
+	if advancement_key.is_empty():
+		return 0
+	var advancement_entries = beastify_weapon_advancements.get(advancement_key, [])
+	if typeof(advancement_entries) != TYPE_ARRAY:
+		return 0
+	var count := 0
+	for entry in advancement_entries:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var advancement_id := str(entry.get("id", ""))
+		if not advancement_id.is_empty() and PC.selected_rewards.has(advancement_id):
+			count += 1
+	return count
+
+func _get_beastify_advancement_damage_multiplier() -> float:
+	return pow(BEASTIFY_ADVANCEMENT_DAMAGE_MULTIPLIER, float(_get_beastify_advancement_count()))
+
+func _get_beastify_advancement_range_multiplier() -> float:
+	return pow(BEASTIFY_ADVANCEMENT_RANGE_MULTIPLIER, float(_get_beastify_advancement_count()))
+
 func _configure_beastify_replaced_weapon() -> void:
 	beastify_replaced_weapon_id = _resolve_beastify_replaced_weapon_id()
 	beastify_replaced_weapon_level = _get_beastify_weapon_level(beastify_replaced_weapon_id)
@@ -1038,7 +1204,7 @@ func _consume_replaced_weapon_fire(weapon_id: String) -> bool:
 	return _is_beastify_replacing_weapon(weapon_id)
 
 func _get_beastify_attack_interval() -> float:
-	var effective_atk_speed: float = _diminishing_returns(PC.pc_atk_speed)
+	var effective_atk_speed: float = _diminishing_returns(PC.attack_speed_bonus)
 	var total_speed_multiplier: float = maxf(0.1, 1.0 + effective_atk_speed)
 	return BEASTIFY_BASE_ATTACK_INTERVAL / total_speed_multiplier
 
@@ -1075,9 +1241,9 @@ func _on_fire(_skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if _consume_replaced_weapon_fire("Swordqi"):
+	if _consume_replaced_weapon_fire("SwordQi"):
 		return
-	if not PC.selected_rewards.has("Swordqi") and not PC.selected_rewards.has("SwordQi"):
+	if not PC.selected_rewards.has("SwordQi"):
 		return
 	_on_fire_detail()
 	
@@ -1123,9 +1289,9 @@ func _on_fire_ringFire(_skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if _consume_replaced_weapon_fire("Ringfire"):
+	if _consume_replaced_weapon_fire("RingFire"):
 		return
-	if not PC.selected_rewards.has("Ringfire"):
+	if not PC.selected_rewards.has("RingFire"):
 		return
 	SEManager.play("8")
 	_on_fire_detail_ringFire()
@@ -1159,9 +1325,9 @@ func _on_fire_bloodboardsword(_skill_id: int) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if _consume_replaced_weapon_fire("Bloodboardsword"):
+	if _consume_replaced_weapon_fire("BloodBoardSword"):
 		return
-	if not PC.selected_rewards.has("Bloodboardsword"):
+	if not PC.selected_rewards.has("BloodBoardSword"):
 		return
 	SEManager.play("11")
 	_on_fire_detail_bloodboardsword()
@@ -1183,21 +1349,24 @@ func _on_fire_thunder_break(_skill_id: int = 10) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if _consume_replaced_weapon_fire("Thunderbreak"):
+	if _consume_replaced_weapon_fire("ThunderBreak"):
 		return
-	if not PC.selected_rewards.has("Thunderbreak"):
+	if not _has_thunder_break_weapon():
 		return
 	SEManager.play("23")
 	_on_fire_detail_thunder_break()
+
+func _has_thunder_break_weapon() -> bool:
+	return PC.selected_rewards.has("ThunderBreak")
 
 func _on_fire_light_bullet(_skill_id: int = 11) -> void:
 	if Global.in_menu or Global.in_town:
 		return
 	if PC.is_game_over:
 		return
-	if _consume_replaced_weapon_fire("Lightbullet"):
+	if _consume_replaced_weapon_fire("LightBullet"):
 		return
-	if not PC.selected_rewards.has("Lightbullet"):
+	if not PC.selected_rewards.has("LightBullet"):
 		return
 	SEManager.play("5")
 	_on_fire_detail_light_bullet()
@@ -1305,12 +1474,12 @@ func _fire_light_bullet_ring(data: Dictionary) -> void:
 		
 	for step in range(max_steps):
 		# 检查对象是否有效
-		if not is_instance_valid(self ) or PC.is_game_over or run_id != weapon_runtime_reset_id or not PC.selected_rewards.has("Lightbullet"):
+		if not is_instance_valid(self ) or PC.is_game_over or run_id != weapon_runtime_reset_id or not PC.selected_rewards.has("LightBullet"):
 			return
 			
 		# 处理暂停
 		while Global.in_menu or Global.in_town or get_tree().paused:
-			if PC.is_game_over or run_id != weapon_runtime_reset_id or not PC.selected_rewards.has("Lightbullet"):
+			if PC.is_game_over or run_id != weapon_runtime_reset_id or not PC.selected_rewards.has("LightBullet"):
 				return
 			await get_tree().create_timer(0.1).timeout
 			
@@ -1353,7 +1522,7 @@ func _fire_light_bullet_ring(data: Dictionary) -> void:
 		
 		# 等待间隔
 		await get_tree().create_timer(interval).timeout
-		if run_id != weapon_runtime_reset_id or not PC.selected_rewards.has("Lightbullet"):
+		if run_id != weapon_runtime_reset_id or not PC.selected_rewards.has("LightBullet"):
 			return
 
 func _build_light_bullet_data() -> Dictionary:
@@ -1465,11 +1634,11 @@ func _on_fire_detail_water() -> void:
 	instance.setup_water(global_position, data.damage, data.range, data.heal_amount, options)
 
 func _build_water_data() -> Dictionary:
-	var damage_multiplier = PC.main_skill_water_damage # Base 0.40
+	var damage_multiplier = PC.main_skill_water_damage # Base 0.35
 	# 生灵法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
 	damage_multiplier += (Faze.get_life_damage_multiplier(PC.faze_life_level) - 1.0)
 	damage_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(damage_multiplier, "water", ["life"])
-	var range_val = 60.0
+	var range_val = 60.0 * 1.08
 	var heal_amount = 0 # 基础治疗量
 	
 	# 计算基础治疗量：1.5% 最大体力，最低1点
@@ -1588,17 +1757,22 @@ func _on_fire_detail() -> void:
 	if PC.selected_rewards.has("rebound"): main_bullet.is_rebound = false
 	get_tree().current_scene.add_child(main_bullet)
 
-	if PC.selected_rewards.has("SplitSwordQi1"):
-		for angle_deg in [45.0, 315.0]: # Changed to 45° and 315° (equivalent to -45°) as per requirement
-			var side_bullet = bullet_scene.instantiate()
-			side_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
-			var rotated_direction = base_direction.rotated(deg_to_rad(angle_deg))
-			side_bullet.set_direction(rotated_direction)
-			side_bullet.position = spawn_position
-			side_bullet.penetration_count = PC.swordQi_penetration_count
-			side_bullet.is_other_sword_wave = true
-			if PC.selected_rewards.has("rebound"): side_bullet.is_rebound = false
-			get_tree().current_scene.add_child(side_bullet)
+	var split_sword_qi_angles: Array[float] = []
+	if PC.selected_rewards.has("SplitSwordQi13"):
+		split_sword_qi_angles = [-45.0, -22.5, 22.5, 45.0]
+	elif PC.selected_rewards.has("SplitSwordQi1"):
+		split_sword_qi_angles = [-45.0, 45.0]
+	
+	for angle_deg in split_sword_qi_angles:
+		var side_bullet = bullet_scene.instantiate()
+		side_bullet.set_bullet_scale(Vector2(bullet_node_size, bullet_node_size))
+		var rotated_direction = base_direction.rotated(deg_to_rad(angle_deg))
+		side_bullet.set_direction(rotated_direction)
+		side_bullet.position = spawn_position
+		side_bullet.penetration_count = PC.swordQi_penetration_count
+		side_bullet.is_other_sword_wave = true
+		if PC.selected_rewards.has("rebound"): side_bullet.is_rebound = false
+		get_tree().current_scene.add_child(side_bullet)
 
 	if PC.selected_rewards.has("SplitSwordQi11"):
 		var back_bullet = bullet_scene.instantiate()
@@ -1717,12 +1891,12 @@ func start_beastify(duration: float, atk_bonus: float, atk_speed_bonus: float, m
 	beastify_active = true
 	beastify_run_id += 1
 	var run_id := beastify_run_id
-	beastify_prev_atk = PC.pc_atk
-	beastify_prev_atk_speed = PC.pc_atk_speed
-	beastify_prev_move_speed = PC.pc_speed
-	PC.pc_atk = int(round(float(PC.pc_atk) * (1.0 + atk_bonus)))
-	PC.pc_atk_speed = PC.pc_atk_speed + atk_speed_bonus
-	PC.pc_speed = PC.pc_speed + move_bonus
+	beastify_applied_atk_bonus = int(round(float(PC.base_atk) * atk_bonus))
+	beastify_prev_atk_speed = PC.attack_speed_bonus
+	beastify_prev_move_speed = PC.move_speed_bonus
+	PC.pc_atk += beastify_applied_atk_bonus
+	PC.attack_speed_bonus = PC.attack_speed_bonus + atk_speed_bonus
+	PC.move_speed_bonus = PC.move_speed_bonus + move_bonus
 	beastify_claw_ratio = max(0.0, claw_damage_ratio)
 	_configure_beastify_replaced_weapon()
 	beastify_prev_sprite = sprite
@@ -1750,9 +1924,10 @@ func end_beastify() -> void:
 		return
 	beastify_run_id += 1
 	beastify_active = false
-	PC.pc_atk = beastify_prev_atk
-	PC.pc_atk_speed = beastify_prev_atk_speed
-	PC.pc_speed = beastify_prev_move_speed
+	PC.pc_atk = max(1, PC.pc_atk - beastify_applied_atk_bonus)
+	beastify_applied_atk_bonus = 0
+	PC.attack_speed_bonus = beastify_prev_atk_speed
+	PC.move_speed_bonus = beastify_prev_move_speed
 	var scene = get_tree().current_scene
 	if scene and scene is CanvasItem:
 		var t = create_tween()
@@ -1775,7 +1950,7 @@ func end_beastify() -> void:
 	beastify_replaced_weapon_id = ""
 	beastify_replaced_weapon_level = 0
 	beastify_replaced_weapon_attack_id = "swordqi"
-	if ended_replaced_weapon_id == "Ringfire" and PC.selected_rewards.has("Ringfire"):
+	if ended_replaced_weapon_id == "RingFire" and PC.selected_rewards.has("RingFire"):
 		Global.emit_signal("ringFire_damage_triggered")
 	if BuffManager.has_buff("beastify"):
 		BuffManager.remove_buff("beastify")
@@ -1809,13 +1984,13 @@ func start_mizongbu(duration: float, move_speed_bonus_ratio: float, damage_reduc
 	mizongbu_run_id += 1
 	var run_id := mizongbu_run_id
 	mizongbu_applied_speed_bonus = move_speed_bonus_ratio
-	PC.pc_speed += mizongbu_applied_speed_bonus
+	PC.move_speed_bonus += mizongbu_applied_speed_bonus
 	var before_dr = PC.damage_reduction_rate
 	var after_dr = min(before_dr + damage_reduction_ratio, 0.9)
 	mizongbu_applied_dr_bonus = after_dr - before_dr
 	PC.damage_reduction_rate = after_dr
 	mizongbu_outgoing_factor = max(0.01, 1.0 - outgoing_damage_reduction_ratio)
-	PC.pc_atk = max(1, int(round(float(PC.pc_atk) * mizongbu_outgoing_factor)))
+	PC.damage_deal_multiplier *= mizongbu_outgoing_factor
 	_start_mizongbu_visual()
 	Global.emit_signal("buff_added", "mizongbu", duration, 1)
 	var remaining = duration
@@ -1835,10 +2010,10 @@ func end_mizongbu() -> void:
 		return
 	mizongbu_run_id += 1
 	mizongbu_active = false
-	PC.pc_speed -= mizongbu_applied_speed_bonus
+	PC.move_speed_bonus -= mizongbu_applied_speed_bonus
 	PC.damage_reduction_rate = max(0.0, PC.damage_reduction_rate - mizongbu_applied_dr_bonus)
 	if mizongbu_outgoing_factor > 0.0:
-		PC.pc_atk = max(1, int(round(float(PC.pc_atk) / mizongbu_outgoing_factor)))
+		PC.damage_deal_multiplier /= mizongbu_outgoing_factor
 	mizongbu_applied_speed_bonus = 0.0
 	mizongbu_applied_dr_bonus = 0.0
 	mizongbu_outgoing_factor = 1.0
@@ -1864,11 +2039,11 @@ func _beast_claw_attack() -> void:
 	if PC.is_game_over or not beastify_active:
 		return
 	var angle: float = _get_beast_best_attack_angle()
-	var attack_range_multiplier: float = Global.get_attack_range_multiplier()
+	var attack_range_multiplier: float = Global.get_attack_range_multiplier() * _get_beastify_advancement_range_multiplier()
 	sprite_direction_right = cos(angle) >= 0.0
 	var hits: Array = _collect_beast_hits_at_angle(angle)
 	var weapon_level_multiplier: float = 1.0 + float(beastify_replaced_weapon_level) * 0.1
-	var base: float = float(PC.pc_atk) * beastify_claw_ratio * weapon_level_multiplier
+	var base: float = float(PC.pc_atk) * beastify_claw_ratio * weapon_level_multiplier * _get_beastify_advancement_damage_multiplier()
 	base *= Faze.get_bullet_damage_multiplier(PC.faze_bullet_level)
 	base = PC.apply_base_weapon_emblem_damage_bonus(base, beastify_replaced_weapon_attack_id)
 	if hits.size() < 3:
@@ -1898,7 +2073,7 @@ func _get_beast_best_attack_angle() -> float:
 	if not sprite_direction_right:
 		default_angle = PI
 	var best_enemy: Node2D = null
-	var effective_lock_range: float = beastify_lock_range * Global.get_attack_range_multiplier()
+	var effective_lock_range: float = beastify_lock_range * Global.get_attack_range_multiplier() * _get_beastify_advancement_range_multiplier()
 	var best_dist_sq = effective_lock_range * effective_lock_range
 	for enemy in get_tree().get_nodes_in_group("enemies"):
 		if not is_instance_valid(enemy):
@@ -1918,7 +2093,7 @@ func _get_beast_best_attack_angle() -> float:
 func _collect_beast_hits_at_angle(angle: float) -> Array:
 	if beastify_hit_shape == null:
 		return []
-	var attack_range_multiplier: float = Global.get_attack_range_multiplier()
+	var attack_range_multiplier: float = Global.get_attack_range_multiplier() * _get_beastify_advancement_range_multiplier()
 	var offset: Vector2 = (beastify_hit_offset * attack_range_multiplier).rotated(angle) + Vector2.RIGHT.rotated(angle) * beastify_forward_offset * attack_range_multiplier
 	var world_state: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
 	var query := PhysicsShapeQueryParameters2D.new()
@@ -2099,9 +2274,9 @@ func _on_fire_holylight(_skill_id: int = 18) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if _consume_replaced_weapon_fire("Holylight"):
+	if _consume_replaced_weapon_fire("HolyLight"):
 		return
-	if not PC.selected_rewards.has("Holylight"):
+	if not PC.selected_rewards.has("HolyLight"):
 		return
 	SEManager.play("18")
 	_on_fire_detail_holylight()
@@ -2145,7 +2320,7 @@ func _on_fire_detail_thunder_break() -> void:
 	instance.setup_thunder_break(spawn_position, base_direction, data.damage, data.range, data.width, options)
 
 func _build_thunder_break_data() -> Dictionary:
-	var damage_multiplier = 0.5 # Base 50%
+	var damage_multiplier = PC.main_skill_thunder_break_damage # Base 65%
 	var range_val = 200.0
 	var width = 50.0
 	
@@ -2287,7 +2462,7 @@ func _update_dynamic_emblem_effects() -> void:
 	if EmblemManager.has_emblem("pozhen"):
 		var pozhen_stack = EmblemManager.get_emblem_stack("pozhen")
 		var crit_chance_percent = max(0.0, PC.crit_chance * 100.0)
-		pozhen_bonus = crit_chance_percent * 0.0025 * pozhen_stack * emblem_scale
+		pozhen_bonus = crit_chance_percent * POZHEN_CRIT_DAMAGE_BONUS_PER_CRIT_PERCENT * pozhen_stack * emblem_scale
 	if not is_equal_approx(pozhen_bonus, _last_applied_pozhen_crit_damage_bonus):
 		PC.crit_damage_multi = max(0.0, PC.crit_damage_multi - _last_applied_pozhen_crit_damage_bonus + pozhen_bonus)
 		_last_applied_pozhen_crit_damage_bonus = pozhen_bonus
@@ -2295,23 +2470,27 @@ func _update_dynamic_emblem_effects() -> void:
 	var total_emblem_stat_bonus = 0.0
 	if EmblemManager.has_emblem("jianbu"):
 		var jianbu_stack = EmblemManager.get_emblem_stack("jianbu")
-		var speed_groups = int(max(0.0, PC.pc_speed * 100.0) / 4.0)
+		var speed_groups = int(max(0.0, PC.move_speed_bonus * 100.0) / JIANBU_MOVE_SPEED_GROUP_PERCENT)
 		if speed_groups > 0:
-			total_emblem_stat_bonus += speed_groups * 0.005 * jianbu_stack * emblem_scale
+			var jianbu_bonus = speed_groups * JIANBU_STAT_BONUS_PER_GROUP * jianbu_stack * emblem_scale
+			total_emblem_stat_bonus += minf(jianbu_bonus, JIANBU_MAX_STAT_BONUS)
 	if EmblemManager.has_emblem("jiahu"):
 		var jiahu_stack = EmblemManager.get_emblem_stack("jiahu")
 		var extra_lucky = max(0, PC.now_lunky_level - PC.battle_start_lunky_level)
 		if extra_lucky > 0:
-			total_emblem_stat_bonus += extra_lucky * 0.003 * jiahu_stack * emblem_scale
+			var jiahu_bonus = extra_lucky * JIAHU_STAT_BONUS_PER_LUCKY * jiahu_stack * emblem_scale
+			total_emblem_stat_bonus += minf(jiahu_bonus, JIAHU_MAX_STAT_BONUS)
 	if EmblemManager.has_emblem("guiyuan"):
 		var guiyuan_stack = EmblemManager.get_emblem_stack("guiyuan")
-		var extra_atk_speed_percent = max(0.0, (PC.pc_atk_speed - PC.battle_start_atk_speed) * 100.0)
-		var atk_speed_groups = int(extra_atk_speed_percent / 5.0)
+		var extra_atk_speed_percent = max(0.0, (PC.attack_speed_bonus - PC.battle_start_atk_speed) * 100.0)
+		var atk_speed_groups = int(extra_atk_speed_percent / GUIYUAN_ATK_SPEED_GROUP_PERCENT)
 		if atk_speed_groups > 0:
-			total_emblem_stat_bonus += atk_speed_groups * 0.003 * guiyuan_stack * emblem_scale
+			var guiyuan_bonus = atk_speed_groups * GUIYUAN_STAT_BONUS_PER_GROUP * guiyuan_stack * emblem_scale
+			total_emblem_stat_bonus += minf(guiyuan_bonus, GUIYUAN_MAX_STAT_BONUS)
 	if not is_equal_approx(total_emblem_stat_bonus, _last_applied_emblem_atk_bonus):
-		var base_atk = float(PC.pc_atk) / max(0.0001, 1.0 + _last_applied_emblem_atk_bonus)
-		PC.pc_atk = int(round(base_atk * (1.0 + total_emblem_stat_bonus)))
+		var old_bonus := int(round(float(PC.base_atk) * _last_applied_emblem_atk_bonus))
+		var new_bonus := int(round(float(PC.base_atk) * total_emblem_stat_bonus))
+		PC.pc_atk += new_bonus - old_bonus
 		_last_applied_emblem_atk_bonus = total_emblem_stat_bonus
 	if not is_equal_approx(total_emblem_stat_bonus, _last_applied_emblem_hp_bonus):
 		var base_max_hp = float(PC.pc_max_hp) / max(0.0001, 1.0 + _last_applied_emblem_hp_bonus)
@@ -2325,7 +2504,7 @@ func _update_dynamic_emblem_effects() -> void:
 	var tafeng_bonus = 0.0
 	if EmblemManager.has_emblem("tafeng"):
 		var tafeng_stack = EmblemManager.get_emblem_stack("tafeng")
-		var move_speed_bonus_percent = max(0.0, PC.pc_speed * 100.0)
+		var move_speed_bonus_percent = max(0.0, PC.move_speed_bonus * 100.0)
 		tafeng_bonus = min(0.30, (move_speed_bonus_percent / 10.0) * 0.005 * tafeng_stack * emblem_scale)
 	if not is_equal_approx(tafeng_bonus, _last_applied_tafeng_cooldown_bonus):
 		var base_cooldown = clampf(PC.cooldown - _last_applied_tafeng_cooldown_bonus, 0.0, 0.5)
@@ -2502,6 +2681,16 @@ func add_summon(summon_type: int) -> void:
 	get_parent().add_child(summon)
 	active_summons.append(summon)
 
+func add_yujian_extra_summon(summon_type: int) -> void:
+	if not summon_scene:
+		return
+	var summon = summon_scene.instantiate()
+	summon.set_summon_type(summon_type)
+	var offset = Vector2(randf_range(-120, 120), randf_range(-120, 120))
+	summon.position = position + offset
+	get_parent().add_child(summon)
+	yujian_extra_summons.append(summon)
+
 
 # 移除失效的召唤物
 func remove_invalid_summons() -> void:
@@ -2509,6 +2698,10 @@ func remove_invalid_summons() -> void:
 		var summon = active_summons[i]
 		if not summon or not is_instance_valid(summon):
 			active_summons.remove_at(i)
+	for i in range(yujian_extra_summons.size() - 1, -1, -1):
+		var summon = yujian_extra_summons[i]
+		if not summon or not is_instance_valid(summon):
+			yujian_extra_summons.remove_at(i)
 
 # 寻找最近的敌人
 func find_nearest_enemy(max_range: float = -1.0) -> Node2D:
@@ -2538,6 +2731,10 @@ func update_summons_properties() -> void:
 			if summon.has_method("update_fire_interval"):
 				summon.update_fire_interval()
 			# 可以添加其他属性更新逻辑
+	for summon in yujian_extra_summons:
+		if summon and is_instance_valid(summon):
+			if summon.has_method("update_fire_interval"):
+				summon.update_fire_interval()
 	
 func stop_invincible() -> void:
 	sprite.modulate = Color(1, 1, 1)
@@ -2706,12 +2903,12 @@ func update_skill_attack_speeds() -> void:
 	var cooldown_reduction = 0.0
 	if EmblemManager.has_emblem("tafeng"):
 		var tafeng_stack = EmblemManager.get_emblem_stack("tafeng")
-		var move_speed_percent = PC.pc_speed * 100
+		var move_speed_percent = PC.move_speed_bonus * 100
 		cooldown_reduction = (move_speed_percent / 10.0) * 0.005 * tafeng_stack
 	
-	# 基础攻速公式：初始攻速 / (1 + PC.pc_atk_speed + 冷却缩减)
+	# 基础攻速公式：初始攻速 / (1 + PC.attack_speed_bonus + 冷却缩减)
 	# 攻速加成超过80%后，超出部分仅40%生效
-	var effective_atk_speed = _diminishing_returns(PC.pc_atk_speed + cooldown_reduction)
+	var effective_atk_speed = _diminishing_returns(PC.attack_speed_bonus + cooldown_reduction)
 	var total_speed_multiplier = 1 + effective_atk_speed
 	var life_interval_multiplier = Faze.get_life_attack_interval_multiplier(PC.faze_life_level)
 	
@@ -2769,8 +2966,8 @@ func update_skill_attack_speeds() -> void:
 	# 巽风诀 (基础0.6秒/次)
 	update_timer_preserve_ratio(xunfeng_fire_speed, 0.6 / total_speed_multiplier)
 
-	# 艮山诀 (基础3.5秒/次)
-	update_timer_preserve_ratio(genshan_fire_speed, 3.5 / total_speed_multiplier)
+	# 艮山诀 (基础3.6秒/次)
+	update_timer_preserve_ratio(genshan_fire_speed, 3.6 / total_speed_multiplier)
 
 	# 兑泽诀 (基础4.0秒/次)
 	update_timer_preserve_ratio(duize_fire_speed, 4.0 / total_speed_multiplier)
@@ -2782,7 +2979,7 @@ func update_skill_attack_speeds() -> void:
 	update_timer_preserve_ratio(qigong_fire_speed, 1.2 / total_speed_multiplier)
 	
 	# 风龙杖
-	update_timer_preserve_ratio(dragonwind_fire_speed, 2.5 / total_speed_multiplier)
+	update_timer_preserve_ratio(dragonwind_fire_speed, 2.8 / total_speed_multiplier)
 
 	# 爪爪巨锤
 	update_timer_preserve_ratio(zhuazhuajuchui_fire_speed, 1.6 / total_speed_multiplier)
@@ -2978,9 +3175,9 @@ func _on_fire_dragonwind(_skill_id: int = 20) -> void:
 		return
 	if PC.is_game_over:
 		return
-	if _consume_replaced_weapon_fire("Dragonwind"):
+	if _consume_replaced_weapon_fire("DragonWind"):
 		return
-	if not PC.selected_rewards.has("Dragonwind"):
+	if not PC.selected_rewards.has("DragonWind"):
 		return
 	SEManager.play("17")
 	_on_fire_detail_dragonwind()

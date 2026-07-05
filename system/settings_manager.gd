@@ -28,7 +28,7 @@ var vignetting_enabled: bool = true
 var particle_enabled: bool = true
 var damage_show_enabled: bool = true
 var player_hp_bar_enabled: bool = true
-var drop_visible_enabled: bool = true
+var drop_visible_enabled: bool = false
 var drop_mater_enabled: bool = false
 
 # 信号
@@ -266,7 +266,7 @@ func load_settings() -> void:
 	particle_enabled = config.get_value("effects", "particle", true)
 	damage_show_enabled = config.get_value("effects", "damage_show", true)
 	player_hp_bar_enabled = config.get_value("game", "player_hp_bar", true)
-	drop_visible_enabled = config.get_value("game", "dropvisible", true)
+	drop_visible_enabled = config.get_value("game", "dropvisible", false)
 	drop_mater_enabled = config.get_value("game", "dropmater", false)
 	
 	# 验证分辨率索引的有效性
@@ -284,7 +284,7 @@ func reset_to_defaults() -> void:
 	particle_enabled = true
 	damage_show_enabled = true
 	player_hp_bar_enabled = true
-	drop_visible_enabled = true
+	drop_visible_enabled = false
 	drop_mater_enabled = false
 	
 	apply_all_settings()

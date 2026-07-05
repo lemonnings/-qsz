@@ -9,6 +9,7 @@ extends CanvasLayer
 ##   additem_xxx_y   — 添加物品 id=xxx 的 y 个
 ##   mapmech_max     — 将当前关卡的 map_mechanism_num 提升到最大值 -100
 ##   mapmech_min     — 将当前关卡的 map_mechanism_num 重置为 0
+##   boss            — 立即进入当前关卡的 Boss 阶段
 ##   test            — 进入 DPS 测试场景
 ##   mobile          — 切换为移动设备输入模式
 ##   pc              — 切换为 PC 输入模式
@@ -118,6 +119,7 @@ func _execute(cmd: String) -> void:
 		_log_append("")
 		_log_append("[color=yellow]mapmech_max[/color]     — 将关卡进度提升到最大值")
 		_log_append("[color=yellow]mapmech_min[/color]     — 将关卡进度重置为 0")
+		_log_append("[color=yellow]boss[/color]            — 立即进入当前关卡的 Boss 阶段")
 		_log_append("")
 		_log_append("[color=yellow]test[/color]            — 进入 DPS 测试场景")
 		_log_append("")
@@ -135,6 +137,18 @@ func _execute(cmd: String) -> void:
 		_visible = false
 		visible = false
 		SceneChange.change_scene("res://Scenes/level/dps_test.tscn", true)
+		return
+
+	if cmd == "boss":
+		var stage = _get_current_stage()
+		if stage and stage.has_method("debug_enter_boss_phase"):
+			var result := bool(stage.debug_enter_boss_phase())
+			if result:
+				_log_append("[color=green]已进入 Boss 阶段[/color]")
+			else:
+				_log_append("[color=yellow]当前已经在 Boss 阶段，或无法触发 Boss[/color]")
+		else:
+			_log_append("[color=red]当前场景不是可触发 Boss 的关卡[/color]")
 		return
 
 	# --- add_xxx : 执行 reward_xxx ---

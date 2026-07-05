@@ -379,6 +379,32 @@ static func _init_buff_configs():
 		"落石即将落下"
 	)
 
+	for i in range(1, 4):
+		buff_configs["deprive_speed_%d" % i] = BuffData.new(
+			"deprive_speed_%d" % i,
+			"剥夺·移动速度%s" % _to_chinese_stack_number(i),
+			"res://AssetBundle/Sprites/Sprite sheets/Icons/deprive_speed_%d.png" % i,
+			BuffType.TEMPORARY,
+			1,
+			"移动速度降低40%，持续20秒"
+		)
+		buff_configs["deprive_atkspeed_%d" % i] = BuffData.new(
+			"deprive_atkspeed_%d" % i,
+			"剥夺·攻击速度%s" % _to_chinese_stack_number(i),
+			"res://AssetBundle/Sprites/Sprite sheets/Icons/deprive_atkspeed_%d.png" % i,
+			BuffType.TEMPORARY,
+			1,
+			"攻击速度降低70%，持续20秒"
+		)
+		buff_configs["answer_add_%d" % i] = BuffData.new(
+			"answer_add_%d" % i,
+			"加算·%s" % _to_chinese_stack_number(i),
+			"res://AssetBundle/Sprites/Sprite sheets/Icons/add_%d.png" % i,
+			BuffType.TEMPORARY,
+			1,
+			"以此被夺取的状态数字加算本状态的数字，即为答问的结果。"
+		)
+
 static func get_buff_data(buff_id: String) -> BuffData:
 	if buff_configs.is_empty():
 		_init_buff_configs()
@@ -393,6 +419,17 @@ static func get_all_buff_ids() -> Array:
 	if buff_configs.is_empty():
 		_init_buff_configs()
 	return buff_configs.keys()
+
+static func _to_chinese_stack_number(value: int) -> String:
+	match value:
+		1:
+			return "壹"
+		2:
+			return "贰"
+		3:
+			return "叁"
+		_:
+			return str(value)
 
 static func update_buff_description(buff_id: String, new_description: String) -> void:
 	if buff_configs.is_empty():

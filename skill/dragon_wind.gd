@@ -4,7 +4,7 @@ class_name DragonWind
 @export var sprite: AnimatedSprite2D
 @export var collision: CollisionShape2D
 
-static var dragonwind_base_damage: float = 0.5
+static var dragonwind_base_damage: float = 0.40
 static var dragonwind_final_damage_multi: float = 1.0
 static var dragonwind_range: float = 180.0
 static var dragonwind_range_scale: float = 1.0
@@ -23,7 +23,7 @@ var fade_sustain_time: float = 2.5
 var fade_out_time: float = 0.8
 
 static func reset_data() -> void:
-	dragonwind_base_damage = 0.5
+	dragonwind_base_damage = 0.40
 	dragonwind_final_damage_multi = 1.0
 	dragonwind_range = 200.0
 	dragonwind_range_scale = 1.0

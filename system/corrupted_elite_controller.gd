@@ -15,6 +15,8 @@ const CHARGE_DISTANCE: float = 220.0
 const CHARGE_DURATION: float = 0.55
 const CHARGE_WARNING_TIME: float = 0.85
 const CHARGE_WARNING_WIDTH: float = 44.0
+const CHARGE_EDGE_PADDING: float = 18.0
+const CHARGE_HIT_RADIUS: float = 24.0
 const CHARGE_BULLET_ROUNDS: int = 3
 const CHARGE_BULLET_INTERVAL: float = 0.18
 const PERIODIC_SKILL_INTERVAL: float = 3.0
@@ -34,6 +36,8 @@ var _charge_active: bool = false
 var _charge_elapsed: float = 0.0
 var _charge_direction: Vector2 = Vector2.ZERO
 var _charge_start_position: Vector2 = Vector2.ZERO
+var _charge_target_position: Vector2 = Vector2.ZERO
+var _charge_has_hit_player: bool = false
 
 func setup(monster_node: MonsterBase, resolved_monster_id: String) -> void:
 	monster = monster_node
@@ -63,8 +67,10 @@ func _physics_process(delta: float) -> void:
 		return
 	_charge_elapsed += delta
 	var progress := clampf(_charge_elapsed / CHARGE_DURATION, 0.0, 1.0)
-	var target_position: Vector2 = _charge_start_position + _charge_direction * CHARGE_DISTANCE * progress
+	var previous_position := monster.global_position
+	var target_position: Vector2 = _charge_start_position.lerp(_charge_target_position, progress)
 	monster.global_position = target_position
+	_check_charge_player_hit(previous_position, target_position)
 	var sprite := monster.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 	if sprite != null:
 		sprite.flip_h = _charge_direction.x > 0.0
@@ -103,8 +109,9 @@ func _try_start_charge_skill() -> void:
 	if direction.length_squared() <= 0.001:
 		return
 	var start_position := monster.global_position
-	var target_position: Vector2 = start_position + direction * CHARGE_DISTANCE
+	var target_position: Vector2 = _get_bounded_charge_target(start_position, direction, CHARGE_DISTANCE)
 	_charge_direction = direction
+	_charge_target_position = target_position
 	_charge_warning_node = WarnRectUtil.new()
 	get_tree().current_scene.add_child(_charge_warning_node)
 	_charge_warning_node.attacker = monster
@@ -131,16 +138,22 @@ func _on_charge_warning_finished() -> void:
 	_charge_active = true
 	_charge_elapsed = 0.0
 	_charge_start_position = monster.global_position
+	_charge_target_position = _get_bounded_charge_target(_charge_start_position, _charge_direction, CHARGE_DISTANCE)
+	_charge_has_hit_player = false
 	monster.set_meta(MonsterBase.CORRUPTED_ELITE_CHARGING_META, true)
+	monster.set_meta(MonsterBase.CORRUPTED_ELITE_CHARGE_DIRECTION_META, _charge_direction)
 	if monster.has_method("fire_corrupted_perpendicular_rounds"):
 		monster.fire_corrupted_perpendicular_rounds(_charge_direction, CHARGE_BULLET_ROUNDS, CHARGE_BULLET_INTERVAL)
 
 func _stop_charge() -> void:
 	_charge_active = false
 	_charge_elapsed = 0.0
+	_charge_has_hit_player = false
 	if monster != null and is_instance_valid(monster):
 		monster.set_meta(MonsterBase.CORRUPTED_ELITE_CHARGING_META, false)
 		monster.set_meta(MonsterBase.CORRUPTED_ELITE_CHARGE_PREPARING_META, false)
+		if monster.has_meta(MonsterBase.CORRUPTED_ELITE_CHARGE_DIRECTION_META):
+			monster.remove_meta(MonsterBase.CORRUPTED_ELITE_CHARGE_DIRECTION_META)
 
 func _use_periodic_skill() -> void:
 	if not _is_monster_valid() or CharacterEffects.is_player_dead_or_game_over():
@@ -201,6 +214,58 @@ func _clear_charge_warning() -> void:
 func _set_charge_preparing(is_preparing: bool) -> void:
 	if monster != null and is_instance_valid(monster):
 		monster.set_meta(MonsterBase.CORRUPTED_ELITE_CHARGE_PREPARING_META, is_preparing)
+
+func _check_charge_player_hit(from_position: Vector2, to_position: Vector2) -> void:
+	if _charge_has_hit_player or PC.invincible or PC.player_instance == null:
+		return
+	var player := PC.player_instance as CharacterBody2D
+	if player == null or not is_instance_valid(player):
+		return
+	if _distance_point_to_segment(player.global_position, from_position, to_position) > CHARGE_HIT_RADIUS:
+		return
+	var damage := int(float(monster.get("atk")) * (1.0 - PC.damage_reduction_rate))
+	PC.player_hit(damage, monster, "冲锋")
+	CharacterEffects.apply_player_charge_side_knockback(player, _charge_direction, monster.global_position)
+	_charge_has_hit_player = true
+
+func _distance_point_to_segment(point: Vector2, segment_start: Vector2, segment_end: Vector2) -> float:
+	var segment := segment_end - segment_start
+	var len_sq := segment.length_squared()
+	if len_sq <= 0.0001:
+		return point.distance_to(segment_start)
+	var t := clampf((point - segment_start).dot(segment) / len_sq, 0.0, 1.0)
+	return point.distance_to(segment_start + segment * t)
+
+func _get_bounded_charge_target(start_position: Vector2, direction: Vector2, distance: float) -> Vector2:
+	var normalized_direction := direction.normalized()
+	if normalized_direction == Vector2.ZERO:
+		return start_position
+	var intended_target := start_position + normalized_direction * distance
+	var bounds := Rect2()
+	if monster != null and is_instance_valid(monster) and monster.has_method("get_scene_movement_bounds"):
+		bounds = monster.get_scene_movement_bounds(CHARGE_EDGE_PADDING)
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		return intended_target
+	if bounds.has_point(intended_target):
+		return intended_target
+	var ray_end := start_position + normalized_direction * distance * 4.0
+	var segments := [
+		[Vector2(bounds.position.x, bounds.position.y), Vector2(bounds.position.x + bounds.size.x, bounds.position.y)],
+		[Vector2(bounds.position.x, bounds.position.y + bounds.size.y), Vector2(bounds.position.x + bounds.size.x, bounds.position.y + bounds.size.y)],
+		[Vector2(bounds.position.x, bounds.position.y), Vector2(bounds.position.x, bounds.position.y + bounds.size.y)],
+		[Vector2(bounds.position.x + bounds.size.x, bounds.position.y), Vector2(bounds.position.x + bounds.size.x, bounds.position.y + bounds.size.y)]
+	]
+	var final_target := intended_target
+	var min_dist_sq := distance * distance
+	for seg in segments:
+		var intersection = Geometry2D.segment_intersects_segment(start_position, ray_end, seg[0], seg[1])
+		if intersection:
+			var hit_point := intersection as Vector2
+			var dist_sq := start_position.distance_squared_to(hit_point)
+			if dist_sq < min_dist_sq:
+				min_dist_sq = dist_sq
+				final_target = hit_point
+	return final_target.clamp(bounds.position, bounds.position + bounds.size)
 
 func _exit_tree() -> void:
 	_clear_charge_warning()

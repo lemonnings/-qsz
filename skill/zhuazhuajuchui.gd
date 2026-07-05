@@ -68,6 +68,7 @@ func _ready() -> void:
 		collision_shape.set_deferred("disabled", false)
 	damage_active = true
 	await get_tree().create_timer(float(cached_attack_data.get("hit_time", DEFAULT_HIT_TIME))).timeout
+	GU.screen_shake(1.2, 0.08)
 	damage_active = false
 	if collision_shape != null:
 		collision_shape.set_deferred("disabled", true)
@@ -87,7 +88,7 @@ func _build_attack_data() -> Dictionary:
 	var position_offset := Vector2.ZERO
 	
 	if PC.selected_rewards.has("Zhuazhuajuchui1"):
-		damage_ratio += 0.10
+		damage_ratio += 0.05
 		knockback = maxf(knockback, 16.0)
 	if PC.selected_rewards.has("Zhuazhuajuchui2"):
 		apply_vulnerable = true
@@ -97,7 +98,7 @@ func _build_attack_data() -> Dictionary:
 		range_multiplier += 0.15
 		range_multiplier += _get_missing_hp_range_bonus()
 	if PC.selected_rewards.has("Zhuazhuajuchui11"):
-		damage_ratio += 0.10
+		damage_ratio += 0.05
 		range_multiplier += _get_missing_hp_range_bonus(true) - _get_missing_hp_range_bonus(false)
 	if PC.selected_rewards.has("Zhuazhuajuchui22"):
 		vulnerable_damage_bonus = 0.30
@@ -105,7 +106,7 @@ func _build_attack_data() -> Dictionary:
 	
 	var empowered := PC.selected_rewards.has("Zhuazhuajuchui3") and zhuazhuajuchui_slam_count % 3 == 0
 	if empowered:
-		var empowered_bonus := 1.20 if PC.selected_rewards.has("Zhuazhuajuchui33") else 0.60
+		var empowered_bonus := 1.00 if PC.selected_rewards.has("Zhuazhuajuchui33") else 0.50
 		var empowered_knockback_bonus := 0.60 if PC.selected_rewards.has("Zhuazhuajuchui33") else 0.30
 		damage_ratio *= 1.0 + empowered_bonus
 		range_multiplier *= 1.0 + empowered_bonus
@@ -114,6 +115,7 @@ func _build_attack_data() -> Dictionary:
 	
 	damage_ratio += Faze.get_deep_weapon_damage_bonus(PC.faze_deep_level)
 	knockback *= Faze.get_deep_knockback_multiplier(PC.faze_deep_level)
+	knockback *= PC.get_knockback_multiplier()
 	var damage := float(PC.pc_atk) * damage_ratio * custom_damage_multiplier
 	damage = PC.apply_base_weapon_emblem_damage_bonus(damage, "zhuazhuajuchui")
 	

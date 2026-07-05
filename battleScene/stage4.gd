@@ -23,15 +23,15 @@ func _setup_stage_config() -> void:
 	LOW_POPULATION_FORCE_WAVE_MIN_TIME_LEFT = 1.25
 	LATE_GAME_TIME_THRESHOLD = 180.0
 	LATE_GAME_LOW_POPULATION_RATIO = 0.35
-	BASIC_TYPES = ["slime", "bat", "copper"]
+	BASIC_TYPES = ["slime", "copper"]
 	OTHER_TYPE_PER_WAVE_MAX = 2
-	OTHER_TYPE_TOTAL_MAX = 5
+	OTHER_TYPE_TOTAL_MAX = 4
 	ELITE_MAX = 3
 	# FOREST: slime(6), bat(2), frog(1), extra(3), copper(0.3), gu_insect(0.05)
 	stage_spawn_pool = [
 		{"type": "slime", "weight": 600, "blocked_early": false},
-		{"type": "bat", "weight": 200, "blocked_early": false},
-		{"type": "frog", "weight": 100, "blocked_early": false},
+		{"type": "bat", "weight": 120, "blocked_early": false},
+		{"type": "frog", "weight": 80, "blocked_early": false},
 		{"type": "extra", "weight": 300, "blocked_early": false},
 		{"type": "copper", "weight": 30, "blocked_early": false, "never_elite": true},
 		{"type": "gu_insect", "weight": 5, "blocked_early": false, "never_elite": true}
@@ -194,15 +194,17 @@ func _get_spawn_position(top_y: float, bottom_y: float, left_x: float, right_x: 
 
 func _get_raw_spawn_position(top_y: float, bottom_y: float, left_x: float, right_x: float, x_min: float, x_max: float, side_y_min: float, side_y_max: float) -> Vector2:
 	var spawn_edge = randi_range(0, 3)
+	var fallback_position := Vector2.ZERO
 	match spawn_edge:
 		0:
-			return Vector2(randf_range(x_min, x_max), top_y)
+			fallback_position = Vector2(randf_range(x_min, x_max), top_y)
 		1:
-			return Vector2(randf_range(x_min, x_max), bottom_y)
+			fallback_position = Vector2(randf_range(x_min, x_max), bottom_y)
 		2:
-			return Vector2(left_x, randf_range(side_y_min, side_y_max))
+			fallback_position = Vector2(left_x, randf_range(side_y_min, side_y_max))
 		_:
-			return Vector2(right_x, randf_range(side_y_min, side_y_max))
+			fallback_position = Vector2(right_x, randf_range(side_y_min, side_y_max))
+	return _get_monster_spawn_position_for_edge(spawn_edge, fallback_position)
 
 func _get_inner_spawn_position() -> Vector2:
 	return _get_spawn_position(-15.0, 560.0, -310.0, 305.0, -310.0, 305.0, -15.0, 560.0)
@@ -236,7 +238,7 @@ func _spawn_single_bat() -> void:
 	var spawn_position = _get_inner_spawn_position()
 	bat_node.position = spawn_position
 	get_tree().current_scene.add_child(bat_node)
-	_mark_spirit_enemy_type(bat_node, false)
+	_mark_spirit_enemy_type(bat_node, true)
 	_try_make_elite(bat_node)
 	_apply_dynamic_hp_reduction(bat_node)
 	_apply_late_game_speed_bonus(bat_node)
@@ -246,6 +248,7 @@ func _spawn_single_bat() -> void:
 	tween.tween_property(bat_node, "modulate:a", 1.0, 0.7)
 	current_monster_count += 1
 	bat_node.connect("tree_exiting", Callable(self , "_on_monster_defeated"))
+	bat_node.connect("tree_exiting", Callable(self , "_on_other_type_monster_tree_exiting"))
 
 func _spawn_single_frog() -> void:
 	if not is_inside_tree() or get_tree().current_scene == null:

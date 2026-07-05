@@ -19,6 +19,7 @@ const CHARGE_SPEED_MULTIPLIER: float = 5.0
 const CHARGE_WARNING_TIME: float = 1.2
 const CHARGE_WARNING_WIDTH: float = 16.0
 const CHARGE_COOLDOWN: float = 5.0
+const CHARGE_EDGE_PADDING: float = 18.0
 
 # 精英怪相关
 var is_charge_warning: bool = false
@@ -182,7 +183,7 @@ func try_start_charge_skill():
 	if charge_direction == Vector2.ZERO:
 		return
 	charge_start_position = global_position
-	charge_target_point = charge_start_position + charge_direction * CHARGE_DISTANCE
+	charge_target_point = _get_bounded_charge_target(charge_start_position, charge_direction, CHARGE_DISTANCE)
 	is_charge_warning = true
 	is_charging = false
 	last_charge_start_time = current_time
@@ -202,11 +203,13 @@ func _on_charge_warning_finished():
 	is_charge_warning = false
 	is_charging = true
 	charge_start_position = global_position
+	charge_target_point = _get_bounded_charge_target(charge_start_position, charge_direction, CHARGE_DISTANCE)
 
 func update_charge_movement(delta: float):
 	var charge_speed = get_effective_move_speed(base_speed, CHARGE_SPEED_MULTIPLIER)
 	var moved_distance = global_position.distance_to(charge_start_position)
-	var remain_distance = CHARGE_DISTANCE - moved_distance
+	var target_distance = charge_start_position.distance_to(charge_target_point)
+	var remain_distance = target_distance - moved_distance
 	if remain_distance <= 0.0:
 		is_charging = false
 		return
@@ -217,6 +220,35 @@ func update_charge_movement(delta: float):
 	CharacterEffects.set_enemy_flip_h(self, sprite, charge_direction.x > 0)
 	if step_distance == remain_distance:
 		is_charging = false
+
+func _get_bounded_charge_target(start_position: Vector2, direction: Vector2, distance: float) -> Vector2:
+	var normalized_direction := direction.normalized()
+	if normalized_direction == Vector2.ZERO:
+		return start_position
+	var intended_target := start_position + normalized_direction * distance
+	var bounds := get_scene_movement_bounds(CHARGE_EDGE_PADDING)
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		return intended_target
+	if bounds.has_point(intended_target):
+		return intended_target
+	var ray_end := start_position + normalized_direction * distance * 4.0
+	var segments := [
+		[Vector2(bounds.position.x, bounds.position.y), Vector2(bounds.position.x + bounds.size.x, bounds.position.y)],
+		[Vector2(bounds.position.x, bounds.position.y + bounds.size.y), Vector2(bounds.position.x + bounds.size.x, bounds.position.y + bounds.size.y)],
+		[Vector2(bounds.position.x, bounds.position.y), Vector2(bounds.position.x, bounds.position.y + bounds.size.y)],
+		[Vector2(bounds.position.x + bounds.size.x, bounds.position.y), Vector2(bounds.position.x + bounds.size.x, bounds.position.y + bounds.size.y)]
+	]
+	var final_target := intended_target
+	var min_dist_sq := distance * distance
+	for seg in segments:
+		var intersection = Geometry2D.segment_intersects_segment(start_position, ray_end, seg[0], seg[1])
+		if intersection:
+			var hit_point := intersection as Vector2
+			var dist_sq := start_position.distance_squared_to(hit_point)
+			if dist_sq < min_dist_sq:
+				min_dist_sq = dist_sq
+				final_target = hit_point
+	return final_target.clamp(bounds.position, bounds.position + bounds.size)
 
 func clear_charge_warning():
 	if charge_warning_node != null and is_instance_valid(charge_warning_node):

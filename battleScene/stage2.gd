@@ -201,15 +201,21 @@ func _get_spawn_position(use_weighted_edges: bool = true) -> Vector2:
 func _get_raw_spawn_position(use_weighted_edges: bool = true) -> Vector2:
 	var spawn_edge_max := 6 if use_weighted_edges else 3
 	var spawn_edge := randi_range(0, spawn_edge_max)
+	var resolved_edge := spawn_edge
+	var fallback_position := Vector2.ZERO
 	match spawn_edge:
 		0:
-			return Vector2(randf_range(SPAWN_TOP_X_MIN, SPAWN_TOP_X_MAX), SPAWN_TOP_Y)
+			fallback_position = Vector2(randf_range(SPAWN_TOP_X_MIN, SPAWN_TOP_X_MAX), SPAWN_TOP_Y)
 		1, 4:
-			return Vector2(randf_range(SPAWN_BOTTOM_X_MIN, SPAWN_BOTTOM_X_MAX), SPAWN_BOTTOM_Y)
+			resolved_edge = 1
+			fallback_position = Vector2(randf_range(SPAWN_BOTTOM_X_MIN, SPAWN_BOTTOM_X_MAX), SPAWN_BOTTOM_Y)
 		2, 5:
-			return Vector2(SPAWN_LEFT_X, randf_range(SPAWN_LEFT_Y_MIN, SPAWN_LEFT_Y_MAX))
+			resolved_edge = 2
+			fallback_position = Vector2(SPAWN_LEFT_X, randf_range(SPAWN_LEFT_Y_MIN, SPAWN_LEFT_Y_MAX))
 		_:
-			return Vector2(SPAWN_RIGHT_X, randf_range(SPAWN_RIGHT_Y_MIN, SPAWN_RIGHT_Y_MAX))
+			resolved_edge = 3
+			fallback_position = Vector2(SPAWN_RIGHT_X, randf_range(SPAWN_RIGHT_Y_MIN, SPAWN_RIGHT_Y_MAX))
+	return _get_monster_spawn_position_for_edge(resolved_edge, fallback_position)
 
 # ============== 单怪生成 ==============
 func _spawn_single_lantern() -> void:
@@ -241,6 +247,9 @@ func _spawn_single_yao() -> void:
 	var frog_node = yao_scene.instantiate()
 
 	var spawn_position = _get_spawn_position()
+	var bounds := _get_scene_boundary_rect()
+	if bounds.size.x > 1.0 and bounds.size.y > 1.0:
+		spawn_position = _clamp_point_to_rect(spawn_position, _shrink_rect(bounds, 24.0))
 	frog_node.position = spawn_position
 	get_tree().current_scene.add_child(frog_node)
 	_mark_spirit_enemy_type(frog_node, true)
@@ -263,6 +272,9 @@ func _spawn_single_paper() -> void:
 	var bat_node = paper_scene.instantiate()
 	bat_node.move_direction = 2 # 朝向角色移动
 	var spawn_position = _get_spawn_position()
+	var bounds := _get_scene_boundary_rect()
+	if bounds.size.x > 1.0 and bounds.size.y > 1.0:
+		spawn_position = _clamp_point_to_rect(spawn_position, _shrink_rect(bounds, 24.0))
 	bat_node.position = spawn_position
 	get_tree().current_scene.add_child(bat_node)
 	_mark_spirit_enemy_type(bat_node, false)

@@ -36,20 +36,20 @@ const HERO_NAMES := {
 	"xueming": "雪铭",
 }
 
-const DEFAULT_START_WEAPONS := ["Swordqi", "Qigong"]
+const DEFAULT_START_WEAPONS := ["SwordQi", "Qigong"]
 
 const MAIN_WEAPON_IDS := [
-	"Swordqi",
+	"SwordQi",
 	"Branch",
 	"Moyan",
 	"Riyan",
-	"Ringfire",
+	"RingFire",
 	"Thunder",
 	"Bloodwave",
-	"Bloodboardsword",
+	"BloodBoardSword",
 	"Ice",
-	"Thunderbreak",
-	"Lightbullet",
+	"ThunderBreak",
+	"LightBullet",
 	"Qigong",
 	"Water",
 	"Qiankun",
@@ -57,23 +57,23 @@ const MAIN_WEAPON_IDS := [
 	"Xunfeng",
 	"Genshan",
 	"Duize",
-	"Dragonwind",
-	"Holylight",
+	"DragonWind",
+	"HolyLight",
 	"Zhuazhuajuchui",
 ]
 
 const WEAPON_LEVEL_PROPS := {
-	"Swordqi": "main_skill_swordQi",
+	"SwordQi": "main_skill_swordQi",
 	"Branch": "main_skill_branch",
 	"Moyan": "main_skill_moyan",
 	"Riyan": "main_skill_riyan",
-	"Ringfire": "main_skill_ringFire",
+	"RingFire": "main_skill_ringFire",
 	"Thunder": "main_skill_thunder",
 	"Bloodwave": "main_skill_bloodwave",
-	"Bloodboardsword": "main_skill_bloodboardsword",
+	"BloodBoardSword": "main_skill_bloodboardsword",
 	"Ice": "main_skill_ice",
-	"Thunderbreak": "main_skill_thunder_break",
-	"Lightbullet": "main_skill_light_bullet",
+	"ThunderBreak": "main_skill_thunder_break",
+	"LightBullet": "main_skill_light_bullet",
 	"Qigong": "main_skill_qigong",
 	"Water": "main_skill_water",
 	"Qiankun": "main_skill_qiankun",
@@ -81,13 +81,13 @@ const WEAPON_LEVEL_PROPS := {
 	"Xunfeng": "main_skill_xunfeng",
 	"Genshan": "main_skill_genshan",
 	"Duize": "main_skill_duize",
-	"Dragonwind": "main_skill_dragonwind",
-	"Holylight": "main_skill_holylight",
+	"DragonWind": "main_skill_dragonwind",
+	"HolyLight": "main_skill_holylight",
 	"Zhuazhuajuchui": "main_skill_zhuazhuajuchui",
 }
 
 const START_WEAPON_UNLOCKS := {
-	"ach_002": ["Lightbullet"],
+	"ach_002": ["LightBullet"],
 	"ach_003": ["Ice"],
 	"ach_004": ["Zhuazhuajuchui"],
 	"ach_020": ["Xunfeng"],
@@ -95,13 +95,13 @@ const START_WEAPON_UNLOCKS := {
 	"ach_022": ["Bloodwave"],
 	"ach_023": ["Xuanwu"],
 	"ach_024": ["Water"],
-	"ach_025": ["Holylight"],
+	"ach_025": ["HolyLight"],
 	"ach_026": ["Branch"],
 	"ach_027": ["Thunder"],
-	"ach_028": ["Thunderbreak"],
+	"ach_028": ["ThunderBreak"],
 	"ach_029": ["Moyan"],
 	"ach_030": ["Qiankun"],
-	"ach_031": ["Bloodboardsword"],
+	"ach_031": ["BloodBoardSword"],
 }
 
 const LAW_DAMAGE_CATEGORIES := {
@@ -158,17 +158,6 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	call_deferred("_connect_runtime_signals")
 
-func _input(event: InputEvent) -> void:
-	if not Global.DEBUG_COMMANDS_ENABLED:
-		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_X:
-			debug_unlock_next_achievement()
-			get_viewport().set_input_as_handled()
-		elif event.keycode == KEY_Z:
-			debug_clear_all_achievements()
-			get_viewport().set_input_as_handled()
-
 func _connect_runtime_signals() -> void:
 	if _signals_connected:
 		return
@@ -195,7 +184,7 @@ func _build_definitions() -> void:
 
 func _add_stage_clear_achievements() -> void:
 	_add_achievement("ach_001", "小试牛刀", "blue", "首次通关桃林", "stage_clear", {"stage": "peach_grove"})
-	_add_achievement("ach_002", "异世来客", "blue", "首次通关古迹", "stage_clear", {"stage": "ruin", "unlock_heroes": ["noam"], "unlock_weapons": ["Lightbullet"], "unlock_text": "解锁角色：诺姆，武器：光弹"})
+	_add_achievement("ach_002", "异世来客", "blue", "首次通关古迹", "stage_clear", {"stage": "ruin", "unlock_heroes": ["noam"], "unlock_weapons": ["LightBullet"], "unlock_text": "解锁角色：诺姆，武器：光弹"})
 	_add_achievement("ach_003", "众擎易举", "blue", "首次通关深窟", "stage_clear", {"stage": "cave", "unlock_heroes": ["kansel"], "unlock_weapons": ["Ice"], "unlock_text": "解锁角色：坎塞尔，武器：冰刺术"})
 	_add_achievement("ach_004", "幕后之人", "blue", "首次通关密林", "stage_clear", {"stage": "forest", "unlock_heroes": ["xueming"], "unlock_weapons": ["Zhuazhuajuchui"], "unlock_text": "解锁角色：雪铭，武器：爪爪巨锤", "bonus": {"drop": 0.02}, "bonus_text": "掉落率 +2%"})
 	_add_achievement("ach_005", "破境·壹", "blue", "通关一次深层难度", "difficulty_clear", {"difficulty": "deep", "bonus": {"point": 0.005}, "bonus_text": "真气获取率 +0.5%"})
@@ -215,13 +204,13 @@ func _add_character_clear_achievements() -> void:
 	_add_achievement("ach_022", "晓秋·壹", "gold", "墨宁、言秋出战累计成功通关20次", "hero_pair_clear_count", {"heroes": ["moning", "yiqiu"], "count": 20, "unlock_weapons": ["Bloodwave"], "unlock_text": "初始武器增加：血气波"})
 	_add_achievement("ach_023", "晓秋·贰", "gold", "墨宁、言秋出战累计成功通关30次", "hero_pair_clear_count", {"heroes": ["moning", "yiqiu"], "count": 30, "unlock_weapons": ["Xuanwu"], "unlock_text": "初始武器增加：玄武盾"})
 	_add_achievement("ach_024", "稚旅·壹", "blue", "诺姆出战累计成功通关5次", "hero_clear_count", {"hero": "noam", "count": 5, "unlock_weapons": ["Water"], "unlock_text": "初始武器增加：坎水诀"})
-	_add_achievement("ach_025", "稚旅·贰", "purple", "诺姆出战累计成功通关10次", "hero_clear_count", {"hero": "noam", "count": 10, "unlock_weapons": ["Holylight"], "unlock_text": "初始武器增加：圣光术"})
+	_add_achievement("ach_025", "稚旅·贰", "purple", "诺姆出战累计成功通关10次", "hero_clear_count", {"hero": "noam", "count": 10, "unlock_weapons": ["HolyLight"], "unlock_text": "初始武器增加：圣光术"})
 	_add_achievement("ach_026", "星灵·壹", "gold", "诺姆、坎塞尔出战累计成功通关20次", "hero_pair_clear_count", {"heroes": ["noam", "kansel"], "count": 20, "unlock_weapons": ["Branch"], "unlock_text": "初始武器增加：仙枝"})
 	_add_achievement("ach_027", "星灵·贰", "gold", "诺姆、坎塞尔出战累计成功通关30次", "hero_pair_clear_count", {"heroes": ["noam", "kansel"], "count": 30, "unlock_weapons": ["Thunder"], "unlock_text": "初始武器增加：震雷诀"})
-	_add_achievement("ach_028", "燃冰·壹", "blue", "坎塞尔出战累计成功通关5次", "hero_clear_count", {"hero": "kansel", "count": 5, "unlock_weapons": ["Thunderbreak"], "unlock_text": "初始武器增加：天雷破"})
+	_add_achievement("ach_028", "燃冰·壹", "blue", "坎塞尔出战累计成功通关5次", "hero_clear_count", {"hero": "kansel", "count": 5, "unlock_weapons": ["ThunderBreak"], "unlock_text": "初始武器增加：天雷破"})
 	_add_achievement("ach_029", "燃冰·贰", "purple", "坎塞尔出战累计成功通关10次", "hero_clear_count", {"hero": "kansel", "count": 10, "unlock_weapons": ["Moyan"], "unlock_text": "初始武器增加：爆炎诀"})
 	_add_achievement("ach_030", "意秋·壹", "blue", "言秋出战累计成功通关5次", "hero_clear_count", {"hero": "yiqiu", "count": 5, "unlock_weapons": ["Qiankun"], "unlock_text": "初始武器增加：乾坤双剑"})
-	_add_achievement("ach_031", "意秋·贰", "purple", "言秋出战累计成功通关10次", "hero_clear_count", {"hero": "yiqiu", "count": 10, "unlock_weapons": ["Bloodboardsword"], "unlock_text": "初始武器增加：饮血刀"})
+	_add_achievement("ach_031", "意秋·贰", "purple", "言秋出战累计成功通关10次", "hero_clear_count", {"hero": "yiqiu", "count": 10, "unlock_weapons": ["BloodBoardSword"], "unlock_text": "初始武器增加：饮血刀"})
 
 func _add_law_achievements() -> void:
 	_add_law("ach_032", "弹雨法则·极", "gold", "faze_bullet_level", 24, "bullet", 0.02, "弹雨类武器伤害 +2%")
@@ -268,20 +257,20 @@ func _add_run_and_meta_achievements() -> void:
 	_add_achievement("ach_075", "大道", "red", "通关时持有法则总层数超过100层", "victory_stat", {"key": "total_law_level", "value": 100, "bonus": {"initial_lock": 1}, "bonus_text": "初始锁定次数 +1"})
 	_add_achievement("ach_076", "万军辟易", "gold", "敌人数量加成大于60%", "runtime_stat", {"key": "enemy_count_bonus", "value": 0.6, "bonus": {"initial_lucky": 1}, "bonus_text": "初始天命 +1"})
 	_add_achievement("ach_077", "生生不息", "gold", "生命恢复超过10%", "runtime_stat", {"key": "hp_regen", "value": 10.0, "bonus": {"initial_lucky": 1}, "bonus_text": "初始天命 +1"})
-	_add_threshold_group(78, "惊鸿一击", ["壹", "贰", "叁", "肆", "伍"], ["white", "blue", "purple", "gold", "red"], "单次最高伤害达到%s", [1000000, 5000000, 30000000, 150000000, 400000000], "persistent_stat", "highest_single_damage")
-	_add_threshold_group(83, "降敌之道", ["壹", "贰", "叁", "肆", "伍"], ["white", "blue", "purple", "gold", "red"], "单局杀敌数量达到%d", [2000, 3500, 5000, 6500, 8000], "victory_stat", "kill_count")
-	_add_threshold_group(88, "苦修", ["壹", "贰", "叁", "肆", "伍", "陆", "柒"], ["white", "blue", "purple", "purple", "gold", "gold", "red"], "单项修炼提升到%d", [30, 50, 70, 90, 110, 130, 150], "meta_stat", "max_cultivation_level")
-	_add_threshold_group(95, "天赋觉醒", ["壹", "贰", "叁", "肆", "伍"], ["white", "blue", "purple", "gold", "red"], "累计点过%d个天赋", [10, 25, 50, 75, 100], "meta_stat", "talent_points")
-	_add_threshold_group(100, "商贾之道", ["壹", "贰", "叁", "肆", "伍", "陆", "柒"], ["white", "blue", "purple", "purple", "gold", "gold", "red"], "神秘商店达到%d级", [2, 3, 4, 5, 6, 7, 8], "meta_stat", "shop_level")
+	_add_threshold_group(78, "惊鸿一击", ["壹", "贰", "叁", "肆", "伍"], ["white", "blue", "purple", "gold", "red"], "单次最高伤害达到%s", [1000000, 5000000, 30000000, 150000000, 400000000], "persistent_stat", "highest_single_damage", [{"atk": 1}, {"atk": 2}, {"atk": 3}, {"atk": 4}, {"atk": 5}], ["初始攻击 +1", "初始攻击 +2", "初始攻击 +3", "初始攻击 +4", "初始攻击 +5"])
+	_add_threshold_group(83, "降敌之道", ["壹", "贰", "叁", "肆", "伍"], ["white", "blue", "purple", "gold", "red"], "单局杀敌数量达到%d", [2000, 3500, 5000, 6500, 8000], "victory_stat", "kill_count", [{"atk": 1}, {"atk": 2}, {"atk": 3}, {"atk": 4}, {"atk": 5}], ["初始攻击 +1", "初始攻击 +2", "初始攻击 +3", "初始攻击 +4", "初始攻击 +5"])
+	_add_threshold_group(88, "苦修", ["壹", "贰", "叁", "肆", "伍", "陆", "柒"], ["white", "blue", "purple", "purple", "gold", "gold", "red"], "单项修炼提升到%d", [30, 50, 70, 90, 110, 130, 150], "meta_stat", "max_cultivation_level", [{"hp": 10}, {"hp": 20}, {"hp": 30}, {"hp": 40}, {"hp": 50}, {"hp": 60}, {"hp": 70}], ["初始体力 +10", "初始体力 +20", "初始体力 +30", "初始体力 +40", "初始体力 +50", "初始体力 +60", "初始体力 +70"])
+	_add_threshold_group(95, "天赋觉醒", ["壹", "贰", "叁", "肆", "伍"], ["white", "blue", "purple", "gold", "red"], "累计点过%d个天赋", [10, 25, 50, 75, 100], "meta_stat", "talent_points", [{"hp": 10}, {"hp": 20}, {"hp": 30}, {"hp": 40}, {"hp": 50}], ["初始体力 +10", "初始体力 +20", "初始体力 +30", "初始体力 +40", "初始体力 +50"])
+	_add_threshold_group(100, "商贾之道", ["壹", "贰", "叁", "肆", "伍", "陆", "柒"], ["white", "blue", "purple", "purple", "gold", "gold", "red"], "神秘商店达到%d级", [2, 3, 4, 5, 6, 7, 8], "meta_stat", "shop_level", [{"point": 0.01}, {"point": 0.01}, {"point": 0.01}, {"point": 0.01}, {"point": 0.015}, {"point": 0.015}, {"point": 0.015}], ["真气获取率 +1%", "真气获取率 +1%", "真气获取率 +1%", "真气获取率 +1%", "真气获取率 +1.5%", "真气获取率 +1.5%", "真气获取率 +1.5%"])
 	_add_achievement("ach_107", "慧眼识珠", "purple", "神秘商店刷新出一次红色级别的物品", "event_flag", {"flag": "red_shop_seen"})
 	_add_threshold_group(108, "挥金如土", ["壹", "贰", "叁", "肆", "伍"], ["white", "blue", "purple", "gold", "red"], "在神秘商店累计花销%d灵石", [500, 2000, 5000, 10000, 20000], "persistent_stat", "shop_lingshi_spent")
 	_add_threshold_group(113, "兵器谱", ["下", "中", "上"], ["blue", "purple", "gold"], "解锁武器%d个", [10, 14, 18], "meta_stat", "unlocked_weapon_count")
 	_add_achievement("ach_116", "宗师", "gold", "单个武器达到18级", "runtime_stat", {"key": "max_weapon_level", "value": 18, "bonus": {"initial_ban": 1}, "bonus_text": "初始禁用次数 +1"})
-	_add_threshold_group(117, "技能连携", ["下", "中", "上"], ["blue", "purple", "gold"], "单局内使用%d次主动技能", [40, 100, 200], "run_stat", "active_skill_uses")
-	_add_threshold_group(120, "聚魄有道", ["下", "中", "上"], ["blue", "purple", "gold"], "通关时持有%d以上的精魄", [15000, 30000, 50000], "victory_stat", "spirit")
+	_add_threshold_group(117, "技能连携", ["下", "中", "上"], ["blue", "purple", "gold"], "单局内使用%d次主动技能", [40, 100, 200], "run_stat", "active_skill_uses", [{"active_skill": 0.01}, {"active_skill": 0.01}, {"active_skill": 0.01}], ["主动技能伤害 +1%", "主动技能伤害 +1%", "主动技能伤害 +1%"])
+	_add_threshold_group(120, "聚魄有道", ["下", "中", "上"], ["blue", "purple", "gold"], "通关时持有%d以上的精魄", [15000, 30000, 50000], "victory_stat", "spirit", [{"point": 0.01}, {"point": 0.01}, {"point": 0.01}], ["真气获取率 +1%", "真气获取率 +1%", "真气获取率 +1%"])
 	_add_threshold_group(123, "坚如磐石", ["下", "中", "上"], ["blue", "purple", "gold"], "护甲达到%d", [300, 600, 1000], "runtime_stat", "armor")
 	_add_achievement("ach_126", "真意", "gold", "最终伤害超过200%", "runtime_stat", {"key": "final_damage", "value": 2, "bonus": {"initial_ban": 1}, "bonus_text": "初始禁用次数 +1"})
-	_add_threshold_group(127, "功德圆满", ["壹", "贰", "叁", "肆", "伍", "陆"], ["white", "blue", "purple", "gold", "red", "red"], "成就数量达到%d个", [20, 40, 60, 80, 100, 120], "achievement_count", "completed_count")
+	_add_threshold_group(127, "功德圆满", ["壹", "贰", "叁", "肆", "伍", "陆"], ["white", "blue", "purple", "gold", "red", "red"], "成就数量达到%d个", [20, 40, 60, 80, 100, 120], "achievement_count", "completed_count", [{"initial_lucky": 1}, {"initial_lucky": 1}, {"initial_lucky": 1}, {"initial_lucky": 1}, {"initial_lucky": 1}, {"initial_lucky": 1}], ["初始天命 +1", "初始天命 +1", "初始天命 +1", "初始天命 +1", "初始天命 +1", "初始天命 +1"])
 
 func _add_law(id: String, name: String, rarity: String, prop: String, value: int, category: String, bonus_value: float, bonus_text: String) -> void:
 	var bonus := {"weapon_damage": {LAW_DAMAGE_CATEGORIES.get(category, category): bonus_value}}
@@ -301,14 +290,30 @@ func _add_threshold_group(start_index: int, base_name: String, suffixes: Array, 
 		_add_achievement("ach_%03d" % (start_index + i), "%s·%s" % [base_name, suffixes[i]], rarities[i], condition_text, kind, data)
 
 func _add_achievement(id: String, name: String, rarity: String, condition_text: String, kind: String, data: Dictionary) -> void:
+	var achievement_data := data.duplicate(true)
+	_apply_default_bonus_if_missing(achievement_data, rarity)
 	definitions.append({
 		"id": id,
 		"name": name,
 		"rarity": rarity,
 		"condition_text": condition_text,
 		"kind": kind,
-		"data": data.duplicate(true),
+		"data": achievement_data,
 	})
+
+func _apply_default_bonus_if_missing(data: Dictionary, rarity: String) -> void:
+	if data.has("bonus"):
+		return
+	var is_high_rarity := rarity in ["purple", "gold", "red"]
+	var id_seed := definitions.size()
+	if id_seed % 2 == 0:
+		var atk_bonus := 2 if is_high_rarity else 1
+		data["bonus"] = {"atk": atk_bonus}
+		data["bonus_text"] = "初始攻击 +%d" % atk_bonus
+	else:
+		var hp_bonus := 20 if is_high_rarity else 10
+		data["bonus"] = {"hp": hp_bonus}
+		data["bonus_text"] = "初始体力 +%d" % hp_bonus
 
 func reset_run_stats() -> void:
 	run_stats = {
@@ -428,7 +433,7 @@ func debug_clear_all_achievements() -> void:
 	for weapon_id in DEFAULT_START_WEAPONS:
 		default_start_weapons.append(str(weapon_id))
 	Global.available_start_weapons = default_start_weapons
-	Global.selected_start_weapon = "Swordqi"
+	Global.selected_start_weapon = "SwordQi"
 	Global.selected_start_weapons_by_hero.clear()
 	Global.unlock_noam = Global.is_stage_cleared("ruin")
 	Global.unlock_kansel = Global.is_stage_cleared("cave")
@@ -845,7 +850,7 @@ func _get_runtime_stat_value(key: String) -> float:
 		"ur_rewards":
 			return float(_count_ur_rewards())
 		"atk_speed":
-			return PC.pc_atk_speed
+			return PC.get_total_attack_speed_bonus()
 		"move_speed":
 			return _get_total_move_speed_bonus()
 		"damage_reduction":
@@ -863,12 +868,12 @@ func _get_runtime_stat_value(key: String) -> float:
 		"armor":
 			return PC.pc_armor
 		"final_damage":
-			return 1.0 + PC.pc_final_atk
+			return 1.0 + Faze.get_final_damage_additive_bonus()
 		_:
 			return 0.0
 
 func _get_total_move_speed_bonus() -> float:
-	return (Global.cultivation_zhuifeng_level * 0.01) + PC.pc_speed + Global.study_move_speed_bonus
+	return PC.get_total_move_speed_bonus()
 
 func _get_enemy_count_bonus() -> float:
 	var bonus := 0.0
@@ -1075,6 +1080,7 @@ func _empty_bonus_summary() -> Dictionary:
 		"exp": 0.0,
 		"spirit": 0.0,
 		"drop": 0.0,
+		"active_skill": 0.0,
 		"weapon_damage": {},
 	}
 
@@ -1110,6 +1116,9 @@ func get_category_damage_bonus_by_weapon_tag(weapon_tag: String) -> float:
 func get_summon_damage_bonus() -> float:
 	return get_weapon_damage_bonus("summon")
 
+func get_active_skill_damage_bonus() -> float:
+	return float(get_bonus_summary().get("active_skill", 0.0))
+
 func get_initial_refresh_bonus() -> int:
 	return _get_initial_bonus("initial_refresh")
 
@@ -1127,7 +1136,7 @@ func _get_initial_bonus(key: String) -> int:
 
 func get_detail_text() -> String:
 	var summary := get_bonus_summary()
-	return "[color=yellow]完成度[/color]  %d / %d\n[color=yellow]成就点[/color]  %d\n[color=yellow]成就加成[/color]\n攻击 %d\n最大体力 %d\n护甲 %d\n最终伤害 %s\n真气获取率 %s\n经验获取率 %s\n精魄获取率 %s\n掉落率 %s" % [
+	return "[color=yellow]完成度[/color]  %d / %d\n[color=yellow]成就点[/color]  %d\n[color=yellow]成就加成[/color]\n攻击 %d\n最大体力 %d\n护甲 %d\n最终伤害 %s\n主动技能伤害 %s\n真气获取率 %s\n经验获取率 %s\n精魄获取率 %s\n掉落率 %s" % [
 		get_completed_count(),
 		get_total_count(),
 		get_achievement_points(),
@@ -1135,6 +1144,7 @@ func get_detail_text() -> String:
 		int(round(summary["hp"])),
 		int(round(summary["armor"])),
 		_format_percent(float(summary["final_damage"])),
+		_format_percent(float(summary["active_skill"])),
 		_format_percent(float(summary["point"])),
 		_format_percent(float(summary["exp"])),
 		_format_percent(float(summary["spirit"])),

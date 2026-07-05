@@ -131,59 +131,44 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 	return result
 
 # 检查是否应该处理子弹反弹
-static func should_create_rebound(bullet: Area2D) -> bool:
-	if not bullet:
-		return false
-	if not bullet.has_method("create_rebound"):
-		return false
-	
-	# 首先检查玩家是否有续剑技能
-	if not PC.selected_rewards.has("SplitSwordQi12"):
-		return false
-	
-	var is_rebound = bullet.get("is_rebound")
-	var parent_bullet = bullet.get("parent_bullet")
-	
-	var change = randf()
-	if not is_rebound and parent_bullet and change <= 0.25:
-		return true
-	else:
-		return false # 只有父级子弹且非反弹子弹才能反弹
+static func should_create_rebound(_bullet: Area2D) -> bool:
+	return false
 
 # 应用全局buff效果到最终伤害
 static func apply_global_buff_effects(damage: float) -> float:
 	return damage * get_global_buff_damage_multiplier()
 
 static func get_global_buff_damage_multiplier() -> float:
-	var multiplier := 1.0
+	var final_damage_bonus := 0.0
 	
-	# 沉静：1秒内没有移动，提升6*层数%的最终伤害
+	# 沉静：1秒内没有移动，提升3.5*层数%的最终伤害
 	if EmblemManager.has_emblem("chenjing"):
 		var chenjing_stack = EmblemManager.get_emblem_stack("chenjing")
 		if PC.player_instance and PC.player_instance.has_method("get_last_move_time"):
 			var last_move = PC.player_instance.get_last_move_time()
 			var current = Time.get_unix_time_from_system()
 			if current - last_move >= 1.0: # 1秒
-				multiplier *= (1.0 + Global.get_scaled_emblem_value(0.06 * chenjing_stack))
+				final_damage_bonus += Global.get_scaled_emblem_value(0.035 * chenjing_stack)
 	
-	# 炼体：每1%的减伤率额外提升0.2*层数%的最终伤害
+	# 炼体：每1%的减伤率额外提升0.1*层数%的最终伤害，最多20%
 	if EmblemManager.has_emblem("lianti"):
 		var lianti_stack = EmblemManager.get_emblem_stack("lianti")
 		var damage_reduction_percent = PC.damage_reduction_rate * 100
-		var damage_bonus = damage_reduction_percent * Global.get_scaled_emblem_value(0.002 * lianti_stack)
-		multiplier *= (1.0 + damage_bonus)
+		var lianti_bonus = damage_reduction_percent * Global.get_scaled_emblem_value(0.001 * lianti_stack)
+		final_damage_bonus += minf(lianti_bonus, Global.get_scaled_emblem_value(0.20))
 	
-	# 蛮力：当移动速度加成<0%时，提升8*层数%的最终伤害
+	# 蛮力：当移动速度加成<0%时，提升5*层数%的最终伤害
 	if EmblemManager.has_emblem("manli"):
 		var manli_stack = EmblemManager.get_emblem_stack("manli")
-		if PC.pc_speed < 0.0:
-			multiplier *= (1.0 + Global.get_scaled_emblem_value(0.08 * manli_stack))
+		if PC.get_manli_effective_move_speed_bonus() < 0.0:
+			final_damage_bonus += Global.get_scaled_emblem_value(0.05 * manli_stack)
 	
-	# 融会贯通：当前每拥有一个纹章，提升2*层数%最终伤害
+	# 融会贯通：当前每拥有一个纹章，提升1.5*层数%最终伤害，每层最多提供10%
 	if EmblemManager.has_emblem("ronghui"):
 		var ronghui_stack = EmblemManager.get_emblem_stack("ronghui")
 		var active_emblem_count = EmblemManager.get_emblem_count()
-		var damage_bonus = active_emblem_count * Global.get_scaled_emblem_value(0.02 * ronghui_stack)
-		multiplier *= (1.0 + damage_bonus)
+		var ronghui_bonus = active_emblem_count * Global.get_scaled_emblem_value(0.015 * ronghui_stack)
+		var ronghui_max_bonus = Global.get_scaled_emblem_value(0.10 * ronghui_stack)
+		final_damage_bonus += minf(ronghui_bonus, ronghui_max_bonus)
 	
-	return multiplier
+	return 1.0 + final_damage_bonus

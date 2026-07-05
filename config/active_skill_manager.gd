@@ -135,13 +135,13 @@ class MizongbuSkill extends ActiveSkill:
 class HealHotSkill extends ActiveSkill:
 	var base_duration: float = 12.0
 	var duration: float = 12.0
-	var base_heal_percent: float = 0.01
-	var heal_percent: float = 0.01
-	var base_heal_amount: float = 30.0
-	var heal_amount: float = 30.0
+	var base_heal_percent: float = 0.06
+	var heal_percent: float = 0.06
+	var base_heal_amount: float = 60.0
+	var heal_amount: float = 60.0
 	
 	func _init():
-		super ("heal_hot", "疗愈", "持续恢复自身体力", 30.0)
+		super ("heal_hot", "疗愈", "持续恢复自身体力", 26.0)
 		is_unlocked = true
 	
 	func update_from_level(level: int):
@@ -274,12 +274,12 @@ class MeditationSkill extends ActiveSkill:
 		# 修习树技能篇：冥想冷却减少
 		cooldown_time = max(12.0, base_cooldown_time - Global.study_mingxiang_cd_reduction)
 
-# 破坏乱锤技能数据
+# 破坏圣锤技能数据
 class DestructiveHammerSkill extends ActiveSkill:
-	var damage_ratios: Array[float] = [0.6, 0.6, 1.2]
+	var damage_ratios: Array[float] = [1.0, 1.5, 3.0]
 	
 	func _init():
-		super ("destructive_hammer", "破坏乱锤", "连续三次砸下巨锤，对范围内敌人造成伤害，施放期间获得40%独立减伤", 18.0)
+		super ("destructive_hammer", "破坏圣锤", "连续三次砸下巨锤，对范围内敌人造成伤害，施放期间获得50%独立减伤", 16.0)
 		is_unlocked = true
 	
 	func update_from_level(_level: int) -> void:
@@ -428,78 +428,77 @@ func init_skills():
 	"""根据Global.player_active_skill_data初始化所有技能"""
 	# 初始化闪避技能
 	var dodge_skill = DodgeSkill.new()
-	var dodge_level = Global.player_active_skill_data.get("dodge", {}).get("level", 1)
+	var dodge_level = Global.get_active_skill_effective_level("dodge")
 	dodge_skill.update_from_level(dodge_level)
 	mastered_skills["dodge"] = dodge_skill
 	
 	var mizongbu_skill = MizongbuSkill.new()
-	var mz_level = Global.player_active_skill_data.get("mizongbu", {}).get("level", 1)
+	var mz_level = Global.get_active_skill_effective_level("mizongbu")
 	mizongbu_skill.update_from_level(mz_level)
 	mastered_skills["mizongbu"] = mizongbu_skill
 	
 	# 初始化乱击技能
 	var random_strike_skill = RandomStrikeSkill.new()
-	var rs_level = Global.player_active_skill_data.get("random_strike", {}).get("level", 1)
+	var rs_level = Global.get_active_skill_effective_level("random_strike")
 	random_strike_skill.update_from_level(rs_level)
 	mastered_skills["random_strike"] = random_strike_skill
 	
 	# 初始化趋桀变身
 	var beast_skill = BeastifySkill.new()
-	var b_level = Global.player_active_skill_data.get("beastify", {}).get("level", 1)
+	var b_level = Global.get_active_skill_effective_level("beastify")
 	beast_skill.update_from_level(b_level)
 	mastered_skills["beastify"] = beast_skill
 	
 	# 初始化新技能
 	var heal_hot_skill = HealHotSkill.new()
-	var hh_level = Global.player_active_skill_data.get("heal_hot", {}).get("level", 1)
+	var hh_level = Global.get_active_skill_effective_level("heal_hot")
 	heal_hot_skill.update_from_level(hh_level)
 	mastered_skills["heal_hot"] = heal_hot_skill
 
 	var water_shield_skill = WaterShieldSkill.new()
-	var ws_level = Global.player_active_skill_data.get("water_sheild", {}).get("level", 1)
+	var ws_level = Global.get_active_skill_effective_level("water_sheild")
 	water_shield_skill.update_from_level(ws_level)
 	mastered_skills["water_sheild"] = water_shield_skill
 
 	var holy_fire_skill = HolyFireSkill.new()
-	var hf_level = Global.player_active_skill_data.get("holy_fire", {}).get("level", 1)
+	var hf_level = Global.get_active_skill_effective_level("holy_fire")
 	holy_fire_skill.update_from_level(hf_level)
 	mastered_skills["holy_fire"] = holy_fire_skill
 
 	var wind_thunder_skill = WindThunderSkill.new()
-	var wt_level = Global.player_active_skill_data.get("wind_thunder", {}).get("level", 1)
+	var wt_level = Global.get_active_skill_effective_level("wind_thunder")
 	wind_thunder_skill.update_from_level(wt_level)
 	mastered_skills["wind_thunder"] = wind_thunder_skill
 
 	var magical_ice_skill = MagicalIceSkill.new()
-	var mi_level = Global.player_active_skill_data.get("magical_ice", {}).get("level", 1)
+	var mi_level = Global.get_active_skill_effective_level("magical_ice")
 	magical_ice_skill.update_from_level(mi_level)
 	mastered_skills["magical_ice"] = magical_ice_skill
 
 	var magical_fire_skill = MagicalFireSkill.new()
-	var mf_level = Global.player_active_skill_data.get("magical_fire", {}).get("level", 1)
+	var mf_level = Global.get_active_skill_effective_level("magical_fire")
 	magical_fire_skill.update_from_level(mf_level)
 	mastered_skills["magical_fire"] = magical_fire_skill
 
 	var magic_skill = MagicSkill.new()
-	var mg_level = Global.player_active_skill_data.get("magic", {}).get("level", 1)
+	var mg_level = Global.get_active_skill_effective_level("magic")
 	magic_skill.update_from_level(mg_level)
 	mastered_skills["magic"] = magic_skill
 
 	var meditation_skill = MeditationSkill.new()
-	var md_level = Global.player_active_skill_data.get("meditation", {}).get("level", 1)
+	var md_level = Global.get_active_skill_effective_level("meditation")
 	meditation_skill.update_from_level(md_level)
 	mastered_skills["meditation"] = meditation_skill
 
 	var destructive_hammer_skill = DestructiveHammerSkill.new()
-	var dh_level = Global.player_active_skill_data.get("destructive_hammer", {}).get("level", 1)
+	var dh_level = Global.get_active_skill_effective_level("destructive_hammer")
 	destructive_hammer_skill.update_from_level(dh_level)
 	mastered_skills["destructive_hammer"] = destructive_hammer_skill
 
 func refresh_skill_levels():
 	"""刷新技能等级（当技能升级时调用）"""
 	for skill_id in mastered_skills.keys():
-		var skill_data = Global.player_active_skill_data.get(skill_id, {})
-		var level = skill_data.get("level", 1)
+		var level = Global.get_active_skill_effective_level(skill_id)
 		var skill = mastered_skills[skill_id]
 		if skill.has_method("update_from_level"):
 			skill.update_from_level(level)
@@ -680,7 +679,7 @@ func execute_destructive_hammer_skill(skill: DestructiveHammerSkill) -> void:
 		return
 	var scene: PackedScene = load("res://Scenes/player/xueming_chongzhuang.tscn") as PackedScene
 	if scene == null:
-		push_warning("破坏乱锤场景加载失败")
+		push_warning("破坏圣锤场景加载失败")
 		return
 	var instance: Node2D = scene.instantiate() as Node2D
 	if instance == null:
@@ -1038,7 +1037,7 @@ func execute_dodge_skill(dodge_skill: DodgeSkill):
 func _get_dodge_dash_distance(dodge_skill: DodgeSkill) -> float:
 	var speed_bonus_ratio := 0.0
 	if typeof(PC) != TYPE_NIL and PC != null:
-		speed_bonus_ratio = clampf(float(PC.pc_speed), 0.0, 1.0)
+		speed_bonus_ratio = clampf(float(PC.move_speed_bonus), 0.0, 1.0)
 	return dodge_skill.dash_distance * (1.0 + speed_bonus_ratio * 0.3)
 
 
@@ -1129,8 +1128,7 @@ func execute_beastify_skill(skill: BeastifySkill) -> void:
 	await get_tree().create_timer(0.05).timeout
 	if is_instance_valid(player) and player.has_method("start_beastify"):
 		# 修习树技能篇：兽化爪击应用技能总伤害加成；等级平衡按每级 4% 乘算。
-		var beastify_data: Dictionary = Global.player_active_skill_data.get("beastify", {}) as Dictionary
-		var beastify_level: int = int(beastify_data.get("level", 1))
+		var beastify_level: int = Global.get_active_skill_effective_level("beastify")
 		var level_damage_multiplier: float = pow(1.04, float(maxi(beastify_level, 0)))
 		var final_claw_ratio: float = skill.claw_damage_ratio * (1.0 + PC.active_skill_multi) * level_damage_multiplier
 		player.start_beastify(skill.duration, skill.atk_bonus_ratio, skill.atk_speed_bonus_ratio, skill.move_bonus_ratio, final_claw_ratio)

@@ -11,7 +11,7 @@ func _ready() -> void:
 	var circle_shape = CircleShape2D.new()
 	circle_shape.radius = 12.0 # 火焰的碰撞范围
 	if (PC.selected_rewards.has("RingFire3")):
-		circle_shape.radius = 16.2 # +35%
+		circle_shape.radius = 14.4 # +20%
 	collision_shape.shape = circle_shape
 	add_child(collision_shape)
 
@@ -20,7 +20,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	var player: Node = PC.player_instance
-	if player != null and is_instance_valid(player) and player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("Ringfire"):
+	if player != null and is_instance_valid(player) and player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("RingFire"):
 		damage = 0.0
 		return
 	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
@@ -30,7 +30,7 @@ func _physics_process(delta: float) -> void:
 	damage = PC.pc_atk * damage_multiplier
 	
 	if (PC.selected_rewards.has("RingFire22")):
-		damage = damage * 1.25
+		damage = damage * 1.12
 		
 	# 更新冷却时间
 	var to_remove = []
@@ -44,7 +44,7 @@ func _physics_process(delta: float) -> void:
 
 func _on_area_entered(area: Area2D) -> void:
 	var player: Node = PC.player_instance
-	if player != null and is_instance_valid(player) and player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("Ringfire"):
+	if player != null and is_instance_valid(player) and player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("RingFire"):
 		return
 	# 检查是否是敌人
 	if area.is_in_group("enemies"):
@@ -54,7 +54,11 @@ func _on_area_entered(area: Area2D) -> void:
 			if area.has_method("take_damage"):
 				var was_alive_for_bagua = area.get("hp") > 0 and not area.get("is_dead")
 				var final_damage = damage
-				area.take_damage(final_damage, false, false, "ringFire")
+				var is_crit = false
+				if randf() < PC.crit_chance:
+					is_crit = true
+					final_damage *= PC.crit_damage_multi
+				area.take_damage(final_damage, is_crit, false, "ringFire")
 				Faze.add_bagua_hit_progress(area, was_alive_for_bagua)
 				
 				if PC.selected_rewards.has("RingFire4") and randf() < 0.2:
@@ -68,10 +72,13 @@ func _on_area_entered(area: Area2D) -> void:
 							# 假设 deubff_manager 有 _apply_dot_damage 方法，但它是私有的
 							# 我们可能需要手动触发伤害
 							# 或者给 deubff_manager 加一个 public 方法
-							# 这里先简单处理：造成一次燃烧伤害
-							# 燃烧伤害 = 40% atk (from new config)
-							var burn_damage = PC.pc_atk * 0.4
-							area.take_damage(burn_damage, false, false, "burn")
+							# 这里先简单处理：造成一次较低的即时燃烧伤害
+							var burn_damage = PC.pc_atk * 0.2
+							var burn_is_crit = false
+							if randf() < PC.crit_chance:
+								burn_is_crit = true
+								burn_damage *= PC.crit_damage_multi
+							area.take_damage(burn_damage, burn_is_crit, false, "burn")
 							
 				# 设置该火焰实例对这个敌人的冷却时间
 				hit_cooldowns[area] = hit_cooldown

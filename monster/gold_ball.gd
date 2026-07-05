@@ -1,8 +1,11 @@
 extends "res://Script/monster/monster_base.gd"
 
 @onready var sprite = $AnimatedSprite2D
-# 0为从左到右，1为从右向左，2为随机移动，3为靠近角色
-var move_direction: int = 1
+# 保留字段兼容旧生成代码；金团团实际使用类似 ghost 的随机游走。
+var move_direction: int = 2
+var move_vector: Vector2 = Vector2.LEFT
+var wander_direction_timer: float = 0.0
+var is_out_of_view: bool = false
 
 var base_speed: float = SettingMoster.goldball("speed")
 var speed: float
@@ -13,11 +16,14 @@ var get_point: int = SettingMoster.goldball("point")
 var get_exp: int = SettingMoster.goldball("exp")
 var last_sword_wave_damage_time: float = 0.0
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
+const WANDER_DIRECTION_CHANGE_INTERVAL: float = 2.0
+const WANDER_VIEW_MARGIN_PIXELS: float = 48.0
 
 
 func _ready():
 	setup_monster_base(is_elite)
 	speed = base_speed # Initialize speed
+	_pick_random_direction()
 
 func _physics_process(delta: float) -> void:
 	if hp <= 0:
@@ -76,29 +82,33 @@ func _physics_process(delta: float) -> void:
 		if hp > 0 and CharacterEffects.is_player_dead_or_game_over():
 			move_away_from_dead_player(delta, base_speed, sprite)
 			return
-		if move_direction == 0:
-			position += CharacterEffects.apply_soft_separation_to_direction(self, Vector2.RIGHT) * speed * delta
+		speed = get_effective_move_speed(base_speed)
+		_update_wander_direction(delta)
+		position += CharacterEffects.apply_soft_separation_to_direction(self, move_vector) * speed * delta
+		if move_vector.x > 0:
 			CharacterEffects.set_enemy_flip_h(self, sprite, true)
-		if move_direction == 1:
-			position += CharacterEffects.apply_soft_separation_to_direction(self, Vector2.LEFT) * speed * delta
+		elif move_vector.x < 0:
 			CharacterEffects.set_enemy_flip_h(self, sprite, false)
-		if move_direction >= 2:
-			# 靠近角色的移动方式
-			if PC.player_instance != null:
-				var direction_to_player = CharacterEffects.get_tracking_direction_to_player(self)
-				if direction_to_player != Vector2.ZERO:
-					speed = get_effective_move_speed(base_speed)
-					position += direction_to_player * speed * delta
-					# 根据移动方向设置精灵翻转
-					CharacterEffects.face_player_x(self, sprite)
-	
-	if move_direction == 0 and position.x <= -534:
-		free_health_bar()
-		queue_free()
-		
-	if move_direction == 1 and position.x >= 534:
-		free_health_bar()
-		queue_free()
+		if clamp_self_to_scene_bounds(16.0):
+			_pick_direction_to_safe_zone()
+
+func _pick_random_direction() -> void:
+	move_vector = choose_camera_wander_direction(move_vector, 35.0, WANDER_VIEW_MARGIN_PIXELS, 16.0)
+	wander_direction_timer = randf_range(0.0, WANDER_DIRECTION_CHANGE_INTERVAL)
+
+func _update_wander_direction(delta: float) -> void:
+	wander_direction_timer -= delta
+	var wander_bounds := get_camera_wander_bounds(WANDER_VIEW_MARGIN_PIXELS, 16.0)
+	var currently_out_of_view := is_position_outside_rect(global_position, wander_bounds)
+	if currently_out_of_view and not is_out_of_view:
+		wander_direction_timer = 0.0
+	if wander_direction_timer <= 0.0:
+		move_vector = choose_camera_wander_direction(move_vector, 35.0, WANDER_VIEW_MARGIN_PIXELS, 16.0)
+		wander_direction_timer = WANDER_DIRECTION_CHANGE_INTERVAL
+	is_out_of_view = currently_out_of_view
+
+func _pick_direction_to_safe_zone() -> void:
+	move_vector = choose_camera_wander_direction(move_vector, 25.0, WANDER_VIEW_MARGIN_PIXELS, 16.0)
 
 
 func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:

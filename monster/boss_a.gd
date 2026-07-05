@@ -1,4 +1,4 @@
-extends "res://Script/monster/monster_base.gd"
+extends "res://Script/monster/boss_base.gd"
 
 @onready var sprite = $BossA
 var is_attacking: bool = false
@@ -25,10 +25,10 @@ var target_position: Vector2 # 用于存储移动目标位置
 var update_move_timer: Timer # 移动模式计时器
 
 var speed: float = SettingMoster.slime_blue("speed") * 0.75 # Boss移动速度，可以调整
-var hpMax: float = SettingMoster.slime_blue("hp") * 12 # Boss最大生命值，可以调整
+var hpMax: float = SettingMoster.slime_blue("hp") * 8 # Boss最大生命值，可以调整
 #var hpMax : float = SettingMoster.slime("hp") * 0.1 # Boss最大生命值，可以调整
 var hp: float = hpMax # Boss当前生命值
-var atk: float = SettingMoster.slime_blue("atk") * 0.9 # Boss攻击力，可以调整
+var atk: float = SettingMoster.slime_blue("atk") * 0.99 # Boss攻击力，可以调整
 var get_point: int = SettingMoster.slime_blue("point") * 25 # 击败首领获得的积分
 var get_exp: int = 0 # 击败首领获得的经验
 
@@ -97,30 +97,7 @@ var stage_difficulty: String = Global.STAGE_DIFFICULTY_SHALLOW
 var forced_poison_attack_index: int = -1
 
 func _ready():
-	add_to_group("boss")
-	stage_difficulty = Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
-	hpMax *= _get_difficulty_hp_multiplier()
-# 根据玩家DPS和难度增加Boss HP
-	var dps_multiplier := 25.0
-	match stage_difficulty:
-		Global.STAGE_DIFFICULTY_DEEP:
-			dps_multiplier *= 1.05
-		Global.STAGE_DIFFICULTY_CORE:
-			dps_multiplier *= 1.1
-	if stage_difficulty == Global.STAGE_DIFFICULTY_POETRY:
-		hpMax = Global.get_poetry_boss_max_hp("boss_a", hpMax)
-	else:
-		hpMax += Global.get_current_dps() * dps_multiplier
-	print("[BossA] DPS加成HP: +", Global.get_current_dps() * dps_multiplier, "  最终hpMax: ", hpMax)
-	
-	# 防止boss升级期间打人
-	process_mode = Node.PROCESS_MODE_PAUSABLE
-	hp = hpMax # 初始化当前血量
-	
-	# 浅层难度下Boss只造成75%伤害
-	if stage_difficulty == Global.STAGE_DIFFICULTY_SHALLOW:
-		atk *= 0.75
-	setup_monster_base()
+	stage_difficulty = setup_boss_base("boss_a", true)
 	use_debuff_take_damage_multiplier = false
 	check_action_disabled_on_body_entered = false
 	
@@ -174,18 +151,6 @@ func _get_next_random_attack_type() -> int:
 	if _uses_forced_poison_cycle() and attacks_since_last_petal == forced_poison_attack_index:
 		return 7
 	return randi_range(1, 6) if _uses_forced_poison_cycle() else randi_range(1, 7)
-
-
-func _get_difficulty_hp_multiplier() -> float:
-	match stage_difficulty:
-		Global.STAGE_DIFFICULTY_DEEP:
-			return 1.2
-		Global.STAGE_DIFFICULTY_CORE:
-			return 1.4
-		Global.STAGE_DIFFICULTY_POETRY:
-			return 1.5
-		_:
-			return 1.0
 
 
 func _get_meteor_radius() -> float:
@@ -968,6 +933,7 @@ func _attack_charge():
 
 	$BossA.play("run")
 	is_charging = true # 冲锋开始
+	set_boss_body_blocker_enabled(false)
 	var tween := create_tween()
 	if actual_distance > 0.1 and charge_time > 0:
 		_start_charge_shake() # 启动后台持续小幅震颟
@@ -975,12 +941,14 @@ func _attack_charge():
 		tween.finished.connect(func():
 			is_attacking = false
 			is_charging = false
+			set_boss_body_blocker_enabled(true)
 			$BossA.play("run")
 			allow_turning = true
 		)
 	else:
 		is_attacking = false
 		is_charging = false
+		set_boss_body_blocker_enabled(true)
 		$BossA.play("run")
 		allow_turning = true
 
