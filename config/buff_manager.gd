@@ -75,6 +75,24 @@ static func _init_buff_configs():
 		9999,
 		"弹雨积累层数"
 	)
+
+	buff_configs["thunder_gun_ammo"] = BuffData.new(
+		"thunder_gun_ammo",
+		"雷魂枪弹药",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_thunder.png",
+		BuffType.PERMANENT,
+		24,
+		"雷魂枪当前弹夹剩余子弹数量"
+	)
+
+	buff_configs["shehun_spirit_progress"] = BuffData.new(
+		"shehun_spirit_progress",
+		"摄魂法则",
+		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_shehun.png",
+		BuffType.PERMANENT,
+		999999,
+		"距离下一层摄魂法则还需要的精魄"
+	)
 	
 	buff_configs["bagua_progress"] = BuffData.new(
 		"bagua_progress",
@@ -253,7 +271,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/mingxiang.png",
 		BuffType.PERMANENT,
 		9999,
-		"每移动200米，经验获取率+1%"
+		"每移动4000距离，经验获取率+1%"
 	)
 	
 	buff_configs["move_drop"] = BuffData.new(
@@ -262,7 +280,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_treasure.png",
 		BuffType.PERMANENT,
 		9999,
-		"每移动200米，治愈精华掉落率+1%"
+		"每移动4000距离，治愈精华掉落率+1%"
 	)
 	
 	buff_configs["move_armor_sr77"] = BuffData.new(
@@ -271,7 +289,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/fangyu.png",
 		BuffType.PERMANENT,
 		9999,
-		"每移动300米，护甲+1"
+		"每移动6000距离，护甲+2"
 	)
 	
 	buff_configs["move_exp_sr72"] = BuffData.new(
@@ -280,7 +298,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunbu.png",
 		BuffType.PERMANENT,
 		9999,
-		"每移动300米，经验获取率+1%"
+		"每移动6000距离，经验获取率+1%"
 	)
 	
 	buff_configs["move_drop_sr73"] = BuffData.new(
@@ -289,7 +307,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunbu.png",
 		BuffType.PERMANENT,
 		9999,
-		"每移动300米，治愈精华掉落率+1%"
+		"每移动6000距离，治愈精华掉落率+1%"
 	)
 	
 	buff_configs["move_lucky_sr74"] = BuffData.new(
@@ -298,7 +316,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunbu.png",
 		BuffType.PERMANENT,
 		9999,
-		"每移动450米，天命+1"
+		"每移动9000距离，天命+1"
 	)
 	
 	buff_configs["move_lucky_ssr75"] = BuffData.new(
@@ -307,7 +325,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunbu.png",
 		BuffType.PERMANENT,
 		9999,
-		"每移动300米，天命+1"
+		"每移动6000距离，天命+1"
 	)
 	
 	buff_configs["move_armor_ssr78"] = BuffData.new(
@@ -316,7 +334,7 @@ static func _init_buff_configs():
 		"res://AssetBundle/Sprites/Sprite sheets/skillIcon/fangyu.png",
 		BuffType.PERMANENT,
 		9999,
-		"每移动200米，护甲+1"
+		"每移动4000距离，护甲+2"
 	)
 	
 	buff_configs["xianqi"] = BuffData.new(
@@ -386,7 +404,7 @@ static func _init_buff_configs():
 			"res://AssetBundle/Sprites/Sprite sheets/Icons/deprive_speed_%d.png" % i,
 			BuffType.TEMPORARY,
 			1,
-			"移动速度降低40%，持续20秒"
+			"移动速度降低60%，持续20秒"
 		)
 		buff_configs["deprive_atkspeed_%d" % i] = BuffData.new(
 			"deprive_atkspeed_%d" % i,
@@ -394,7 +412,7 @@ static func _init_buff_configs():
 			"res://AssetBundle/Sprites/Sprite sheets/Icons/deprive_atkspeed_%d.png" % i,
 			BuffType.TEMPORARY,
 			1,
-			"攻击速度降低70%，持续20秒"
+			"攻击速度降低90%，持续20秒"
 		)
 		buff_configs["answer_add_%d" % i] = BuffData.new(
 			"answer_add_%d" % i,
@@ -442,6 +460,12 @@ static func update_buff_description(buff_id: String, new_description: String) ->
 			buff_data[buff_id]["buff_config"] = buff_configs[buff_id]
 	else:
 		print("Warning: Cannot update description, Buff ID '" + buff_id + "' not found")
+
+static func set_buff_stack_text(buff_id: String, text: String) -> void:
+	if active_buffs.has(buff_id):
+		var buff_ui = active_buffs[buff_id]
+		if buff_ui and is_instance_valid(buff_ui) and buff_ui.has_method("set_stack_text_override"):
+			buff_ui.set_stack_text_override(text)
 
 static func update_bagua_progress_description() -> void:
 	var new_desc = "推衍度，下一层需要" + str(PC.faze_bagua_next_threshold) + "推衍度"

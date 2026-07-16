@@ -2,6 +2,7 @@ extends Node
 class_name LevelUpManager
 
 const BOSS_HP_BAR_SCRIPT = preload("res://Script/system/boss_hp_bar.gd")
+const REWARD_BUTTON_GLOW_SCRIPT = preload("res://Script/system/reward_button_glow.gd")
 
 # 升级管理器 - 处理升级界面逻辑
 # 从stage1.gd中提取的升级相关功能
@@ -50,6 +51,7 @@ var _skill_resume_request_id: int = 0
 var _slow_motion_focus_request_id: int = 0
 var _mobile_reward_guard_until_msec: int = 0
 var _mobile_reward_guard_request_id: int = 0
+var _red_reward_flash_played_this_roll: bool = false
 
 const SKILL_RESUME_BATCH_SIZE := 4
 const REFRESH_ALL_UNLOCKED_ID := -1
@@ -340,6 +342,7 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	var rect_ready = Rect2(4, 176, 8, 16)
 	var rect_off = Rect2(20, 176, 8, 16)
 	var rect_on = Rect2(36, 176, 8, 16)
+	_red_reward_flash_played_this_roll = false
 	
 	# 主技能进阶时，如果三个选项都为空，用精进填充第一个选项
 	if main_skill_name != "" and reward1 == null and reward2 == null and reward3 == null:
@@ -351,39 +354,39 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 	# 主技能进阶时，只显示两个选项并调整Y轴位置
 	if main_skill_name != "":
 		# 隐藏第三个按钮
-		lv_up_change_b3.visible = false
+		_hide_reward_button(lv_up_change_b3)
 		
 		# 调整前两个按钮的Y轴位置，保持场景中配置的当前尺寸不变
 		if reward1 != null:
-			_configure_reward_button(lv_up_change_b1, reward1, rect_ready, rect_off, rect_on, refresh_id, 1)
+			_configure_reward_button(lv_up_change_b1, reward1, rect_ready, rect_off, rect_on, refresh_id, 1, false)
 			_set_reward_button_y(lv_up_change_b1, 101.0 + 100.0)
 		else:
-			lv_up_change_b1.visible = false
+			_hide_reward_button(lv_up_change_b1)
 		
 		if reward2 != null:
-			_configure_reward_button(lv_up_change_b2, reward2, rect_ready, rect_off, rect_on, refresh_id, 2)
+			_configure_reward_button(lv_up_change_b2, reward2, rect_ready, rect_off, rect_on, refresh_id, 2, false)
 			_set_reward_button_y(lv_up_change_b2, 101.0 + 350.0)
 		else:
-			lv_up_change_b2.visible = false
+			_hide_reward_button(lv_up_change_b2)
 	else:
 		# 普通升级时，正常配置三个按钮并重置原始位置
 		if reward1 != null:
 			_configure_reward_button(lv_up_change_b1, reward1, rect_ready, rect_off, rect_on, refresh_id, 1)
 			_set_reward_button_y(lv_up_change_b1, 84.0)
 		elif refresh_id == 0 or refresh_id == 1 or refresh_id == REFRESH_ALL_UNLOCKED_ID:
-			lv_up_change_b1.visible = false
+			_hide_reward_button(lv_up_change_b1)
 		
 		if reward2 != null:
 			_configure_reward_button(lv_up_change_b2, reward2, rect_ready, rect_off, rect_on, refresh_id, 2)
 			_set_reward_button_y(lv_up_change_b2, 285.0)
 		elif refresh_id == 0 or refresh_id == 2 or refresh_id == REFRESH_ALL_UNLOCKED_ID:
-			lv_up_change_b2.visible = false
+			_hide_reward_button(lv_up_change_b2)
 		
 		if reward3 != null:
 			_configure_reward_button(lv_up_change_b3, reward3, rect_ready, rect_off, rect_on, refresh_id, 3)
 			_set_reward_button_y(lv_up_change_b3, 486.0)
 		elif refresh_id == 0 or refresh_id == 3 or refresh_id == REFRESH_ALL_UNLOCKED_ID:
-			lv_up_change_b3.visible = false
+			_hide_reward_button(lv_up_change_b3)
 	
 	# 保存当前奖励数据
 	# 普通升级(refresh_id==0)时清空全部；单个刷新时只更新对应位置
@@ -429,6 +432,10 @@ func handle_level_up(main_skill_name: String = '', refresh_id: int = 0,
 
 func _set_reward_button_y(button: Button, y: float) -> void:
 	button.position = Vector2(button.position.x, y)
+
+func _hide_reward_button(button: Button) -> void:
+	_clear_reward_button_rarity_glow(button)
+	button.visible = false
 
 func _dedupe_same_weapon_upgrade_rewards(rewards: Array, locked_flags: Array, base_exclude_ids: Array[String]) -> Array:
 	var used_weapon_keys: Dictionary = {}
@@ -655,7 +662,7 @@ func _set_child_base_buttons_disabled(node: Node, disabled: bool) -> void:
 
 
 # 配置奖励按钮的私有函数
-func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_off: Rect2, rect_on: Rect2, _refresh_id: int, button_id: int):
+func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_off: Rect2, rect_on: Rect2, _refresh_id: int, button_id: int, show_rarity_effects: bool = true):
 	# 配置button内部要显示的数据
 	var lvcb: Sprite2D = button.get_node("Pic")
 	var lvTitle: RichTextLabel = button.get_node("Title")
@@ -703,6 +710,12 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 	lvLabel.text = reward.chinese_faction
 	lvcbd.text = reward.detail
 	_update_reward_buff_hint(button, reward.detail)
+	if show_rarity_effects:
+		_apply_reward_button_rarity_glow(button, reward.rarity)
+	else:
+		_clear_reward_button_rarity_glow(button)
+	if show_rarity_effects and str(reward.rarity).to_lower() == "red" and _should_play_red_reward_flash(_refresh_id, button_id):
+		_play_red_reward_screen_flash()
 	var callback: Callable = Callable(LvUp, reward.on_selected)
 	var connect_array = button.pressed.get_connections()
 	if !connect_array.is_empty():
@@ -717,10 +730,75 @@ func _configure_reward_button(button: Button, reward, rect_ready: Rect2, rect_of
 			_show_level_up_tip("武器数量已达上限")
 			return
 		_on_reward_button_selected(button_id)
+		_record_guide_battle_reward(reward)
 		LvUp._last_applied_reward_faction = reward_faction
 		LvUp._last_applied_reward = reward
 		callback.call()
 	button.pressed.connect(wrapped_callback)
+
+func _apply_reward_button_rarity_glow(button: Button, rarity: String) -> void:
+	_clear_reward_button_rarity_glow(button)
+	var normalized := rarity.to_lower()
+	if normalized != "gold" and normalized != "red":
+		return
+	var glow := REWARD_BUTTON_GLOW_SCRIPT.new() as RewardButtonGlow
+	glow.name = "RewardRarityGlow"
+	button.add_child(glow)
+	button.move_child(glow, 0)
+	glow.setup_for_rarity(normalized, button.size)
+
+func _clear_reward_button_rarity_glow(button: Button) -> void:
+	var glow := button.get_node_or_null("RewardRarityGlow")
+	if glow != null:
+		button.remove_child(glow)
+		glow.queue_free()
+
+func _clear_all_reward_button_rarity_glows() -> void:
+	for button in [lv_up_change_b1, lv_up_change_b2, lv_up_change_b3]:
+		if button != null and is_instance_valid(button):
+			_clear_reward_button_rarity_glow(button)
+
+func _should_play_red_reward_flash(refresh_id: int, button_id: int) -> bool:
+	if _red_reward_flash_played_this_roll:
+		return false
+	if now_main_skill_name != "":
+		return true
+	if refresh_id == 0:
+		return true
+	if refresh_id == button_id:
+		return true
+	if refresh_id == REFRESH_ALL_UNLOCKED_ID:
+		return true
+	return false
+
+func _play_red_reward_screen_flash() -> void:
+	_red_reward_flash_played_this_roll = true
+	var parent := canvas_layer as Node
+	if parent == null:
+		parent = get_tree().root
+	var flash := ColorRect.new()
+	flash.name = "RedRewardScreenFlash"
+	flash.color = Color(1.0, 0.28, 0.04, 0.0)
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flash.process_mode = Node.PROCESS_MODE_ALWAYS
+	flash.z_index = 80
+	flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	parent.add_child(flash)
+	var tween := create_tween()
+	tween.set_ignore_time_scale(true)
+	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_property(flash, "color:a", 0.3, 0.25)
+	tween.tween_property(flash, "color:a", 0.0, 0.25)
+	tween.tween_callback(flash.queue_free)
+
+func _record_guide_battle_reward(reward) -> void:
+	var guide_manager = canvas_layer.get_node_or_null("/root/GuideManager") if canvas_layer != null else null
+	if guide_manager == null:
+		var tree := Engine.get_main_loop() as SceneTree
+		if tree != null:
+			guide_manager = tree.root.get_node_or_null("GuideManager")
+	if guide_manager != null and guide_manager.has_method("record_battle_reward_taken"):
+		guide_manager.record_battle_reward_taken(reward)
 
 func _should_block_main_weapon_reward(reward) -> bool:
 	if reward == null:
@@ -729,9 +807,19 @@ func _should_block_main_weapon_reward(reward) -> bool:
 		return false
 	if bool(reward.if_advance):
 		return false
-	if PC.selected_rewards.has(str(reward.id)):
+	if _is_owned_main_weapon_reward(reward):
 		return false
 	return PC.current_weapon_num >= Global.max_weapon_num
+
+func _is_owned_main_weapon_reward(reward) -> bool:
+	if reward == null:
+		return false
+	if PC.selected_rewards.has(str(reward.id)):
+		return true
+	var faction: String = str(reward.faction)
+	if faction.is_empty():
+		return false
+	return PC.selected_rewards.has(faction)
 
 func _show_level_up_tip(text: String) -> void:
 	if canvas_layer and canvas_layer.has_method("_show_level_up_tip"):
@@ -853,7 +941,7 @@ func configure_reward_button_for_external(button: Button, reward, button_id: int
 	var rect_ready = Rect2(4, 176, 8, 16)
 	var rect_off = Rect2(20, 176, 8, 16)
 	var rect_on = Rect2(36, 176, 8, 16)
-	_configure_reward_button(button, reward, rect_ready, rect_off, rect_on, 0, button_id)
+	_configure_reward_button(button, reward, rect_ready, rect_off, rect_on, 0, button_id, true)
 	var connect_array = button.pressed.get_connections()
 	if !connect_array.is_empty():
 		for conn in connect_array:
@@ -866,6 +954,7 @@ func configure_reward_button_for_external(button: Button, reward, button_id: int
 			_show_level_up_tip("武器数量已达上限")
 			return
 		SEManager.play("212")
+		_record_guide_battle_reward(reward)
 		LvUp._last_applied_reward_faction = reward_faction
 		LvUp._last_applied_reward = reward
 		selected_callback.call(reward)
@@ -886,6 +975,7 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 		return
 	# 清理dark_overlay
 	_cleanup_dark_overlay()
+	_clear_all_reward_button_rarity_glows()
 	
 	var keep_paused_for_next_popup = _skip_next_level_up_delay
 	if not keep_paused_for_next_popup:
@@ -959,6 +1049,12 @@ func check_and_process_pending_level_ups(scene_tree: SceneTree = null, viewport:
 	elif PC.main_skill_zhuazhuajuchui != 0 and PC.main_skill_zhuazhuajuchui_advance < int(PC.main_skill_zhuazhuajuchui / 3.0):
 		PC.main_skill_zhuazhuajuchui_advance += 1
 		handle_level_up("Zhuazhuajuchui", 0, scene_tree, viewport)
+	elif PC.main_skill_soul_sickle != 0 and PC.main_skill_soul_sickle_advance < int(PC.main_skill_soul_sickle / 3.0):
+		PC.main_skill_soul_sickle_advance += 1
+		handle_level_up("SoulSickle", 0, scene_tree, viewport)
+	elif PC.main_skill_thunder_gun != 0 and PC.main_skill_thunder_gun_advance < int(PC.main_skill_thunder_gun / 3.0):
+		PC.main_skill_thunder_gun_advance += 1
+		handle_level_up("ThunderGun", 0, scene_tree, viewport)
 	elif PC.main_skill_yujian != 0 and PC.main_skill_yujian_advance < int(PC.main_skill_yujian / 3.0):
 		PC.main_skill_yujian_advance += 1
 		handle_level_up("Yujian", 0, scene_tree, viewport)
@@ -1033,6 +1129,12 @@ func pop_next_pending_advance_name() -> String:
 	if PC.main_skill_zhuazhuajuchui != 0 and PC.main_skill_zhuazhuajuchui_advance < int(PC.main_skill_zhuazhuajuchui / 3.0):
 		PC.main_skill_zhuazhuajuchui_advance += 1
 		return "Zhuazhuajuchui"
+	if PC.main_skill_soul_sickle != 0 and PC.main_skill_soul_sickle_advance < int(PC.main_skill_soul_sickle / 3.0):
+		PC.main_skill_soul_sickle_advance += 1
+		return "SoulSickle"
+	if PC.main_skill_thunder_gun != 0 and PC.main_skill_thunder_gun_advance < int(PC.main_skill_thunder_gun / 3.0):
+		PC.main_skill_thunder_gun_advance += 1
+		return "ThunderGun"
 	if PC.main_skill_yujian != 0 and PC.main_skill_yujian_advance < int(PC.main_skill_yujian / 3.0):
 		PC.main_skill_yujian_advance += 1
 		return "Yujian"
@@ -1124,6 +1226,14 @@ func pop_pending_advance_name_for(main_skill_name: String) -> String:
 			if PC.main_skill_zhuazhuajuchui != 0 and PC.main_skill_zhuazhuajuchui_advance < int(PC.main_skill_zhuazhuajuchui / 3.0):
 				PC.main_skill_zhuazhuajuchui_advance += 1
 				return "Zhuazhuajuchui"
+		"SoulSickle":
+			if PC.main_skill_soul_sickle != 0 and PC.main_skill_soul_sickle_advance < int(PC.main_skill_soul_sickle / 3.0):
+				PC.main_skill_soul_sickle_advance += 1
+				return "SoulSickle"
+		"ThunderGun":
+			if PC.main_skill_thunder_gun != 0 and PC.main_skill_thunder_gun_advance < int(PC.main_skill_thunder_gun / 3.0):
+				PC.main_skill_thunder_gun_advance += 1
+				return "ThunderGun"
 		"Yujian":
 			if PC.main_skill_yujian != 0 and PC.main_skill_yujian_advance < int(PC.main_skill_yujian / 3.0):
 				PC.main_skill_yujian_advance += 1
@@ -1165,6 +1275,7 @@ func _on_level_up_selection_complete(_viewport: Viewport = null) -> void:
 		canvas_layer.set_level_up_exit_button_visible(false)
 	# 清理升级选择时创建的背景变暗效果
 	_cleanup_dark_overlay()
+	_clear_all_reward_button_rarity_glows()
 	# 清空当前界面临时锁定数据
 	if not tentative_locked_rewards.is_empty():
 		print("[Lock] 界面关闭，清空临时锁定数据: ", tentative_locked_rewards.keys())
@@ -1242,6 +1353,7 @@ func handle_refresh_button(refresh_id: int, scene_tree: SceneTree = null, viewpo
 		return
 	if PC.refresh_num > 0:
 		PC.refresh_num -= 1
+		AchievementManager.record_level_up_refresh()
 	
 	# 只有在当前升级界面确实是主技能进阶时才传递main_skill_name
 	# 通过检查当前是否有有效的main_skill_name来判断
@@ -1256,6 +1368,7 @@ func handle_refresh_unlocked_buttons(scene_tree: SceneTree = null, viewport: Vie
 	if PC.refresh_num <= 0:
 		return
 	PC.refresh_num -= 1
+	AchievementManager.record_level_up_refresh()
 	handle_level_up("", REFRESH_ALL_UNLOCKED_ID, scene_tree, viewport)
 
 func handle_refresh_button_without_cost(refresh_id: int, scene_tree: SceneTree = null, viewport: Viewport = null) -> void:
@@ -1356,6 +1469,7 @@ func _cleanup_dark_overlay() -> void:
 # 强制清理升级界面（战败时调用，防止游戏卡死）
 func _force_cleanup_level_up_ui() -> void:
 	_cleanup_dark_overlay()
+	_clear_all_reward_button_rarity_glows()
 	if lv_up_change:
 		lv_up_change.visible = false
 		lv_up_change.modulate.a = 1.0
@@ -1388,6 +1502,7 @@ func _force_cleanup_level_up_ui() -> void:
 
 func _resolve_poetry_level_up_without_popup(scene_tree: SceneTree = null, apply_level_growth: bool = true) -> void:
 	_cleanup_dark_overlay()
+	_clear_all_reward_button_rarity_glows()
 	if lv_up_change:
 		lv_up_change.visible = false
 		lv_up_change.modulate.a = 1.0
@@ -1452,6 +1567,8 @@ func _clear_poetry_advance_pending() -> void:
 	PC.main_skill_dragonwind_advance = int(PC.main_skill_dragonwind / 3.0)
 	PC.main_skill_holylight_advance = int(PC.main_skill_holylight / 3.0)
 	PC.main_skill_zhuazhuajuchui_advance = int(PC.main_skill_zhuazhuajuchui / 3.0)
+	PC.main_skill_soul_sickle_advance = int(PC.main_skill_soul_sickle / 3.0)
+	PC.main_skill_thunder_gun_advance = int(PC.main_skill_thunder_gun / 3.0)
 	PC.main_skill_yujian_advance = int(PC.main_skill_yujian / 3.0)
 
 func pause_battle_for_external_popup(scene_tree: SceneTree) -> void:
@@ -1674,6 +1791,10 @@ func _check_any_advance_pending() -> bool:
 		return true
 	if PC.main_skill_zhuazhuajuchui != 0 and PC.main_skill_zhuazhuajuchui_advance < int(PC.main_skill_zhuazhuajuchui / 3.0):
 		return true
+	if PC.main_skill_soul_sickle != 0 and PC.main_skill_soul_sickle_advance < int(PC.main_skill_soul_sickle / 3.0):
+		return true
+	if PC.main_skill_thunder_gun != 0 and PC.main_skill_thunder_gun_advance < int(PC.main_skill_thunder_gun / 3.0):
+		return true
 	if PC.main_skill_yujian != 0 and PC.main_skill_yujian_advance < int(PC.main_skill_yujian / 3.0):
 		return true
 	return false
@@ -1702,6 +1823,8 @@ func count_pending_advances() -> int:
 	if PC.main_skill_dragonwind != 0 and PC.main_skill_dragonwind_advance < int(PC.main_skill_dragonwind / 3.0): count += 1
 	if PC.main_skill_holylight != 0 and PC.main_skill_holylight_advance < int(PC.main_skill_holylight / 3.0): count += 1
 	if PC.main_skill_zhuazhuajuchui != 0 and PC.main_skill_zhuazhuajuchui_advance < int(PC.main_skill_zhuazhuajuchui / 3.0): count += 1
+	if PC.main_skill_soul_sickle != 0 and PC.main_skill_soul_sickle_advance < int(PC.main_skill_soul_sickle / 3.0): count += 1
+	if PC.main_skill_thunder_gun != 0 and PC.main_skill_thunder_gun_advance < int(PC.main_skill_thunder_gun / 3.0): count += 1
 	if PC.main_skill_yujian != 0 and PC.main_skill_yujian_advance < int(PC.main_skill_yujian / 3.0): count += 1
 	return count
 

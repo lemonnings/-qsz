@@ -101,13 +101,15 @@ func _process(delta: float) -> void:
 	$TextureProgressBar.value = int(($Timer.time_left / cooldown_time) * 100)
 
 func _on_timer_timeout() -> void:
-	$Timer.start()
 	$TextureProgressBar.value = 100
 	if skill_id == 1:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete", skill_id)
 	elif skill_id == 2:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_branch", skill_id)
 	elif skill_id == 3:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_moyan", skill_id)
 	elif skill_id == 4:
 		$Timer.stop()
@@ -116,37 +118,69 @@ func _on_timer_timeout() -> void:
 		$Timer.stop()
 		Global.emit_signal("skill_cooldown_complete_ringFire", skill_id)
 	elif skill_id == 6:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_thunder", skill_id)
 	elif skill_id == 7:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_bloodwave", skill_id)
 	elif skill_id == 8:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_bloodboardsword", skill_id)
 	elif skill_id == 9:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_ice", skill_id)
 	elif skill_id == 10:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_thunder_break", skill_id)
 	elif skill_id == 11:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_light_bullet", skill_id)
 	elif skill_id == 12:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_water", skill_id)
 	elif skill_id == 13:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_qiankun", skill_id)
 	elif skill_id == 14:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_xuanwu", skill_id)
 	elif skill_id == 15:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_xunfeng", skill_id)
 	elif skill_id == 16:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_genshan", skill_id)
 	elif skill_id == 17:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_duize", skill_id)
 	elif skill_id == 18:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_holylight", skill_id)
 	elif skill_id == 19:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_qigong", skill_id)
 	elif skill_id == 20:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_dragonwind", skill_id)
 	elif skill_id == 21:
+		$Timer.start()
 		Global.emit_signal("skill_cooldown_complete_zhuazhuajuchui", skill_id)
+	elif skill_id == 23:
+		$Timer.start()
+		Global.emit_signal("skill_cooldown_complete_soul_sickle", skill_id)
+	elif skill_id == 24:
+		Global.emit_signal("skill_cooldown_complete_thunder_gun", skill_id)
+		_restart_thunder_gun_timer_from_player()
+
+func _restart_thunder_gun_timer_from_player() -> void:
+	var new_cooldown := cooldown_time
+	if PC.player_instance != null and is_instance_valid(PC.player_instance):
+		var player_timer = PC.player_instance.get("thunder_gun_fire_speed")
+		if player_timer is Timer:
+			new_cooldown = maxf(0.01, player_timer.wait_time)
+	cooldown_time = new_cooldown
+	$Timer.start(new_cooldown)
+	$Timer.wait_time = new_cooldown
 
 func stop_cooldown() -> void:
 	$Timer.stop()

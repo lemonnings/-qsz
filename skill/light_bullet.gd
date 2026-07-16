@@ -29,7 +29,7 @@ var base_sprite_scale: Vector2 = Vector2(0.3, 0.3)
 var base_collision_scale: Vector2 = Vector2(0.24, 0.24)
 
 func _ready() -> void:
-	CharacterEffects.include_enemy_collision_mask(self)
+	CharacterEffects.include_enemy_collision_mask(self )
 	if not sprite:
 		sprite = get_node_or_null("AnimatedSprite2D")
 	if not collision_shape:
@@ -125,12 +125,12 @@ func _deal_damage(enemy: Area2D) -> void:
 		is_crit = true
 		final_damage *= PC.crit_damage_multi
 	
-	# 如果是光弹伤害，需要考虑蓄光debuff的增伤
-	# 但蓄光debuff是增加受到的光弹伤害，这个逻辑应该在 enemy_debuff_manager.gd 中处理
+	# 如果是光弹术伤害，需要考虑蓄光debuff的增伤
+	# 但蓄光debuff是增加受到的光弹术伤害，这个逻辑应该在 enemy_debuff_manager.gd 中处理
 	# 这里只需要确保 enemy_debuff_manager 能够识别伤害来源或者伤害类型
 	# 或者我们手动计算增伤？
 	# 查看 enemy_debuff_manager.gd，damage_taken_multiplier 是通用的。
-	# 但题目描述是“每层提升其受到光弹伤害5%”。这意味着只对光弹有效。
+	# 但题目描述是“每层提升其受到光弹术伤害5%”。这意味着只对光弹术有效。
 	# 这是一个特殊的增伤。
 	# 我们可以检查敌人是否有 light_accumulation debuff，如果有，增加本次伤害。
 	

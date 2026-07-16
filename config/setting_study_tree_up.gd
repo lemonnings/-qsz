@@ -15,7 +15,8 @@ class_name SettingStudyTreeUp
 # "wind"       = 啸风系      "thunder"  = 鸣雷系(子类)
 # "wide"       = 广域系      "bagua"    = 八卦系(子类)
 # "life"       = 生灵系      "heal"     = 治愈系(子类)
-# "destroy"    = 破坏系      "treasure" = 宝器系(子类)      "deep" = 沉渊系
+# "destroy"    = 破坏系      "treasure" = 宝器系(子类)
+# "blood"      = 浴血系      "deep" = 沉渊系      "shehun" = 摄魂系
 
 const WEAPON_CATEGORY_MAP: Dictionary = {
 	# 四个角色基础武器（受主武器强化影响）
@@ -37,10 +38,11 @@ const WEAPON_CATEGORY_MAP: Dictionary = {
 	"dragonwind": ["wind"],
 	# 啸风系 > 鸣雷系
 	"thunder": ["wind", "thunder", "bagua"],
-	"thunder_break": ["wind", "thunder"],
+	"thunder_break": ["destroy", "thunder"],
+	"thunder_gun": ["thunder", "shehun"],
 	# 广域系
-	"bloodwave": ["wide"],
-	"bloodboardsword": ["wide"],
+	"bloodwave": ["wide", "blood"],
+	"bloodboardsword": ["wide", "blood"],
 	# 广域系 > 八卦系
 	"duize": ["wide", "bagua"],
 	# 生灵系
@@ -51,16 +53,15 @@ const WEAPON_CATEGORY_MAP: Dictionary = {
 	"branch": ["destroy", "treasure"],
 	"xuanwu": ["destroy", "treasure"],
 	# 沉渊系
-	"zhuazhuajuchui": ["deep"],
+	"zhuazhuajuchui": ["deep", "blood"],
 	"handizhang": ["deep"],
-	"shihunlian": ["deep"],
-	"faze_deep": ["deep"],
+	"shihunlian": ["deep", "shehun"],
+	"soul_sickle": ["deep", "shehun"],
 	# ---- 别名映射：take_damage(damage_type) 与 WEAPON_CATEGORY_MAP key 不一致的武器 ----
 	"ice_flower": ["main", "destroy"], # ice_flower.gd 使用 "ice_flower"，等同 "ice"
-	"blood_wave": ["wide"], # blood_wave.gd 使用 "blood_wave"，等同 "bloodwave"
-	"blood_broadsword": ["wide"], # blood_broadsword.gd 使用 "blood_broadsword"，等同 "bloodboardsword"
+	"blood_wave": ["wide", "blood"], # blood_wave.gd 使用 "blood_wave"，等同 "bloodwave"
+	"blood_broadsword": ["wide", "blood"], # blood_broadsword.gd 使用 "blood_broadsword"，等同 "bloodboardsword"
 	"ringFire": ["sword", "fire", "bagua"], # fire_instance.gd 使用 "ringFire"，等同 "ringfire"
-	"faze_thunder_strike": ["thunder", "bagua"],
 }
 
 # 分类标识 → Global 上对应的变量名
@@ -78,7 +79,9 @@ const CATEGORY_BONUS_MAP: Dictionary = {
 	"bagua": "study_bagua_damage_bonus",
 	"heal": "study_heal_damage_bonus",
 	"treasure": "study_treasure_damage_bonus",
-	"deep": "",
+	"blood": "study_blood_damage_bonus",
+	"deep": "study_deep_damage_bonus",
+	"shehun": "study_shehun_damage_bonus",
 }
 
 static var _total_damage_bonus_cache: Dictionary = {}
@@ -122,6 +125,15 @@ static func _apply_damage_bonuses() -> void:
 
 	# weapon2-10 破坏系 — 每级 +4%，上限 3 级
 	Global.study_destroy_damage_bonus = t.get("weapon2-10", 0) * 0.04
+
+	# weapon2-2  浴血系 — 每级 +4%，上限 3 级
+	Global.study_blood_damage_bonus = t.get("weapon2-2", 0) * 0.04
+
+	# weapon2-5  沉渊系 — 每级 +4%，上限 3 级
+	Global.study_deep_damage_bonus = t.get("weapon2-5", 0) * 0.04
+
+	# weapon2-7  摄魂系 — 每级 +4%，上限 3 级
+	Global.study_shehun_damage_bonus = t.get("weapon2-7", 0) * 0.04
 
 	# weapon2-1-1  炽炎系 — 每级 +4%，上限 3 级
 	Global.study_fire_damage_bonus = t.get("weapon2-1-1", 0) * 0.04
@@ -212,6 +224,8 @@ static func _get_law_weapon_damage_bonus(category: String) -> float:
 			return Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.get_lucky_level()) - 1.0
 		"deep":
 			return Faze.get_deep_weapon_damage_bonus(PC.faze_deep_level)
+		"shehun":
+			return Faze.get_shehun_weapon_damage_multiplier(PC.faze_shehun_level) - 1.0
 	return 0.0
 
 

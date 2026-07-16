@@ -103,7 +103,7 @@ func _ready():
 
 	attack_timer = Timer.new()
 	add_child(attack_timer)
-	attack_timer.wait_time = 2.0
+	attack_timer.wait_time = 1.0 if _is_poetry() else 2.0
 	attack_timer.timeout.connect(_choose_attack)
 	attack_timer.start()
 	
@@ -386,7 +386,7 @@ func _deal_combo_ray_damage_ignore_invincible(ray_width: float):
 	else:
 		print("[腐蚀连击-无视无敌] 未命中")
 
-## 3. 腐蚀风暴 (长读条4秒, 300%伤害, 增加释放前检测逻辑)
+## 3. 腐蚀风暴 (普通读条4秒，诗想读条2.5秒, 300%伤害, 增加释放前检测逻辑)
 func _skill_corrosive_storm():
 	SEManager.play("122")
 	# 检查 Boss 是否站在拘束圈上
@@ -430,16 +430,17 @@ func _skill_corrosive_storm():
 			is_attacking = false
 			return
 
-	Global.emit_signal("boss_chant_start", "腐蚀风暴", 4.0)
+	var storm_chant_duration := 2.5 if _is_poetry() else 4.0
+	Global.emit_signal("boss_chant_start", "腐蚀风暴", storm_chant_duration)
 	var screen_filter: Dictionary = _create_non_blocking_screen_filter(Color(0.0, 0.4, 0.1, 0.0))
 	var canvas: CanvasLayer = screen_filter["canvas"]
 	var filter: ColorRect = screen_filter["filter"]
-	var tw = create_tween(); tw.tween_property(filter, "color:a", 0.3, 3.5)
+	var tw = create_tween(); tw.tween_property(filter, "color:a", 0.3, maxf(storm_chant_duration - 0.5, 0.1))
 	
 	var elapsed = 0.0
 	var particle_spawn_interval := 0.15 # 每0.15秒生成一次粒子，而非每帧
 	var particle_timer := 0.0
-	while elapsed < 4.0:
+	while elapsed < storm_chant_duration:
 		if is_dead: break
 		if get_tree().paused:
 			await get_tree().process_frame
@@ -642,10 +643,12 @@ func _skill_cross_ray():
 	effect.ray_width = ray_width
 	effect.attacker = self
 	effect.damage_val = atk * 1.0 # 100%倍率
+	effect.rotation_direction = 1.0 if randf() < 0.5 else -1.0
+	effect.rotation_duration = 2.0 / 1.3 if _is_poetry() else 2.0
 	get_tree().current_scene.add_child(effect)
 	
-	# 等待整个特效完成（0.5静态 + 2.0旋转 + 0.3消散 = 2.8秒）
-	await get_tree().create_timer(2.8).timeout
+	# 等待整个特效完成（0.5静态 + 旋转阶段 + 0.3消散）
+	await get_tree().create_timer(0.5 + effect.rotation_duration + 0.3).timeout
 	_finish_skill()
 
 # ================= 机制管理 =================
@@ -1140,7 +1143,7 @@ class _TargetIcon extends Node2D:
 		var c = Color.RED; var outline = Color.BLACK
 		draw_rect(Rect2(-4, y_off - 18, 8, 16), outline); draw_rect(Rect2(-4, y_off, 8, 6), outline); draw_rect(Rect2(-2, y_off - 16, 4, 12), c); draw_rect(Rect2(-2, y_off + 2, 4, 4), c)
 
-# 十字射线特效：参考腐蚀射线的像素风格，静态显示0.5秒后旋转360度
+# 十字射线特效：参考腐蚀射线的像素风格，静态显示0.5秒后开始旋转
 class _CrossRayEffect extends Node2D:
 	var t := 0.0
 	var ray_width := 30.0
@@ -1149,6 +1152,8 @@ class _CrossRayEffect extends Node2D:
 	var damage_val := 0.0
 	var hit_cooldown := 0.0
 	var phase := 0 # 0=静态展示 1=旋转 2=消散
+	var rotation_direction := 1.0
+	var rotation_duration := 2.0
 	var _pos_cache: PackedFloat32Array = []
 	# 预缓存每列的随机高度偏移（避免每帧randf导致闪烁+性能开销）
 	var _h_offsets_h: PackedFloat32Array = [] # 水平臂外层
@@ -1183,8 +1188,8 @@ class _CrossRayEffect extends Node2D:
 				phase = 1
 				t = 0.0
 		elif phase == 1:
-			# 旋转阶段：2秒严格旋转360度（一圈），不超过
-			rotation = clampf((t / 2.0) * (TAU / 4.0), 0.0, TAU / 4.0)
+			# 旋转阶段：十字射线旋转90度即可覆盖一轮完整扫掠
+			rotation = rotation_direction * clampf((t / rotation_duration) * (TAU / 4.0), 0.0, TAU / 4.0)
 			queue_redraw()
 			# 碰撞检测保持每帧执行（使用最新rotation）
 			hit_cooldown -= delta
@@ -1198,9 +1203,9 @@ class _CrossRayEffect extends Node2D:
 				if hit_horizontal or hit_vertical:
 					hit_cooldown = 0.5
 					PC.player_hit(int(damage_val * (1.0 - PC.damage_reduction_rate)), attacker, "腐蚀轮转")
-			if t >= 2.0:
+			if t >= rotation_duration:
 				phase = 2
-				rotation = TAU
+				rotation = rotation_direction * (TAU / 4.0)
 				t = 0.0
 		elif phase == 2:
 			# 消散阶段：保持rotation不动
@@ -1269,7 +1274,7 @@ class _CrossRayWarn extends Node2D:
 
 func _start_black_ball_timer():
 	black_ball_timer = Timer.new()
-	black_ball_timer.wait_time = 8.0
+	black_ball_timer.wait_time = 6.0
 	black_ball_timer.one_shot = false
 	black_ball_timer.timeout.connect(_spawn_black_ball)
 	add_child(black_ball_timer)

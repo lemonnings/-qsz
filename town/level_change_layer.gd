@@ -30,6 +30,13 @@ extends CanvasLayer
 @onready var core_depth_left_button: Button = $Control/left
 
 @onready var poey_bonus_label: RichTextLabel = $Control/poeyBounsText
+@onready var mijing_panel: Panel = $Mijing
+@onready var mijing_button_1: Button = $Mijing/Button
+@onready var mijing_button_2: Button = $Mijing/Button2
+@onready var mijing_button_3: Button = $Mijing/Button3
+@onready var mijing_key_1: RichTextLabel = $Mijing/key1
+@onready var mijing_key_2: RichTextLabel = $Mijing/key2
+@onready var mijing_key_3: RichTextLabel = $Mijing/key3
 
 const TOOLTIP_FONT_SIZE := 24
 const MOUSE_OFFSET := Vector2(34, 24)
@@ -106,15 +113,40 @@ var _selected_difficulty: String = Global.STAGE_DIFFICULTY_SHALLOW
 var _lock_texture: AtlasTexture = null
 var _difficulty_lock_overlays: Dictionary = {}
 var _stage_lock_overlays: Dictionary = {}
+var _mijing_buttons: Dictionary = {}
+var _mijing_key_labels: Dictionary = {}
+var _mijing_lock_overlays: Dictionary = {}
 var _core_bonus_controls: Array[Control] = []
 var _core_bonus_tween: Tween = null
 var _poetry_bonus_controls: Array[Control] = []
 var _poetry_bonus_tween: Tween = null
+var _hovered_mijing_id: String = ""
 
 const LOCK_ICON_TEXTURE_PATH := "res://AssetBundle/Sprites/Sprite sheets/Sprite sheet for Basic Pack.png"
 const LOCK_ICON_REGION := Rect2(496, 160, 16, 16)
 const DIFFICULTY_LOCK_SCALE := 3.0
 const STAGE_LOCK_SCALE := 3.2
+const MIJING_LOCK_SCALE := STAGE_LOCK_SCALE
+const MIJING_DIFU_ID := "difu"
+const MIJING_KONGMENG_ID := "kongmeng"
+const MIJING_DIYU_ID := "diyu"
+const MIJING_INFO := {
+	MIJING_DIFU_ID: {
+		"stage_id": "difu",
+		"stage_name": "九幽冥府",
+		"stage_desc": "传说是通向死者之都的第一道关卡，而现在里面充斥着大量狂暴的魂灵。"
+	},
+	MIJING_KONGMENG_ID: {
+		"stage_id": "",
+		"stage_name": "空濛秘境",
+		"stage_desc": "当前秘境暂未开放。"
+	},
+	MIJING_DIYU_ID: {
+		"stage_id": "",
+		"stage_name": "地狱秘境",
+		"stage_desc": "当前秘境暂未开放。"
+	}
+}
 
 func _ready() -> void:
 	_stage_buttons = {
@@ -151,13 +183,14 @@ func _ready() -> void:
 	_create_tooltip_panel()
 	_connect_rect_input_events()
 	_connect_difficulty_buttons()
+	_setup_mijing_controls()
 	_setup_core_bonus_controls()
 	_setup_poetry_bonus_controls()
 	_fix_difficulty_button_hit_areas()
 	prepare_for_open()
 
 func _process(_delta: float) -> void:
-	if _hovered_stage_key.is_empty():
+	if _hovered_stage_key.is_empty() and _hovered_mijing_id.is_empty():
 		return
 	if _tooltip_panel == null or not _tooltip_panel.visible:
 		return
@@ -180,6 +213,7 @@ func prepare_for_open() -> void:
 		poetry_button.visible = Global.is_stage_cleared("cave")
 	_refresh_lock_visuals()
 	_apply_difficulty_button_visual()
+	_update_mijing_ui()
 
 func reset_stage_tooltip_state() -> void:
 	prepare_for_open()
@@ -218,6 +252,92 @@ func _connect_difficulty_buttons() -> void:
 		var button := _difficulty_button_map[difficulty_id] as Button
 		if button != null and not button.pressed.is_connected(_on_difficulty_button_pressed.bind(difficulty_id)):
 			button.pressed.connect(_on_difficulty_button_pressed.bind(difficulty_id))
+
+func _setup_mijing_controls() -> void:
+	_mijing_buttons = {
+		MIJING_DIFU_ID: mijing_button_1,
+		MIJING_KONGMENG_ID: mijing_button_2,
+		MIJING_DIYU_ID: mijing_button_3
+	}
+	_mijing_key_labels = {
+		MIJING_DIFU_ID: mijing_key_1,
+		MIJING_KONGMENG_ID: mijing_key_2,
+		MIJING_DIYU_ID: mijing_key_3
+	}
+	for label in _mijing_key_labels.values():
+		var key_label := label as RichTextLabel
+		if key_label != null:
+			key_label.bbcode_enabled = true
+	for mijing_id in _mijing_buttons.keys():
+		var button := _mijing_buttons[mijing_id] as Button
+		if button == null:
+			continue
+		if not button.pressed.is_connected(_on_mijing_button_pressed.bind(mijing_id)):
+			button.pressed.connect(_on_mijing_button_pressed.bind(mijing_id))
+		if not button.mouse_entered.is_connected(_on_mijing_mouse_entered.bind(mijing_id)):
+			button.mouse_entered.connect(_on_mijing_mouse_entered.bind(mijing_id))
+		if not button.mouse_exited.is_connected(_on_mijing_mouse_exited.bind(mijing_id)):
+			button.mouse_exited.connect(_on_mijing_mouse_exited.bind(mijing_id))
+
+func _has_any_mijing_unlocked() -> bool:
+	for mijing_id in _mijing_buttons.keys():
+		if _is_mijing_unlocked(str(mijing_id)):
+			return true
+	return false
+
+func _is_mijing_unlocked(mijing_id: String) -> bool:
+	if mijing_id == MIJING_DIFU_ID:
+		return Global.is_difu_mijing_unlocked()
+	return false
+
+func _get_mijing_stage_id(mijing_id: String) -> String:
+	var info: Dictionary = MIJING_INFO.get(mijing_id, {})
+	return str(info.get("stage_id", ""))
+
+func _is_mijing_difficulty_unlocked(mijing_id: String) -> bool:
+	if not _is_mijing_unlocked(mijing_id):
+		return false
+	if _selected_difficulty == Global.STAGE_DIFFICULTY_POETRY:
+		return false
+	var stage_id := _get_mijing_stage_id(mijing_id)
+	if stage_id.is_empty():
+		return false
+	if _selected_difficulty == Global.STAGE_DIFFICULTY_CORE:
+		return Global.can_enter_core_depth(stage_id, Global.selected_core_depth)
+	return Global.can_enter_stage_difficulty(stage_id, _selected_difficulty)
+
+func _get_mijing_key_requirement(mijing_id: String) -> Dictionary:
+	var stage_id := _get_mijing_stage_id(mijing_id)
+	if stage_id.is_empty() or _selected_difficulty == Global.STAGE_DIFFICULTY_POETRY:
+		return {"item_id": "", "required": 0}
+	return Global.get_mijing_stage_key_requirement(stage_id, _selected_difficulty, Global.selected_core_depth)
+
+func _update_mijing_ui() -> void:
+	if mijing_panel == null:
+		return
+	var panel_visible := _has_any_mijing_unlocked()
+	mijing_panel.visible = panel_visible
+	if not panel_visible:
+		return
+	_ensure_mijing_lock_overlays()
+	for mijing_id in _mijing_buttons.keys():
+		var id := str(mijing_id)
+		var button := _mijing_buttons[id] as Button
+		var key_label := _mijing_key_labels[id] as RichTextLabel
+		var unlocked := _is_mijing_unlocked(id)
+		var difficulty_unlocked := _is_mijing_difficulty_unlocked(id)
+		var requirement := _get_mijing_key_requirement(id)
+		var item_id := str(requirement.get("item_id", ""))
+		var required_count := int(requirement.get("required", 0))
+		var owned_count := Global.get_item_count(item_id) if not item_id.is_empty() else 0
+		var count_color := "green" if required_count > 0 and owned_count >= required_count else "#777"
+		if key_label != null:
+			key_label.text = "[color=%s]%d[/color] / %d" % [count_color, owned_count, required_count]
+		if button != null:
+			button.modulate = Color(1, 1, 1, 1) if difficulty_unlocked else Color(0.45, 0.45, 0.45, 0.95)
+		var overlay := _mijing_lock_overlays.get(id) as Sprite2D
+		if overlay != null:
+			overlay.visible = not difficulty_unlocked
 
 func _setup_core_bonus_controls() -> void:
 	_core_bonus_controls.clear()
@@ -288,8 +408,11 @@ func _on_difficulty_button_pressed(difficulty_id: String) -> void:
 		if Global.selected_core_depth < global_start_depth:
 			Global.set_selected_core_depth(global_start_depth)
 	_apply_difficulty_button_visual()
+	_update_mijing_ui()
 	if not _hovered_stage_key.is_empty():
 		_show_stage_tooltip(_hovered_stage_key)
+	if not _hovered_mijing_id.is_empty():
+		_show_mijing_tooltip(_hovered_mijing_id)
 
 # 给当前选中的难度按钮一个直观的高亮
 func _apply_difficulty_button_visual() -> void:
@@ -312,8 +435,11 @@ func _on_core_depth_left_pressed() -> void:
 	Global.set_selected_core_depth(Global.selected_core_depth - 1)
 	_update_core_bonus_ui(false)
 	_refresh_lock_visuals()
+	_update_mijing_ui()
 	if not _hovered_stage_key.is_empty():
 		_show_stage_tooltip(_hovered_stage_key)
+	if not _hovered_mijing_id.is_empty():
+		_show_mijing_tooltip(_hovered_mijing_id)
 
 func _on_core_depth_right_pressed() -> void:
 	if Global.selected_core_depth >= Global.get_global_max_unlocked_core_depth():
@@ -321,8 +447,11 @@ func _on_core_depth_right_pressed() -> void:
 	Global.set_selected_core_depth(Global.selected_core_depth + 1)
 	_update_core_bonus_ui(false)
 	_refresh_lock_visuals()
+	_update_mijing_ui()
 	if not _hovered_stage_key.is_empty():
 		_show_stage_tooltip(_hovered_stage_key)
+	if not _hovered_mijing_id.is_empty():
+		_show_mijing_tooltip(_hovered_mijing_id)
 
 func _update_core_bonus_ui(animate_visibility: bool) -> void:
 	var should_show := _selected_difficulty == Global.STAGE_DIFFICULTY_CORE
@@ -524,6 +653,29 @@ func _ensure_stage_lock_overlays() -> void:
 		rect.add_child(overlay)
 		_stage_lock_overlays[stage_key] = overlay
 
+func _ensure_mijing_lock_overlays() -> void:
+	if _lock_texture == null or mijing_panel == null:
+		return
+	for mijing_id in _mijing_buttons.keys():
+		if is_instance_valid(_mijing_lock_overlays.get(mijing_id)):
+			continue
+		var button := _mijing_buttons[mijing_id] as Button
+		if button == null:
+			continue
+		var overlay := _create_lock_sprite(MIJING_LOCK_SCALE)
+		if overlay == null:
+			continue
+		overlay.name = "%s_lock_overlay" % str(mijing_id)
+		overlay.z_index = 240
+		mijing_panel.add_child(overlay)
+		_mijing_lock_overlays[mijing_id] = overlay
+
+func _get_mijing_lock_local_position(mijing_id: String) -> Vector2:
+	var button := _mijing_buttons.get(mijing_id) as Button
+	if button == null:
+		return Vector2.ZERO
+	return button.position + button.size * button.scale * 0.5
+
 func _get_stage_lock_local_position(stage_key: String) -> Vector2:
 	var rect := _stage_rect_map.get(stage_key) as Area2D
 	if rect == null:
@@ -536,6 +688,7 @@ func _get_stage_lock_local_position(stage_key: String) -> Vector2:
 func _refresh_lock_visuals() -> void:
 	_ensure_difficulty_lock_overlays()
 	_ensure_stage_lock_overlays()
+	_ensure_mijing_lock_overlays()
 	for difficulty_id in _difficulty_button_map.keys():
 		var button := _difficulty_button_map[difficulty_id] as Button
 		var overlay := _difficulty_lock_overlays.get(difficulty_id) as Sprite2D
@@ -548,6 +701,11 @@ func _refresh_lock_visuals() -> void:
 			continue
 		overlay.position = _get_stage_lock_local_position(stage_key)
 		overlay.visible = _should_show_stage_lock(stage_key)
+	for mijing_id in _mijing_buttons.keys():
+		var overlay := _mijing_lock_overlays.get(mijing_id) as Sprite2D
+		if overlay != null:
+			overlay.position = _get_mijing_lock_local_position(str(mijing_id))
+			overlay.visible = not _is_mijing_difficulty_unlocked(str(mijing_id))
 
 func _is_stage_available(stage_key: String) -> bool:
 	return STAGE_INFO.get(stage_key, {}).get("available", false) == true
@@ -784,9 +942,110 @@ func _on_rect_input_event(_viewport: Node, event: InputEvent, _shape_idx: int, s
 	if button != null:
 		button.pressed.emit()
 
+func _get_mijing_locked_message(mijing_id: String) -> String:
+	var info: Dictionary = MIJING_INFO.get(mijing_id, {})
+	var mijing_name := str(info.get("stage_name", "该秘境"))
+	if mijing_id == MIJING_KONGMENG_ID:
+		return "需要先通关陆 · 幽域，才能开启空濛秘境。"
+	if mijing_id == MIJING_DIYU_ID:
+		return "需要先通关捌 · 次元裂隙，才能开启地狱秘境。"
+	if _selected_difficulty == Global.STAGE_DIFFICULTY_POETRY:
+		return "诗想难度暂未开放。"
+	var stage_id := _get_mijing_stage_id(mijing_id)
+	if _selected_difficulty == Global.STAGE_DIFFICULTY_CORE:
+		var target_depth := Global.clamp_core_depth(Global.selected_core_depth)
+		var unlocked_depth := Global.get_stage_max_unlocked_core_depth(stage_id)
+		if unlocked_depth <= 0:
+			return "需要先通关%s的深层，才能开启核心进阶1层。" % mijing_name
+		return "需要先通关%s的核心进阶%d层，才能开启核心进阶%d层。" % [
+			mijing_name,
+			max(1, target_depth - 1),
+			target_depth
+		]
+	var required_difficulty := Global.get_required_stage_clear_difficulty(_selected_difficulty)
+	if required_difficulty.is_empty():
+		return "%s当前暂未解锁。" % mijing_name
+	return "需要先通关%s的%s，才能进入%s。" % [
+		mijing_name,
+		Global.get_stage_difficulty_display_name(required_difficulty),
+		Global.get_stage_difficulty_display_name(_selected_difficulty)
+	]
+
+func _get_mijing_key_status_text(mijing_id: String) -> String:
+	var requirement := _get_mijing_key_requirement(mijing_id)
+	var item_id := str(requirement.get("item_id", ""))
+	var required_count := int(requirement.get("required", 0))
+	var owned_count := Global.get_item_count(item_id) if not item_id.is_empty() else 0
+	if required_count <= 0:
+		return _get_mijing_locked_message(mijing_id)
+	return "九幽秘钥：%d / %d" % [owned_count, required_count]
+
+func _on_mijing_button_pressed(mijing_id: String) -> void:
+	if not _is_mijing_difficulty_unlocked(mijing_id):
+		_show_tip(_get_mijing_locked_message(mijing_id))
+		return
+	var requirement := _get_mijing_key_requirement(mijing_id)
+	var item_id := str(requirement.get("item_id", ""))
+	var required_count := int(requirement.get("required", 0))
+	if required_count > 0 and Global.get_item_count(item_id) < required_count:
+		_show_tip("九幽秘钥不足")
+		return
+	if mijing_id == MIJING_DIFU_ID and stage5 != null:
+		_hide_tooltip()
+		stage5.pressed.emit()
+
+func _on_mijing_mouse_entered(mijing_id: String) -> void:
+	_show_mijing_tooltip(mijing_id)
+
+func _on_mijing_mouse_exited(mijing_id: String) -> void:
+	if _hovered_mijing_id != mijing_id:
+		return
+	_hovered_mijing_id = ""
+	_hide_tooltip()
+
+func _show_mijing_tooltip(mijing_id: String) -> void:
+	if _stage_tooltips_suppressed:
+		return
+	_hovered_mijing_id = mijing_id
+	_hovered_stage_key = ""
+	_tooltip_request_id += 1
+	var request_id := _tooltip_request_id
+	var info: Dictionary = MIJING_INFO.get(mijing_id, {})
+	_tooltip_name_label.text = str(info.get("stage_name", "未知秘境"))
+	_tooltip_desc_label.text = str(info.get("stage_desc", "暂无说明。")) if _is_mijing_unlocked(mijing_id) else "等待探索……"
+	_tooltip_power_label.text = _get_mijing_key_status_text(mijing_id) if _is_mijing_difficulty_unlocked(mijing_id) else _get_mijing_locked_message(mijing_id)
+	
+	_tooltip_panel.size = Vector2.ZERO
+	_tooltip_panel.custom_minimum_size = Vector2.ZERO
+	_tooltip_panel.position = Vector2(-10000, -10000)
+	_tooltip_panel.modulate.a = 0.0
+	_tooltip_panel.visible = true
+	_tooltip_desc_label.size = Vector2(TOOLTIP_DESC_WIDTH, 0)
+	_tooltip_desc_label.custom_minimum_size = Vector2(TOOLTIP_DESC_WIDTH, 0)
+	
+	await get_tree().process_frame
+	if request_id != _tooltip_request_id or _hovered_mijing_id != mijing_id:
+		return
+	var content_size := _tooltip_vbox.get_combined_minimum_size()
+	var panel_size := content_size + Vector2(20, 16)
+	_tooltip_panel.custom_minimum_size = panel_size
+	_tooltip_panel.size = panel_size
+	_tooltip_cached_size = panel_size
+	_update_tooltip_position()
+	
+	await get_tree().process_frame
+	if request_id != _tooltip_request_id or _hovered_mijing_id != mijing_id:
+		return
+	if _tooltip_tween and _tooltip_tween.is_valid():
+		_tooltip_tween.kill()
+	_tooltip_tween = create_tween()
+	_tooltip_tween.tween_property(_tooltip_panel, "modulate:a", 1.0, 0.15)
+	_tooltip_panel.visible = true
+
 func _show_stage_tooltip(stage_key: String) -> void:
 	if _stage_tooltips_suppressed:
 		return
+	_hovered_mijing_id = ""
 	_hovered_stage_key = stage_key
 	if _selected_difficulty == Global.STAGE_DIFFICULTY_CORE:
 		_update_core_bonus_text()
@@ -854,6 +1113,7 @@ func _hide_tooltip() -> void:
 	_tooltip_request_id += 1
 	_tooltip_cached_size = Vector2.ZERO
 	_hovered_stage_key = ""
+	_hovered_mijing_id = ""
 	if _tooltip_panel != null and _tooltip_panel.visible:
 		if _tooltip_tween and _tooltip_tween.is_valid():
 			_tooltip_tween.kill()

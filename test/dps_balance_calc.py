@@ -32,8 +32,8 @@ WEAPONS = {
         "note": "触碰/到射程爆炸, 爆炸伤害=子弹伤害×0.8, AoE全命中",
         "aoe_factor": 0.8,
     },
-    "LightBullet": {  # 光弹
-        "name": "光弹", "interval": 0.4, "dmg_mul": 0.45,
+    "LightBullet": {  # 光弹术
+        "name": "光弹术", "interval": 0.4, "dmg_mul": 0.45,
         "bullet": 1, "pen": 0, "pierce_decay": 0.3, "type": "line",
         "note": "高速高频单发, 无穿透",
     },
@@ -55,9 +55,9 @@ WEAPONS = {
     },
     # --- 连锁/范围类 ---
     "Thunder": {  # 震雷诀
-        "name": "震雷诀", "interval": 1.2, "dmg_mul": 0.7,
+        "name": "震雷诀", "interval": 1.1, "dmg_mul": 0.75,
         "bullet": 1, "pen": 0, "pierce_decay": 0.65, "type": "chain",
-        "note": "连锁3次, 衰减65%, dmg基准0.7×(0.85/0.85)=0.7",
+        "note": "连锁3次, 衰减65%, dmg基准0.75×(0.75/0.75)=0.75",
         "chain": 3, "chain_decay": 0.65,
     },
     "Ice": {  # 冰刺术
@@ -161,7 +161,7 @@ ADV = {
     "ThunderBreak1": "伤害+10%, 宽度×1.3",
     "ThunderBreak2": "伤害+15%, 射程+120",
     "ThunderBreak11": "无限射程+10%伤害",
-    # --- 光弹 ---
+    # --- 光弹术 ---
     "LightBullet1": "穿透+2",
     "LightBullet5": "双发(×0.5)",
     "LightBullet11": "三发(×0.35)+蓄光上限+10",

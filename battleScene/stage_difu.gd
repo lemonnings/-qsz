@@ -196,24 +196,16 @@ func _get_difu_monster_spawn_position_for_edge(edge: int, fallback_position: Vec
 		return fallback_position
 	match edge:
 		0:
-			var spawn_y := visible_rect.position.y - MONSTER_SPAWN_OFFSCREEN_MARGIN
-			if spawn_y < DIFU_TOP_Y:
-				return fallback_position
+			var spawn_y := clampf(visible_rect.position.y - MONSTER_SPAWN_OFFSCREEN_MARGIN, DIFU_TOP_Y, DIFU_BOTTOM_Y)
 			return Vector2(clampf(fallback_position.x, DIFU_TOP_X_MIN, DIFU_TOP_X_MAX), spawn_y)
 		1:
-			var spawn_y := visible_rect.position.y + visible_rect.size.y + MONSTER_SPAWN_OFFSCREEN_MARGIN
-			if spawn_y > DIFU_BOTTOM_Y:
-				return fallback_position
+			var spawn_y := clampf(visible_rect.position.y + visible_rect.size.y + MONSTER_SPAWN_OFFSCREEN_MARGIN, DIFU_TOP_Y, DIFU_BOTTOM_Y)
 			return Vector2(clampf(fallback_position.x, DIFU_BOTTOM_X_MIN, DIFU_BOTTOM_X_MAX), spawn_y)
 		2:
-			var spawn_x := visible_rect.position.x - MONSTER_SPAWN_OFFSCREEN_MARGIN
-			if spawn_x < DIFU_LEFT_X:
-				return fallback_position
+			var spawn_x := clampf(visible_rect.position.x - MONSTER_SPAWN_OFFSCREEN_MARGIN, DIFU_LEFT_X, DIFU_RIGHT_X)
 			return Vector2(spawn_x, clampf(fallback_position.y, DIFU_LEFT_Y_MIN, DIFU_LEFT_Y_MAX))
 		_:
-			var spawn_x := visible_rect.position.x + visible_rect.size.x + MONSTER_SPAWN_OFFSCREEN_MARGIN
-			if spawn_x > DIFU_RIGHT_X:
-				return fallback_position
+			var spawn_x := clampf(visible_rect.position.x + visible_rect.size.x + MONSTER_SPAWN_OFFSCREEN_MARGIN, DIFU_LEFT_X, DIFU_RIGHT_X)
 			return Vector2(spawn_x, clampf(fallback_position.y, DIFU_RIGHT_Y_MIN, DIFU_RIGHT_Y_MAX))
 
 

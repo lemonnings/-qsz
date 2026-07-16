@@ -34,6 +34,7 @@ const CONTACT_COLLISION_EXPAND_PIXELS: float = 1.0
 const OFFSCREEN_SPEED_MARGIN_PIXELS: float = 50.0
 const OFFSCREEN_SPEED_MULTIPLIER_MIN: float = 1 # 超出视野后，移动速度额外提升100%~300%（随机）
 const OFFSCREEN_SPEED_MULTIPLIER_MAX: float = 5.0
+const GLOBAL_MONSTER_MOVE_SPEED_MULTIPLIER: float = 0.8
 const RANDOM_SPEED_VARIATION_MIN: float = 0.85
 const RANDOM_SPEED_VARIATION_MAX: float = 1.15
 const PLAYER_DAMAGE_VARIANCE_MIN: float = 0.95
@@ -112,7 +113,7 @@ func _randomize_base_speed_if_available() -> void:
 	if is_in_group("boss") or not _has_property("base_speed"):
 		return
 	movement_speed_variation_multiplier = randf_range(RANDOM_SPEED_VARIATION_MIN, RANDOM_SPEED_VARIATION_MAX)
-	var randomized_base_speed: float = float(get("base_speed")) * movement_speed_variation_multiplier
+	var randomized_base_speed: float = float(get("base_speed")) * movement_speed_variation_multiplier * GLOBAL_MONSTER_MOVE_SPEED_MULTIPLIER
 	set("base_speed", randomized_base_speed)
 	if _has_property("speed"):
 		set("speed", randomized_base_speed)
@@ -130,7 +131,7 @@ func _is_beyond_camera_margin(margin_pixels: float = OFFSCREEN_SPEED_MARGIN_PIXE
 	var zoom := camera.zoom
 	# 将世界坐标偏移转换为屏幕像素偏移
 	var screen_offset := Vector2(offset.x * zoom.x, offset.y * zoom.y)
-	var screen_size := get_viewport().get_visible_rect().size
+	var screen_size := _vp.get_visible_rect().size
 	var half_screen := screen_size / 2.0
 	# 检查屏幕像素偏移是否超出屏幕范围（加边距）
 	return (
@@ -289,6 +290,8 @@ func _fire_corrupted_perpendicular_pair_if_alive(charge_direction: Vector2) -> v
 	_fire_corrupted_perpendicular_pair(charge_direction)
 
 func apply_knockback(direction: Vector2, force: float):
+	if is_in_group("boss"):
+		return
 	var tween = create_tween()
 	tween.tween_property(self , "position", global_position + direction * force, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
@@ -635,6 +638,12 @@ func get_damage_popup_position(randomize_offset: bool = false) -> Vector2:
 		popup_position += Vector2(randf_range(-15, 15), randf_range(-15, 15))
 	return popup_position
 
+func is_precomputed_law_damage_type(damage_type: String) -> bool:
+	return damage_type in ["faze_deep", "faze_bath_blood_thud", "faze_thunder_strike"]
+
+func is_precomputed_weapon_bonus_damage_type(damage_type: String) -> bool:
+	return damage_type == "riyan"
+
 func can_take_common_damage(require_damage_range_check: bool = false) -> bool:
 	if is_dead:
 		return false
@@ -671,6 +680,8 @@ func get_common_bullet_damage_value(base_damage: float) -> int:
 	if debuff_manager != null and is_instance_valid(debuff_manager):
 		final_damage *= debuff_manager.get_damage_multiplier()
 	final_damage = apply_player_outgoing_damage_variance(final_damage)
+	if typeof(Global) != TYPE_NIL and Global != null and Global.has_method("record_potential_damage_for_boss_dps"):
+		Global.record_potential_damage_for_boss_dps(final_damage)
 	return int(final_damage)
 
 func get_non_bullet_damage_value(damage: float, use_debuff_multiplier: bool = true) -> int:
@@ -700,12 +711,20 @@ func apply_common_take_damage(damage: int, is_crit: bool, is_summon: bool, damag
 		return result
 
 	var use_debuff_multiplier = options.get("use_debuff_multiplier", true)
-	# 修习树武器篇伤害加成（根据 damage_type 对应的武器分类动态获取）
-	var study_weapon_bonus = SettingStudyTreeUp.get_total_damage_bonus(damage_type)
-	var adjusted_damage = float(damage) * (1.0 + study_weapon_bonus)
-	var final_damage = get_non_bullet_damage_value(adjusted_damage, use_debuff_multiplier)
-	if damage_type != "bullet":
-		final_damage = int(apply_player_outgoing_damage_variance(float(final_damage)))
+	var final_damage: int = 0
+	if bool(options.get("skip_common_damage_bonuses", false)) or is_precomputed_law_damage_type(damage_type):
+		final_damage = int(round(maxf(0.0, float(damage))))
+	elif is_precomputed_weapon_bonus_damage_type(damage_type):
+		final_damage = get_non_bullet_damage_value(float(damage), use_debuff_multiplier)
+		if damage_type != "bullet":
+			final_damage = int(apply_player_outgoing_damage_variance(float(final_damage)))
+	else:
+		# 修习树武器篇伤害加成（根据 damage_type 对应的武器分类动态获取）
+		var study_weapon_bonus = SettingStudyTreeUp.get_total_damage_bonus(damage_type)
+		var adjusted_damage = float(damage) * (1.0 + study_weapon_bonus)
+		final_damage = get_non_bullet_damage_value(adjusted_damage, use_debuff_multiplier)
+		if damage_type != "bullet":
+			final_damage = int(apply_player_outgoing_damage_variance(float(final_damage)))
 	result["applied"] = true
 	result["final_damage"] = final_damage
 
@@ -718,6 +737,8 @@ func apply_common_take_damage(damage: int, is_crit: bool, is_summon: bool, damag
 	var current_hp: float = previous_hp - float(final_damage)
 	set("hp", current_hp)
 	result["is_lethal"] = current_hp <= 0
+	if typeof(Global) != TYPE_NIL and Global != null and Global.has_method("record_potential_damage_for_boss_dps"):
+		Global.record_potential_damage_for_boss_dps(float(final_damage))
 
 	var show_damage_popup = options.get("show_damage_popup", true)
 	if show_damage_popup and not is_dot_damage_type(damage_type):
@@ -767,10 +788,16 @@ func _play_hit_flash() -> void:
 		_hit_flash_tween.kill()
 	else:
 		_hit_flash_base_modulate = sprite.modulate
-	# 白色闪烁：RGB > 1 使精灵过曝变白（modulate是乘法，值越大越亮）
-	sprite.modulate = Color(3, 3, 3, 1)
-	_hit_flash_tween = create_tween()
-	_hit_flash_tween.tween_property(sprite, "modulate", _hit_flash_base_modulate, 0.25)
+	# 白色闪烁只接管RGB，透明度继续交给出生/传送等淡入淡出逻辑。
+	var flash_modulate: Color = sprite.modulate
+	flash_modulate.r = 3.0
+	flash_modulate.g = 3.0
+	flash_modulate.b = 3.0
+	sprite.modulate = flash_modulate
+	_hit_flash_tween = create_tween().set_parallel(true)
+	_hit_flash_tween.tween_property(sprite, "modulate:r", _hit_flash_base_modulate.r, 0.25)
+	_hit_flash_tween.tween_property(sprite, "modulate:g", _hit_flash_base_modulate.g, 0.25)
+	_hit_flash_tween.tween_property(sprite, "modulate:b", _hit_flash_base_modulate.b, 0.25)
 
 static func _consume_hit_flash_budget(frame: int) -> bool:
 	if frame != _hit_flash_budget_frame:

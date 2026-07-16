@@ -220,6 +220,7 @@ func _spawn_single_slime() -> void:
 	var spawn_position = _get_inner_spawn_position()
 	slime_node.position = spawn_position
 	get_tree().current_scene.add_child(slime_node)
+	_record_guide_enemy_seen(slime_node, false)
 	_mark_spirit_enemy_type(slime_node, false)
 	_try_make_elite(slime_node)
 	_apply_dynamic_hp_reduction(slime_node)
@@ -238,6 +239,7 @@ func _spawn_single_bat() -> void:
 	var spawn_position = _get_inner_spawn_position()
 	bat_node.position = spawn_position
 	get_tree().current_scene.add_child(bat_node)
+	_record_guide_enemy_seen(bat_node, true)
 	_mark_spirit_enemy_type(bat_node, true)
 	_try_make_elite(bat_node)
 	_apply_dynamic_hp_reduction(bat_node)
@@ -258,6 +260,7 @@ func _spawn_single_frog() -> void:
 	var spawn_position = _get_outer_spawn_position()
 	frog_node.position = spawn_position
 	get_tree().current_scene.add_child(frog_node)
+	_record_guide_enemy_seen(frog_node, true)
 	_mark_spirit_enemy_type(frog_node, true)
 	_try_make_elite(frog_node)
 	_apply_dynamic_hp_reduction(frog_node)
@@ -278,6 +281,7 @@ func _spawn_single_extra() -> void:
 	var spawn_position = _get_outer_spawn_position()
 	extra_node.position = spawn_position
 	get_tree().current_scene.add_child(extra_node)
+	_record_guide_enemy_seen(extra_node, true)
 	_mark_spirit_enemy_type(extra_node, true)
 	_try_make_elite(extra_node)
 	_apply_dynamic_hp_reduction(extra_node)

@@ -20,7 +20,8 @@ const CHARGE_HIT_RADIUS: float = 24.0
 const CHARGE_BULLET_ROUNDS: int = 3
 const CHARGE_BULLET_INTERVAL: float = 0.18
 const PERIODIC_SKILL_INTERVAL: float = 3.0
-const POISON_SCALE_MULTIPLIER: float = 1.3
+const POISON_SCALE_MULTIPLIER: float = 1.82
+const POISON_DURATION: float = 6.5
 const PLAYER_AOE_RADIUS: float = 40.0
 const PLAYER_AOE_WARNING_TIME: float = 2.0
 const PLAYER_AOE_OFFSET_MIN: float = 18.0
@@ -180,6 +181,7 @@ func _spawn_poison_circle() -> void:
 	poison_circle.set("attacker", monster)
 	poison_circle.set("instant_damage_on_enter", false)
 	poison_circle.set("tick_interval", 0.5)
+	poison_circle.set("duration", POISON_DURATION)
 	get_tree().current_scene.add_child(poison_circle)
 
 func _spawn_player_aoe_warnings() -> void:

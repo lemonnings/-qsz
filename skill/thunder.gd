@@ -107,6 +107,7 @@ func _apply_damage_to_enemy(enemy: Node) -> void:
 
 func _find_nearest_enemy(from_position: Vector2, excluded_id: int) -> Node:
 	var enemies = get_tree().get_nodes_in_group("enemies")
+	enemies.append_array(get_tree().get_nodes_in_group("boss"))
 	var nearest_enemy = null
 	var nearest_distance = INF
 	

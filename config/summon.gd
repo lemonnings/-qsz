@@ -344,21 +344,21 @@ func set_summon_type(type: SummonType) -> void:
 	# 根据类型设置属性
 	match type:
 		SummonType.BLUE_RANDOM:
-			damage_multiplier = 1.50
-			fire_interval = 0.4
+			damage_multiplier = 1.20
+			fire_interval = 0.35
 			bullets_per_shot = 1
 		SummonType.DARK_DIRECTED:
-			damage_multiplier = 0.55
-			fire_interval = 0.7
+			damage_multiplier = 0.45
+			fire_interval = 0.6
 			bullets_per_shot = 2
 		SummonType.ORANGE_TRACKING:
-			damage_multiplier = 1.40
-			fire_interval = 0.6
+			damage_multiplier = 1.10
+			fire_interval = 0.5
 			bullets_per_shot = 1
 			bullet_speed_multiplier = 2.0
 		SummonType.GOLD_ENHANCED:
-			damage_multiplier = 1.20
-			fire_interval = 0.65
+			damage_multiplier = 1.00
+			fire_interval = 0.6
 			bullets_per_shot = 2
 			bullet_speed_multiplier = 2.0
 		# --- 治疗类 ---
@@ -375,22 +375,22 @@ func set_summon_type(type: SummonType) -> void:
 			PC.damage_reduction_rate = min(PC.damage_reduction_rate + applied_damage_reduction_bonus, 0.9)
 		# --- 辅助类（提供攻击与移速，并增强其他召唤物伤害/治疗） ---
 		SummonType.AUX_DARK:
-			# SR22 谐灵：+5%攻击力与移速；其他召唤物提升10%
+			# SR22 谐灵：+5%攻击力与移速；其他召唤物提升12%
 			applied_speed_bonus = 0.05
 			PC.move_speed_bonus += applied_speed_bonus
 			applied_atk_bonus = int(PC.base_atk * 0.05)
 			PC.pc_atk += applied_atk_bonus
-			applied_summon_enhance_bonus = 0.10
+			applied_summon_enhance_bonus = 0.12
 			PC.summon_damage_multiplier += applied_summon_enhance_bonus
 			# 辅助为持续效果，无需发射行为，设置一个较长的间隔以降低无意义调用频率
 			fire_interval = 2.0
 		SummonType.AUX_GOLD:
-			# SSR22 灵律：+6%攻击力与移速；其他召唤物提升13%
-			applied_speed_bonus = 0.06
+			# SSR22 灵律：+8%攻击力与移速；其他召唤物提升16%
+			applied_speed_bonus = 0.08
 			PC.move_speed_bonus += applied_speed_bonus
-			applied_atk_bonus = int(PC.base_atk * 0.06)
+			applied_atk_bonus = int(PC.base_atk * 0.08)
 			PC.pc_atk += applied_atk_bonus
-			applied_summon_enhance_bonus = 0.13
+			applied_summon_enhance_bonus = 0.16
 			PC.summon_damage_multiplier += applied_summon_enhance_bonus
 			fire_interval = 1.8
 		SummonType.AUX_RED:
@@ -403,7 +403,7 @@ func set_summon_type(type: SummonType) -> void:
 			PC.summon_damage_multiplier += applied_summon_enhance_bonus
 			fire_interval = 1.5
 		SummonType.SWORD_SPIRIT:
-			damage_multiplier = 3.20
+			damage_multiplier = 2.80
 			fire_interval = 1.2
 			bullets_per_shot = 1
 			bullet_speed_multiplier = 1.0

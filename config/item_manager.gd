@@ -78,8 +78,20 @@ var items_data = {
 		"item_rare": "epic", # 史诗
 		"item_anime": "res://assets/animations/item_pickup_epic.tres"
 	},
+	"item_006": {
+		"item_name": "九幽秘钥",
+		"item_stack_max": 99,
+		"item_type": "special",
+		"sort": 20004,
+		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jiuyou_full.png",
+		"item_source": "合成获得",
+		"item_use_condition": "",
+		"item_detail": "通往九幽冥府的秘钥。",
+		"item_rare": "epic", # 史诗
+		"item_anime": "res://assets/animations/item_pickup_epic.tres"
+	},
 	"item_005": {
-		"item_name": "阳钥碎片",
+		"item_name": "空濛秘钥碎片",
 		"item_stack_max": 99,
 		"item_type": "material",
 		"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/kongmeng.png",
@@ -1101,7 +1113,7 @@ var items_data = {
 			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/zhenqi1.png",
 			"item_source": "活动、商店或战斗奖励获得",
 			"item_use_condition": "",
-			"item_detail": "丹力温和的真气丹，服用后可立即获得5000真气。",
+			"item_detail": "丹力温和的真气丹，服用后可立即获得500真气。",
 			"item_rare": "common",
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
@@ -1112,7 +1124,7 @@ var items_data = {
 			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/zhenqi2.png",
 			"item_source": "活动、商店或战斗奖励获得",
 			"item_use_condition": "",
-			"item_detail": "灵息凝练的真气丹，服用后可立即获得20000真气。",
+			"item_detail": "灵息凝练的真气丹，服用后可立即获得2000真气。",
 			"item_rare": "rare",
 			"item_anime": "res://assets/animations/item_pickup_common.tres"
 		},
@@ -1123,7 +1135,7 @@ var items_data = {
 			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/zhenqi3.png",
 			"item_source": "活动、商店或战斗奖励获得",
 			"item_use_condition": "",
-			"item_detail": "药性充盈的上品丹药，服用后可立即获得50000真气。",
+			"item_detail": "药性充盈的上品丹药，服用后可立即获得5000真气。",
 			"item_rare": "epic",
 			"item_anime": "res://assets/animations/item_pickup_rare.tres"
 		},
@@ -1134,7 +1146,7 @@ var items_data = {
 			"item_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/zhenqi4.png",
 			"item_source": "活动、商店或战斗奖励获得",
 			"item_use_condition": "",
-			"item_detail": "真气浓郁至极的极品丹药，服用后可立即获得200000真气。",
+			"item_detail": "真气浓郁至极的极品丹药，服用后可立即获得20000真气。",
 			"item_rare": "legendary",
 			"item_anime": "res://assets/animations/item_pickup_legendary.tres"
 		},
@@ -1271,10 +1283,10 @@ var usable_items = {
 }
 
 const ZHENQI_PILL_REWARDS := {
-	"item_103": 5000,
-	"item_104": 20000,
-	"item_105": 50000,
-	"item_106": 200000
+	"item_103": 500,
+	"item_104": 2000,
+	"item_105": 5000,
+	"item_106": 20000
 }
 
 const MATERIAL_PACK_REWARDS := {
@@ -1366,6 +1378,12 @@ func _ensure_item_sort_values() -> void:
 	var item_ids = items_data.keys()
 	item_ids.sort()
 
+	var reserved_sorts := {}
+	for item_id in item_ids:
+		var item_info: Dictionary = items_data[item_id]
+		if item_info.has("sort"):
+			reserved_sorts[int(item_info["sort"])] = true
+
 	var type_counts := {}
 	for item_id in item_ids:
 		var item_info: Dictionary = items_data[item_id]
@@ -1373,7 +1391,12 @@ func _ensure_item_sort_values() -> void:
 		var sort_start := int(ITEM_SORT_START_BY_TYPE.get(item_type, ITEM_SORT_DEFAULT))
 		var sort_offset := int(type_counts.get(item_type, 0))
 		if not item_info.has("sort"):
-			item_info["sort"] = sort_start + sort_offset
+			var sort_value := sort_start + sort_offset
+			while reserved_sorts.has(sort_value):
+				sort_offset += 1
+				sort_value = sort_start + sort_offset
+			item_info["sort"] = sort_value
+			reserved_sorts[sort_value] = true
 		type_counts[item_type] = sort_offset + 1
 
 	_item_sort_ready = true
@@ -1497,6 +1520,9 @@ func _add_inventory_item(item_id: String, amount: int) -> void:
 	if amount <= 0:
 		return
 	Global.player_inventory[item_id] = int(Global.player_inventory.get(item_id, 0)) + amount
+	var guide_manager = get_node_or_null("/root/GuideManager")
+	if guide_manager != null and guide_manager.has_method("record_item_obtained"):
+		guide_manager.record_item_obtained(item_id)
 
 
 # 使用物品（主要用于解锁配方）
@@ -1634,13 +1660,13 @@ func get_item_use_description(item_id: String) -> String:
 		"item_040":
 			return "使用后治愈精华治疗量提升2%。已使用：" + str(Global.fruit_heal_multi_used_count) + "/10。"
 		"item_103":
-			return "使用后获得5000真气。"
+			return "使用后获得500真气。"
 		"item_104":
-			return "使用后获得20000真气。"
+			return "使用后获得2000真气。"
 		"item_105":
-			return "使用后获得50000真气。"
+			return "使用后获得5000真气。"
 		"item_106":
-			return "使用后获得200000真气。"
+			return "使用后获得20000真气。"
 		"item_107":
 			return "使用后随机获得一种怪物掉落的白色材料5个。"
 		"item_108":

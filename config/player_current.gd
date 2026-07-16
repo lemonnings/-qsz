@@ -1,6 +1,8 @@
 extends Node
 
 const ZHUAZHUAJUCHUI_SCRIPT = preload("res://Script/skill/zhuazhuajuchui.gd")
+const THUNDER_GUN_SCRIPT = preload("res://Script/skill/thunder_gun.gd")
+const SHEHUN_SPIRIT_PROGRESS_BUFF_ID := "shehun_spirit_progress"
 
 @export var player_instance: Node = null
 @export var player_name: String = "yiqiu"
@@ -25,6 +27,14 @@ var _pc_hp_value: int = 50
 
 @export var move_speed_bonus: float = 0.0 # 局内移动速度加成
 @export var attack_speed_bonus: float = 0.0 # 局内攻击速度加成
+
+const DISTANCE_UNIT_PIXELS: float = 20.0
+
+func world_pixels_to_distance_steps(pixels: float) -> float:
+	return pixels / DISTANCE_UNIT_PIXELS
+
+func distance_steps_to_world_pixels(distance_steps: float) -> float:
+	return distance_steps * DISTANCE_UNIT_PIXELS
 @export var crit_chance: float = 0.0 # 局内暴击率
 @export var crit_damage_multi: float = 0.5 # 局内暴击伤害倍率 (例如0.5代表150%伤害)
 @export var damage_reduction_rate: float = 0.0 # 局内减伤率 (例如0.1代表10%减伤)
@@ -132,8 +142,8 @@ func refresh_yujian_summon_bonuses() -> void:
 	if player and player.has_method("update_summons_properties"):
 		player.update_summons_properties()
 
-@export var total_distance_moved: float = 0.0 # 本局累计移动距离（像素，10像素=1米）
-var distance_buff_offsets: Dictionary = {} # 各移动距离buff获取时的距离（米），key=reward_id, value=meters_at_acquisition
+@export var total_distance_moved: float = 0.0 # 本局累计移动距离（世界像素，20世界像素=20距离）
+var distance_buff_offsets: Dictionary = {} # 各移动距离buff获取时的距离步数，key=reward_id, value=steps_at_acquisition
 @export var xianqi_points: int = 0 # 仙气凝聚层数
 @export var xianli_active: bool = false # 仙力护体是否已激活
 @export var xianqi_final_damage_applied_bonus: float = 0.0 # 仙气凝聚已应用最终伤害
@@ -142,7 +152,76 @@ var distance_buff_offsets: Dictionary = {} # 各移动距离buff获取时的距�
 @export var bleed_damage_multi: float = 0.0 # 流血伤害加成倍率（UR51十八层）
 @export var electrification_damage_multi: float = 0.0 # 感电伤害加成倍率（UR51十八层）
 @export var fire_damage_multi: float = 0.0 # 灼烧伤害加成倍率（UR51十八层）
-@export var debuff_cross_damage_multi: float = 0.0 # 异常交叉伤害加成倍率（UR51十八层：有一种异常时其他两异常伤害+100%）
+@export var debuff_cross_damage_multi: float = 0.0 # 异常交叉伤害加成倍率（UR51十八层：有一种异常时其他两异常伤害+150%）
+
+func get_burn_damage_bonus() -> float:
+	var bonus := fire_damage_multi
+	if faze_fire_level >= 4:
+		bonus += 0.5
+	if faze_fire_level >= 9:
+		bonus += 0.5
+	if faze_fire_level >= 22:
+		bonus += 1.2
+	if faze_fire_level >= 29:
+		bonus += 1.2
+	bonus += _get_best_selected_reward_bonus({
+		"SSR38a": 0.55,
+		"SR38a": 0.45,
+		"R38a": 0.35,
+	})
+	return bonus
+
+func get_electrified_damage_bonus() -> float:
+	var bonus := electrification_damage_multi
+	if faze_thunder_level >= 4:
+		bonus += 0.4
+	bonus += _get_best_selected_reward_bonus({
+		"SSR38": 0.55,
+		"SR38": 0.45,
+		"R38": 0.35,
+	})
+	return bonus
+
+func get_bleed_damage_bonus() -> float:
+	var bonus := bleed_damage_multi
+	if faze_blood_level >= 29:
+		bonus += 16.0
+	elif faze_blood_level >= 16:
+		bonus += 5.0
+	bonus += _get_best_selected_reward_bonus({
+		"SSR37": 0.55,
+		"SR37": 0.45,
+		"R37": 0.35,
+	})
+	return bonus
+
+func get_vulnerability_effect_bonus() -> float:
+	return _get_best_selected_reward_bonus({
+		"SSR36": 0.275,
+		"SR36": 0.225,
+		"R36": 0.175,
+	})
+
+func get_vulnerable_effect_bonus() -> float:
+	return _get_best_selected_reward_bonus({
+		"SSR35": 0.275,
+		"SR35": 0.225,
+		"R35": 0.175,
+	})
+
+func get_slow_effect_bonus() -> float:
+	return _get_best_selected_reward_bonus({
+		"SSR34": 0.275,
+		"SR34": 0.225,
+		"R34": 0.175,
+	})
+
+func _get_best_selected_reward_bonus(reward_bonuses: Dictionary) -> float:
+	var best_bonus := 0.0
+	for reward_id in reward_bonuses.keys():
+		if selected_rewards.has(str(reward_id)):
+			best_bonus = maxf(best_bonus, float(reward_bonuses[reward_id]))
+	return best_bonus
 
 # 护甲与生命恢复
 @export var pc_armor: float = 0.0 # 护甲值（减伤公式: armor/(armor+500)）
@@ -190,6 +269,7 @@ var weapon_upgrade_law_decay_counts: Dictionary = {}
 @export var faze_bagua_level: int = 0
 @export var faze_treasure_level: int = 0
 @export var faze_deep_level: int = 0
+@export var faze_shehun_level: int = 0
 @export var faze_chaos_level: int = 0
 @export var faze_skill_level: int = 0
 @export var faze_sixsense_level: int = 0
@@ -215,6 +295,12 @@ var weapon_upgrade_law_decay_counts: Dictionary = {}
 @export var wind_huanfeng_max_stacks: int = 0
 @export var wind_huanfeng_duration: float = 12.0
 @export var faze_heal_shield_bonus: float = 0.0
+@export var shehun_law_spirit_multi_bonus: float = 0.0
+@export var shehun_law_crit_chance_bonus: float = 0.0
+@export var shehun_law_final_damage_bonus: float = 0.0
+@export var shehun_law_damage_reduction_bonus: float = 0.0
+@export var shehun_law_spirit_next_threshold: float = 4000.0
+@export var shehun_law_spirit_spent: float = 0.0
 
 # 御灵法则 (Summon Law)
 @export var faze_summon_extra_capacity: int = 0
@@ -267,13 +353,13 @@ var weapon_upgrade_law_decay_counts: Dictionary = {}
 @export var now_lunky_level: int = 1
 @export var now_red_p: float = 0.2
 @export var now_gold_p: float = 4
-@export var now_darkorchid_p: float = 25.5
-@export var now_blue_p: float = 70
+@export var now_darkorchid_p: float = 20.5
+@export var now_blue_p: float = 75
 @export var selected_rewards = []
 
-const RED_CHANCE_PER_LUCKY: float = 0.02
-const GOLD_CHANCE_PER_LUCKY: float = 0.25
-const DARKORCHID_CHANCE_PER_LUCKY: float = 0.6
+const RED_CHANCE_PER_LUCKY: float = 0.01
+const GOLD_CHANCE_PER_LUCKY: float = 0.175
+const DARKORCHID_CHANCE_PER_LUCKY: float = 0.5
 
 # 诗想难度备战配置（跨场景保持，reset_player_attr不重置此字段）
 var poetry_loadout: Dictionary = {}
@@ -304,21 +390,21 @@ var poetry_loadout: Dictionary = {}
 @export var main_skill_riyan_damage: float = 1
 @export var first_has_riyan: bool = true
 @export var first_has_riyan_pc: bool = true
-@export var riyan_range: float = 70.0
+@export var riyan_range: float = 84.0
 @export var riyan_cooldown: float = 1 # 赤曜伤害频率：1秒/次
 @export var riyan_hp_max_damage: float = 0.08 # 赤曜基础伤害：最大体力的8%/秒
-@export var riyan_atk_damage: float = 0.24 # 赤曜基础伤害：攻击力的24%
+@export var riyan_atk_damage: float = 0.30 # 赤曜基础伤害：攻击力的30%
 
 # 环火相关量
 @export var main_skill_ringFire = 0
 @export var main_skill_ringFire_advance = 0
-@export var main_skill_ringFire_damage: float = 0.35 # 炎轮基础伤害35%
+@export var main_skill_ringFire_damage: float = 0.15 # 炎轮基础伤害15%
 @export var first_has_ringFire: bool = true
 
 # 雷光相关量
 @export var main_skill_thunder = 0
 @export var main_skill_thunder_advance = 0
-@export var main_skill_thunder_damage: float = 0.85
+@export var main_skill_thunder_damage: float = 0.75
 @export var first_has_thunder: bool = true
 @export var thunder_range: float = 260.0
 
@@ -346,12 +432,12 @@ var poetry_loadout: Dictionary = {}
 @export var main_skill_thunder_break_damage: float = 0.65
 @export var thunder_break_final_damage_multi: float = 1.0 # 天雷破总伤害加成
 
-# 光弹相关变量
+# 光弹术相关变量
 @export var main_skill_light_bullet = 0
 @export var main_skill_light_bullet_advance = 0
 @export var first_has_light_bullet: bool = true
 @export var main_skill_light_bullet_damage: float = 0.45
-@export var light_bullet_final_damage_multi: float = 1.0 # 光弹总伤害加成
+@export var light_bullet_final_damage_multi: float = 1.0 # 光弹术总伤害加成
 @export var light_bullet_shot_count = 0
 
 # 坎水诀相关变量
@@ -409,6 +495,20 @@ var poetry_loadout: Dictionary = {}
 @export var main_skill_zhuazhuajuchui = 0
 @export var main_skill_zhuazhuajuchui_advance = 0
 @export var first_has_zhuazhuajuchui: bool = true
+
+# 噬魂镰相关变量
+@export var main_skill_soul_sickle = 0
+@export var main_skill_soul_sickle_advance = 0
+@export var main_skill_soul_sickle_damage: float = 0.30
+@export var first_has_soul_sickle: bool = true
+
+# 雷魂枪相关变量
+@export var main_skill_thunder_gun = 0
+@export var main_skill_thunder_gun_advance = 0
+@export var main_skill_thunder_gun_damage: float = 0.65
+@export var first_has_thunder_gun: bool = true
+@export var thunder_gun_ammo: int = 0
+@export var thunder_gun_reloading: bool = false
 
 # 御剑相关变量
 @export var main_skill_yujian = 0
@@ -487,6 +587,8 @@ const START_WEAPON_RUNTIME_MAP := {
 	"Duize": {"skill_id": "duize", "reward_id": "Duize", "attack_ids": ["duize"]},
 	"DragonWind": {"skill_id": "dragonwind", "reward_id": "DragonWind", "attack_ids": ["dragonwind", "dragon_wind"]},
 	"Zhuazhuajuchui": {"skill_id": "zhuazhuajuchui", "reward_id": "Zhuazhuajuchui", "attack_ids": ["zhuazhuajuchui"]},
+	"SoulSickle": {"skill_id": "soul_sickle", "reward_id": "SoulSickle", "attack_ids": ["soul_sickle"]},
+	"ThunderGun": {"skill_id": "thunder_gun", "reward_id": "ThunderGun", "attack_ids": ["thunder_gun"]},
 }
 
 # active配置字段
@@ -568,15 +670,61 @@ func add_spirit(amount: float) -> void:
 	if amount <= 0:
 		return
 	spirit_raw += floor(amount * 10.0) / 10.0
+	_update_shehun_law_spirit_progress(amount)
 	spirit = get_display_spirit(spirit_raw)
 	update_spirit_reward_bonuses()
+	update_shehun_spirit_progress_buff()
 	_scan_achievement_runtime_keys(["spirit", "armor", "final_damage"])
 
 func sync_spirit(value: float) -> void:
+	var old_spirit_raw := spirit_raw
 	spirit_raw = max(value, 0.0)
+	if spirit_raw > old_spirit_raw:
+		_update_shehun_law_spirit_progress(spirit_raw - old_spirit_raw)
 	spirit = get_display_spirit(spirit_raw)
 	update_spirit_reward_bonuses()
+	update_shehun_spirit_progress_buff()
 	_scan_achievement_runtime_keys(["spirit", "armor", "final_damage"])
+
+func _update_shehun_law_spirit_progress(gained_amount: float) -> void:
+	if gained_amount <= 0.0 or faze_shehun_level < 8:
+		return
+	shehun_law_spirit_spent += gained_amount
+	var leveled := false
+	while shehun_law_spirit_spent >= shehun_law_spirit_next_threshold:
+		shehun_law_spirit_spent -= shehun_law_spirit_next_threshold
+		shehun_law_spirit_next_threshold += 4000.0
+		faze_shehun_level += 1
+		leveled = true
+	if leveled and Faze.manager_instance:
+		Faze.manager_instance.check_and_apply_law_bonuses()
+
+func _format_shehun_spirit_remaining(value: float) -> String:
+	var amount := int(ceil(maxf(0.0, value)))
+	if amount > 10000:
+		return "%dk" % int(round(float(amount) / 1000.0))
+	if amount > 1000:
+		return "%.1fk" % (float(amount) / 1000.0)
+	return str(amount)
+
+func update_shehun_spirit_progress_buff() -> void:
+	if faze_shehun_level <= 9:
+		if BuffManager.has_buff(SHEHUN_SPIRIT_PROGRESS_BUFF_ID):
+			Global.emit_signal("buff_removed", SHEHUN_SPIRIT_PROGRESS_BUFF_ID)
+		return
+
+	var remaining := maxf(0.0, shehun_law_spirit_next_threshold - shehun_law_spirit_spent)
+	var remaining_text := _format_shehun_spirit_remaining(remaining)
+	var remaining_amount := int(ceil(remaining))
+	BuffManager.update_buff_description(
+		SHEHUN_SPIRIT_PROGRESS_BUFF_ID,
+		"距离下一层摄魂法则还需要 " + str(remaining_amount) + " 精魄"
+	)
+	if BuffManager.has_buff(SHEHUN_SPIRIT_PROGRESS_BUFF_ID):
+		Global.emit_signal("buff_updated", SHEHUN_SPIRIT_PROGRESS_BUFF_ID, -1, 1)
+	else:
+		Global.emit_signal("buff_added", SHEHUN_SPIRIT_PROGRESS_BUFF_ID, -1, 1)
+	BuffManager.set_buff_stack_text(SHEHUN_SPIRIT_PROGRESS_BUFF_ID, remaining_text)
 
 func update_spirit_reward_bonuses() -> void:
 	var spirit_groups := mini(int(floor(float(spirit) / 1000.0)), 50)
@@ -591,6 +739,20 @@ func update_spirit_reward_bonuses() -> void:
 	if not is_equal_approx(final_damage_delta, 0.0):
 		final_damage_bonus += final_damage_delta
 		spirit_final_damage_applied_bonus = final_damage_target
+
+	var shehun_groups := int(floor(float(spirit) / 5000.0))
+	var shehun_final_per_group := Faze.get_shehun_final_damage_per_spirit_group(faze_shehun_level)
+	var shehun_dr_per_group := Faze.get_shehun_damage_reduction_per_spirit_group(faze_shehun_level)
+	var shehun_final_target := float(shehun_groups) * shehun_final_per_group
+	var shehun_final_delta := shehun_final_target - shehun_law_final_damage_bonus
+	if not is_equal_approx(shehun_final_delta, 0.0):
+		final_damage_bonus += shehun_final_delta
+		shehun_law_final_damage_bonus = shehun_final_target
+	var shehun_dr_target := float(shehun_groups) * shehun_dr_per_group
+	var shehun_dr_delta := shehun_dr_target - shehun_law_damage_reduction_bonus
+	if not is_equal_approx(shehun_dr_delta, 0.0):
+		damage_reduction_rate += shehun_dr_delta
+		shehun_law_damage_reduction_bonus = shehun_dr_target
 
 func _scan_achievement_runtime_keys(keys: Array[String]) -> void:
 	var achievement_manager = get_node_or_null("/root/AchievementManager")
@@ -635,6 +797,14 @@ func _grant_start_weapon(start_weapon_id: String) -> void:
 	var faze_levels := Global.get_start_weapon_faze_levels(normalized_id)
 	for faze_prop in faze_levels.keys():
 		PC.set(faze_prop, int(PC.get(faze_prop)) + int(faze_levels[faze_prop]))
+	_activate_granted_start_weapon_runtime(normalized_id)
+
+func _activate_granted_start_weapon_runtime(start_weapon_id: String) -> void:
+	var player = PC.player_instance
+	if player == null or not is_instance_valid(player):
+		return
+	if player.has_method("activate_granted_start_weapon"):
+		player.call_deferred("activate_granted_start_weapon", start_weapon_id)
 
 func _reset_start_weapon_runtime_data(start_weapon_id: String) -> void:
 	match start_weapon_id:
@@ -658,6 +828,10 @@ func _reset_start_weapon_runtime_data(start_weapon_id: String) -> void:
 			DragonWind.reset_data()
 		"Zhuazhuajuchui":
 			ZHUAZHUAJUCHUI_SCRIPT.reset_data()
+		"SoulSickle":
+			SoulSickle.reset_data()
+		"ThunderGun":
+			THUNDER_GUN_SCRIPT.reset_data()
 		"Qigong":
 			Qigong.sync_reward_modifiers()
 
@@ -872,6 +1046,7 @@ func reset_player_attr() -> void:
 	PC.faze_bagua_level = 0
 	PC.faze_treasure_level = 0
 	PC.faze_deep_level = 0
+	PC.faze_shehun_level = 0
 	PC.faze_chaos_level = 0
 	PC.faze_skill_level = 0
 	PC.faze_sixsense_level = 0
@@ -903,6 +1078,12 @@ func reset_player_attr() -> void:
 	PC.faze_sword_coldlight_stack = 0
 	
 	PC.faze_heal_shield_bonus = 0.0
+	PC.shehun_law_spirit_multi_bonus = 0.0
+	PC.shehun_law_crit_chance_bonus = 0.0
+	PC.shehun_law_final_damage_bonus = 0.0
+	PC.shehun_law_damage_reduction_bonus = 0.0
+	PC.shehun_law_spirit_next_threshold = 4000.0
+	PC.shehun_law_spirit_spent = 0.0
 	PC.has_summoned_bipolar_sword = false
 	PC.has_summoned_sword_spirit = false
 	# 重置主要技能等级
@@ -918,7 +1099,7 @@ func reset_player_attr() -> void:
 	PC.main_skill_moyan = 0
 	PC.main_skill_moyan_advance = 0
 	PC.first_has_moyan = true
-	PC.main_skill_moyan_damage = 2.25
+	PC.main_skill_moyan_damage = 1.6
 	PC.moyan_range = 220.0
 	
 	# 重置树枝相关属性
@@ -935,21 +1116,21 @@ func reset_player_attr() -> void:
 	PC.main_skill_riyan_damage = 1
 	PC.first_has_riyan = true
 	PC.first_has_riyan_pc = true
-	PC.riyan_range = 70.0
+	PC.riyan_range = 84.0
 	PC.riyan_cooldown = 1.0
 	PC.riyan_hp_max_damage = 0.08
-	PC.riyan_atk_damage = 0.24
+	PC.riyan_atk_damage = 0.30
 	
 	# 重置环火相关属性
 	PC.main_skill_ringFire = 0
 	PC.main_skill_ringFire_advance = 0
-	PC.main_skill_ringFire_damage = 0.35
+	PC.main_skill_ringFire_damage = 0.15
 	PC.first_has_ringFire = true
 	
 	# 重置雷光相关属性
 	PC.main_skill_thunder = 0
 	PC.main_skill_thunder_advance = 0
-	PC.main_skill_thunder_damage = 0.85
+	PC.main_skill_thunder_damage = 0.75
 	PC.first_has_thunder = true
 	PC.thunder_range = 260.0
 	
@@ -975,7 +1156,7 @@ func reset_player_attr() -> void:
 	PC.main_skill_thunder_break_damage = 0.65
 	PC.thunder_break_final_damage_multi = 1.0
 	
-	# 重置光弹相关属性
+	# 重置光弹术相关属性
 	PC.main_skill_light_bullet = 0
 	PC.main_skill_light_bullet_advance = 0
 	PC.first_has_light_bullet = true
@@ -1034,6 +1215,16 @@ func reset_player_attr() -> void:
 	PC.main_skill_zhuazhuajuchui_advance = 0
 	PC.first_has_zhuazhuajuchui = true
 	ZHUAZHUAJUCHUI_SCRIPT.reset_data()
+	PC.main_skill_soul_sickle = 0
+	PC.main_skill_soul_sickle_advance = 0
+	PC.main_skill_soul_sickle_damage = 0.30
+	PC.first_has_soul_sickle = true
+	PC.main_skill_thunder_gun = 0
+	PC.main_skill_thunder_gun_advance = 0
+	PC.main_skill_thunder_gun_damage = 0.65
+	PC.first_has_thunder_gun = true
+	PC.thunder_gun_ammo = 0
+	PC.thunder_gun_reloading = false
 	PC.main_skill_yujian = 0
 	PC.main_skill_yujian_advance = 0
 	PC.first_has_yujian = true
@@ -1281,10 +1472,16 @@ func exec_pc_hp() -> void:
 	PC.pc_hp = PC.pc_max_hp
 
 func _get_achievement_bonus_summary() -> Dictionary:
+	var summary := {}
 	var achievement_manager = get_node_or_null("/root/AchievementManager")
 	if achievement_manager != null and achievement_manager.has_method("get_bonus_summary"):
-		return achievement_manager.get_bonus_summary()
-	return {}
+		summary = achievement_manager.get_bonus_summary().duplicate(true)
+	var guide_manager = get_node_or_null("/root/GuideManager")
+	if guide_manager != null and guide_manager.has_method("get_bonus_summary"):
+		var guide_summary: Dictionary = guide_manager.get_bonus_summary()
+		for key in guide_summary.keys():
+			summary[key] = float(summary.get(key, 0.0)) + float(guide_summary[key])
+	return summary
 	
 func exec_pc_attack_range() -> void:
 	set_attack_range_value(Global.attack_range)

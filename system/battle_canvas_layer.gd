@@ -54,6 +54,8 @@ var warning_active: bool = false
 @export var skill20: TextureButton
 @export var skill21: TextureButton
 @export var skill22: TextureButton
+@export var skill23: TextureButton
+@export var skill24: TextureButton
 
 # 主动技能
 @export var active1: TextureButton
@@ -193,6 +195,7 @@ var _faze_overlay_layer: CanvasLayer = null
 	"liushi": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_liushi.png",
 	"treasure": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_treasure.png",
 	"deep": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_chenyuan.png",
+	"shehun": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_shehun.png",
 	"fire": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_fire.png",
 	"bagua": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_bagua.png",
 	"chaos": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_chaos.png"
@@ -244,6 +247,7 @@ const MOBILE_POINT_SKILL_AIM_WORLD_RANGE: float = 252.0
 const MOBILE_POINT_SKILL_EFFECT_SCALE: float = 1.1
 const MOBILE_CHANT_AIM_RIGHT_AREA_RATIO: float = 0.5
 const MOBILE_CHANT_AIM_TOP_GUARD: float = 88.0
+const MOBILE_TOUCH_OWNER_SKILL: StringName = &"battle_skill"
 var _mobile_skill_touch_active: bool = false
 var _mobile_skill_touch_index: int = -1
 var _mobile_skill_slot: String = ""
@@ -286,6 +290,9 @@ func _ready() -> void:
 	_connect_signals()
 	if not Global.input_device_mode_changed.is_connected(_on_input_device_mode_changed):
 		Global.input_device_mode_changed.connect(_on_input_device_mode_changed)
+	if not Global.mobile_input_reset_requested.is_connected(_force_clear_mobile_skill_input):
+		Global.mobile_input_reset_requested.connect(_force_clear_mobile_skill_input)
+	_connect_mobile_input_router()
 	_set_warning_mouse_filter_ignore()
 	_init_active_skills()
 	_init_faze_ui()
@@ -315,7 +322,7 @@ func _init_managers() -> void:
 	level_up_manager = LevelUpManager.new()
 	add_child(level_up_manager)
 	# todo
-	var skill_nodes_array: Array[TextureButton] = [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9, skill10, skill11, skill12, skill13, skill14, skill15, skill16, skill17, skill18, skill19, skill20, skill21, skill22]
+	var skill_nodes_array: Array[TextureButton] = [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9, skill10, skill11, skill12, skill13, skill14, skill15, skill16, skill17, skill18, skill19, skill20, skill21, skill22, skill23, skill24]
 	level_up_manager.initialize(self , lv_up_change, lv_up_change_b1, lv_up_change_b2, lv_up_change_b3, self , skill_nodes_array)
 	
 	# 连接刷新按钮信号
@@ -587,6 +594,10 @@ func _get_faze_laws() -> Array:
 	if deep_level > 0:
 		var deep_detail = _build_deep_faze_detail(deep_level)
 		laws.append({"id": "deep", "name": "沉渊法则", "level": deep_level, "detail": deep_detail})
+	var shehun_level = PC.faze_shehun_level
+	if shehun_level > 0:
+		var shehun_detail = _build_shehun_faze_detail(shehun_level)
+		laws.append({"id": "shehun", "name": "摄魂法则", "level": shehun_level, "detail": shehun_detail})
 	var chaos_level = Faze.get_current_chaos_level()
 	if chaos_level > 0:
 		var chaos_detail = _build_chaos_faze_detail(chaos_level)
@@ -653,7 +664,7 @@ const _WEAPON_REWARD_KEYS: Dictionary = {
 	"爆炎诀": ["Moyan"],
 	"冰刺术": ["Ice"],
 	"天雷破": ["ThunderBreak"],
-	"光弹": ["LightBullet"],
+	"光弹术": ["LightBullet"],
 	"坎水诀": ["Water"],
 	"圣光术": ["HolyLight"],
 	"震雷诀": ["Thunder"],
@@ -666,6 +677,8 @@ const _WEAPON_REWARD_KEYS: Dictionary = {
 	"兑泽诀": ["Duize"],
 	"气功波": ["Qigong"],
 	"爪爪巨锤": ["Zhuazhuajuchui"],
+	"噬魂镰": ["SoulSickle"],
+	"雷魂枪": ["ThunderGun"],
 	"御剑": ["Yujian"],
 }
 
@@ -712,10 +725,10 @@ func _build_bath_blood_detail(level: int) -> String:
 	lines.append(_build_law_title("浴血法则"))
 	lines.append(_color_owned_weapons("浴血系武器：饮血刀，血气波，爪爪巨锤"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：每 4 秒或受伤后（内置 2 秒冷却），对周围敌人发出一次震击，被击中的敌人受到 100% 攻击的伤害，自身获得 2.5% 最大体力的护盾，持续 4 秒"))
-	lines.append(_format_faze_line(level, current_tier, 9, "9阶：震击伤害从 100% 提升至 200% 攻击，震击对精英、首领造成的伤害提升 200%，获得护盾量从 2.5% 提升至 3% 最大体力"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：浴血系武器伤害提升30%，震击伤害从 100% 提升至 200% 攻击，震击对精英、首领造成的伤害提升 200%"))
 	lines.append(_format_faze_line(level, current_tier, 16, "16阶：震击范围提升 100%，并且必定附加流血，流血对精英、首领的伤害提升 500%"))
-	lines.append(_format_faze_line(level, current_tier, 22, "22阶：震击范围提升 350%，震击伤害从 200% 提升至 400% 攻击。此外，血量每降低 10%，获得 3% 独立减伤率"))
-	lines.append(_format_faze_line(level, current_tier, 29, "29阶：震击伤害从 400% 提升至 800% 攻击，获得护盾量从 3% 提升至 10% 最大体力，流血伤害对首领增加到 1600%；血量每降低 10% 获得的独立减伤率提升至 6%"))
+	lines.append(_format_faze_line(level, current_tier, 22, "22阶：浴血系武器伤害额外提升80%，震击范围提升 350%，震击伤害从 200% 提升至 400% 攻击。此外，血量每降低 10%，获得 3% 独立减伤率"))
+	lines.append(_format_faze_line(level, current_tier, 29, "29阶：震击伤害从 400% 提升至 1200% 攻击，获得护盾量从 2.5% 提升至 10% 最大体力，流血伤害对首领增加到 1600%；血量每降低 10% 获得的独立减伤率提升至 6%"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -784,7 +797,7 @@ func _build_bagua_faze_detail(level: int) -> String:
 	var lines: Array = []
 	lines.append(_build_law_title("八卦法则"))
 	lines.append(_color_owned_weapons("八卦类武器：乾坤双剑，离火诀，兑泽诀，坎水诀，震雷诀，巽风诀，艮山诀"))
-	lines.append(_format_faze_line(level, current_tier, 4, "4阶：八卦类武器击中目标 + 1 推衍度，击杀目标 + 5 推衍度，对精英翻倍，首领翻 5 倍，满 100 点后，获得 1 层【推衍完成】，每层提升 3 % 的经验值加成与 1 % 八卦类武器伤害提升，每层【推衍完成】会使下一层【推衍完成】的获取所需的推衍值 +10"))
+	lines.append(_format_faze_line(level, current_tier, 4, "4阶：八卦类武器击中目标 + 1 推衍度，击杀目标 + 5 推衍度，对精英翻倍，首领翻 5 倍，满 100 点后，获得 1 层【推衍完成】，每层提升 3 % 的经验值加成与 1 % 八卦类武器伤害提升，每层【推衍完成】会使下一层【推衍完成】的获取所需的推衍值 +20"))
 	lines.append(_format_faze_line(level, current_tier, 11, "11阶：推衍度获得翻倍，八卦类武器伤害提升 10%"))
 	lines.append(_format_faze_line(level, current_tier, 18, "18阶：推衍度获得提升至 3 倍，八卦类武器伤害再次提升 20%"))
 	lines.append(_format_faze_line(level, current_tier, 25, "25阶：推衍度获得提升至 5 倍，八卦类武器伤害再次提升 30%"))
@@ -825,7 +838,7 @@ func _build_life_faze_detail(level: int) -> String:
 			current_tier = tier
 	var lines: Array = []
 	lines.append(_build_law_title("生灵法则"))
-	lines.append(_color_owned_weapons("生灵系武器：光弹，坎水诀，圣光术"))
+	lines.append(_color_owned_weapons("生灵系武器：光弹术，坎水诀，圣光术"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：生灵系武器伤害提升 25%，经验获取提升 20%"))
 	lines.append(_format_faze_line(level, current_tier, 9, "9阶：每 20 秒/升级时降下神圣光辉，对大范围的敌人造成 300% 攻击的伤害，对首领造成额外 200% 伤害"))
 	lines.append(_format_faze_line(level, current_tier, 16, "16阶：神圣光辉的伤害提升至 500% ，范围提升，经验获取加成提升至 75%"))
@@ -846,7 +859,7 @@ func _build_bullet_faze_detail(level: int) -> String:
 			current_tier = tier
 	var lines: Array = []
 	lines.append(_build_law_title("弹雨法则"))
-	lines.append(_color_owned_weapons("弹雨类武器：剑气诀，光弹，仙枝，冰刺术"))
+	lines.append(_color_owned_weapons("弹雨类武器：剑气诀，光弹术，仙枝，冰刺术"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：弹雨类武器伤害提升 12%，射程提升 20%"))
 	lines.append(_format_faze_line(level, current_tier, 11, "11阶：弹雨类武器累计命中 100 次后，会以自身为中心连续发射 2 波弹幕，每波 45 发，每发造成 45% 攻击的伤害"))
 	lines.append(_format_faze_line(level, current_tier, 18, "18阶：弹雨类武器伤害再次提升 38%，范围提升 30%，弹幕提升至 3 波，每发伤害提升至 75% 攻击"))
@@ -888,7 +901,7 @@ func _build_thunder_faze_detail(level: int) -> String:
 			current_tier = tier
 	var lines: Array = []
 	lines.append(_build_law_title("鸣雷法则"))
-	lines.append(_color_owned_weapons("鸣雷系武器：天雷破，震雷诀"))
+	lines.append(_color_owned_weapons("鸣雷系武器：天雷破，震雷诀，雷魂枪"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：鸣雷系武器伤害提升 20% ，感电伤害提升 40%"))
 	lines.append(_format_faze_line(level, current_tier, 9, "9阶：鸣雷系武器击中敌人或感电触发，有 5% 概率召唤鸣雷劈向目标，造成 70 % 攻击的范围伤害"))
 	lines.append(_format_faze_line(level, current_tier, 16, "16阶：鸣雷的伤害提升到 150% 攻击，鸣雷触发概率提升至 15% ，鸣雷对精英、首领的伤害额外提升 400%"))
@@ -1389,7 +1402,7 @@ func _on_emblem_mouse_exited(emblem_index: int) -> void:
 
 ## 连接技能图标鼠标事件信号
 func _connect_skill_icon_signals() -> void:
-	var skill_icons := [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9, skill10, skill11, skill12, skill13, skill14, skill15, skill16, skill17, skill18, skill19, skill20, skill21, skill22]
+	var skill_icons := [skill1, skill2, skill3, skill4, skill5, skill6, skill7, skill8, skill9, skill10, skill11, skill12, skill13, skill14, skill15, skill16, skill17, skill18, skill19, skill20, skill21, skill22, skill23, skill24]
 	for i in range(skill_icons.size()):
 		var icon = skill_icons[i]
 		if icon:
@@ -1507,7 +1520,15 @@ func _position_mobile_active_skill_label(icon: Control) -> void:
 	target_position.y = clampf(target_position.y, 0.0, max(0.0, viewport_size.y - label_size.y))
 	active_skill_label.global_position = target_position
 
-func _input(event: InputEvent) -> void:
+func _connect_mobile_input_router() -> void:
+	var mobile_input := get_node_or_null("/root/MobileInput")
+	if mobile_input == null or not mobile_input.has_signal("unclaimed_mobile_input"):
+		return
+	var callback := Callable(self, "_on_unclaimed_mobile_input")
+	if not mobile_input.is_connected("unclaimed_mobile_input", callback):
+		mobile_input.connect("unclaimed_mobile_input", callback)
+
+func _on_unclaimed_mobile_input(event: InputEvent) -> void:
 	if not Global.is_mobile_input_mode():
 		return
 	if event is InputEventScreenDrag:
@@ -1610,6 +1631,10 @@ func _try_begin_mobile_chant_aim_touch(touch_index: int, position: Vector2) -> b
 		if _mobile_chant_aim_active:
 			_mobile_chant_aim_rejected_touch_indices[touch_index] = true
 		return false
+	if _mobile_chant_aim_touch_index != -1 and _mobile_chant_aim_touch_index != touch_index:
+		return false
+	if not _claim_mobile_skill_touch(touch_index):
+		return false
 	_mobile_chant_aim_rejected_touch_indices.erase(touch_index)
 	_mobile_chant_aim_touch_index = touch_index
 	_mobile_chant_aim_press_position = position
@@ -1629,6 +1654,8 @@ func _try_update_mobile_chant_aim_drag(touch_index: int, position: Vector2) -> b
 	if _mobile_chant_aim_touch_index == -1:
 		if not _is_mobile_chant_aim_touch_position(position):
 			_mobile_chant_aim_rejected_touch_indices[touch_index] = true
+			return false
+		if not _claim_mobile_skill_touch(touch_index):
 			return false
 		_mobile_chant_aim_touch_index = touch_index
 		_mobile_chant_aim_press_position = position
@@ -1650,6 +1677,7 @@ func _try_end_mobile_chant_aim_touch(touch_index: int, position: Vector2) -> boo
 	_mobile_chant_aim_last_position = position
 	if (position - _mobile_chant_aim_press_position).length() >= MOBILE_SKILL_AIM_DEADZONE:
 		_mobile_chant_aim_touch_has_dragged = true
+	_release_mobile_skill_touch(touch_index)
 	_mobile_chant_aim_touch_index = -1
 	if _mobile_chant_aim_touch_has_dragged:
 		_update_mobile_aim_cast()
@@ -1672,7 +1700,20 @@ func _is_mobile_movement_touch_index(touch_index: int) -> bool:
 		return false
 	return bool(mobile_input.call("is_movement_touch_index", touch_index))
 
+func _claim_mobile_skill_touch(touch_index: int) -> bool:
+	var mobile_input := get_node_or_null("/root/MobileInput")
+	if mobile_input == null or not mobile_input.has_method("try_claim_touch"):
+		return true
+	return bool(mobile_input.call("try_claim_touch", touch_index, MOBILE_TOUCH_OWNER_SKILL))
+
+func _release_mobile_skill_touch(touch_index: int) -> void:
+	var mobile_input := get_node_or_null("/root/MobileInput")
+	if mobile_input != null and mobile_input.has_method("release_touch"):
+		mobile_input.call("release_touch", touch_index, MOBILE_TOUCH_OWNER_SKILL)
+
 func _on_input_device_mode_changed(_mode: String) -> void:
+	if not Global.is_mobile_input_mode():
+		_force_clear_mobile_skill_input()
 	_update_mobile_active_skill_mouse_filters()
 	_refresh_active_skill_hotkey_text()
 
@@ -1727,6 +1768,8 @@ func _begin_mobile_skill_touch(slot_key: String, icon: TextureButton, touch_inde
 		return
 	var adjusting_chant_aim: bool = _can_adjust_mobile_chant_aim(slot_key, skill_name)
 	if not _is_mobile_skill_ready(skill_name) and not adjusting_chant_aim:
+		return
+	if not _claim_mobile_skill_touch(touch_index):
 		return
 	_mobile_skill_touch_active = true
 	_mobile_skill_touch_index = touch_index
@@ -1797,9 +1840,13 @@ func _cancel_mobile_skill_touch() -> void:
 func _force_clear_mobile_skill_input() -> void:
 	hide_active_skill_label()
 	_clear_mobile_skill_indicator()
-	if Global.active_skill_manager and Global.active_skill_manager.has_method("end_mobile_aim_cast"):
+	var had_chant_aim := _mobile_chant_aim_active
+	if had_chant_aim:
+		_end_mobile_chant_aim_session()
+	elif Global.active_skill_manager and Global.active_skill_manager.has_method("end_mobile_aim_cast"):
 		Global.active_skill_manager.end_mobile_aim_cast()
 	_clear_mobile_skill_touch_state()
+	_mobile_chant_aim_rejected_touch_indices.clear()
 
 func _begin_mobile_chant_aim_session() -> void:
 	if not Global.is_mobile_input_mode() or not _is_mobile_aim_skill(_mobile_skill_name):
@@ -1817,6 +1864,7 @@ func _begin_mobile_chant_aim_session() -> void:
 func _end_mobile_chant_aim_session() -> void:
 	if not _mobile_chant_aim_active:
 		return
+	var ended_touch_index := _mobile_chant_aim_touch_index
 	if Global.active_skill_manager and Global.active_skill_manager.has_method("end_mobile_aim_cast"):
 		Global.active_skill_manager.end_mobile_aim_cast()
 	_mobile_chant_aim_active = false
@@ -1829,8 +1877,10 @@ func _end_mobile_chant_aim_session() -> void:
 	_mobile_chant_aim_touch_has_dragged = false
 	_mobile_chant_aim_rejected_touch_indices.clear()
 	_mobile_chant_point_aim_origin = Vector2.INF
+	_release_mobile_skill_touch(ended_touch_index)
 
 func _clear_mobile_skill_touch_state() -> void:
+	var ended_touch_index := _mobile_skill_touch_index
 	_mobile_skill_touch_active = false
 	_mobile_skill_touch_index = -1
 	_mobile_skill_slot = ""
@@ -1844,6 +1894,7 @@ func _clear_mobile_skill_touch_state() -> void:
 	_mobile_skill_aim_started = false
 	_mobile_skill_cast_consumed = false
 	_mobile_skill_gui_position_is_local = false
+	_release_mobile_skill_touch(ended_touch_index)
 
 func _process_mobile_skill_touch(delta: float) -> void:
 	if not _mobile_skill_touch_active:
@@ -2258,13 +2309,56 @@ func _build_destructive_hammer_skill_text(level: int) -> String:
 	text += "冷却时间：" + ("%.1f" % final_cooldown) + "秒"
 	return text
 
+func _format_active_skill_label_text(skill_id: String, detail_title: String, body_lines: Array[String]) -> String:
+	var text := "[font_size=24]" + _get_active_skill_display_name(skill_id) + "  " + Global.format_active_skill_level_text(skill_id) + "[/font_size]\n"
+	text += detail_title + "\n\n"
+	for i in range(body_lines.size()):
+		text += body_lines[i]
+		if i < body_lines.size() - 1:
+			text += "\n"
+	return text
+
 ## 构建迷踪步技能详情文本
 func _build_mizongbu_skill_text(level: int) -> String:
-	return "[font_size=24]迷踪步  " + Global.format_active_skill_level_text("mizongbu") + "[/font_size]\n短时间提升移速并减伤，期间造成伤害降低20%"
+	var dr = 40.0
+	for lv in [2, 5, 8, 11, 14]:
+		if level >= lv:
+			dr += 4.0
+	var cooldown = 9.5
+	for lv in [3, 6, 9, 12, 15]:
+		if level >= lv:
+			cooldown -= 0.5
+	cooldown = max(2.0, cooldown)
+	var duration = 2.0
+	for lv in [4, 7, 10, 13]:
+		if level >= lv:
+			duration += 0.3
+	return _format_active_skill_label_text("mizongbu", "短时间提升移速并减伤，期间造成伤害降低20%", [
+		"减伤率：" + ("%.0f" % dr) + "%",
+		"持续时间：" + ("%.1f" % duration) + "秒",
+		"冷却时间：" + ("%.1f" % cooldown) + "秒"
+	])
 
-## 构建魔化技能详情文本
+## 构建兽化技能详情文本
 func _build_beastify_skill_text(level: int) -> String:
-	return "[font_size=24]魔化  " + Global.format_active_skill_level_text("beastify") + "[/font_size]\n短时间提升属性并将剑气改为爪击"
+	var claw_damage_ratio = 55.0
+	for lv in [2, 5, 8, 11, 14]:
+		if level >= lv:
+			claw_damage_ratio += 4.0
+	var attr_bonus = 20.0
+	for lv in [3, 6, 9, 12, 15]:
+		if level >= lv:
+			attr_bonus += 3.0
+	var duration = 15.0
+	for lv in [4, 7, 10, 13]:
+		if level >= lv:
+			duration += 1.0
+	return _format_active_skill_label_text("beastify", "魔化形态：剑气改为爪击并强化自身属性", [
+		"爪击伤害：" + ("%.0f" % claw_damage_ratio) + "%攻击力",
+		"攻击/攻速/移速提升：" + ("%.0f" % attr_bonus) + "%",
+		"持续时间：" + ("%.1f" % duration) + "秒",
+		"冷却时间：40.0秒"
+	])
 
 ## 构建闪避技能详情文本
 func _build_dodge_skill_text(level: int) -> String:
@@ -2507,6 +2601,95 @@ func init_main_skill(fire_speed_wait_time: float) -> void:
 	skill1.visible = true
 	skill1.update_skill(1, fire_speed_wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianqi.png")
 
+func _get_timer_wait_time(timer, fallback: float) -> float:
+	if timer is Timer:
+		return timer.wait_time
+	return fallback
+
+func hide_discarded_weapon_skill_icon(reward_id: String) -> void:
+	var icon: TextureButton = null
+	var first_has_prop := ""
+	match reward_id:
+		"SwordQi":
+			icon = skill1
+			first_has_prop = "first_has_swordqi"
+		"Branch":
+			icon = skill2
+			first_has_prop = "first_has_branch"
+		"Moyan":
+			icon = skill3
+			first_has_prop = "first_has_moyan"
+		"Riyan":
+			icon = skill4
+			first_has_prop = "first_has_riyan"
+		"RingFire":
+			icon = skill5
+			first_has_prop = "first_has_ringFire"
+		"Thunder":
+			icon = skill6
+			first_has_prop = "first_has_thunder"
+		"Bloodwave":
+			icon = skill7
+			first_has_prop = "first_has_bloodwave"
+		"BloodBoardSword":
+			icon = skill8
+			first_has_prop = "first_has_bloodboardsword"
+		"Ice":
+			icon = skill9
+			first_has_prop = "first_has_ice"
+		"ThunderBreak":
+			icon = skill10
+			first_has_prop = "first_has_thunder_break"
+		"LightBullet":
+			icon = skill11
+			first_has_prop = "first_has_light_bullet"
+		"Water":
+			icon = skill12
+			first_has_prop = "first_has_water"
+		"Qiankun":
+			icon = skill13
+			first_has_prop = "first_has_qiankun"
+		"Xuanwu":
+			icon = skill14
+			first_has_prop = "first_has_xuanwu"
+		"Xunfeng":
+			icon = skill15
+			first_has_prop = "first_has_xunfeng"
+		"Genshan":
+			icon = skill16
+			first_has_prop = "first_has_genshan"
+		"Duize":
+			icon = skill17
+			first_has_prop = "first_has_duize"
+		"HolyLight":
+			icon = skill18
+			first_has_prop = "first_has_holylight"
+		"Qigong":
+			icon = skill19
+			first_has_prop = "first_has_qigong"
+		"DragonWind":
+			icon = skill20
+			first_has_prop = "first_has_dragonwind"
+		"Zhuazhuajuchui":
+			icon = skill21
+			first_has_prop = "first_has_zhuazhuajuchui"
+		"Yujian":
+			icon = skill22
+			first_has_prop = "first_has_yujian"
+		"SoulSickle":
+			icon = skill23
+			first_has_prop = "first_has_soul_sickle"
+		"ThunderGun":
+			icon = skill24
+			first_has_prop = "first_has_thunder_gun"
+	if not first_has_prop.is_empty():
+		PC.set(first_has_prop, true)
+	if icon == null:
+		return
+	if icon.has_method("stop_cooldown"):
+		icon.stop_cooldown()
+	icon.visible = false
+
 ## 检查并更新技能图标可见性
 func check_and_update_skill_icons(player_node: Node) -> void:
 	if not has_meta("_qigong_debug_done"):
@@ -2614,6 +2797,18 @@ func check_and_update_skill_icons(player_node: Node) -> void:
 		skill21.update_skill(21, player_node.zhuazhuajuchui_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/zhuazhuachui.png")
 		PC.first_has_zhuazhuajuchui = false
 
+	if PC.selected_rewards.has("SoulSickle") and PC.first_has_soul_sickle:
+		if skill23 != null:
+			skill23.visible = true
+			skill23.update_skill(23, _get_timer_wait_time(player_node.get("soul_sickle_fire_speed"), 1.6), "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shihunlian.png")
+		PC.first_has_soul_sickle = false
+
+	if PC.selected_rewards.has("ThunderGun") and PC.first_has_thunder_gun:
+		if skill24 != null:
+			skill24.visible = true
+			skill24.update_skill(24, _get_timer_wait_time(player_node.get("thunder_gun_fire_speed"), 0.25), "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_thunder.png")
+		PC.first_has_thunder_gun = false
+
 	if PC.selected_rewards.has("Yujian") and PC.first_has_yujian:
 		skill22.visible = true
 		if skill22.has_method("set_static_skill"):
@@ -2689,6 +2884,12 @@ func update_skill_cooldowns(player_node: Node) -> void:
 	if PC.selected_rewards.has("Zhuazhuajuchui") and skill21.visible:
 		skill21.update_skill(21, player_node.zhuazhuajuchui_fire_speed.wait_time, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/zhuazhuachui.png")
 
+	if PC.selected_rewards.has("SoulSickle") and skill23 != null and skill23.visible:
+		skill23.update_skill(23, _get_timer_wait_time(player_node.get("soul_sickle_fire_speed"), 1.6), "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shihunlian.png")
+
+	if PC.selected_rewards.has("ThunderGun") and skill24 != null and skill24.visible:
+		skill24.update_skill(24, _get_timer_wait_time(player_node.get("thunder_gun_fire_speed"), 0.25), "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_thunder.png")
+
 	if PC.selected_rewards.has("Yujian") and skill22.visible:
 		if skill22.has_method("set_static_skill"):
 			skill22.call("set_static_skill", 22, "res://AssetBundle/Sprites/Sprite sheets/skillIcon/yujian.png")
@@ -2719,6 +2920,10 @@ func stop_all_skill_cooldowns() -> void:
 	skill20.stop_cooldown()
 	skill21.stop_cooldown()
 	skill22.stop_cooldown()
+	if skill23 != null:
+		skill23.stop_cooldown()
+	if skill24 != null:
+		skill24.stop_cooldown()
 
 func _set_ring_fire_static_icon() -> void:
 	skill5.visible = true
@@ -2744,9 +2949,21 @@ func _format_attr_bonus_percent(value: float) -> String:
 		return "+%d%%" % percent
 	return "%d%%" % percent
 
+func _format_distance_value(value: float) -> String:
+	if absf(value - round(value)) < 0.05:
+		return str(int(round(value)))
+	return "%.1f" % value
+
+func _get_current_move_distance_per_second() -> float:
+	if PC.player_instance != null and is_instance_valid(PC.player_instance):
+		var current_speed = PC.player_instance.get("move_speed")
+		if current_speed != null:
+			return maxf(0.0, float(current_speed))
+	return maxf(0.0, 100.0 * (1.0 + PC.get_total_move_speed_bonus()))
+
 func _get_attr_panel_final_damage_bonus() -> float:
 	var global_buff_bonus := BulletCalculator.get_global_buff_damage_multiplier() - 1.0
-	return maxf(0.0, 1.0 + Faze.get_final_damage_additive_bonus() + global_buff_bonus) * Global.get_stage_boss_player_damage_multiplier() * PC.damage_deal_multiplier - 1.0
+	return maxf(0.0, 1.0 + Faze.get_final_damage_additive_bonus() + global_buff_bonus) * PC.damage_deal_multiplier - 1.0
 
 func _get_attr_panel_heal_bonus() -> float:
 	var bonus := PC.heal_multi
@@ -2777,7 +2994,7 @@ func show_attr_label() -> void:
 	text += "护甲：" + str(int(PC.pc_armor)) + "（%.2f%%）\n" % (PC.pc_armor / (PC.pc_armor + 500.0) * 100.0)
 	text += "攻击速度：" + str(int(PC.get_total_attack_speed_bonus() * 100)) + "%    "
 	var total_move_speed = PC.get_total_move_speed_bonus()
-	text += "移动速度：" + str(int(total_move_speed * 100)) + "%\n"
+	text += "移动速度：" + str(int(total_move_speed * 100)) + "%（约%s距离/秒）\n" % _format_distance_value(_get_current_move_distance_per_second())
 	text += "暴击率：" + str(int(PC.crit_chance * 100)) + "%    "
 	text += "暴击伤害：" + str(int(PC.crit_damage_multi * 100)) + "%\n"
 	text += "最终伤害：" + _format_attr_bonus_percent(_get_attr_panel_final_damage_bonus()) + "\n"
@@ -2868,6 +3085,8 @@ func _get_skill_own_damage_bonus(tag: String, _damage_multi) -> float:
 			return Qigong.main_skill_qigong_damage
 		"dragonwind":
 			return maxf(0.0, DragonWind.dragonwind_final_damage_multi - 1.0)
+		"thunder_break":
+			return maxf(0.0, PC.thunder_break_final_damage_multi - 1.0)
 		_:
 			return 0.0
 
@@ -2883,7 +3102,7 @@ func show_skill_label(skill_index: int, player_node: Node) -> void:
 		8: {"name": "饮血剑", "level_prop": "main_skill_bloodboardsword", "damage_prop": "main_skill_bloodboardsword_damage", "speed_node": "bloodboardsword_fire_speed", "tag": "blood_broadsword", "reward_prefixes": ["BloodBoardSword", "RBloodBoardSword", "SRBloodBoardSword", "SSRBloodBoardSword", "URBloodBoardSword"]},
 		9: {"name": "冰刺术", "level_prop": "main_skill_ice", "damage_prop": "main_skill_ice_damage", "speed_node": "ice_flower_fire_speed", "tag": "ice_flower", "reward_prefixes": ["Ice", "RIce", "SRIce", "SSRIce", "URIce"]},
 		10: {"name": "天雷破", "level_prop": "main_skill_thunder_break", "damage_prop": "main_skill_thunder_break_damage", "speed_node": "thunder_break_fire_speed", "tag": "thunder_break", "reward_prefixes": ["ThunderBreak", "RThunderBreak", "SRThunderBreak", "SSRThunderBreak", "URThunderBreak"]},
-		11: {"name": "光弹", "level_prop": "main_skill_light_bullet", "damage_prop": "main_skill_light_bullet_damage", "speed_node": "light_bullet_fire_speed", "tag": "light_bullet", "reward_prefixes": ["LightBullet", "RLightBullet", "SRLightBullet", "SSRLightBullet", "URLightBullet"]},
+		11: {"name": "光弹术", "level_prop": "main_skill_light_bullet", "damage_prop": "main_skill_light_bullet_damage", "speed_node": "light_bullet_fire_speed", "tag": "light_bullet", "reward_prefixes": ["LightBullet", "RLightBullet", "SRLightBullet", "SSRLightBullet", "URLightBullet"]},
 		12: {"name": "坎水诀", "level_prop": "main_skill_water", "damage_prop": "main_skill_water_damage", "speed_node": "water_fire_speed", "tag": "water", "reward_prefixes": ["Water", "RWater", "SRWater", "SSRWater", "URWater"]},
 		13: {"name": "乾坤双剑", "level_prop": "main_skill_qiankun", "damage_prop": "main_skill_qiankun_damage", "speed_node": "qiankun_fire_speed", "tag": "qiankun", "reward_prefixes": ["Qiankun", "RQiankun", "SRQiankun", "SSRQiankun", "URQiankun"]},
 		14: {"name": "玄武盾", "level_prop": "main_skill_xuanwu", "damage_prop": "main_skill_xuanwu_damage", "speed_node": "xuanwu_fire_speed", "tag": "xuanwu", "reward_prefixes": ["Xuanwu", "RXuanwu", "SRXuanwu", "SSRXuanwu", "URXuanwu"]},
@@ -2894,7 +3113,9 @@ func show_skill_label(skill_index: int, player_node: Node) -> void:
 		19: {"name": "气功波", "level_prop": "main_skill_qigong", "damage_prop": "main_skill_qigong_damage", "speed_node": "qigong_fire_speed", "tag": "qigong", "reward_prefixes": ["Qigong", "RQigong", "SRQigong", "SSRQigong", "URQigong"]},
 		20: {"name": "风龙杖", "level_prop": "main_skill_dragonwind", "damage_prop": "main_skill_dragonwind_damage", "speed_node": "dragonwind_fire_speed", "tag": "dragonwind", "reward_prefixes": ["DragonWind", "RDragonWind", "SRDragonWind", "SSRDragonWind", "URDragonWind"]},
 		21: {"name": "爪爪巨锤", "level_prop": "main_skill_zhuazhuajuchui", "damage_prop": "", "speed_node": "zhuazhuajuchui_fire_speed", "tag": "zhuazhuajuchui", "reward_prefixes": ["Zhuazhuajuchui", "RZhuazhuajuchui", "SRZhuazhuajuchui", "SSRZhuazhuajuchui", "URZhuazhuajuchui"]},
-		22: {"name": "御剑", "level_prop": "main_skill_yujian", "damage_prop": "", "speed_node": "", "tag": "summon", "reward_prefixes": ["Yujian", "RYujian", "SRYujian", "SSRYujian", "URYujian"]}
+		22: {"name": "御剑", "level_prop": "main_skill_yujian", "damage_prop": "", "speed_node": "", "tag": "summon", "reward_prefixes": ["Yujian", "RYujian", "SRYujian", "SSRYujian", "URYujian"]},
+		23: {"name": "噬魂镰", "level_prop": "main_skill_soul_sickle", "damage_prop": "main_skill_soul_sickle_damage", "speed_node": "soul_sickle_fire_speed", "tag": "soul_sickle", "reward_prefixes": ["SoulSickle", "RSoulSickle", "SRSoulSickle", "SSRSoulSickle", "URSoulSickle"]},
+		24: {"name": "雷魂枪", "level_prop": "main_skill_thunder_gun", "damage_prop": "main_skill_thunder_gun_damage", "speed_node": "thunder_gun_fire_speed", "tag": "thunder_gun", "reward_prefixes": ["ThunderGun", "RThunderGun", "SRThunderGun", "SSRThunderGun", "URThunderGun"]}
 	}
 
 	if not skill_data.has(skill_index):
@@ -2907,7 +3128,7 @@ func show_skill_label(skill_index: int, player_node: Node) -> void:
 	if data.tag == "summon":
 		damage_multi = PC.summon_damage_multiplier
 	if data.tag == "thunder":
-		damage_multi = 0.7 * (PC.main_skill_thunder_damage / 0.85)
+		damage_multi = 0.75 * (PC.main_skill_thunder_damage / 0.75)
 	if damage_multi == null:
 		# 尝试从单例获取或使用默认值1.0
 		if data.tag == "blood_wave" and ClassDB.class_exists("BloodWave"):
@@ -3710,7 +3931,7 @@ func _build_treasure_faze_detail(level: int) -> String:
 	lines.append(_format_faze_line(level, current_tier, 9, "9阶：天命提升 6 点，每点天命使宝器类武器伤害提升 2%，每升 2 级获得 1 次刷新次数"))
 	lines.append(_format_faze_line(level, current_tier, 16, "16阶：宝器类武器攻击速度提升 25% ，天命提升 9 点"))
 	lines.append(_format_faze_line(level, current_tier, 22, "22阶：宝器类武器伤害提升 35% ，天命提升 14 点，每升 1 级获得 1 次刷新次数"))
-	lines.append(_format_faze_line(level, current_tier, 29, "29阶：宝器类武器伤害提升 100% ，天命提升 20 点，每点天命使宝器类武器对精英及首领的伤害提升 6%"))
+	lines.append(_format_faze_line(level, current_tier, 29, "29阶：宝器类武器伤害提升 100% ，天命提升 20 点，每点天命使宝器类武器对精英及首领的伤害提升 2%，并获得 5 点护甲"))
 	var text = ""
 	for i in range(lines.size()):
 		text += lines[i]
@@ -3728,9 +3949,9 @@ func _build_deep_faze_detail(level: int) -> String:
 	lines.append(_build_law_title("沉渊法则"))
 	lines.append(_color_owned_weapons("沉渊系武器：爪爪巨锤，撼地诀，噬魂镰"))
 	lines.append(_format_faze_line(level, current_tier, 4, "4阶：沉渊系武器伤害提升20%，击退幅度增加20%"))
-	lines.append(_format_faze_line(level, current_tier, 9, "9阶：沉渊系武器让敌人强制位移后，会额外结算一次伤害，每点击退幅度造成2.5%的伤害，对于首领敌人，会直接附加该伤害并额外造成150%伤害"))
+	lines.append(_format_faze_line(level, current_tier, 9, "9阶：沉渊系武器让敌人强制位移后，会额外结算一次伤害，每点击退幅度造成2.5%的伤害，对于首领敌人，会直接附加该伤害并额外造成50%伤害"))
 	lines.append(_format_faze_line(level, current_tier, 16, "16阶：沉渊系武器伤害提升45%，击退幅度增加25%"))
-	lines.append(_format_faze_line(level, current_tier, 22, "22阶：沉渊系武器伤害提升60%，沉渊系武器强制位移的结算伤害，每点击退幅度造成的伤害提升至6%，对于首领敌人的额外伤害提升到300%"))
+	lines.append(_format_faze_line(level, current_tier, 22, "22阶：沉渊系武器伤害提升60%，沉渊系武器强制位移的结算伤害，每点击退幅度造成的伤害提升至6%，对于首领敌人的额外伤害从50%提升到150%"))
 	lines.append(_format_faze_line(level, current_tier, 29, "29阶：沉渊系武器伤害提升90%，击退幅度增加75%，沉渊系武器强制位移的结算伤害对于首领敌人的额外伤害提升到1000%"))
 	var text = ""
 	for i in range(lines.size()):
@@ -3739,17 +3960,38 @@ func _build_deep_faze_detail(level: int) -> String:
 			text += "\n"
 	return text
 
+func _build_shehun_faze_detail(level: int) -> String:
+	var tiers = [4, 8, 16, 22, 29]
+	var current_tier = 0
+	for tier in tiers:
+		if level >= tier:
+			current_tier = tier
+	var lines: Array = []
+	lines.append(_build_law_title("摄魂法则"))
+	lines.append(_color_owned_weapons("摄魂类武器：噬魂镰，摄魂铃，雷魂枪"))
+	lines.append(_format_faze_line(level, current_tier, 4, "4阶：摄魂类武器伤害提升25%，精魄获取率提升10%"))
+	lines.append(_format_faze_line(level, current_tier, 8, "8阶：摄魂类武器伤害提升30%，精魄再生提升2%，每获得4000精魄可以提升1阶摄魂法则，下次获得摄魂法则所需的精魄量会提升4000"))
+	lines.append(_format_faze_line(level, current_tier, 16, "16阶：摄魂类武器伤害提升45%，暴击率提升10%，精魄获取率再次提升20%，精魄再生再次提升2%，精魄再生上限提高到8%"))
+	lines.append(_format_faze_line(level, current_tier, 22, "22阶：摄魂类武器伤害提升65%，暴击率再次提升15%，敌人数量提升15%，精魄获取率再次提升25%，每5000精魄额外提升2%最终伤害与0.5%减伤率"))
+	lines.append(_format_faze_line(level, current_tier, 29, "29阶：摄魂类武器伤害提升120%，敌人数量再次提升25%，精魄获取率再次提升100%，每5000精魄的属性提升量增加至8%最终伤害与2%减伤率"))
+	var text = ""
+	for i in range(lines.size()):
+		text += lines[i]
+		if i < lines.size() - 1:
+			text += "\n"
+	return text
+
 func _build_chaos_faze_detail(level: int) -> String:
-	var tiers = [3, 5, 8, 11]
+	var tiers = [5, 8, 11]
 	var current_tier = 0
 	for tier in tiers:
 		if level >= tier:
 			current_tier = tier
 	var lines: Array = []
 	lines.append(_build_law_title("混沌法则"))
+	lines.append("已有法则数量达到 6 种后，混沌法则才会生效")
 	lines.append("每个达到 6、10 层的法则使混沌法则层数 +1，每个达到 12 层的法则使混沌层数 -2")
-	lines.append(_format_faze_line(level, current_tier, 3, "3阶：最终伤害、经验获得率、真气获取率提升 15%"))
-	lines.append(_format_faze_line(level, current_tier, 5, "5阶：最终伤害、经验获得率再次提升 30%，真气获取率再次提升 25%"))
+	lines.append(_format_faze_line(level, current_tier, 5, "5阶：最终伤害、经验获得率提升 30%，真气获取率提升 25%"))
 	lines.append(_format_faze_line(level, current_tier, 8, "8阶：最终伤害、经验获得率再次提升 60%，真气获取率再次提升 40%"))
 	lines.append(_format_faze_line(level, current_tier, 11, "11阶：最终伤害、经验获得率再次提升 120%，真气获取率再次提升 80%"))
 	var text = ""
@@ -3765,7 +4007,7 @@ func _init_stop_layer() -> void:
 	if stop_button:
 		stop_button.process_mode = Node.PROCESS_MODE_ALWAYS
 		stop_button.z_as_relative = false
-		stop_button.z_index = 5000
+		stop_button.z_index = 4096
 		stop_button.move_to_front()
 		stop_button.pressed.connect(_on_stop_button_pressed)
 	if stop_layer and setting_layer:

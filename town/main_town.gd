@@ -16,6 +16,7 @@ extends Node2D
 @export var battle_scene_stage2: String
 @export var battle_scene_stage3: String
 @export var battle_scene_stage4: String
+@export var battle_scene_stage5: String
 
 @export var cystal: AnimatedSprite2D
 @export var levelUpMan: AnimatedSprite2D
@@ -43,11 +44,14 @@ var transition_tween: Tween
 # UI动画相关变量
 var ui_tweens: Dictionary = {}
 var ui_states: Dictionary = {}
+var _mobile_selected_cultivation_key: String = ""
 
 var player: CharacterBody2D
 const SHOP_LAYER_SCENE := preload("res://Scenes/town/shop_layer.tscn")
+const DANYAO_LAYER_SCENE := preload("res://Scenes/town/danyao_layer.tscn")
 const JC_LAYER_SCENE := preload("res://Scenes/town/jc_layer.tscn")
 const ACHIEVEMENT_LAYER_SCENE := preload("res://Scenes/town/achievement‌_layer.tscn")
+const GUIDE_LAYER_SCENE := preload("res://Scenes/town/guide_layer.tscn")
 const ACTION_TIPS_SCENE := preload("res://Scenes/global/action_tips.tscn")
 const MOBILE_INTERACTION_BUTTON_THEME := preload("res://Scenes/global/dialog_tips_theme.tres")
 const TOWN_COMPANION_DIALOGUE := preload("res://Script/town/town_companion_dialogue.gd")
@@ -60,12 +64,16 @@ const STORY6_MAGIC_CORE_REWARD := {
 }
 var jcLayerInstance: CanvasLayer
 var achievementLayerInstance: CanvasLayer
+var guideLayerInstance: CanvasLayer
 const CHICK_SCENE := preload("res://Scenes/town/animal/chick.tscn")
 const RABBIT_SCENE := preload("res://Scenes/town/animal/rabbit.tscn")
 var shopLayer: CanvasLayer
+var danyaoLayer: CanvasLayer
 
 const CAMERA_ZOOM_LOCK_ACHIEVEMENT := "achievement"
+const CAMERA_ZOOM_LOCK_GUIDE := "guide"
 const CAMERA_ZOOM_LOCK_SHOP := "shop"
+const CAMERA_ZOOM_LOCK_DANYAO := "danyao"
 const CAMERA_ZOOM_LOCK_HERO := "hero"
 const CAMERA_ZOOM_LOCK_LEVEL_SELECT := "level_select"
 const CAMERA_ZOOM_LOCK_CULTIVATION := "cultivation"
@@ -148,6 +156,7 @@ func _ready() -> void:
 	
 	# 功能解锁检查
 	_apply_feature_unlocks()
+	_connect_level_change_extra_buttons()
 	
 	# 为NPC添加脚底阴影
 	_setup_npc_shadows()
@@ -180,6 +189,13 @@ func _grant_missing_story6_magic_core_reward() -> void:
 	Global.has_received_story_6_magic_core_reward = true
 	Global.save_game(true)
 
+func _connect_level_change_extra_buttons() -> void:
+	if levelChangeLayer == null:
+		return
+	var stage5_button := levelChangeLayer.get_node_or_null("Control/Stage5") as Button
+	if stage5_button != null and not stage5_button.pressed.is_connected(_on_stage_5_pressed):
+		stage5_button.pressed.connect(_on_stage_5_pressed)
+
 func _input(event: InputEvent) -> void:
 	if not (event is InputEventKey):
 		return
@@ -201,6 +217,8 @@ func _input(event: InputEvent) -> void:
 		handled = defaultLayer.has_method("try_open_skill_config") and defaultLayer.try_open_skill_config()
 	elif _is_key_event(key_event, KEY_U):
 		handled = _try_open_achievement_shortcut()
+	elif _is_key_event(key_event, KEY_H):
+		handled = _try_open_guide_shortcut()
 	if handled:
 		get_viewport().set_input_as_handled()
 
@@ -222,6 +240,12 @@ func _try_open_achievement_shortcut() -> bool:
 	_on_achievement_button_pressed()
 	return true
 
+func _try_open_guide_shortcut() -> bool:
+	if _is_entry_shortcut_blocked():
+		return false
+	_on_guide_button_pressed()
+	return true
+
 func _is_entry_shortcut_blocked() -> bool:
 	if dialog_control != null and dialog_control.visible:
 		return true
@@ -237,7 +261,9 @@ func _is_town_panel_visible() -> bool:
 		or (is_instance_valid(studyLayer) and studyLayer.visible)
 		or (is_instance_valid(heroLayer) and heroLayer.visible)
 		or (is_instance_valid(shopLayer) and shopLayer.visible)
+		or (is_instance_valid(danyaoLayer) and danyaoLayer.visible)
 		or (is_instance_valid(achievementLayerInstance) and achievementLayerInstance.visible)
+		or (is_instance_valid(guideLayerInstance) and guideLayerInstance.visible)
 		or (is_instance_valid(jcLayerInstance) and jcLayerInstance.visible)
 	)
 
@@ -255,6 +281,12 @@ func _close_visible_town_panel() -> bool:
 	if is_instance_valid(shopLayer) and shopLayer.visible:
 		if shopLayer.has_method("_on_exit_button_pressed"):
 			shopLayer.call("_on_exit_button_pressed")
+		else:
+			_on_exit_pressed()
+		return true
+	if is_instance_valid(danyaoLayer) and danyaoLayer.visible:
+		if danyaoLayer.has_method("_on_exit_pressed"):
+			danyaoLayer.call("_on_exit_pressed")
 		else:
 			_on_exit_pressed()
 		return true
@@ -276,6 +308,11 @@ func _close_visible_town_panel() -> bool:
 		_on_exit_pressed()
 		return true
 	if is_instance_valid(achievementLayerInstance) and achievementLayerInstance.visible:
+		_on_exit_pressed()
+		return true
+	if is_instance_valid(guideLayerInstance) and guideLayerInstance.visible:
+		if guideLayerInstance.has_method("handle_exit_request"):
+			return bool(guideLayerInstance.handle_exit_request())
 		_on_exit_pressed()
 		return true
 	if is_instance_valid(jcLayerInstance) and jcLayerInstance.visible:
@@ -772,9 +809,13 @@ func setup_audio_buses() -> void:
 			dialog_control.connect("dialog_completed", dialog_completed_callable)
 	heroLayer.exit_button.pressed.connect(_on_exit_pressed)
 	_ensure_shop_layer()
+	_ensure_danyao_layer()
 	_ensure_achievement_layer()
+	_ensure_guide_layer()
 	if defaultLayer.has_signal("achievement_pressed") and not defaultLayer.achievement_pressed.is_connected(_on_achievement_button_pressed):
 		defaultLayer.achievement_pressed.connect(_on_achievement_button_pressed)
+	if defaultLayer.has_signal("guide_pressed") and not defaultLayer.guide_pressed.is_connected(_on_guide_button_pressed):
+		defaultLayer.guide_pressed.connect(_on_guide_button_pressed)
 	_setup_mobile_interaction_panel()
 	call_deferred("_play_pending_achievement_unlocks")
 
@@ -816,6 +857,17 @@ func _ensure_achievement_layer() -> void:
 	if achievementLayerInstance.has_signal("exit_requested") and not achievementLayerInstance.exit_requested.is_connected(_on_exit_pressed):
 		achievementLayerInstance.exit_requested.connect(_on_exit_pressed)
 
+func _ensure_guide_layer() -> void:
+	if is_instance_valid(guideLayerInstance):
+		return
+	guideLayerInstance = GUIDE_LAYER_SCENE.instantiate()
+	if canvasLayer != null:
+		guideLayerInstance.layer = canvasLayer.layer + 1
+	guideLayerInstance.visible = false
+	add_child(guideLayerInstance)
+	if guideLayerInstance.has_signal("exit_requested") and not guideLayerInstance.exit_requested.is_connected(_on_exit_pressed):
+		guideLayerInstance.exit_requested.connect(_on_exit_pressed)
+
 func _on_achievement_button_pressed() -> void:
 	_ensure_achievement_layer()
 	PC.movement_disabled = true
@@ -841,6 +893,30 @@ func _on_achievement_button_pressed() -> void:
 		achievement_panel.modulate.a = 0.0
 		ui_tweens["achievementLayer"].tween_property(achievement_panel, "modulate:a", 1.0, 0.15).set_delay(0.15)
 
+func _on_guide_button_pressed() -> void:
+	_ensure_guide_layer()
+	PC.movement_disabled = true
+	_set_town_panel_open(true)
+	defaultLayer.visible = false
+	Global.lock_camera_zoom(CAMERA_ZOOM_LOCK_GUIDE)
+	if dark_overlay:
+		if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
+			ui_tweens["dark_overlay"].kill()
+		ui_tweens["dark_overlay"] = create_tween()
+		dark_overlay.visible = true
+		dark_overlay.modulate.a = 0.0
+		ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 0.55, 0.15)
+	if ui_tweens.has("guideLayer") and ui_tweens["guideLayer"]:
+		ui_tweens["guideLayer"].kill()
+	ui_tweens["guideLayer"] = create_tween()
+	ui_tweens["guideLayer"].set_parallel(true)
+	if guideLayerInstance.has_method("open_layer"):
+		guideLayerInstance.open_layer()
+	var guide_panel := guideLayerInstance.get_node_or_null("Panel")
+	if guide_panel and guide_panel.has_method("set_modulate"):
+		guide_panel.modulate.a = 0.0
+		ui_tweens["guideLayer"].tween_property(guide_panel, "modulate:a", 1.0, 0.15).set_delay(0.15)
+
 func _play_pending_achievement_unlocks() -> void:
 	await get_tree().create_timer(1.0).timeout
 	if not is_inside_tree():
@@ -856,6 +932,17 @@ func _ensure_shop_layer() -> void:
 	add_child(shopLayer)
 	if shopLayer.has_signal("exit_requested") and not shopLayer.exit_requested.is_connected(_on_exit_pressed):
 		shopLayer.exit_requested.connect(_on_exit_pressed)
+
+func _ensure_danyao_layer() -> void:
+	if is_instance_valid(danyaoLayer):
+		return
+	danyaoLayer = DANYAO_LAYER_SCENE.instantiate()
+	danyaoLayer.visible = false
+	if canvasLayer != null:
+		danyaoLayer.layer = canvasLayer.layer + 1
+	add_child(danyaoLayer)
+	if danyaoLayer.has_signal("exit_requested") and not danyaoLayer.exit_requested.is_connected(_on_exit_pressed):
+		danyaoLayer.exit_requested.connect(_on_exit_pressed)
 
 func _open_shop_layer() -> void:
 	_ensure_shop_layer()
@@ -881,6 +968,31 @@ func _open_shop_layer() -> void:
 		if child.has_method("set_modulate"):
 			child.modulate.a = 0.0
 			ui_tweens["shopLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
+
+func _open_danyao_layer() -> void:
+	_ensure_danyao_layer()
+	PC.movement_disabled = true
+	_set_town_panel_open(true)
+	defaultLayer.visible = false
+	Global.lock_camera_zoom(CAMERA_ZOOM_LOCK_DANYAO)
+	if dark_overlay:
+		if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
+			ui_tweens["dark_overlay"].kill()
+		ui_tweens["dark_overlay"] = create_tween()
+		dark_overlay.visible = true
+		dark_overlay.modulate.a = 0.0
+		ui_tweens["dark_overlay"].tween_property(dark_overlay, "modulate:a", 1.0, 0.15)
+	if ui_tweens.has("danyaoLayer") and ui_tweens["danyaoLayer"]:
+		ui_tweens["danyaoLayer"].kill()
+	ui_tweens["danyaoLayer"] = create_tween()
+	ui_tweens["danyaoLayer"].set_parallel(true)
+	danyaoLayer.visible = true
+	if danyaoLayer.has_method("open_layer"):
+		danyaoLayer.open_layer()
+	for child in danyaoLayer.get_children():
+		if child.has_method("set_modulate"):
+			child.modulate.a = 0.0
+			ui_tweens["danyaoLayer"].tween_property(child, "modulate:a", 1.0, 0.15).set_delay(0.15)
 
 func _open_hero_layer() -> void:
 	PC.movement_disabled = true
@@ -932,6 +1044,7 @@ func _open_cultivation_layer() -> void:
 	PC.movement_disabled = true
 	_set_town_panel_open(true)
 	defaultLayer.visible = false
+	_mobile_selected_cultivation_key = ""
 	Global.lock_camera_zoom(CAMERA_ZOOM_LOCK_CULTIVATION)
 	if dark_overlay:
 		if ui_tweens.has("dark_overlay") and ui_tweens["dark_overlay"]:
@@ -1064,6 +1177,7 @@ func _collect_mobile_interaction_actions() -> Array[Dictionary]:
 		actions.append({"key": "npc:kan:talk", "text": "坎-交谈", "target": "kan", "action": "talk_npc"})
 	if _is_player_near(danlu, interaction_distance + 20) and danlu.visible:
 		actions.append({"key": "npc:danlu:synthesis", "text": "八卦炉-合成", "target": "danlu", "action": "synthesis"})
+		actions.append({"key": "npc:danlu:danyao", "text": "八卦炉-丹药", "target": "danlu", "action": "danyao"})
 	if _is_player_near(portal, interaction_distance + 20):
 		actions.append({"key": "npc:portal:level", "text": "衍阵-传送", "target": "portal", "action": "level"})
 	for companion_data: Dictionary in _get_interactable_companions():
@@ -1156,6 +1270,8 @@ func _on_mobile_interaction_pressed(action: Dictionary) -> void:
 			_open_shop_layer()
 		"synthesis":
 			_open_synthesis_layer()
+		"danyao":
+			_open_danyao_layer()
 		"level":
 			_open_level_change_layer()
 		"talk_npc":
@@ -1262,8 +1378,10 @@ func _process(delta: float) -> void:
 	if player.global_position.distance_to(danlu.global_position) < interaction_distance + 20 and danlu.visible:
 		animate_ui_element(danluTips, "danluTips", true)
 		danluTips.change_name("八卦炉
-		<合成>")
+		<丹药>")
 		danluTips.change_label1_text("合成 [F]")
+		danluTips.change_function2_visible(true)
+		danluTips.change_label2_text("丹药 [G]")
 	else:
 		animate_ui_element(danluTips, "danluTips", false)
 				
@@ -1363,6 +1481,9 @@ func press_interact2():
 		handled = true
 		if not dialog_control.visible:
 			start_dialog_interaction("kan")
+	elif _is_player_near(danlu, interaction_distance + 20) and danlu.visible:
+		handled = true
+		_open_danyao_layer()
 
 	if handled:
 		return
@@ -1713,6 +1834,9 @@ func _on_exit_pressed() -> void:
 	
 	# 渐出修炼界面
 	if is_instance_valid(cultivationLayer) and cultivationLayer.visible:
+		_mobile_selected_cultivation_key = ""
+		if cultivation_msg:
+			cultivation_msg.visible = false
 		for child in cultivationLayer.get_children():
 			if child.has_method("set_modulate"):
 				exit_tween.tween_property(child, "modulate:a", 0.0, 0.1)
@@ -1771,6 +1895,21 @@ func _on_exit_pressed() -> void:
 						child.modulate.a = 1.0
 		).set_delay(0.2)
 
+	if is_instance_valid(danyaoLayer) and danyaoLayer.visible:
+		if danyaoLayer.has_method("prepare_for_close"):
+			danyaoLayer.prepare_for_close()
+		for child in danyaoLayer.get_children():
+			if child.has_method("set_modulate"):
+				exit_tween.tween_property(child, "modulate:a", 0.0, 0.2)
+		exit_tween.tween_callback(func():
+			if is_instance_valid(danyaoLayer):
+				danyaoLayer.visible = false
+				Global.unlock_camera_zoom(CAMERA_ZOOM_LOCK_DANYAO)
+				for child in danyaoLayer.get_children():
+					if child.has_method("set_modulate"):
+						child.modulate.a = 1.0
+		).set_delay(0.2)
+
 	if is_instance_valid(achievementLayerInstance) and achievementLayerInstance.visible:
 		var achievement_panel := achievementLayerInstance.get_node_or_null("Panel")
 		if achievement_panel and achievement_panel.has_method("set_modulate"):
@@ -1787,6 +1926,23 @@ func _on_exit_pressed() -> void:
 					panel.modulate.a = 1.0
 				if defaultLayer.has_method("set_achievement_layer_open"):
 					defaultLayer.set_achievement_layer_open(false)
+		).set_delay(0.2)
+
+	if is_instance_valid(guideLayerInstance) and guideLayerInstance.visible:
+		var guide_panel := guideLayerInstance.get_node_or_null("Panel")
+		if guide_panel and guide_panel.has_method("set_modulate"):
+			exit_tween.tween_property(guide_panel, "modulate:a", 0.0, 0.2)
+		exit_tween.tween_callback(func():
+			if is_instance_valid(guideLayerInstance):
+				if guideLayerInstance.has_method("close_layer"):
+					guideLayerInstance.close_layer(false)
+				else:
+					guideLayerInstance.visible = false
+				Global.unlock_camera_zoom(CAMERA_ZOOM_LOCK_GUIDE)
+				var panel := guideLayerInstance.get_node_or_null("Panel")
+				if panel and panel.has_method("set_modulate"):
+					panel.modulate.a = 1.0
+				_set_town_panel_open(false)
 		).set_delay(0.2)
 
 	# 渐出修习界面
@@ -1827,6 +1983,8 @@ func _enter_stage(stage_scene_path: String, stage_id: String) -> void:
 		return
 		
 	var diff = Global.validate_stage_difficulty_id(Global.selected_stage_difficulty)
+	if not _can_enter_stage_with_current_selection(stage_id, diff):
+		return
 	if diff == Global.STAGE_DIFFICULTY_POETRY:
 		if levelChangeLayer != null:
 			if levelChangeLayer.has_method("suppress_stage_tooltips"):
@@ -1843,8 +2001,47 @@ func _enter_stage(stage_scene_path: String, stage_id: String) -> void:
 			return
 		current_poetry_layer.show_layer(stage_scene_path, stage_id, self )
 		return
+	if not _consume_stage_entry_cost(stage_id, diff):
+		return
 		
 	_do_enter_stage(stage_scene_path, stage_id, diff, false)
+
+func _can_enter_stage_with_current_selection(stage_id: String, diff: String) -> bool:
+	if stage_id != "difu":
+		return true
+	if not Global.is_difu_mijing_unlocked():
+		_show_stage_enter_tip("需要先通关肆 · 密林，才能开启九幽冥府秘境。")
+		return false
+	if diff == Global.STAGE_DIFFICULTY_POETRY:
+		_show_stage_enter_tip("秘境诗想难度暂未开放。")
+		return false
+	if diff == Global.STAGE_DIFFICULTY_CORE:
+		if not Global.can_enter_core_depth(stage_id, Global.selected_core_depth):
+			_show_stage_enter_tip("九幽冥府当前核心层数尚未解锁")
+			return false
+		return true
+	if not Global.can_enter_stage_difficulty(stage_id, diff):
+		_show_stage_enter_tip("九幽冥府当前难度尚未解锁")
+		return false
+	return true
+
+func _consume_stage_entry_cost(stage_id: String, diff: String) -> bool:
+	var requirement := Global.get_mijing_stage_key_requirement(stage_id, diff, Global.selected_core_depth)
+	var item_id := str(requirement.get("item_id", ""))
+	var required_count := int(requirement.get("required", 0))
+	if item_id.is_empty() or required_count <= 0:
+		return true
+	if not Global.consume_item_count(item_id, required_count):
+		_show_stage_enter_tip("九幽秘钥不足")
+		return false
+	Global.save_game(true)
+	return true
+
+func _show_stage_enter_tip(message: String) -> void:
+	if tip != null and tip.has_method("start_animation"):
+		tip.start_animation(message, 0.5)
+	if has_node("Buzzer"):
+		$Buzzer.play()
 
 func _do_enter_stage(stage_scene_path: String, stage_id: String, diff: String, skip_reset: bool = false) -> void:
 	Global.current_stage_id = stage_id
@@ -1872,6 +2069,9 @@ func _on_stage_3_pressed() -> void:
 
 func _on_stage_4_pressed() -> void:
 	_enter_stage(battle_scene_stage4, "forest")
+
+func _on_stage_5_pressed() -> void:
+	_enter_stage(battle_scene_stage5, "difu")
 	
 func refresh_point() -> void:
 	point_label.text = str(Global.total_points)
@@ -1909,9 +2109,16 @@ func _on_cme(cultivation_key: String) -> void:
 	cultivation_msg.visible = true
 
 func _on_cmex(_cultivation_key: String) -> void:
+	if Global.is_mobile_input_mode():
+		return
 	cultivation_msg.visible = false
 
 func _on_cmp(cultivation_key: String) -> void:
+	if Global.is_mobile_input_mode() and _mobile_selected_cultivation_key != cultivation_key:
+		_mobile_selected_cultivation_key = cultivation_key
+		_on_cme(cultivation_key)
+		return
+	
 	var config = cultivation_configs[cultivation_key]
 	var current_level = Global.get(config["level_var"])
 	var max_level = Global.get(config["max_level_var"])
@@ -1939,6 +2146,7 @@ func _on_cmp(cultivation_key: String) -> void:
 		AchievementManager.scan_meta_progress(false)
 		Global.save_game()
 		refresh_point()
+		_mobile_selected_cultivation_key = ""
 		
 		if cultivation_msg.visible:
 			_on_cme(cultivation_key)
@@ -1947,6 +2155,8 @@ func _on_cmp(cultivation_key: String) -> void:
 		$Buzzer.play()
 
 func _on_poxu_mouse_entered() -> void:
+	if Global.is_mobile_input_mode():
+		return
 	_on_cme("poxu")
 
 func _on_poxu_mouse_exited() -> void:
@@ -1956,6 +2166,8 @@ func _on_poxu_pressed() -> void:
 	_on_cmp("poxu")
 
 func _on_xuanyuan_mouse_entered() -> void:
+	if Global.is_mobile_input_mode():
+		return
 	_on_cme("xuanyuan")
 
 func _on_xuanyuan_mouse_exited() -> void:
@@ -1965,6 +2177,8 @@ func _on_xuanyuan_pressed() -> void:
 	_on_cmp("xuanyuan")
 
 func _on_liuguang_mouse_entered() -> void:
+	if Global.is_mobile_input_mode():
+		return
 	_on_cme("liuguang")
 
 func _on_liuguang_mouse_exited() -> void:
@@ -1974,6 +2188,8 @@ func _on_liuguang_pressed() -> void:
 	_on_cmp("liuguang")
 
 func _on_hualing_mouse_entered() -> void:
+	if Global.is_mobile_input_mode():
+		return
 	_on_cme("hualing")
 
 func _on_hualing_mouse_exited() -> void:
@@ -1983,6 +2199,8 @@ func _on_hualing_pressed() -> void:
 	_on_cmp("hualing")
 
 func _on_fengrui_mouse_entered() -> void:
+	if Global.is_mobile_input_mode():
+		return
 	_on_cme("fengrui")
 
 func _on_fengrui_mouse_exited() -> void:
@@ -1992,6 +2210,8 @@ func _on_fengrui_pressed() -> void:
 	_on_cmp("fengrui")
 
 func _on_huti_mouse_entered() -> void:
+	if Global.is_mobile_input_mode():
+		return
 	_on_cme("huti")
 
 func _on_huti_mouse_exited() -> void:
@@ -2001,6 +2221,8 @@ func _on_huti_pressed() -> void:
 	_on_cmp("huti")
 
 func _on_zhuifeng_mouse_entered() -> void:
+	if Global.is_mobile_input_mode():
+		return
 	_on_cme("zhuifeng")
 
 func _on_zhuifeng_mouse_exited() -> void:
@@ -2010,6 +2232,8 @@ func _on_zhuifeng_pressed() -> void:
 	_on_cmp("zhuifeng")
 
 func _on_liejin_mouse_entered() -> void:
+	if Global.is_mobile_input_mode():
+		return
 	_on_cme("liejin")
 
 func _on_liejin_mouse_exited() -> void:

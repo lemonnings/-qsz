@@ -1,12 +1,14 @@
 extends CanvasLayer
 
 signal achievement_pressed
+signal guide_pressed
 
 @onready var setting: Panel = $Panel
 @onready var setting_button: Button = $Setting
 @onready var bag_button: Button = $Bag
 @onready var skill_button: Button = $Skill
 @onready var jc_button: Button = $JC
+@onready var guide_button: Button = get_node_or_null("Guide") as Button
 @onready var main_volume: HSlider = $Panel/shengyin2/MainVolume
 @onready var bgm_volume: HSlider = $Panel/shengyin2/BGMVolume
 @onready var se_volume: HSlider = $Panel/shengyin2/SEVolume
@@ -50,6 +52,8 @@ func _ready() -> void:
 	bag_button.pressed.connect(_on_bag_pressed)
 	skill_button.pressed.connect(_on_skill_pressed)
 	jc_button.pressed.connect(_on_jc_pressed)
+	if guide_button != null:
+		guide_button.pressed.connect(_on_guide_pressed)
 	if not Global.input_device_mode_changed.is_connected(_on_input_device_mode_changed):
 		Global.input_device_mode_changed.connect(_on_input_device_mode_changed)
 	refresh_entry_buttons_enabled()
@@ -58,6 +62,11 @@ func _on_jc_pressed() -> void:
 	if _is_entry_ui_open():
 		return
 	achievement_pressed.emit()
+
+func _on_guide_pressed() -> void:
+	if _is_entry_ui_open():
+		return
+	guide_pressed.emit()
 
 func lock_setting_button() -> void:
 	setting_button_manually_locked = true
@@ -78,7 +87,7 @@ func set_town_panel_open(open: bool) -> void:
 func refresh_entry_buttons_enabled() -> void:
 	_update_entry_button_labels_for_device()
 	var entry_ui_open := _is_entry_ui_open()
-	for button in [setting_button, bag_button, skill_button, jc_button]:
+	for button in [setting_button, bag_button, skill_button, jc_button, guide_button]:
 		if button == null:
 			continue
 		button.visible = not entry_ui_open
@@ -236,7 +245,7 @@ func _setup_picture_panel_for_device() -> void:
 
 func _update_entry_button_labels_for_device() -> void:
 	var show_labels := not Global.is_mobile_input_mode()
-	for button in [setting_button, bag_button, skill_button, jc_button]:
+	for button in [setting_button, bag_button, skill_button, jc_button, guide_button]:
 		if button == null:
 			continue
 		var label := button.get_node_or_null("RichTextLabel") as Control

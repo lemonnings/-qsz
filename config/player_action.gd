@@ -4,6 +4,7 @@ const PLAYER_HP_BAR_SCENE: PackedScene = preload("res://Scenes/global/player_hp_
 const PLAYER_HP_BAR_OFFSET_DEFAULT: Vector2 = Vector2(-13, -28)
 const PLAYER_HP_BAR_OFFSET_KANSEL: Vector2 = Vector2(-13, -42)
 const YUJIAN_SCENE: PackedScene = preload("res://Scenes/player/yujian.tscn")
+const THUNDER_GUN_SCRIPT = preload("res://Script/skill/thunder_gun.gd")
 const YUJIAN_FLOAT_AMPLITUDE: float = 2.5
 const YUJIAN_FLOAT_SPEED: float = 3.0
 
@@ -31,13 +32,6 @@ const GUIYUAN_ATK_SPEED_GROUP_PERCENT: float = 10.0
 const GUIYUAN_STAT_BONUS_PER_GROUP: float = 0.0015
 const GUIYUAN_MAX_STAT_BONUS: float = 0.20
 
-#@export var joystick_left : VirtualJoystick
-#
-#@export var joystick_right : VirtualJoystick
-
-@export var pinch_zoom_module: Node
-@export var virtual_joystick_manager: Node
-
 @export var bullet_scene: PackedScene
 @export var branch_scene: PackedScene
 @export var moyan_scene: PackedScene
@@ -60,6 +54,8 @@ const GUIYUAN_MAX_STAT_BONUS: float = 0.20
 @export var duize_scene: PackedScene
 @export var holy_light_scene: PackedScene
 @export var zhuazhuajuchui_scene: PackedScene
+@export var soul_sickle_scene: PackedScene
+@export var thunder_gun_scene: PackedScene
 
 @export var fire_speed: Timer
 @export var branch_fire_speed: Timer
@@ -82,6 +78,8 @@ const GUIYUAN_MAX_STAT_BONUS: float = 0.20
 @export var duize_fire_speed: Timer
 @export var holy_light_fire_speed: Timer
 @export var zhuazhuajuchui_fire_speed: Timer
+@export var soul_sickle_fire_speed: Timer
+@export var thunder_gun_fire_speed: Timer
 
 @export var invincible_time: Timer
 
@@ -130,6 +128,7 @@ var mizongbu_applied_speed_bonus: float = 0.0
 var mizongbu_applied_dr_bonus: float = 0.0
 var mizongbu_outgoing_factor: float = 1.0
 var mizongbu_visual_tween: Tween = null
+var ignore_invincible_hit_flash_tween: Tween = null
 var destructive_hammer_lock_active: bool = false
 var destructive_hammer_slow_active: bool = false
 var destructive_hammer_locked_direction_right: bool = true
@@ -157,6 +156,8 @@ const BEASTIFY_WEAPON_LEVEL_PROPS: Dictionary = {
 	"Duize": "main_skill_duize",
 	"DragonWind": "main_skill_dragonwind",
 	"Zhuazhuajuchui": "main_skill_zhuazhuajuchui",
+	"SoulSickle": "main_skill_soul_sickle",
+	"ThunderGun": "main_skill_thunder_gun",
 }
 
 const BEASTIFY_WEAPON_ATTACK_IDS: Dictionary = {
@@ -181,6 +182,8 @@ const BEASTIFY_WEAPON_ATTACK_IDS: Dictionary = {
 	"Duize": "duize",
 	"DragonWind": "dragonwind",
 	"Zhuazhuajuchui": "zhuazhuajuchui",
+	"SoulSickle": "soul_sickle",
+	"ThunderGun": "thunder_gun",
 }
 
 const BEASTIFY_BASE_ATTACK_INTERVAL: float = 0.7
@@ -198,6 +201,12 @@ var boss_defeat_camera_tween: Tween = null
 var boss_defeat_camera_active: bool = false
 var boss_defeat_original_time_scale: float = 1.0
 var player_hp_bar: PlayerHpBar = null
+var thunder_gun_reload_bar: Node2D = null
+var thunder_gun_reload_fill: ColorRect = null
+var thunder_gun_reload_tween: Tween = null
+var thunder_gun_reload_start_time: float = 0.0
+var thunder_gun_reload_duration: float = 0.0
+var thunder_gun_last_ammo_buff_stack: int = -999
 
 # 主要定义player主体的行为以及部分子弹逻辑
 func _ready() -> void:
@@ -232,6 +241,7 @@ func _ready() -> void:
 	_cache_hero_sprite_base_positions()
 	sync_yujian_state()
 	_setup_player_hp_bar()
+	_setup_thunder_gun_reload_bar()
 	_update_start_weapon_timers()
 	_cache_beastify_hitbox()
 	if Global.settings_manager and not Global.settings_manager.player_hp_bar_changed.is_connected(_on_player_hp_bar_setting_changed):
@@ -260,6 +270,8 @@ func _ready() -> void:
 	Global.connect("skill_cooldown_complete_qigong", Callable(self , "_on_fire_qigong"))
 	Global.connect("skill_cooldown_complete_dragonwind", Callable(self , "_on_fire_dragonwind"))
 	Global.connect("skill_cooldown_complete_zhuazhuajuchui", Callable(self , "_on_fire_zhuazhuajuchui"))
+	Global.connect("skill_cooldown_complete_soul_sickle", Callable(self , "_on_fire_soul_sickle"))
+	Global.connect("skill_cooldown_complete_thunder_gun", Callable(self , "_on_fire_thunder_gun"))
 	
 	camera.zoom = Vector2(1.6, 1.6)
 	
@@ -270,12 +282,8 @@ func _ready() -> void:
 	last_move_time = Time.get_unix_time_from_system()
 	
 	if PC.selected_rewards.has("Riyan") and PC.first_has_riyan_pc:
-	# 实例化日炎攻击
-		if riyan_scene:
-			var riyan_instance = riyan_scene.instantiate()
-			get_parent().add_child(riyan_instance)
-			riyan_instance.global_position = global_position
-			PC.first_has_riyan_pc = false
+		_ensure_riyan_helper()
+		PC.first_has_riyan_pc = false
 			
 	if PC.selected_rewards.has("Qiankun"):
 		init_qiankun()
@@ -292,9 +300,34 @@ func change_hero(hero_key: String) -> void:
 	_set_active_hero(hero_key)
 	_update_start_weapon_timers()
 
+func activate_granted_start_weapon(start_weapon_id: String) -> void:
+	if Global.in_town or not is_inside_tree():
+		return
+	_update_start_weapon_timers()
+	if start_weapon_id == "Qiankun":
+		init_qiankun()
+
+func activate_current_weapon_runtimes_after_stage_ready() -> void:
+	if Global.in_town or not is_inside_tree():
+		return
+	_update_start_weapon_timers()
+	if PC.selected_rewards.has("Riyan"):
+		_ensure_riyan_helper()
+	if PC.selected_rewards.has("Qiankun"):
+		init_qiankun()
+
 func get_hero_sprite_frames(hero_key: String) -> SpriteFrames:
 	var hero_sprite = _get_hero_sprite(hero_key)
 	return hero_sprite.sprite_frames
+
+func _ensure_riyan_helper() -> void:
+	if get_node_or_null("Riyan") != null:
+		return
+	if riyan_scene == null:
+		return
+	var riyan_instance := riyan_scene.instantiate()
+	riyan_instance.name = "Riyan"
+	add_child(riyan_instance)
 
 func _set_active_hero(hero_key: String) -> void:
 	var hero_sprite = _get_hero_sprite(hero_key)
@@ -430,6 +463,30 @@ func _setup_player_hp_bar() -> void:
 	add_child(player_hp_bar)
 	_update_player_hp_bar_position()
 	_update_player_hp_bar()
+	_update_thunder_gun_reload_bar_position()
+
+func _setup_thunder_gun_reload_bar() -> void:
+	if thunder_gun_reload_bar != null and is_instance_valid(thunder_gun_reload_bar):
+		return
+	thunder_gun_reload_bar = Node2D.new()
+	thunder_gun_reload_bar.name = "ThunderGunReloadBar"
+	thunder_gun_reload_bar.z_index = 101
+	thunder_gun_reload_bar.visible = false
+	thunder_gun_reload_bar.modulate.a = 0.0
+	add_child(thunder_gun_reload_bar)
+	var background := ColorRect.new()
+	background.name = "Background"
+	background.position = Vector2.ZERO
+	background.size = Vector2(28.0, 2.0)
+	background.color = Color(0.23, 0.12, 0.04, 0.92)
+	thunder_gun_reload_bar.add_child(background)
+	thunder_gun_reload_fill = ColorRect.new()
+	thunder_gun_reload_fill.name = "Fill"
+	thunder_gun_reload_fill.position = Vector2.ZERO
+	thunder_gun_reload_fill.size = Vector2(0.0, 2.0)
+	thunder_gun_reload_fill.color = Color(0.64, 0.34, 0.11, 1.0)
+	thunder_gun_reload_bar.add_child(thunder_gun_reload_fill)
+	_update_thunder_gun_reload_bar_position()
 
 func _get_player_hp_bar_offset() -> Vector2:
 	if PC.player_name == "kansel":
@@ -440,6 +497,12 @@ func _update_player_hp_bar_position() -> void:
 	if player_hp_bar == null or not is_instance_valid(player_hp_bar):
 		return
 	player_hp_bar.position = _get_player_hp_bar_offset()
+	_update_thunder_gun_reload_bar_position()
+
+func _update_thunder_gun_reload_bar_position() -> void:
+	if thunder_gun_reload_bar == null or not is_instance_valid(thunder_gun_reload_bar):
+		return
+	thunder_gun_reload_bar.position = _get_player_hp_bar_offset() + Vector2(0.0, 6.0)
 
 func _update_player_hp_bar() -> void:
 	if player_hp_bar == null or not is_instance_valid(player_hp_bar):
@@ -455,7 +518,62 @@ func _update_player_hp_bar() -> void:
 func _on_player_hp_bar_setting_changed(_enabled: bool) -> void:
 	_update_player_hp_bar()
 
+func _start_thunder_gun_reload_bar(duration: float) -> void:
+	_setup_thunder_gun_reload_bar()
+	if thunder_gun_reload_bar == null or thunder_gun_reload_fill == null:
+		return
+	thunder_gun_reload_duration = maxf(0.01, duration)
+	thunder_gun_reload_start_time = Time.get_ticks_msec() / 1000.0
+	thunder_gun_reload_fill.size.x = 0.0
+	thunder_gun_reload_bar.visible = true
+	if thunder_gun_reload_tween != null and thunder_gun_reload_tween.is_valid():
+		thunder_gun_reload_tween.kill()
+	thunder_gun_reload_tween = create_tween()
+	thunder_gun_reload_tween.tween_property(thunder_gun_reload_bar, "modulate:a", 1.0, 0.12)
+
+func _finish_thunder_gun_reload_bar() -> void:
+	if thunder_gun_reload_bar == null or not is_instance_valid(thunder_gun_reload_bar):
+		return
+	if thunder_gun_reload_tween != null and thunder_gun_reload_tween.is_valid():
+		thunder_gun_reload_tween.kill()
+	thunder_gun_reload_tween = create_tween()
+	thunder_gun_reload_tween.tween_property(thunder_gun_reload_bar, "modulate:a", 0.0, 0.18)
+	thunder_gun_reload_tween.finished.connect(func():
+		if thunder_gun_reload_bar != null and is_instance_valid(thunder_gun_reload_bar):
+			thunder_gun_reload_bar.visible = false
+	)
+
+func _update_thunder_gun_reload_bar() -> void:
+	if not PC.thunder_gun_reloading or thunder_gun_reload_fill == null:
+		return
+	var progress := 0.0
+	if thunder_gun_fire_speed != null and not thunder_gun_fire_speed.is_stopped():
+		progress = 1.0 - clampf(thunder_gun_fire_speed.time_left / maxf(0.01, thunder_gun_reload_duration), 0.0, 1.0)
+	else:
+		var now := Time.get_ticks_msec() / 1000.0
+		progress = clampf((now - thunder_gun_reload_start_time) / maxf(0.01, thunder_gun_reload_duration), 0.0, 1.0)
+	thunder_gun_reload_fill.size.x = 28.0 * progress
+
+func _sync_thunder_gun_ammo_buff() -> void:
+	if not PC.selected_rewards.has("ThunderGun"):
+		thunder_gun_last_ammo_buff_stack = -999
+		if BuffManager.has_buff("thunder_gun_ammo"):
+			Global.emit_signal("buff_removed", "thunder_gun_ammo")
+		return
+	var remaining := 0
+	if not PC.thunder_gun_reloading:
+		remaining = max(0, _get_thunder_gun_magazine_size() - PC.thunder_gun_ammo)
+	if remaining == thunder_gun_last_ammo_buff_stack and BuffManager.has_buff("thunder_gun_ammo"):
+		return
+	thunder_gun_last_ammo_buff_stack = remaining
+	if BuffManager.has_buff("thunder_gun_ammo"):
+		Global.emit_signal("buff_stack_changed", "thunder_gun_ammo", remaining)
+	else:
+		Global.emit_signal("buff_added", "thunder_gun_ammo", -1, remaining)
+
 func _update_start_weapon_timers() -> void:
+	if not is_inside_tree():
+		return
 	if fire_speed: fire_speed.stop()
 	if branch_fire_speed: branch_fire_speed.stop()
 	if moyan_fire_speed: moyan_fire_speed.stop()
@@ -477,6 +595,8 @@ func _update_start_weapon_timers() -> void:
 	if holy_light_fire_speed: holy_light_fire_speed.stop()
 	if dragonwind_fire_speed: dragonwind_fire_speed.stop()
 	if zhuazhuajuchui_fire_speed: zhuazhuajuchui_fire_speed.stop()
+	if soul_sickle_fire_speed: soul_sickle_fire_speed.stop()
+	if thunder_gun_fire_speed: thunder_gun_fire_speed.stop()
 	match _resolve_beastify_replaced_weapon_id():
 		"SwordQi":
 			if fire_speed: fire_speed.start()
@@ -520,6 +640,10 @@ func _update_start_weapon_timers() -> void:
 			if dragonwind_fire_speed: dragonwind_fire_speed.start()
 		"Zhuazhuajuchui":
 			if zhuazhuajuchui_fire_speed: zhuazhuajuchui_fire_speed.start()
+		"SoulSickle":
+			if soul_sickle_fire_speed: soul_sickle_fire_speed.start()
+		"ThunderGun":
+			if thunder_gun_fire_speed: thunder_gun_fire_speed.start()
 		_:
 			if fire_speed: fire_speed.start()
 
@@ -567,6 +691,8 @@ func _process(_delta: float) -> void:
 	if not PC.is_game_over:
 		_update_dynamic_emblem_effects()
 	_update_player_hp_bar()
+	_update_thunder_gun_reload_bar()
+	_sync_thunder_gun_ammo_buff()
 	
 	if velocity == Vector2.ZERO or PC.is_game_over:
 		$RunningSound.stop()
@@ -600,22 +726,15 @@ func _process(_delta: float) -> void:
 
 # 处理鼠标滚轮缩放、键盘输入和触摸输入
 func _input(event: InputEvent) -> void:
-	var handled_by_module = false
-	if pinch_zoom_module and pinch_zoom_module.has_method("handle_input_event"):
-		if pinch_zoom_module.handle_input_event(event):
-			handled_by_module = true
+	if boss_defeat_camera_active:
+		return
 
-	if handled_by_module or boss_defeat_camera_active:
-		return # Event was handled by a module，或当前由Boss击败镜头接管
-
-	# Keep mouse wheel zoom if not handled by pinch_zoom_module or for non-touch devices
+	# PC 仅保留鼠标滚轮缩放；移动端不再处理双指缩放手势。
 	if event is InputEventMouseButton and not Global.is_camera_zoom_locked():
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_zoom_camera(zoom_speed)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_zoom_camera(-zoom_speed)
-	
-
 func _reset_camera() -> void:
 	if boss_defeat_camera_active:
 		return
@@ -728,7 +847,7 @@ func _physics_process(_delta: float) -> void:
 			var heal_amount = int(PC.pc_max_hp * PC.pc_hp_regen / 100.0)
 			if heal_amount < 1:
 				heal_amount = 1
-			_heal_and_emit(heal_amount)
+			_heal_and_emit(heal_amount, "hp_regen")
 	
 	var missing_hp_ratio = float(PC.pc_max_hp - PC.pc_hp) / float(PC.pc_max_hp)
 	var bloodwave_heal_bonus = missing_hp_ratio * BloodWave.bloodwave_missing_hp_heal_bonus * 100.0
@@ -756,7 +875,7 @@ func _physics_process(_delta: float) -> void:
 		_burning_timer = 0.0
 	
 	if not PC.is_game_over and not PC.movement_disabled:
-		# Godot 4.7 VirtualJoystick 会模拟 InputMap 动作，移动端和 PC 统一从这里取方向。
+		# MobileInput 将移动摇杆写入 InputMap，移动端和 PC 统一从这里取方向。
 		var input_vector: Vector2 = Input.get_vector("left", "right", "up", "down")
 			
 		var frozen_stack = 0
@@ -813,7 +932,7 @@ func _physics_process(_delta: float) -> void:
 		
 		move_and_slide()
 		
-		# 追踪移动距离（10像素=1米，每200米=2000像素触发buff）
+		# 追踪移动距离（20世界像素=1距离）
 		if not Global.in_town and velocity.length() > 0.1:
 			PC.total_distance_moved += velocity.length() * _delta
 			_check_distance_buffs()
@@ -851,13 +970,13 @@ func _get_chant_facing_direction() -> Vector2:
 
 # 检查移动距离buff（每个buff从获取时的距离开始计算）
 func _check_distance_buffs() -> void:
-	var meters = PC.total_distance_moved / 10.0 # 像素转米
+	var distance_steps: float = PC.world_pixels_to_distance_steps(PC.total_distance_moved)
 	
-	# 移动经验buff - 行修·悟(SSR59)：每200米经验获取率+1%
+	# 移动经验buff - 行修·悟(SSR59)：每4000距离经验获取率+1%
 	if PC.selected_rewards.has("SSR59"):
 		var offset = PC.distance_buff_offsets.get("SSR59", 0.0)
-		var effective_meters = max(meters - offset, 0.0)
-		var ssr59_layers = int(effective_meters / 200.0)
+		var effective_distance = max(distance_steps - offset, 0.0)
+		var ssr59_layers = int(effective_distance / 200.0)
 		var current_stack = 0
 		if BuffManager.has_buff("move_exp"):
 			current_stack = BuffManager.get_buff_stack("move_exp")
@@ -870,11 +989,11 @@ func _check_distance_buffs() -> void:
 				else:
 					Global.emit_signal("buff_stack_changed", "move_exp", new_stack)
 	
-	# 移动掉落buff - 行修·缘(SSR60)：每200米治愈精华掉落率+1%
+	# 移动掉落buff - 行修·缘(SSR60)：每4000距离治愈精华掉落率+1%
 	if PC.selected_rewards.has("SSR60"):
 		var offset = PC.distance_buff_offsets.get("SSR60", 0.0)
-		var effective_meters = max(meters - offset, 0.0)
-		var ssr60_layers = int(effective_meters / 200.0)
+		var effective_distance = max(distance_steps - offset, 0.0)
+		var ssr60_layers = int(effective_distance / 200.0)
 		var current_stack = 0
 		if BuffManager.has_buff("move_drop"):
 			current_stack = BuffManager.get_buff_stack("move_drop")
@@ -887,11 +1006,11 @@ func _check_distance_buffs() -> void:
 				else:
 					Global.emit_signal("buff_stack_changed", "move_drop", new_stack)
 	
-	# 移动经验buff - 苦修·悟(SR72)：每300米经验获取率+1%
+	# 移动经验buff - 苦修·悟(SR72)：每6000距离经验获取率+1%
 	if PC.selected_rewards.has("SR72"):
 		var offset = PC.distance_buff_offsets.get("SR72", 0.0)
-		var effective_meters = max(meters - offset, 0.0)
-		var sr72_layers = int(effective_meters / 300.0)
+		var effective_distance = max(distance_steps - offset, 0.0)
+		var sr72_layers = int(effective_distance / 300.0)
 		var current_stack = 0
 		if BuffManager.has_buff("move_exp_sr72"):
 			current_stack = BuffManager.get_buff_stack("move_exp_sr72")
@@ -904,11 +1023,11 @@ func _check_distance_buffs() -> void:
 				else:
 					Global.emit_signal("buff_stack_changed", "move_exp_sr72", new_stack)
 	
-	# 移动掉落buff - 苦修·缘(SR73)：每300米治愈精华掉落率+1%
+	# 移动掉落buff - 苦修·缘(SR73)：每6000距离治愈精华掉落率+1%
 	if PC.selected_rewards.has("SR73"):
 		var offset = PC.distance_buff_offsets.get("SR73", 0.0)
-		var effective_meters = max(meters - offset, 0.0)
-		var sr73_layers = int(effective_meters / 300.0)
+		var effective_distance = max(distance_steps - offset, 0.0)
+		var sr73_layers = int(effective_distance / 300.0)
 		var current_stack = 0
 		if BuffManager.has_buff("move_drop_sr73"):
 			current_stack = BuffManager.get_buff_stack("move_drop_sr73")
@@ -921,11 +1040,11 @@ func _check_distance_buffs() -> void:
 				else:
 					Global.emit_signal("buff_stack_changed", "move_drop_sr73", new_stack)
 	
-	# 移动天命buff - 苦修·道(SR74)：每450米天命+1
+	# 移动天命buff - 苦修·道(SR74)：每9000距离天命+1
 	if PC.selected_rewards.has("SR74"):
 		var offset = PC.distance_buff_offsets.get("SR74", 0.0)
-		var effective_meters = max(meters - offset, 0.0)
-		var sr74_layers = int(effective_meters / 450.0)
+		var effective_distance = max(distance_steps - offset, 0.0)
+		var sr74_layers = int(effective_distance / 450.0)
 		var current_stack = 0
 		if BuffManager.has_buff("move_lucky_sr74"):
 			current_stack = BuffManager.get_buff_stack("move_lucky_sr74")
@@ -940,11 +1059,11 @@ func _check_distance_buffs() -> void:
 				else:
 					Global.emit_signal("buff_stack_changed", "move_lucky_sr74", new_stack)
 	
-	# 移动天命buff - 行修·道(SSR75)：每300米天命+1
+	# 移动天命buff - 行修·道(SSR75)：每6000距离天命+1
 	if PC.selected_rewards.has("SSR75"):
 		var offset = PC.distance_buff_offsets.get("SSR75", 0.0)
-		var effective_meters = max(meters - offset, 0.0)
-		var ssr75_layers = int(effective_meters / 300.0)
+		var effective_distance = max(distance_steps - offset, 0.0)
+		var ssr75_layers = int(effective_distance / 300.0)
 		var current_stack = 0
 		if BuffManager.has_buff("move_lucky_ssr75"):
 			current_stack = BuffManager.get_buff_stack("move_lucky_ssr75")
@@ -959,11 +1078,11 @@ func _check_distance_buffs() -> void:
 				else:
 					Global.emit_signal("buff_stack_changed", "move_lucky_ssr75", new_stack)
 
-	# 苦修·佑(SR77)：每300米护甲+2
+	# 苦修·佑(SR77)：每6000距离护甲+2
 	if PC.selected_rewards.has("SR77"):
 		var offset = PC.distance_buff_offsets.get("SR77", 0.0)
-		var effective_meters = max(meters - offset, 0.0)
-		var sr77_layers = int(effective_meters / 300.0)
+		var effective_distance = max(distance_steps - offset, 0.0)
+		var sr77_layers = int(effective_distance / 300.0)
 		var current_stack = 0
 		if BuffManager.has_buff("move_armor_sr77"):
 			current_stack = BuffManager.get_buff_stack("move_armor_sr77")
@@ -977,11 +1096,11 @@ func _check_distance_buffs() -> void:
 				else:
 					Global.emit_signal("buff_stack_changed", "move_armor_sr77", new_stack)
 
-	# 行修·佑(SSR78)：每200米护甲+2
+	# 行修·佑(SSR78)：每4000距离护甲+2
 	if PC.selected_rewards.has("SSR78"):
 		var offset = PC.distance_buff_offsets.get("SSR78", 0.0)
-		var effective_meters = max(meters - offset, 0.0)
-		var ssr78_layers = int(effective_meters / 200.0)
+		var effective_distance = max(distance_steps - offset, 0.0)
+		var ssr78_layers = int(effective_distance / 200.0)
 		var current_stack = 0
 		if BuffManager.has_buff("move_armor_ssr78"):
 			current_stack = BuffManager.get_buff_stack("move_armor_ssr78")
@@ -1090,6 +1209,8 @@ func _get_weapon_timers() -> Array[Timer]:
 	if holy_light_fire_speed: timers.append(holy_light_fire_speed)
 	if dragonwind_fire_speed: timers.append(dragonwind_fire_speed)
 	if zhuazhuajuchui_fire_speed: timers.append(zhuazhuajuchui_fire_speed)
+	if soul_sickle_fire_speed: timers.append(soul_sickle_fire_speed)
+	if thunder_gun_fire_speed: timers.append(thunder_gun_fire_speed)
 	return timers
 
 func pause_all_skill_cooldowns(pause: bool) -> void:
@@ -1703,9 +1824,15 @@ func _build_water_data() -> Dictionary:
 	}
 
 func init_qiankun() -> void:
-	if Global.in_town:
+	if Global.in_town or not is_inside_tree():
 		return
 	if not qiankun_scene:
+		return
+	if get_parent() == null:
+		return
+	var has_qian := Qiankun.qian_instance != null and is_instance_valid(Qiankun.qian_instance) and Qiankun.qian_instance.is_inside_tree()
+	var has_kun := Qiankun.kun_instance != null and is_instance_valid(Qiankun.kun_instance) and Qiankun.kun_instance.is_inside_tree()
+	if has_qian and has_kun:
 		return
 		
 	var script = load("res://Script/skill/qiankun.gd")
@@ -1731,20 +1858,8 @@ func _on_fire_qiankun(_skill_id: int = 13) -> void:
 
 func _on_fire_detail() -> void:
 	var bullet_node_size = Global.get_attack_range_multiplier()
-	var base_direction = Vector2.RIGHT # Default direction
+	var base_direction = _get_base_weapon_direction()
 	var spawn_position = position
-
-	# 直接攻击最近的敌人，不再使用预测瞄准
-	var nearest_enemy = find_nearest_enemy()
-	if nearest_enemy:
-		# 计算朝向最近敌人的方向
-		base_direction = (nearest_enemy.position - position).normalized()
-	else:
-		# 没有敌人时使用角色朝向
-		if not sprite_direction_right:
-			base_direction = Vector2.LEFT
-		else:
-			base_direction = Vector2.RIGHT
 
 	SEManager.play("1")
 
@@ -1881,6 +1996,10 @@ func fire_extra_attack(damage_multiplier: float) -> void:
 			_fire_extra_ice_attack(damage_multiplier)
 		"zhuazhuajuchui":
 			_fire_extra_zhuazhuajuchui_attack(damage_multiplier)
+		"soul_sickle":
+			_fire_extra_soul_sickle_attack(damage_multiplier)
+		"thunder_gun":
+			_fire_extra_thunder_gun_attack(damage_multiplier)
 		_:
 			_fire_extra_sword_attack(damage_multiplier)
 
@@ -2061,12 +2180,33 @@ func _beast_claw_attack() -> void:
 			Faze.on_sword_weapon_hit(e)
 	var inst: Node2D = beastify_effect_scene.instantiate() as Node2D
 	get_tree().current_scene.add_child(inst)
+	_setup_beastify_effect_cleanup(inst)
 	inst.rotation = angle
 	inst.scale *= attack_range_multiplier
 	
 	# 兽化爪击震屏
 	GU.screen_shake(2.0, 0.1)
 	inst.global_position = global_position + Vector2.RIGHT.rotated(angle) * beastify_forward_offset * attack_range_multiplier
+
+func _setup_beastify_effect_cleanup(effect: Node2D) -> void:
+	if effect == null:
+		return
+	effect.add_to_group("beastify_effect")
+	var effect_sprite := effect.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
+	if effect_sprite != null:
+		effect_sprite.frame = 0
+		effect_sprite.frame_progress = 0.0
+		effect_sprite.play("default")
+		effect_sprite.animation_finished.connect(func():
+			if is_instance_valid(effect):
+				effect.queue_free()
+		, CONNECT_ONE_SHOT)
+	var tree := get_tree()
+	if tree != null:
+		tree.create_timer(0.6, false).timeout.connect(func():
+			if is_instance_valid(effect):
+				effect.queue_free()
+		, CONNECT_ONE_SHOT)
 
 func _get_beast_best_attack_angle() -> float:
 	var default_angle = 0.0
@@ -2141,20 +2281,8 @@ func _resolve_enemy_node(node: Node) -> Node:
 
 func _on_fire_detail_branch() -> void:
 	var bullet_node_size = Global.get_attack_range_multiplier()
-	var base_direction = Vector2.RIGHT # Default direction
+	var base_direction = _get_base_weapon_direction()
 	var spawn_position = position
-
-	# 直接攻击最近的敌人，不再使用预测瞄准
-	var nearest_enemy = find_nearest_enemy()
-	if nearest_enemy:
-		# 计算朝向最近敌人的方向
-		base_direction = (nearest_enemy.position - position).normalized()
-	else:
-		# 没有敌人时使用角色朝向
-		if not sprite_direction_right:
-			base_direction = Vector2.LEFT
-		else:
-			base_direction = Vector2.RIGHT
 
 	# Play sound
 	# SEManager.play("5") は _on_fire_branch() で再生済み
@@ -2194,6 +2322,7 @@ func _on_fire_detail_moyan() -> void:
 
 
 func _on_fire_detail_riyan() -> void:
+	_ensure_riyan_helper()
 	Global.emit_signal("riyan_damage_triggered")
 
 func _on_fire_detail_ringFire() -> void:
@@ -2296,7 +2425,7 @@ func _on_fire_detail_thunder_break() -> void:
 	var spawn_position = global_position
 	var base_direction = Vector2.RIGHT
 	
-	var nearest_enemy = find_nearest_enemy()
+	var nearest_enemy = find_nearest_enemy(_get_thunder_break_target_range(data))
 	if nearest_enemy:
 		base_direction = (nearest_enemy.position - position).normalized()
 	else:
@@ -2318,6 +2447,11 @@ func _on_fire_detail_thunder_break() -> void:
 	}
 	
 	instance.setup_thunder_break(spawn_position, base_direction, data.damage, data.range, data.width, options)
+
+func _get_thunder_break_target_range(data: Dictionary) -> float:
+	if bool(data.get("infinite_range", false)):
+		return 2000.0
+	return float(data.get("range", 200.0)) * Global.get_attack_range_multiplier() + 15.0
 
 func _build_thunder_break_data() -> Dictionary:
 	var damage_multiplier = PC.main_skill_thunder_break_damage # Base 65%
@@ -2380,14 +2514,14 @@ func _build_thunder_break_data() -> Dictionary:
 	}
 
 func _build_thunder_data() -> Dictionary:
-	var base_damage_ratio = 0.7
+	var base_damage_ratio = 0.75
 	var chain_left = 3
 	var chain_range = 130.0
 	var damage_decay = 0.65
 	var thunder_range_value = PC.thunder_range
 	var paralyze_duration = 0.0
 
-	var boss_extra_damage = 0.0
+	var boss_extra_damage = 1.0
 	var shot_count = 1
 	var shot_damage_multiplier = 1.0
 	
@@ -2404,7 +2538,7 @@ func _build_thunder_data() -> Dictionary:
 	
 	if PC.selected_rewards.has("Thunder4"):
 		paralyze_duration = 0.2
-		boss_extra_damage = 0.6
+		boss_extra_damage = maxf(boss_extra_damage, 0.6)
 	
 	if PC.selected_rewards.has("Thunder11"):
 		damage_decay = 0.45
@@ -2412,13 +2546,13 @@ func _build_thunder_data() -> Dictionary:
 	
 	if PC.selected_rewards.has("Thunder22"):
 		paralyze_duration = 0.25
-		boss_extra_damage = 1.0
+		boss_extra_damage = maxf(boss_extra_damage, 1.0)
 	
 	if PC.selected_rewards.has("Thunder33"):
 		shot_count = 3
 		shot_damage_multiplier = 0.4
 	
-	var thunder_damage_scale = PC.main_skill_thunder_damage / 0.85
+	var thunder_damage_scale = PC.main_skill_thunder_damage / 0.75
 	var damage = PC.pc_atk * base_damage_ratio * thunder_damage_scale
 	
 	return {
@@ -2439,6 +2573,7 @@ func find_nearest_enemies_for_thunder(from_position: Vector2, max_range: float, 
 	var candidates: Array[Dictionary] = []
 	
 	var enemies = get_tree().get_nodes_in_group("enemies")
+	enemies.append_array(get_tree().get_nodes_in_group("boss"))
 	for enemy in enemies:
 		var distance = from_position.distance_to(enemy.global_position)
 		if distance > max_range:
@@ -2556,7 +2691,19 @@ func _on_player_hit_ignore_invincible(damage_val: float, shield_val: float, atta
 	if PC.pc_hp > 0:
 		if _source_name != "燃烧":
 			$HitSound.play()
-		sprite.modulate = Color(1, 0.5, 0.5)
+		_play_ignore_invincible_hit_flash()
+
+func _play_ignore_invincible_hit_flash() -> void:
+	if sprite == null:
+		return
+	if ignore_invincible_hit_flash_tween != null and ignore_invincible_hit_flash_tween.is_valid():
+		ignore_invincible_hit_flash_tween.kill()
+	ignore_invincible_hit_flash_tween = null
+	sprite.modulate = Color(1, 0.5, 0.5)
+	if PC.invincible:
+		return
+	ignore_invincible_hit_flash_tween = create_tween()
+	ignore_invincible_hit_flash_tween.tween_property(sprite, "modulate", Color(1, 1, 1), 0.18)
 
 func _handle_damage_taken_rewards(actual_damage: int) -> void:
 	if actual_damage <= 0:
@@ -2595,7 +2742,7 @@ func _process_pain_relief(delta: float) -> void:
 		PC.pain_relief_tick_accumulator -= 1.0
 		var remaining_ticks: int = maxi(1, int(ceil(float(PC.pain_relief_remaining_time))) + 1)
 		var heal_amount: int = int(ceil(float(PC.pain_relief_remaining_heal) / float(remaining_ticks)))
-		_heal_and_emit(heal_amount)
+		_heal_and_emit(heal_amount, "pain_relief")
 		PC.pain_relief_remaining_heal = max(0.0, PC.pain_relief_remaining_heal - float(heal_amount))
 	Global.emit_signal("buff_updated", "pain_relief", PC.pain_relief_remaining_time, 1)
 	if PC.pain_relief_remaining_time <= 0.0:
@@ -2609,7 +2756,7 @@ func _clear_pain_relief() -> void:
 	if BuffManager.has_buff("pain_relief"):
 		BuffManager.remove_buff("pain_relief")
 
-func _heal_and_emit(amount: int) -> int:
+func _heal_and_emit(amount: int, source_id: String = "unknown") -> int:
 	if amount <= 0 or PC.is_game_over:
 		return 0
 	amount = int(ceil(float(amount) * Global.get_heal_shield_effect_multiplier()))
@@ -2619,7 +2766,7 @@ func _heal_and_emit(amount: int) -> int:
 	PC.pc_hp = min(PC.pc_hp + amount, PC.pc_max_hp)
 	var actual_heal: int = PC.pc_hp - before_hp
 	if actual_heal > 0:
-		Global.emit_signal("player_heal", float(actual_heal), global_position)
+		Global.emit_signal("player_heal", float(actual_heal), global_position, source_id)
 	return actual_heal
 
 func _add_spirit_to_stage(amount: int) -> void:
@@ -2737,6 +2884,9 @@ func update_summons_properties() -> void:
 				summon.update_fire_interval()
 	
 func stop_invincible() -> void:
+	if ignore_invincible_hit_flash_tween != null and ignore_invincible_hit_flash_tween.is_valid():
+		ignore_invincible_hit_flash_tween.kill()
+	ignore_invincible_hit_flash_tween = null
 	sprite.modulate = Color(1, 1, 1)
 	PC.invincible = false
 
@@ -2898,6 +3048,27 @@ func _diminishing_returns(raw_value: float, threshold: float = 0.8, decay_rate: 
 		return raw_value
 	return threshold + (raw_value - threshold) * decay_rate
 
+func _get_thunder_gun_magazine_size() -> int:
+	if PC.selected_rewards.has("ThunderGun11"):
+		return 24
+	if PC.selected_rewards.has("ThunderGun4"):
+		return 18
+	return 12
+
+func _get_thunder_gun_attack_interval(total_speed_multiplier: float) -> float:
+	var interval := 0.25
+	if PC.selected_rewards.has("ThunderGun3"):
+		interval *= 0.9
+	return interval / maxf(0.01, total_speed_multiplier)
+
+func _get_thunder_gun_reload_time() -> float:
+	var reload_speed := 1.0
+	if PC.selected_rewards.has("ThunderGun3"):
+		reload_speed += 0.25
+	if PC.selected_rewards.has("ThunderGun11"):
+		reload_speed += 0.25
+	return 2.0 / reload_speed
+
 func update_skill_attack_speeds() -> void:
 	# 计算踏风buff的冷却缩减
 	var cooldown_reduction = 0.0
@@ -2920,7 +3091,7 @@ func update_skill_attack_speeds() -> void:
 	update_timer_preserve_ratio(branch_fire_speed, 1.5 / total_speed_multiplier)
 	
 	# 魔焰攻击
-	update_timer_preserve_ratio(moyan_fire_speed, 2.5 / total_speed_multiplier)
+	update_timer_preserve_ratio(moyan_fire_speed, 2.3 / total_speed_multiplier)
 	
 	# 日焰攻击
 	update_timer_preserve_ratio(riyan_fire_speed, 1.0 / total_speed_multiplier)
@@ -2929,10 +3100,10 @@ func update_skill_attack_speeds() -> void:
 	update_timer_preserve_ratio(ringFire_fire_speed, 0.051 / total_speed_multiplier)
 	
 	# 雷光攻击
-	update_timer_preserve_ratio(thunder_fire_speed, 1.2 / total_speed_multiplier)
+	update_timer_preserve_ratio(thunder_fire_speed, 1.1 / total_speed_multiplier)
 	
 	# 血气波攻击
-	update_timer_preserve_ratio(bloodwave_fire_speed, 2.0 / total_speed_multiplier)
+	update_timer_preserve_ratio(bloodwave_fire_speed, 1.6 / total_speed_multiplier)
 	
 	update_timer_preserve_ratio(bloodboardsword_fire_speed, 2.0 / total_speed_multiplier / sword_speed_multiplier)
 	
@@ -2942,7 +3113,7 @@ func update_skill_attack_speeds() -> void:
 	# 天雷破 (基础1.6秒/次)
 	update_timer_preserve_ratio(thunder_break_fire_speed, 1.6 / total_speed_multiplier)
 
-	# 光弹 (基础0.4秒/次) todo
+	# 光弹术 (基础0.4秒/次) todo
 	var light_bullet_interval = 0.4
 	# LightBullet4: 攻击间隔额外减少10%
 	if PC.selected_rewards.has("LightBullet4"):
@@ -2976,13 +3147,20 @@ func update_skill_attack_speeds() -> void:
 	update_timer_preserve_ratio(holy_light_fire_speed, 3.2 * life_interval_multiplier / total_speed_multiplier)
 
 	# 气功波
-	update_timer_preserve_ratio(qigong_fire_speed, 1.2 / total_speed_multiplier)
+	update_timer_preserve_ratio(qigong_fire_speed, 1.5 / total_speed_multiplier)
 	
 	# 风龙杖
 	update_timer_preserve_ratio(dragonwind_fire_speed, 2.8 / total_speed_multiplier)
 
 	# 爪爪巨锤
 	update_timer_preserve_ratio(zhuazhuajuchui_fire_speed, 1.6 / total_speed_multiplier)
+
+	# 噬魂镰
+	update_timer_preserve_ratio(soul_sickle_fire_speed, 1.6 / total_speed_multiplier)
+
+	# 雷魂枪
+	if thunder_gun_fire_speed and not PC.thunder_gun_reloading:
+		update_timer_preserve_ratio(thunder_gun_fire_speed, _get_thunder_gun_attack_interval(total_speed_multiplier))
 
 func _on_fire_xunfeng(_skill_id: int) -> void:
 	if Global.in_menu or Global.in_town:
@@ -3213,6 +3391,77 @@ func _fire_extra_zhuazhuajuchui_attack(damage_multiplier: float) -> void:
 	var instance = zhuazhuajuchui_scene.instantiate()
 	if instance.has_method("set_custom_damage_multiplier"):
 		instance.set_custom_damage_multiplier(damage_multiplier)
+	get_tree().current_scene.add_child(instance)
+
+func _fire_extra_soul_sickle_attack(damage_multiplier: float) -> void:
+	if not soul_sickle_scene:
+		return
+	var instance = soul_sickle_scene.instantiate()
+	if instance.has_method("set_custom_damage_multiplier"):
+		instance.set_custom_damage_multiplier(damage_multiplier)
+	get_tree().current_scene.add_child(instance)
+
+func _fire_extra_thunder_gun_attack(damage_multiplier: float) -> void:
+	if not thunder_gun_scene:
+		return
+	var instance = thunder_gun_scene.instantiate()
+	if instance.has_method("set_custom_damage_multiplier"):
+		instance.set_custom_damage_multiplier(damage_multiplier)
+	get_tree().current_scene.add_child(instance)
+
+func _on_fire_soul_sickle(_skill_id: int = 23) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	if _consume_replaced_weapon_fire("SoulSickle"):
+		return
+	if not PC.selected_rewards.has("SoulSickle"):
+		return
+	SEManager.play("11")
+	_on_fire_detail_soul_sickle()
+
+func _on_fire_detail_soul_sickle() -> void:
+	if not soul_sickle_scene:
+		return
+	var instance = soul_sickle_scene.instantiate()
+	get_tree().current_scene.add_child(instance)
+
+func _on_fire_thunder_gun(_skill_id: int = 24) -> void:
+	if Global.in_menu or Global.in_town:
+		return
+	if PC.is_game_over:
+		return
+	if _consume_replaced_weapon_fire("ThunderGun"):
+		return
+	if not PC.selected_rewards.has("ThunderGun"):
+		return
+	if PC.thunder_gun_reloading:
+		PC.thunder_gun_reloading = false
+		PC.thunder_gun_ammo = 0
+		_finish_thunder_gun_reload_bar()
+		update_skill_attack_speeds()
+		_sync_thunder_gun_ammo_buff()
+	if not THUNDER_GUN_SCRIPT.has_valid_target(get_tree(), global_position):
+		_sync_thunder_gun_ammo_buff()
+		return
+	SEManager.play("11")
+	_on_fire_detail_thunder_gun()
+	PC.thunder_gun_ammo += 1
+	_sync_thunder_gun_ammo_buff()
+	if PC.thunder_gun_ammo >= _get_thunder_gun_magazine_size():
+		PC.thunder_gun_reloading = true
+		var reload_time := _get_thunder_gun_reload_time()
+		if thunder_gun_fire_speed:
+			thunder_gun_fire_speed.start(reload_time)
+			thunder_gun_fire_speed.wait_time = reload_time
+		_start_thunder_gun_reload_bar(reload_time)
+		_sync_thunder_gun_ammo_buff()
+
+func _on_fire_detail_thunder_gun() -> void:
+	if not thunder_gun_scene:
+		return
+	var instance = thunder_gun_scene.instantiate()
 	get_tree().current_scene.add_child(instance)
 
 func _spawn_qigong(direction: Vector2, offset: Vector2 = Vector2.ZERO, damage_multiplier: float = 1.0, options: Dictionary = {}) -> void:

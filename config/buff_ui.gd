@@ -14,6 +14,7 @@ signal buff_expired
 var buff_id: String
 var remaining_time: float = 0.0
 var stack_count: int = 1
+var stack_text_override: String = ""
 var is_permanent: bool = false
 var is_flashing: bool = false
 var flash_speed: float = 1.0
@@ -147,7 +148,10 @@ func setup_buff(buff_data, duration: float = 0.0, stack: int = 1):
 	_update_display()
 
 func _update_display():
-	if stack_count > 1 or buff_id == "faze_bullet" or buff_id == "barrage_charge":
+	if not stack_text_override.is_empty():
+		stack_label.text = stack_text_override
+		stack_label.visible = true
+	elif stack_count > 1 or buff_id == "faze_bullet" or buff_id == "barrage_charge" or buff_id == "thunder_gun_ammo":
 		stack_label.text = str(stack_count)
 		stack_label.visible = true
 	else:
@@ -194,6 +198,10 @@ func _apply_flash_state():
 func update_buff(new_remaining_time: float, new_stack: int):
 	remaining_time = new_remaining_time
 	stack_count = new_stack
+	_update_display()
+
+func set_stack_text_override(text: String) -> void:
+	stack_text_override = text
 	_update_display()
 
 func _process(delta: float):

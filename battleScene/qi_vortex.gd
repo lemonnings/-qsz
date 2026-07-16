@@ -15,6 +15,23 @@ const EXPIRING_FLASH_SECONDS: float = 10.0
 const EXPIRING_FLASH_MIN_ALPHA_RATIO: float = 0.2
 const BAR_SIZE := Vector2(84.0, 8.0)
 const BAR_OFFSET := Vector2(-42.0, -70.0)
+const VORTEX_Z_INDEX: int = -1
+const PROGRESS_BAR_Z_INDEX: int = 100
+
+class ProgressBarLayer:
+	extends Node2D
+
+	var progress: float = 0.0
+
+	func _draw() -> void:
+		var outer_rect := Rect2(BAR_OFFSET, BAR_SIZE)
+		var inner_rect := Rect2(BAR_OFFSET + Vector2(2.0, 2.0), BAR_SIZE - Vector2(4.0, 4.0))
+		var fill_width = floor(inner_rect.size.x * progress)
+		draw_rect(outer_rect, Color(0.05, 0.08, 0.12, 0.85), true)
+		draw_rect(inner_rect, Color(0.18, 0.24, 0.28, 0.85), true)
+		if fill_width > 0.0:
+			draw_rect(Rect2(inner_rect.position, Vector2(fill_width, inner_rect.size.y)), Color(0.35, 0.95, 1.0, 0.95), true)
+		draw_rect(outer_rect, Color(0.72, 1.0, 1.0, 0.95), false, 1.0)
 
 var progress: float = 0.0
 var _tick_accumulator: float = 0.0
@@ -23,10 +40,13 @@ var _player_inside: bool = false
 var _closing: bool = false
 var _base_animate_modulate: Color = Color.WHITE
 var _flash_phase: float = 0.0
+var _progress_bar_layer: ProgressBarLayer = null
 
 @onready var area: Area2D = $Area2D
 
 func _ready() -> void:
+	z_index = VORTEX_Z_INDEX
+	_ensure_progress_bar_layer()
 	if area:
 		area.body_entered.connect(_on_area_body_entered)
 		area.body_exited.connect(_on_area_body_exited)
@@ -34,6 +54,17 @@ func _ready() -> void:
 		_base_animate_modulate = animate.modulate
 		if not animate.is_playing():
 			animate.play()
+
+func _ensure_progress_bar_layer() -> void:
+	if _progress_bar_layer and is_instance_valid(_progress_bar_layer):
+		return
+	_progress_bar_layer = ProgressBarLayer.new()
+	_progress_bar_layer.name = "ProgressBarLayer"
+	_progress_bar_layer.z_as_relative = false
+	_progress_bar_layer.z_index = PROGRESS_BAR_Z_INDEX
+	_progress_bar_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_progress_bar_layer)
+	_update_progress_bar_layer()
 
 func _process(delta: float) -> void:
 	if _closing:
@@ -48,16 +79,6 @@ func _process(delta: float) -> void:
 		_tick_accumulator -= TICK_SECONDS
 		_update_progress_tick()
 
-func _draw() -> void:
-	var outer_rect := Rect2(BAR_OFFSET, BAR_SIZE)
-	var inner_rect := Rect2(BAR_OFFSET + Vector2(2.0, 2.0), BAR_SIZE - Vector2(4.0, 4.0))
-	var fill_width = floor(inner_rect.size.x * progress)
-	draw_rect(outer_rect, Color(0.05, 0.08, 0.12, 0.85), true)
-	draw_rect(inner_rect, Color(0.18, 0.24, 0.28, 0.85), true)
-	if fill_width > 0.0:
-		draw_rect(Rect2(inner_rect.position, Vector2(fill_width, inner_rect.size.y)), Color(0.35, 0.95, 1.0, 0.95), true)
-	draw_rect(outer_rect, Color(0.72, 1.0, 1.0, 0.95), false, 1.0)
-
 func _update_progress_tick() -> void:
 	var old_progress := progress
 	if _player_inside:
@@ -65,9 +86,14 @@ func _update_progress_tick() -> void:
 	else:
 		progress = max(0.0, progress - PROGRESS_LOSS_PER_TICK)
 	if not is_equal_approx(old_progress, progress):
-		queue_redraw()
+		_update_progress_bar_layer()
 	if progress >= 1.0:
 		_complete()
+
+func _update_progress_bar_layer() -> void:
+	if _progress_bar_layer and is_instance_valid(_progress_bar_layer):
+		_progress_bar_layer.progress = progress
+		_progress_bar_layer.queue_redraw()
 
 func _update_expiring_flash(delta: float) -> void:
 	if animate == null:

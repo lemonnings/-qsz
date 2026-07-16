@@ -752,7 +752,7 @@ func _attack_blazing_fire():
 				var dir = Vector2.RIGHT.rotated(base_angle + i * (TAU / 6.0))
 				_create_spark_bullet(true, player_pos, dir)
 		)
-		warn.start_warning(player_pos, 1.0, fire_radius, warn_dur, atk * 1.2, "爆炎", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
+		warn.start_warning(player_pos, 1.0, fire_radius, warn_dur, atk * 1.1, "爆炎", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
 		_hide_symbol()
 		_finish_skill()
 		return
@@ -767,7 +767,7 @@ func _attack_blazing_fire():
 			var dir = Vector2.RIGHT.rotated(base_angle + i * (TAU / 6.0))
 			_create_spark_bullet(true, player_pos, dir)
 	)
-	warn.start_warning(player_pos, 1.0, fire_radius, warn_dur, atk * 1.2, "爆炎", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
+	warn.start_warning(player_pos, 1.0, fire_radius, warn_dur, atk * 1.1, "爆炎", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
 	
 	_hide_symbol()
 	_finish_skill()
@@ -800,7 +800,7 @@ func _attack_extreme_ice():
 		_finish_skill()
 	)
 	var warn_dur = chant_time if not _combo_mode else 1.0
-	warn.start_warning(boss_pos, 1.0, ice_radius, warn_dur, atk * 1.2, "冰封", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
+	warn.start_warning(boss_pos, 1.0, ice_radius, warn_dur, atk * 1.1, "冰封", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
 
 func _attack_ring_thunder():
 	SEManager.play("132")
@@ -850,7 +850,7 @@ func _apply_ring_thunder_effect(boss_pos: Vector2, ring_warn: Node2D):
 		# 椭圆坐标系中扩展玩家碰撞半径（使用短半轴作为保守估计）
 		var effective_threshold = 1.0 + player_radius / (65.0 * safe_range_multiplier)
 		if (norm_x * norm_x + norm_y * norm_y) > effective_threshold * effective_threshold:
-			PC.player_hit(int(atk * 1.5 * (1.0 - PC.damage_reduction_rate)), self , "环雷")
+			PC.player_hit(int(atk * 1.25 * (1.0 - PC.damage_reduction_rate)), self , "环雷")
 	
 	_hide_symbol()
 	_finish_skill()
@@ -1106,7 +1106,7 @@ func _spawn_ground_fire_line(start_pos: Vector2, direction: Vector2, step_dist: 
 			if is_instance_valid(self ):
 				_spawn_particles(pos_to_damage, [Color(1.0, 0.35, 0.0), Color(0.55, 0.0, 0.0)], particle_amount, particle_radius)
 		)
-		warn.start_warning(current_pos, warn_aspect, warning_radius, warn_duration, actual_atk * 1.5, "耀星", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
+		warn.start_warning(current_pos, warn_aspect, warning_radius, warn_duration, actual_atk * 1.25, "耀星", null, WarnCircleUtil.ReleaseMode.INSTANT_DAMAGE)
 		
 		# 在警告圈上添加方向箭头指示器
 		var arrow = _DirectionArrowIndicator.new()
@@ -1140,9 +1140,9 @@ func _attack_cross_fire():
 	
 	var warn_dur = chant_time if not _combo_mode else 0.8
 	warn1.source_name = "十字十字"
-	warn1.start_warning(boss_pos + Vector2(-600, 0), boss_pos + Vector2(600, 0), cross_width, warn_dur, atk * 2.0, "炽焰十字")
+	warn1.start_warning(boss_pos + Vector2(-600, 0), boss_pos + Vector2(600, 0), cross_width, warn_dur, atk * 1.5, "炽焰十字")
 	warn2.source_name = "十字十字"
-	warn2.start_warning(boss_pos + Vector2(0, -600), boss_pos + Vector2(0, 600), cross_width, warn_dur, atk * 2.0, "炽焰十字")
+	warn2.start_warning(boss_pos + Vector2(0, -600), boss_pos + Vector2(0, 600), cross_width, warn_dur, atk * 1.5, "炽焰十字")
 	
 	if _combo_mode:
 		var _timer = _create_skill_timer(warn_dur)
@@ -1184,9 +1184,9 @@ func _attack_x_ice():
 	
 	var warn_dur = chant_time if not _combo_mode else 0.8
 	warn1.source_name = "交叉十字"
-	warn1.start_warning(boss_pos + Vector2(-500, -500), boss_pos + Vector2(500, 500), x_width, warn_dur, atk * 2.0, "霜牙交错")
+	warn1.start_warning(boss_pos + Vector2(-500, -500), boss_pos + Vector2(500, 500), x_width, warn_dur, atk * 1.5, "霜牙交错")
 	warn2.source_name = "交叉十字"
-	warn2.start_warning(boss_pos + Vector2(-500, 500), boss_pos + Vector2(500, -500), x_width, warn_dur, atk * 2.0, "霜牙交错")
+	warn2.start_warning(boss_pos + Vector2(-500, 500), boss_pos + Vector2(500, -500), x_width, warn_dur, atk * 1.5, "霜牙交错")
 	
 	if _combo_mode:
 		var _timer = _create_skill_timer(warn_dur)
@@ -1302,7 +1302,7 @@ func _attack_ice_spike():
 
 func _on_ice_spike_hit(body: Node2D, spike: Node2D):
 	if body is CharacterBody2D and body.is_in_group("player"):
-		PC.player_hit(int(atk * 1.5), self , "冰刺术")
+		PC.player_hit(int(atk * 1.25), self , "冰刺术")
 		if is_instance_valid(spike):
 			spike.queue_free()
 

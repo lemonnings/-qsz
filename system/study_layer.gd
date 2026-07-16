@@ -451,13 +451,22 @@ func _handle_category_pressed(category_name: String, tree_type: String) -> void:
 			_open_study_tree(tree_type)
 			return
 		_mobile_pending_category = category_name
-		var btn = get(category_name) as Button
-		if btn and btn.is_inside_tree():
-			var tween = create_tween()
-			tween.tween_property(btn, "modulate:a", 1.0, 0.2)
+		_set_mobile_category_highlight(category_name)
 		_show_category_detail(category_name, true)
 		return
 	_open_study_tree(tree_type)
+
+
+func _set_mobile_category_highlight(category_name: String) -> void:
+	for button_name in ["rui", "qi", "li", "cu", "yan"]:
+		var btn = get(button_name) as Button
+		if btn == null or not btn.is_inside_tree():
+			continue
+		var target_alpha := 1.0 if button_name == category_name else 0.0
+		if is_equal_approx(btn.modulate.a, target_alpha):
+			continue
+		var tween = create_tween()
+		tween.tween_property(btn, "modulate:a", target_alpha, 0.2)
 
 
 func _on_rui_pressed():

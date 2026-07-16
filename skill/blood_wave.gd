@@ -5,10 +5,11 @@ class_name BloodWave
 @export var collision_shape: CollisionShape2D
 @export var rotation_offset: float = 0.0
 
-static var main_skill_bloodwave_damage: float = 1.0
+static var main_skill_bloodwave_damage: float = 0.70
 static var bloodwave_range: float = 120.0
 static var bloodwave_apply_bleed: bool = false
 static var bloodwave_hp_cost_multi: float = 1.0
+static var bloodwave_low_hp_cost_multiplier: float = 1.0
 static var bloodwave_extra_crit_chance: float = 0.0
 static var bloodwave_extra_crit_damage: float = 0.0
 static var bloodwave_missing_hp_damage_bonus: float = 0.0
@@ -17,12 +18,14 @@ static var bloodwave_missing_hp_heal_bonus: float = 0.0
 static var bloodwave_low_hp_damage_bonus: float = 0.0
 static var bloodwave_low_hp_range_bonus: float = 0.0
 static var bloodwave_bleed_move_speed_bonus: float = 0.0
+const BOSS_DAMAGE_MULTIPLIER: float = 1.5
 
 static func reset_data() -> void:
-	main_skill_bloodwave_damage = 1.0
+	main_skill_bloodwave_damage = 0.70
 	bloodwave_range = 120.0
 	bloodwave_apply_bleed = false
 	bloodwave_hp_cost_multi = 1.0
+	bloodwave_low_hp_cost_multiplier = 1.0
 	bloodwave_extra_crit_chance = 0.0
 	bloodwave_extra_crit_damage = 0.0
 	bloodwave_missing_hp_damage_bonus = 0.0
@@ -58,7 +61,10 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 	
 	# 扣除生命值逻辑
 	if PC.pc_hp > 1:
-		var raw_cost = PC.pc_hp * 0.01 * bloodwave_hp_cost_multi
+		var hp_cost_multiplier := bloodwave_hp_cost_multi
+		if PC.pc_max_hp > 0 and float(PC.pc_hp) / float(PC.pc_max_hp) < 0.5:
+			hp_cost_multiplier *= bloodwave_low_hp_cost_multiplier
+		var raw_cost = PC.pc_hp * 0.02 * hp_cost_multiplier
 		var hp_cost = int(ceil(raw_cost))
 		if hp_cost < 1:
 			hp_cost = 1
@@ -106,7 +112,8 @@ static func _build_data() -> Dictionary:
 	var wide_damage_mult = Faze.get_wide_damage_multiplier(range_bonus_ratio) # 这里range_bonus_ratio是血气波自身的范围加成
 	
 	damage_multiplier += wide_damage_mult - 1.0
-	damage_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(damage_multiplier, "blood_wave", ["wide"])
+	damage_multiplier += Faze.get_blood_weapon_damage_multiplier(PC.faze_blood_level) - 1.0
+	damage_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(damage_multiplier, "blood_wave", ["wide", "blood"])
 	var final_damage = (PC.pc_atk * damage_multiplier) * (1.0 + damage_bonus_ratio)
 	var final_range_scale = (1.0 + range_bonus_ratio) * wide_range_mult * Global.get_attack_range_multiplier()
 	
@@ -177,12 +184,15 @@ func _apply_damage() -> void:
 	
 	var bodies = get_overlapping_areas()
 	for body in bodies:
-		if body.is_in_group("enemies"):
+		if body.is_in_group("enemies") or body.is_in_group("boss"):
 			var body_id = body.get_instance_id()
 			if hit_targets.has(body_id):
 				continue
 			hit_targets[body_id] = true
-			body.take_damage(int(final_damage), is_crit, false, "blood_wave")
+			var target_damage: float = final_damage
+			if body.is_in_group("boss"):
+				target_damage *= BOSS_DAMAGE_MULTIPLIER
+			body.take_damage(int(target_damage), is_crit, false, "blood_wave")
 			# 击中粒子崩散特效
 			HitParticleSpawner.spawn_by_weapon(get_tree(), body.global_position, "blood_wave")
 			if apply_bleed:

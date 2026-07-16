@@ -10,6 +10,9 @@ const BranchScene = preload("res://Scenes/branch.tscn")
 # 子弹的伤害和暴击状态（在创建时确定）
 var bullet_damage: float = 0.0
 var is_crit_hit: bool = false
+var bullet_base_damage: float = 0.0
+var penetration_damage_multiplier: float = 1.0
+var distance_damage_multiplier: float = 1.0
 
 # 射程和渐隐相关变量
 var start_position: Vector2 # 子弹起始位置
@@ -48,6 +51,9 @@ func activate_bullet() -> void:
 	penetration_count = 999
 	collision_processed_this_frame = false
 	current_frame = -1
+	bullet_base_damage = 0.0
+	penetration_damage_multiplier = 1.0
+	distance_damage_multiplier = 1.0
 	
 	# 初始化子弹伤害和暴击状态
 	initialize_bullet_damage()
@@ -71,11 +77,11 @@ func _physics_process(delta: float) -> void:
 	position += direction * bullet_speed * delta
 	# 更新已飞行距
 	traveled_distance = start_position.distance_to(global_position)
-	# 树枝22: 每飞行0.2米，伤害提升2%
+	# Branch22: 每飞行20距离线性提升15%，不能逐帧复乘。
 	if PC.selected_rewards.has("Branch22"):
-		var distance_meters = traveled_distance * 0.04
-		var damage_increase_multiplier = 1.0 + floor(distance_meters / 0.2) * 0.02
-		bullet_damage *= damage_increase_multiplier
+		var distance_steps := PC.world_pixels_to_distance_steps(traveled_distance)
+		distance_damage_multiplier = 1.0 + floor(distance_steps) * 0.15
+		_refresh_branch_damage()
 
 	# 树枝1: 行进至射程一半时分裂(视觉上提前一点分裂)
 	if PC.selected_rewards.has("Branch1") and not is_fading and traveled_distance >= bullet_range / 2.25 and not is_half_split:
@@ -110,7 +116,7 @@ func _physics_process(delta: float) -> void:
 			spawned_grandson_bullet.grandson_bullet = true
 			spawned_grandson_bullet.set_direction(Vector2.from_angle(randf() * 2 * PI))
 			spawned_grandson_bullet.activate_bullet()
-			spawned_grandson_bullet.bullet_damage = bullet_damage # 继承当前伤害
+			spawned_grandson_bullet.inherit_current_damage(bullet_damage)
 			start_fade_out()
 		else:
 			start_fade_out()
@@ -179,6 +185,17 @@ func initialize_bullet_damage() -> void:
 	if randf() < (PC.crit_chance + crit_chance_bonus):
 		is_crit_hit = true
 		bullet_damage *= PC.crit_damage_multi
+	bullet_base_damage = bullet_damage
+	_refresh_branch_damage()
+
+func _refresh_branch_damage() -> void:
+	bullet_damage = bullet_base_damage * penetration_damage_multiplier * distance_damage_multiplier
+
+func inherit_current_damage(inherited_damage: float) -> void:
+	bullet_base_damage = maxf(0.0, inherited_damage)
+	penetration_damage_multiplier = 1.0
+	distance_damage_multiplier = 1.0
+	_refresh_branch_damage()
 
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary: # Returns {"damage": float, "is_crit": bool}
@@ -213,7 +230,8 @@ func handle_penetration() -> bool:
 		var damage_increase = 0.3
 		if PC.selected_rewards.has("Branch21"):
 			damage_increase = 0.35
-		bullet_damage *= (1 + damage_increase)
+		penetration_damage_multiplier *= (1.0 + damage_increase)
+		_refresh_branch_damage()
 
 	# 树枝4: 击退效果
 	if PC.selected_rewards.has("Branch4") and not is_rebound:
@@ -258,9 +276,8 @@ func _create_sword_wave_instance(spawn_position: Vector2) -> void:
 			new_bullet.set_direction(Vector2.from_angle(random_angle))
 			new_bullet.activate_bullet()
 			
-			# 树枝12: 分裂出的子树枝也会继承这个加成
-			if PC.selected_rewards.has("Branch21"):
-				new_bullet.bullet_damage = bullet_damage # 继承当前伤害
+			if PC.selected_rewards.has("Branch21") or PC.selected_rewards.has("Branch22"):
+				new_bullet.inherit_current_damage(bullet_damage)
 
 # 设置子弹缩放并同步更新碰撞形状
 func set_bullet_scale(new_scale: Vector2) -> void:
@@ -317,6 +334,9 @@ func _on_area_entered(area: Area2D) -> void:
 func reset_for_pool() -> void:
 	bullet_damage = 0.0
 	is_crit_hit = false
+	bullet_base_damage = 0.0
+	penetration_damage_multiplier = 1.0
+	distance_damage_multiplier = 1.0
 	start_position = Vector2.ZERO
 	traveled_distance = 0.0
 	is_fading = false

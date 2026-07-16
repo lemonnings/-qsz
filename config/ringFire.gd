@@ -8,12 +8,14 @@ extends Node2D
 @onready var player = get_tree().get_first_node_in_group("player")
 
 var current_angle: float = 0.0
+var shared_hit_cooldowns: Dictionary = {}
 
 func _ready() -> void:
 	Global.connect("ringFire_damage_triggered", Callable(self , "_on_ringFire_damage_triggered"))
 
 
 func _physics_process(delta: float) -> void:
+	_update_shared_hit_cooldowns(delta)
 	if player:
 		global_position = player.global_position
 		if player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("RingFire"):
@@ -33,6 +35,24 @@ func _physics_process(delta: float) -> void:
 			child.position = Vector2(cos(angle), sin(angle)) * radius
 			child.rotation = angle + PI / 2
 
+func _update_shared_hit_cooldowns(delta: float) -> void:
+	var to_remove: Array = []
+	for target_id in shared_hit_cooldowns.keys():
+		shared_hit_cooldowns[target_id] = float(shared_hit_cooldowns[target_id]) - delta
+		if float(shared_hit_cooldowns[target_id]) <= 0.0:
+			to_remove.append(target_id)
+	for target_id in to_remove:
+		shared_hit_cooldowns.erase(target_id)
+
+func try_consume_ring_fire_hit_cooldown(target: Node, cooldown: float) -> bool:
+	if target == null or not is_instance_valid(target):
+		return false
+	var target_id := target.get_instance_id()
+	if shared_hit_cooldowns.has(target_id) and float(shared_hit_cooldowns[target_id]) > 0.0:
+		return false
+	shared_hit_cooldowns[target_id] = cooldown
+	return true
+
 
 func _on_ringFire_damage_triggered():
 	if player and player.has_method("is_beastify_replacing_weapon") and player.is_beastify_replacing_weapon("RingFire"):
@@ -48,11 +68,12 @@ func _on_ringFire_damage_triggered():
 		current_fire_count += 1
 	if PC.selected_rewards.has("RingFire11"):
 		current_fire_count += 1
-		current_rotation_speed *= 1.1
+		current_rotation_speed *= 1.05
 	if PC.selected_rewards.has("RingFire2"):
 		current_rotation_speed *= 1.25
 
 	rotation_speed = current_rotation_speed
+	shared_hit_cooldowns.clear()
 	
 	for raw_child in get_children():
 		var child: Node = raw_child as Node

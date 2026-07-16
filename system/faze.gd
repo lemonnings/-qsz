@@ -37,12 +37,16 @@ var last_wide_level: int = 0
 var last_bagua_level: int = 0
 var last_treasure_lucky_bonus: int = 0
 var last_treasure_atk_speed_bonus: float = 0.0
+var last_treasure_armor_bonus: float = 0.0
 var last_sixsense_multiplier: float = 1.0
 var last_wind_level: int = 0
 var last_wind_base_move_speed_bonus: float = 0.0
 var last_wind_base_atk_speed_bonus: float = 0.0
 var last_wind_stack_atk_speed_bonus: float = 0.0
 var last_wind_stack_move_speed_bonus: float = 0.0
+var last_shehun_spirit_multi_bonus: float = 0.0
+var last_shehun_crit_chance_bonus: float = 0.0
+var last_shehun_spirit_regen_bonus: float = 0.0
 var wind_huanfeng_expiries: Array[float] = []
 var _blood_thud_trigger_frame: int = -1
 var _last_blood_independent_dr_multiplier: float = 1.0
@@ -64,6 +68,43 @@ func setup(p_player: Node2D) -> void:
 	# 初始化时检查一次法则加成，确保初始等级（如调试时）能生效
 	check_and_apply_law_bonuses()
 
+func reset_runtime_state() -> void:
+	electrified_timer = 0.0
+	last_hit_electrified_time = -100.0
+	last_blood_level = 0
+	last_thunder_level = 0
+	last_heal_shield_bonus = 0.0
+	last_summon_level = 0
+	last_shield_level = 0
+	last_wide_level = 0
+	last_bagua_level = 0
+	last_treasure_lucky_bonus = 0
+	last_treasure_atk_speed_bonus = 0.0
+	last_treasure_armor_bonus = 0.0
+	last_sixsense_multiplier = 1.0
+	last_wind_level = 0
+	last_wind_base_move_speed_bonus = 0.0
+	last_wind_base_atk_speed_bonus = 0.0
+	last_wind_stack_atk_speed_bonus = 0.0
+	last_wind_stack_move_speed_bonus = 0.0
+	last_shehun_spirit_multi_bonus = 0.0
+	last_shehun_crit_chance_bonus = 0.0
+	last_shehun_spirit_regen_bonus = 0.0
+	wind_huanfeng_expiries.clear()
+	_blood_thud_trigger_frame = -1
+	_last_blood_independent_dr_multiplier = 1.0
+	life_sacred_light_timer = 0.0
+	_last_applied_summon_damage = 0.0
+	_last_applied_summon_interval = 0.0
+	_last_applied_summon_cap = 0
+	_last_applied_summon_size = 0.0
+	_last_applied_summon_atk_bonus = 0
+	_last_applied_summon_atk_speed_bonus = 0.0
+	_last_applied_shield_hp_bonus = 0.0
+	_last_applied_shield_gain_bonus = 0.0
+	_last_applied_damage_reduction = 0.0
+	_reset_bagua_hit_progress_records()
+
 func _process(delta: float) -> void:
 	if PC.is_game_over:
 		return
@@ -71,6 +112,7 @@ func _process(delta: float) -> void:
 	if PC.faze_shield_level >= 11:
 		_update_shield_dynamic_dr()
 	_update_wind_huanfeng()
+	_update_treasure_armor_bonus()
 	# 22阶御灵法则：召唤物数量动态加成
 	if PC.faze_summon_level >= 22:
 		_update_summon_count_bonus()
@@ -241,12 +283,20 @@ func _trigger_electrified(source: String = "unknown") -> void:
 
 func _get_blood_electrified_damage_multiplier(level: int) -> float:
 	if level >= 29:
-		return 8.0
+		return 12.0
 	if level >= 22:
 		return 4.0
 	if level >= 9:
 		return 2.0
 	return 1.0
+
+static func get_blood_weapon_damage_multiplier(level: int) -> float:
+	var bonus := 0.0
+	if level >= 9:
+		bonus += 0.30
+	if level >= 22:
+		bonus += 0.80
+	return 1.0 + bonus
 
 func _get_blood_electrified_elite_bonus(level: int) -> float:
 	if level >= 29:
@@ -272,8 +322,6 @@ func _get_blood_electrified_range_scale(level: int) -> float:
 func _get_blood_shield_ratio(level: int) -> float:
 	if level >= 29:
 		return 0.10
-	if level >= 9:
-		return 0.03
 	return 0.025
 
 func _update_blood_debuff_bonus() -> void:
@@ -545,6 +593,7 @@ func check_and_apply_law_bonuses() -> void:
 	_update_wide_bonus()
 	_update_bagua_bonus()
 	_update_treasure_bonus()
+	_update_shehun_bonus()
 	_update_chaos_bonus()
 	_update_sixsense_bonus()
 
@@ -745,7 +794,7 @@ static func add_bagua_progress(amount: int, target_multiplier: int = 1) -> void:
 	while PC.faze_bagua_progress >= PC.faze_bagua_next_threshold:
 		PC.faze_bagua_progress -= PC.faze_bagua_next_threshold
 		PC.faze_bagua_completed_layers += 1
-		PC.faze_bagua_next_threshold += 10
+		PC.faze_bagua_next_threshold += 20
 		PC.exp_multi += 0.03
 		SEManager.play("38")
 		
@@ -1038,7 +1087,7 @@ static func get_treasure_weapon_damage_multiplier(level: int, lucky: int) -> flo
 static func get_treasure_elite_boss_multiplier(level: int, lucky: int) -> float:
 	if level < 29:
 		return 1.0
-	return 1.0 + float(lucky) * 0.06
+	return 1.0 + float(lucky) * 0.02
 
 static func get_treasure_extra_refresh_count(level: int, player_level: int) -> int:
 	if level >= 22:
@@ -1081,7 +1130,7 @@ static func get_wind_base_move_speed_bonus(level: int) -> float:
 
 static func get_wind_base_atk_speed_bonus(level: int) -> float:
 	var bonus = 0.0
-	if level >= 9:
+	if level >= 8:
 		bonus += 0.30
 	if level >= 16:
 		bonus += 0.40
@@ -1122,8 +1171,6 @@ static func get_chaos_final_damage_multiplier(level: int) -> float:
 
 static func get_chaos_final_damage_bonus(level: int) -> float:
 	var bonus = 0.0
-	if level >= 3:
-		bonus += 0.15
 	if level >= 5:
 		bonus += 0.30
 	if level >= 8:
@@ -1134,8 +1181,6 @@ static func get_chaos_final_damage_bonus(level: int) -> float:
 
 static func get_chaos_exp_multiplier(level: int) -> float:
 	var bonus = 0.0
-	if level >= 3:
-		bonus += 0.15
 	if level >= 5:
 		bonus += 0.30
 	if level >= 8:
@@ -1146,8 +1191,6 @@ static func get_chaos_exp_multiplier(level: int) -> float:
 
 static func get_chaos_point_multiplier(level: int) -> float:
 	var bonus = 0.0
-	if level >= 3:
-		bonus += 0.15
 	if level >= 5:
 		bonus += 0.25
 	if level >= 8:
@@ -1190,16 +1233,25 @@ static func _calculate_chaos_level() -> int:
 		PC.faze_bagua_level,
 		PC.faze_treasure_level,
 		PC.faze_deep_level,
+		PC.faze_shehun_level,
 		PC.faze_skill_level,
 		PC.faze_sixsense_level,
 		PC.faze_wind_level,
 	]
+	var owned_law_count := 0
+	for level in levels:
+		if level > 0:
+			owned_law_count += 1
+	if owned_law_count < 6:
+		return 0
 	var chaos_level = 0
 	for level in levels:
 		if level >= 6:
 			chaos_level += 1
 		if level >= 10:
 			chaos_level += 1
+		if level >= 12:
+			chaos_level -= 2
 	if chaos_level < 0:
 		chaos_level = 0
 	return chaos_level
@@ -1221,6 +1273,16 @@ func _update_treasure_bonus() -> void:
 	PC.now_lunky_level += delta
 	PC._recalculate_reward_rarity_chances()
 	Global.emit_signal("lucky_level_up", delta)
+	_update_treasure_armor_bonus()
+
+func _update_treasure_armor_bonus() -> void:
+	var armor_bonus := 0.0
+	if PC.faze_treasure_level >= 29:
+		armor_bonus = float(PC.get_lucky_level()) * 5.0
+	if is_equal_approx(armor_bonus, last_treasure_armor_bonus):
+		return
+	PC.pc_armor += armor_bonus - last_treasure_armor_bonus
+	last_treasure_armor_bonus = armor_bonus
 
 static func get_deep_weapon_damage_bonus(level: int) -> float:
 	var bonus := 0.0
@@ -1255,9 +1317,9 @@ static func get_deep_boss_displacement_extra_multiplier(level: int) -> float:
 	if level >= 29:
 		return 10.0
 	if level >= 22:
-		return 3.0
-	if level >= 9:
 		return 1.5
+	if level >= 9:
+		return 0.5
 	return 0.0
 
 static func apply_deep_displacement_damage(target: Node, base_damage: float, knockback_amount: float, _damage_type: String) -> void:
@@ -1276,6 +1338,94 @@ static func apply_deep_displacement_damage(target: Node, base_damage: float, kno
 	if extra_damage <= 0.0:
 		return
 	target.take_damage(int(round(extra_damage)), false, false, "faze_deep")
+
+static func get_shehun_weapon_damage_multiplier(level: int) -> float:
+	var bonus := 0.0
+	if level >= 4:
+		bonus += 0.25
+	if level >= 9:
+		bonus += 0.30
+	if level >= 16:
+		bonus += 0.45
+	if level >= 22:
+		bonus += 0.65
+	if level >= 29:
+		bonus += 1.20
+	return 1.0 + bonus
+
+static func get_shehun_spirit_gain_bonus(level: int) -> float:
+	var bonus := 0.0
+	if level >= 4:
+		bonus += 0.10
+	if level >= 16:
+		bonus += 0.20
+	if level >= 22:
+		bonus += 0.25
+	if level >= 29:
+		bonus += 1.00
+	return bonus
+
+static func get_shehun_spirit_regen_bonus(level: int) -> float:
+	var bonus := 0.0
+	if level >= 8:
+		bonus += 0.02
+	if level >= 16:
+		bonus += 0.02
+	return bonus
+
+static func get_shehun_spirit_regen_cap(level: int) -> float:
+	return 0.08 if level >= 16 else 0.06
+
+static func get_shehun_crit_chance_bonus(level: int) -> float:
+	var bonus := 0.0
+	if level >= 16:
+		bonus += 0.10
+	if level >= 22:
+		bonus += 0.15
+	return bonus
+
+static func get_shehun_enemy_count_bonus(level: int) -> float:
+	var bonus := 0.0
+	if level >= 22:
+		bonus += 0.15
+	if level >= 29:
+		bonus += 0.25
+	return bonus
+
+static func get_shehun_final_damage_per_spirit_group(level: int) -> float:
+	if level >= 29:
+		return 0.08
+	if level >= 22:
+		return 0.02
+	return 0.0
+
+static func get_shehun_damage_reduction_per_spirit_group(level: int) -> float:
+	if level >= 29:
+		return 0.02
+	if level >= 22:
+		return 0.005
+	return 0.0
+
+func _update_shehun_bonus() -> void:
+	var level := PC.faze_shehun_level
+	var spirit_bonus := Faze.get_shehun_spirit_gain_bonus(level)
+	if not is_equal_approx(spirit_bonus, last_shehun_spirit_multi_bonus):
+		PC.spirit_multi += spirit_bonus - last_shehun_spirit_multi_bonus
+		PC.shehun_law_spirit_multi_bonus = spirit_bonus
+		last_shehun_spirit_multi_bonus = spirit_bonus
+	var crit_bonus := Faze.get_shehun_crit_chance_bonus(level)
+	if not is_equal_approx(crit_bonus, last_shehun_crit_chance_bonus):
+		PC.crit_chance += crit_bonus - last_shehun_crit_chance_bonus
+		PC.shehun_law_crit_chance_bonus = crit_bonus
+		last_shehun_crit_chance_bonus = crit_bonus
+	var regen_bonus := Faze.get_shehun_spirit_regen_bonus(level)
+	if not is_equal_approx(regen_bonus, last_shehun_spirit_regen_bonus):
+		if LvUp != null and LvUp.has_method("add_law_spirit_regen_bonus"):
+			LvUp.add_law_spirit_regen_bonus(regen_bonus - last_shehun_spirit_regen_bonus, Faze.get_shehun_spirit_regen_cap(level))
+		last_shehun_spirit_regen_bonus = regen_bonus
+	PC.update_spirit_reward_bonuses()
+	if PC.has_method("update_shehun_spirit_progress_buff"):
+		PC.update_shehun_spirit_progress_buff()
 
 func _update_chaos_bonus() -> void:
 	Faze.get_current_chaos_level()

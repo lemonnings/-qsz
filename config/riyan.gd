@@ -1,7 +1,7 @@
 extends Area2D
 
 @export var damage_interval: float = 1.0 # 赤曜伤害频率：1秒/次
-const ELITE_BOSS_DAMAGE_BONUS: float = 3.0
+const ELITE_BOSS_DAMAGE_BONUS: float = 1.25
 
 var player_node: Node2D
 @export var damage_timer: Timer
@@ -14,7 +14,9 @@ var pulse_time: float = 0.0 # 像素动画计时器
 
 func _ready() -> void:
 	CharacterEffects.include_enemy_collision_mask(self )
-	Global.connect("riyan_damage_triggered", Callable(self , "_on_get_riyan"))
+	var trigger_callable := Callable(self , "_on_get_riyan")
+	if not Global.is_connected("riyan_damage_triggered", trigger_callable):
+		Global.connect("riyan_damage_triggered", trigger_callable)
 
 func _process(delta: float) -> void:
 	if player_node:
@@ -35,47 +37,47 @@ func _on_damage_timer_timeout() -> void:
 		# Riyan22: 16% (0.16)
 		if PC.selected_rewards.has("Riyan22"):
 			hp_damage_ratio = 0.16
-		# Riyan2: 15% (0.15)
+		# Riyan2: 12% (0.12)
 		elif PC.selected_rewards.has("Riyan2"):
-			hp_damage_ratio = 0.15
+			hp_damage_ratio = 0.12
 			
 		var hp_level_multiplier: float = pow(1.02, max(0, PC.pc_lv - 1))
 		var damage_amount: float = (PC.pc_atk * PC.riyan_atk_damage) + (PC.pc_max_hp * hp_damage_ratio * hp_level_multiplier)
-		# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
-		var damage_scale: float = PC.main_skill_riyan_damage + (Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level) - 1.0)
+		var additive_damage_bonus: float = PC.main_skill_riyan_damage - 1.0
 		
-		# 广域法则伤害加成（base_range_bonus = 非法则的范围加成，用于"范围转伤害"）
+		# 赤曜把自身、炽焰、广域、范围转伤害放进同一个加算池，公共受伤层不再重复追加武器分类。
 		var base_range_bonus = 0.0
 		if PC.selected_rewards.has("Riyan3"):
 			base_range_bonus += 0.2
 		base_range_bonus += Global.get_attack_range_multiplier() - 1.0
-		damage_scale += Faze.get_wide_damage_multiplier(base_range_bonus) - 1.0
-		damage_scale = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(damage_scale, "riyan", ["fire", "wide"])
-		damage_amount *= damage_scale
+		additive_damage_bonus += _get_wide_range_converted_damage_bonus(base_range_bonus)
+		additive_damage_bonus += SettingStudyTreeUp.get_total_damage_bonus("riyan")
 
 		# Riyan1 / Riyan11: 减伤转化伤害
-		var dr_bonus = 0.0
+		var dr_bonus := 0.0
 		var dr_rate = PC.damage_reduction_rate
 		if PC.selected_rewards.has("Riyan11"):
 			dr_bonus = min(dr_rate * 3.0, 1.8)
 		elif PC.selected_rewards.has("Riyan1"):
 			dr_bonus = min(dr_rate * 2.0, 0.9)
-		damage_amount *= (1.0 + dr_bonus)
+		additive_damage_bonus += dr_bonus
 		
 		for area in get_overlapping_areas():
 			if _is_valid_riyan_target(area):
-				var final_damage = damage_amount
+				var target_additive_bonus := additive_damage_bonus
 				var is_crit = false
+				var crit_multiplier := 1.0
 				if randf() < PC.crit_chance:
 					is_crit = true
-					final_damage *= PC.crit_damage_multi
+					crit_multiplier = PC.crit_damage_multi
 				
 				# Riyan33: 对燃烧敌人额外伤害
 				if PC.selected_rewards.has("Riyan33"):
 					if _has_burn(area):
-						final_damage *= 1.6
+						target_additive_bonus += 0.6
 				if Global.is_elite_or_boss_target(area):
-					final_damage *= 1.0 + ELITE_BOSS_DAMAGE_BONUS
+					target_additive_bonus += ELITE_BOSS_DAMAGE_BONUS
+				var final_damage = damage_amount * maxf(0.0, 1.0 + target_additive_bonus) * crit_multiplier
 						
 				area.take_damage(final_damage, is_crit, false, "riyan")
 				# 击中粒子崩散特效
@@ -87,6 +89,10 @@ func _is_valid_riyan_target(target: Node) -> bool:
 	if not target.has_method("take_damage"):
 		return false
 	return target.is_in_group("enemies") or target.is_in_group("boss")
+
+func _get_wide_range_converted_damage_bonus(base_range_bonus: float) -> float:
+	var total_range_bonus := base_range_bonus + PC.faze_wide_range_bonus
+	return total_range_bonus * PC.faze_wide_range_to_damage_ratio
 
 func _has_burn(enemy) -> bool:
 	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("has_debuff"):
@@ -135,6 +141,8 @@ func _on_get_riyan():
 		return
 	
 	player_node = get_tree().get_first_node_in_group("player")
+	if player_node == null or get_parent() != player_node:
+		return
 	global_position = player_node.global_position
 	
 	collision_shape = CollisionShape2D.new()

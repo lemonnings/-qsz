@@ -930,7 +930,7 @@ func _ensure_icon_node(panel: Panel) -> TextureRect:
 func _ensure_shop_state() -> void:
 	Global.shop_level = clampi(Global.shop_level, 1, SHOP_LEVEL_CAP)
 	Global.shop_battle_refresh_count = clampi(Global.shop_battle_refresh_count, 0, Global.refresh_max_num)
-	Global.shop_lingshi_unit_price = max(Global.shop_lingshi_unit_price, 50)
+	Global.shop_lingshi_unit_price = maxf(Global.shop_lingshi_unit_price, 5.0)
 
 func _load_shop_items_from_save() -> void:
 	_shop_items.clear()
@@ -1017,6 +1017,29 @@ func _roll_weighted_offer_kind(table: Array) -> String:
 			return str(entry.get("kind", "lingshi"))
 	return str(table[0].get("kind", "lingshi"))
 
+func _roll_non_pill_offer_kind(table: Array) -> String:
+	var filtered_table: Array = []
+	for entry in table:
+		var kind := str(entry.get("kind", ""))
+		if _is_pill_offer_kind(kind):
+			continue
+		filtered_table.append(entry)
+	if filtered_table.is_empty():
+		return "lingshi"
+	return _roll_weighted_offer_kind(filtered_table)
+
+func _is_pill_offer_kind(kind: String) -> bool:
+	return kind in [
+		"tier1_pill",
+		"tier2_pill",
+		"tier3_pill",
+		"tier4_pill",
+		"tier5_pill",
+		"lower_special",
+		"middle_special",
+		"upper_special",
+	]
+
 func _build_offer_by_kind(rarity: String, kind: String) -> Dictionary:
 	match kind:
 		"lingshi":
@@ -1026,15 +1049,15 @@ func _build_offer_by_kind(rarity: String, kind: String) -> Dictionary:
 			var unit_price_map = {"white": 0.5, "blue": 0.4, "purple": 0.4, "gold": 0.4}
 			return _build_item_offer(rarity, _pick_random(_common_material_pool), quantity_map.get(rarity, 10), unit_price_map.get(rarity, 0.5))
 		"tier1_pill":
-			return _build_item_offer(rarity, _pick_random(TIER1_PILLS), 1, 10)
+			return _build_pill_offer_or_fallback(rarity, TIER1_PILLS, 1, 10)
 		"tier2_pill":
-			return _build_item_offer(rarity, _pick_random(TIER2_PILLS), 1, 20)
+			return _build_pill_offer_or_fallback(rarity, TIER2_PILLS, 1, 20)
 		"tier3_pill":
-			return _build_item_offer(rarity, _pick_random(TIER3_PILLS), 1, 40)
+			return _build_pill_offer_or_fallback(rarity, TIER3_PILLS, 1, 40)
 		"tier4_pill":
-			return _build_item_offer(rarity, _pick_random(TIER4_PILLS), 1, 80)
+			return _build_pill_offer_or_fallback(rarity, TIER4_PILLS, 1, 80)
 		"tier5_pill":
-			return _build_item_offer(rarity, _pick_random(TIER5_PILLS), 1, 160)
+			return _build_pill_offer_or_fallback(rarity, TIER5_PILLS, 1, 160)
 		"basic_element":
 			var quantity_map = {"white": 1, "blue": 2}
 			var unit_price_map = {"white": 5, "blue": 4}
@@ -1042,13 +1065,13 @@ func _build_offer_by_kind(rarity: String, kind: String) -> Dictionary:
 		"lower_special":
 			var quantity_map = {"white": 2, "blue": 3}
 			var unit_price_map = {"white": 30, "blue": 25}
-			return _build_item_offer(rarity, _pick_random(LOWER_SPECIAL_PILLS), quantity_map.get(rarity, 2), unit_price_map.get(rarity, 30))
+			return _build_pill_offer_or_fallback(rarity, LOWER_SPECIAL_PILLS, quantity_map.get(rarity, 2), unit_price_map.get(rarity, 30))
 		"middle_special":
 			var quantity_map = {"purple": 1, "gold": 2}
 			var unit_price_map = {"purple": 60, "gold": 50}
-			return _build_item_offer(rarity, _pick_random(MIDDLE_SPECIAL_PILLS), quantity_map.get(rarity, 1), unit_price_map.get(rarity, 60))
+			return _build_pill_offer_or_fallback(rarity, MIDDLE_SPECIAL_PILLS, quantity_map.get(rarity, 1), unit_price_map.get(rarity, 60))
 		"upper_special":
-			return _build_item_offer(rarity, _pick_random(UPPER_SPECIAL_PILLS), 1, 120)
+			return _build_pill_offer_or_fallback(rarity, UPPER_SPECIAL_PILLS, 1, 120)
 		"ether":
 			var quantity_map = {"purple": 1, "gold": 2}
 			return _build_item_offer(rarity, _pick_random(ETHER_IDS), quantity_map.get(rarity, 1), 15)
@@ -1059,6 +1082,25 @@ func _build_offer_by_kind(rarity: String, kind: String) -> Dictionary:
 		_:
 			return _build_lingshi_offer(rarity)
 
+func _build_pill_offer_or_fallback(rarity: String, pill_pool: Array, quantity: int, unit_price: float) -> Dictionary:
+	var available_pills := _filter_available_pill_pool(pill_pool)
+	if available_pills.is_empty():
+		var table: Array = OFFER_TABLES.get(rarity, OFFER_TABLES["white"])
+		return _build_offer_by_kind(rarity, _roll_non_pill_offer_kind(table))
+	return _build_item_offer(rarity, _pick_random(available_pills), quantity, unit_price)
+
+func _filter_available_pill_pool(pill_pool: Array) -> Array[String]:
+	var result: Array[String] = []
+	for raw_item_id in pill_pool:
+		var item_id := str(raw_item_id)
+		if not _is_pill_used_to_cap(item_id):
+			result.append(item_id)
+	return result
+
+func _is_pill_used_to_cap(item_id: String) -> bool:
+	var max_uses := _get_item_max_uses(item_id)
+	return max_uses > 0 and int(Global.pill_used_counts.get(item_id, 0)) >= max_uses
+
 func _build_lingshi_offer(rarity: String) -> Dictionary:
 	var quantity := int(LINGSHI_PACK_QUANTITY.get(rarity, 10))
 	return {
@@ -1067,7 +1109,7 @@ func _build_lingshi_offer(rarity: String) -> Dictionary:
 		"item_id": Global.LINGSHI_ITEM_ID,
 		"quantity": quantity,
 		"cost_resource": "point",
-		"cost": quantity * Global.shop_lingshi_unit_price,
+		"cost": int(round(float(quantity) * Global.shop_lingshi_unit_price)),
 		"sold": false
 	}
 
@@ -1092,7 +1134,7 @@ func _sync_dynamic_offer_data() -> void:
 	for i in range(_shop_items.size()):
 		var offer = _shop_items[i]
 		if offer.get("product_type", "") == "lingshi_pack":
-			offer["cost"] = int(offer.get("quantity", 0)) * Global.shop_lingshi_unit_price
+			offer["cost"] = int(round(float(offer.get("quantity", 0)) * Global.shop_lingshi_unit_price))
 			_shop_items[i] = offer
 
 func _refresh_display() -> void:
@@ -1313,6 +1355,12 @@ func _build_offer_detail_text(offer: Dictionary) -> String:
 	var item_detail := str(ItemManager.get_item_property(item_id, "item_detail"))
 	var item_source := str(ItemManager.get_item_property(item_id, "item_source"))
 	var detail_lines: Array[String] = ["数量：%d" % quantity]
+	var pill_use_info := ItemManager.get_limited_pill_use_info(item_id)
+	if not pill_use_info.is_empty():
+		detail_lines.append("已使用：%d/%d" % [
+			int(pill_use_info.get("used", 0)),
+			int(pill_use_info.get("max_uses", 0))
+		])
 	if not item_detail.is_empty():
 		detail_lines.append(item_detail)
 	var detail_text := "\n".join(detail_lines)
@@ -1481,7 +1529,7 @@ func _try_buy_offer(index: int) -> void:
 		_show_tips("商品已告罄", 0.5)
 		return
 	if str(offer.get("product_type", "")) == "lingshi_pack":
-		offer["cost"] = int(offer.get("quantity", 0)) * Global.shop_lingshi_unit_price
+		offer["cost"] = int(round(float(offer.get("quantity", 0)) * Global.shop_lingshi_unit_price))
 		_shop_items[index] = offer
 	var cost := int(offer.get("cost", 0))
 	var item_id := str(offer.get("item_id", ""))
@@ -1499,7 +1547,7 @@ func _try_buy_offer(index: int) -> void:
 	offer["sold"] = true
 	_shop_items[index] = offer
 	if str(offer.get("product_type", "")) == "lingshi_pack":
-		Global.shop_lingshi_unit_price += int(quantity / 10.0)
+		Global.shop_lingshi_unit_price += float(quantity) / 100.0
 	AchievementManager.record_shop_purchase(str(offer.get("cost_resource", "")), cost, str(offer.get("rarity", "")))
 	_refresh_display()
 	_save_shop_items_to_save()

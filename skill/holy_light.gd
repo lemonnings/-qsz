@@ -17,8 +17,9 @@ static var holylight_size_multiplier: float = 1.0
 static var holylight_vulnerable_damage_bonus: float = 0.0
 static var holylight_vulnerable_crit: bool = false
 
-const DAMAGE_TICK_ADVANCE: float = 0.2
+const DAMAGE_TICK_ADVANCE: float = 0.05
 const HEAL_WINDOW_AFTER_FADE_START: float = 0.2
+const BOSS_DAMAGE_MULTIPLIER: float = 2.0
 
 static func reset_data() -> void:
 	main_skill_holylight_damage = 1.10
@@ -232,11 +233,14 @@ func setup(pos: Vector2, p_damage: float, p_heal_base: int, p_heal_ratio: float,
 	# 进场动画：从中心点开始逐渐生成，0.5秒内扩大至全部范围
 	var tween = create_tween()
 	tween.tween_property(self , "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.finished.connect(_on_expand_finished)
 	monitoring = true
 	monitorable = true
 	if not body_entered.is_connected(_on_body_entered):
 		body_entered.connect(_on_body_entered)
-	
+	if not area_entered.is_connected(_on_area_entered):
+		area_entered.connect(_on_area_entered)
+
 	var damage_delay := maxf(0.0, duration - DAMAGE_TICK_ADVANCE)
 	get_tree().create_timer(damage_delay, false).timeout.connect(_on_damage_tick)
 	# 倒计时结束前闪烁并消失（process_always=false，暂停时停止计时）
@@ -345,20 +349,49 @@ func _on_damage_tick() -> void:
 	damage_applied = true
 	var areas = get_overlapping_areas()
 	for area in areas:
-		if area.is_in_group("enemies") and area.has_method("take_damage"):
-			var final_damage = damage
-			if center_extra_damage > 0:
-				final_damage = damage * (1.0 + center_extra_damage)
-			var is_vulnerable = false
-			if area.get("debuff_manager") and area.debuff_manager.has_method("has_debuff"):
-				is_vulnerable = area.debuff_manager.has_debuff("vulnerable")
-			var is_crit = false
-			if is_vulnerable and vulnerable_damage_bonus > 0:
-				final_damage *= 1.0 + vulnerable_damage_bonus
-			if is_vulnerable and vulnerable_crit:
-				is_crit = true
-				final_damage *= PC.crit_damage_multi
-			area.take_damage(int(final_damage), is_crit, false, "holylight")
+		if not area.is_in_group("enemies"):
+			continue
+		if not area.has_method("take_damage"):
+			continue
+		var final_damage = damage
+		if center_extra_damage > 0:
+			final_damage = damage * (1.0 + center_extra_damage)
+		if area.is_in_group("boss"):
+			final_damage *= BOSS_DAMAGE_MULTIPLIER
+		var is_vulnerable = false
+		if area.get("debuff_manager") and area.debuff_manager.has_method("has_debuff"):
+			is_vulnerable = area.debuff_manager.has_debuff("vulnerable")
+		var is_crit = false
+		if is_vulnerable and vulnerable_damage_bonus > 0:
+			final_damage *= 1.0 + vulnerable_damage_bonus
+		if is_vulnerable and vulnerable_crit:
+			is_crit = true
+			final_damage *= PC.crit_damage_multi
+		area.take_damage(int(final_damage), is_crit, false, "holylight")
+
+func _on_area_entered(area: Area2D) -> void:
+	if area != null and area.is_in_group("enemies"):
+		_apply_slow(area)
+
+func _on_expand_finished() -> void:
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
+	await get_tree().physics_frame
+	if is_instance_valid(self):
+		_apply_slow_to_overlapping_enemies()
+
+func _apply_slow_to_overlapping_enemies() -> void:
+	if not is_instance_valid(self):
+		return
+	for area in get_overlapping_areas():
+		if area != null and area.is_in_group("enemies"):
+			_apply_slow(area)
+
+func _apply_slow(enemy: Node) -> void:
+	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("add_debuff"):
+		enemy.debuff_manager.add_debuff("slow")
+	elif enemy.has_signal("debuff_applied"):
+		enemy.emit_signal("debuff_applied", "slow")
 
 func _on_heal_window_timeout() -> void:
 	heal_window_active = false

@@ -91,15 +91,15 @@ func setup(start_pos: Vector2, direction: Vector2, base_damage: int, damage_mult
 	scale = Vector2(base_node_scale.x * total_scale, base_node_scale.y * total_scale)
 
 var range_limit: float = 150.0
-static var per_chakra_damage_rate: float = 0.2
-static var per_chakra_range_rate: float = 0.1
-static var per_chakra_size_rate: float = 0.1
+static var per_chakra_damage_rate: float = 0.08
+static var per_chakra_range_rate: float = 0.12
+static var per_chakra_size_rate: float = 0.08
 static var per_chakra_splash_range_rate: float = 0.0
 static var qigong_electrified_splash_range_bonus: bool = false # 是否启用感电目标溅射范围加成
 
 static func sync_reward_modifiers() -> void:
 	# 根据已选择的奖励同步气功波属性
-	main_skill_qigong_damage = 0.0
+	main_skill_qigong_damage = PC.main_skill_qigong_damage
 	qigong_splash_damage_ratio = 0.3
 	qigong_explore_range_scale = 0.9
 	qigong_knockback = 0.0
@@ -113,9 +113,9 @@ static func sync_reward_modifiers() -> void:
 	qigong_distance_bonus = false
 	qigong_size_scale = 1.0
 	qigong_electrified_splash_damage_ratio = 0.0
-	per_chakra_damage_rate = 0.2
-	per_chakra_range_rate = 0.1
-	per_chakra_size_rate = 0.1
+	per_chakra_damage_rate = 0.08
+	per_chakra_range_rate = 0.12
+	per_chakra_size_rate = 0.08
 	per_chakra_splash_range_rate = 0.0
 	qigong_electrified_splash_range_bonus = false
 	
@@ -130,36 +130,34 @@ static func sync_reward_modifiers() -> void:
 		qigong_knockback = 1.0
 		
 	if PC.selected_rewards.has("Qigong3"):
-		total_damage_bonus += 0.1
+		total_damage_bonus += 0.05
 		qigong_size_scale = 1.3
 		qigong_explore_range_scale = 1.17
 		qigong_splash_damage_ratio = 0.4
 		
 	if PC.selected_rewards.has("Qigong4"):
-		total_damage_bonus += 0.1
 		qigong_double_hit_chance = 0.4
 		qigong_double_hit_damage_multiplier = 0.7
 		
 	var has_qigong5 = PC.selected_rewards.has("Qigong5")
 	var has_qigong11 = PC.selected_rewards.has("Qigong11")
 	if has_qigong5 or has_qigong11:
-		total_damage_bonus += 0.1
 		qigong_chakra_count = PC.current_weapon_num - 1
-		per_chakra_damage_rate = 0.2
-		per_chakra_range_rate = 0.1
-		per_chakra_size_rate = 0.1
+		per_chakra_damage_rate = 0.08
+		per_chakra_range_rate = 0.12
+		per_chakra_size_rate = 0.08
 		
 	if has_qigong11:
-		total_damage_bonus += 0.1
-		per_chakra_damage_rate = 0.3
-		per_chakra_splash_range_rate = 0.1
+		total_damage_bonus += 0.05
+		per_chakra_damage_rate = 0.16
+		per_chakra_splash_range_rate = 0.08
 		
 	if PC.selected_rewards.has("Qigong22"):
-		total_damage_bonus += 0.1
+		total_damage_bonus += 0.15
 		qigong_electrified_bonus_damage = 0.45
 		
 	if PC.selected_rewards.has("Qigong33"):
-		qigong_triple_hit_chance = 0.4
+		qigong_triple_hit_chance = 0.5
 		qigong_triple_hit_damage_multiplier = 0.56
 		
 	if PC.selected_rewards.has("Qigong44"):
@@ -284,18 +282,14 @@ func _check_splash_damage(exclude_target: Area2D, is_electrified_target: bool, m
 func _apply_damage(target: Area2D, dmg: int, _is_direct_hit: bool) -> void:
 	var final_dmg = dmg
 	
-	# Qigong55: 距离伤害加成
+	# Qigong55: 距离越近，额外伤害从15%线性提升到100%
 	if qigong_distance_bonus:
-		var dist = global_position.distance_to(start_position)
-		var bonus_ratio = 0.2
-		if dist < 20:
-			bonus_ratio = 1.0
-		elif dist < 150:
-			bonus_ratio = 0.5
-		
-		final_dmg = int(final_dmg * (1.0 + bonus_ratio))
+		var distance_to_player := start_position.distance_to(target.global_position)
+		var distance_rate := clampf(distance_to_player / maxf(range_limit, 1.0), 0.0, 1.0)
+		var bonus_ratio := lerpf(1.0, 0.15, distance_rate)
+		final_dmg = int(round(final_dmg * (1.0 + bonus_ratio)))
 	
-	# Qigong44: 对感电目标造成额外80%伤害
+	# Qigong22: 对感电目标造成额外伤害
 	if qigong_electrified_bonus_damage > 0:
 		if target.get("debuff_manager") and target.debuff_manager.has_debuff("electrified"):
 			final_dmg = int(final_dmg * (1.0 + qigong_electrified_bonus_damage))

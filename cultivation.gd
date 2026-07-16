@@ -117,8 +117,8 @@ func update_single_cultivation_display(index: int) -> void:
 
 func get_cultivation_exp_for_level_normal(level: int) -> int:
 	level = level + 1
-	var base_exp = 50
-	var increment = 50
+	var base_exp = 5
+	var increment = 5
 	var multiplier = 1.08
 	var exp_now = base_exp
 	for i in range(1, level):
@@ -127,8 +127,8 @@ func get_cultivation_exp_for_level_normal(level: int) -> int:
 
 func get_cultivation_exp_for_level_high(level: int) -> int:
 	level = level + 1
-	var base_exp = 100
-	var increment = 100
+	var base_exp = 10
+	var increment = 10
 	var multiplier = 1.18
 	var exp_now = base_exp
 	for i in range(1, level):

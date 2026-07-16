@@ -4,6 +4,7 @@ const OUTLINE_COLOR: Color = Color(1.0, 0.0, 0.0, 1.0)
 const OUTLINE_THICKNESS: float = 0.9
 const DEFAULT_MAX_RANGE: float = 3000.0
 const VISUAL_SCALE_MULTIPLIER: float = 0.85
+const FADE_IN_TIME: float = 0.35
 
 static var _outline_shader: Shader = null
 
@@ -22,7 +23,11 @@ func _ready() -> void:
 	_setup_outline()
 	if sprite != null:
 		sprite.scale *= VISUAL_SCALE_MULTIPLIER
+		var target_alpha := sprite.modulate.a
+		sprite.modulate.a = 0.0
 		sprite.play("default")
+		var fade_tween := create_tween()
+		fade_tween.tween_property(sprite, "modulate:a", target_alpha, FADE_IN_TIME)
 	if not body_entered.is_connected(_on_body_entered):
 		body_entered.connect(_on_body_entered)
 

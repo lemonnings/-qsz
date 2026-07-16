@@ -305,6 +305,18 @@ var recipes_data = {
 	},
 
 	# ============== 其他类：碎片与特殊道具 ==============
+	"recipe_034": {
+		"recipe_name": "九幽秘钥",
+		"recipe_description": "通往九幽冥府的秘钥。",
+		"recipe_icon": "res://AssetBundle/Sprites/Sprite sheets/item_icon/jiuyou_full.png",
+		"category": "qita",
+		"required_items": [
+			{"item_id": "item_004", "count": 10}
+		],
+		"result_items": [
+			{"item_id": "item_006", "min_count": 1, "max_count": 1, "probability": 1.0}
+		]
+	},
 	"recipe_027": {
 		"recipe_name": "灵髓碎片",
 		"recipe_description": "3个灵髓碎片炼化为10个灵石",
@@ -564,6 +576,13 @@ func _on_recipe_button_pressed(recipe_id: String):
 	_update_synthesis_detail()
 
 func _get_max_craft_count(recipe_id: String) -> int:
+	var material_max_count := _get_material_max_craft_count(recipe_id)
+	var pill_remaining := _get_recipe_remaining_uses(recipe_id)
+	if pill_remaining >= 0:
+		return mini(material_max_count, pill_remaining)
+	return material_max_count
+
+func _get_material_max_craft_count(recipe_id: String) -> int:
 	var recipe: Dictionary = get_recipe_data(recipe_id)
 	if recipe.is_empty():
 		return 0
@@ -578,6 +597,37 @@ func _get_max_craft_count(recipe_id: String) -> int:
 	if max_count == 2147483647:
 		return 0
 	return max_count
+
+func _get_recipe_remaining_uses(recipe_id: String) -> int:
+	var info := _get_recipe_pill_use_info(recipe_id)
+	if info.is_empty():
+		return -1
+	var result_item_id := _get_recipe_primary_result_item_id(recipe_id)
+	var owned_count := Global.get_item_count(result_item_id)
+	return maxi(0, int(info.get("max_uses", 0)) - int(info.get("used", 0)) - owned_count)
+
+func _get_recipe_remaining_use_capacity(recipe_id: String) -> int:
+	var info := _get_recipe_pill_use_info(recipe_id)
+	if info.is_empty():
+		return -1
+	return maxi(0, int(info.get("max_uses", 0)) - int(info.get("used", 0)))
+
+func _get_recipe_pill_use_info(recipe_id: String) -> Dictionary:
+	var result_item_id := _get_recipe_primary_result_item_id(recipe_id)
+	if result_item_id.is_empty():
+		return {}
+	if result_item_id == "item_040":
+		return {
+			"used": int(Global.fruit_heal_multi_used_count),
+			"max_uses": 10
+		}
+	return ItemManager.get_limited_pill_use_info(result_item_id)
+
+func _get_recipe_primary_result_item_id(recipe_id: String) -> String:
+	var recipe: Dictionary = get_recipe_data(recipe_id)
+	if recipe.is_empty() or recipe.result_items.is_empty():
+		return ""
+	return str(recipe.result_items[0].item_id)
 
 func _format_craftable_count(count: int) -> String:
 	if count > 99:
@@ -606,7 +656,11 @@ func _update_synthesis_detail():
 	if recipe.result_items.size() > 0:
 		var result_item_id: String = str(recipe.result_items[0].item_id)
 		var owned_count: int = Global.get_item_count(result_item_id)
-		detail_text += "\n已持有 " + str(owned_count) + "\n\n"
+		detail_text += "\n已持有 " + str(owned_count) + "\n"
+		var pill_use_info := _get_recipe_pill_use_info(current_recipe_id)
+		if not pill_use_info.is_empty():
+			detail_text += "已服用 " + str(int(pill_use_info.get("used", 0))) + "/" + str(int(pill_use_info.get("max_uses", 0))) + "\n"
+		detail_text += "\n"
 	
 	# 合成材料需求
 	detail_text += "合成材料需求\n"
@@ -642,6 +696,14 @@ func _on_synthesis_num_changed(new_text: String):
 func _on_synthesis_max_pressed() -> void:
 	if current_recipe_id.is_empty():
 		_show_message("请先选择要合成的物品")
+		return
+	var use_capacity := _get_recipe_remaining_use_capacity(current_recipe_id)
+	if use_capacity == 0:
+		_show_message("该丹药已经服用全部完毕！")
+		return
+	var pill_remaining := _get_recipe_remaining_uses(current_recipe_id)
+	if pill_remaining == 0:
+		_show_message("背包已有丹药已达可服用上限")
 		return
 	var max_count := _get_max_craft_count(current_recipe_id)
 	if max_count <= 0:
@@ -702,6 +764,9 @@ func can_craft(recipe_id: String, craft_count: int = 1) -> bool:
 	var recipe: Dictionary = get_recipe_data(recipe_id)
 	if recipe.is_empty():
 		return false
+	var pill_remaining := _get_recipe_remaining_uses(recipe_id)
+	if pill_remaining >= 0 and craft_count > pill_remaining:
+		return false
 	
 	# 检查配方是否已解锁
 	#if !Global.is_recipe_unlocked(recipe_id):
@@ -731,6 +796,17 @@ func craft_items(recipe_id: String, craft_count: int = 1) -> Dictionary:
 	var recipe: Dictionary = get_recipe_data(recipe_id)
 	if recipe.is_empty():
 		result.message = "配方不存在"
+		return result
+	var use_capacity := _get_recipe_remaining_use_capacity(recipe_id)
+	if use_capacity == 0:
+		result.message = "该丹药已经服用全部完毕！"
+		return result
+	var pill_remaining := _get_recipe_remaining_uses(recipe_id)
+	if pill_remaining == 0:
+		result.message = "背包已有丹药已达可服用上限"
+		return result
+	if pill_remaining > 0 and craft_count > pill_remaining:
+		result.message = "超过可服用次数上限"
 		return result
 	
 	# 检查配方是否已解锁

@@ -80,17 +80,17 @@ static var _dot_tick_count: int = 0
 static var _last_burn_sound_msec: int = -9999
 
 static var debuff_configs: Dictionary = {
-	"slow": DebuffData.new("slow", 5.0, 1, false, "", true, Color.SKY_BLUE, 0.0, 0.0, -0.25, false, 0.0, 1.0, false, 40.0, "减速", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xuanbing.png", "移动速度降低25%"),
-	"vulnerable": DebuffData.new("vulnerable", 5.0, 1, false, "", true, Color(1.0, 0.5, 0.5), -0.25, 0.0, 0.0, false, 0.0, 1.0, false, 40.0, "脆弱", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/genshan.png", "造成的伤害降低25%"),
-	"penetrated": DebuffData.new("penetrated", 3.0, 1, false, "", false, Color.WHITE, 0.0, 0.2, 0.0, false, 0.0, 1.0, false, 40.0, "穿透", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xiepo.png", "受到的伤害增加20%"),
+	"slow": DebuffData.new("slow", 5.0, 1, false, "", true, Color.SKY_BLUE, 0.0, 0.0, -0.25, false, 0.0, 1.0, false, 40.0, "减速", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xuanbing.png", "移动速度降低 25 %"),
+	"vulnerable": DebuffData.new("vulnerable", 5.0, 1, false, "", true, Color(1.0, 0.5, 0.5), -0.25, 0.0, 0.0, false, 0.0, 1.0, false, 40.0, "脆弱", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/genshan.png", "造成的伤害降低 25 %"),
+	"penetrated": DebuffData.new("penetrated", 3.0, 1, false, "", false, Color.WHITE, 0.0, 0.2, 0.0, false, 0.0, 1.0, false, 40.0, "穿透", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xiepo.png", "受到的伤害增加 20 %"),
 	"paralyze": DebuffData.new("paralyze", 3.0, 1, false, "", true, Color(0.7, 0.7, 1.0), 0.0, 0.0, 0.0, true, 0.0, 1.0, false, 40.0, "麻痹", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/thunder.png", "无法行动"),
 	"stun": DebuffData.new("stun", 3.0, 1, false, "", true, Color(0.9, 0.9, 0.9), 0.0, 0.0, 0.0, true, 0.0, 1.0, false, 40.0, "眩晕", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/thunder.png", "无法行动"),
-	"bleed": DebuffData.new("bleed", 5.0, 5, false, "", true, Color(0.9, 0.3, 0.3), 0.0, 0.0, 0.0, false, 0.15, 1.0, false, 40.0, "流血", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_blood.png", "每秒受到攻击力15%的伤害，可叠加5层"),
-	"burn": DebuffData.new("burn", 3.0, 1, true, "res://Scenes/player/debuff_burn.tscn", true, Color(1.0, 0.6, 0.2), 0.0, 0.0, 0.0, false, 0.4, 1.0, true, 60.0, "燃烧", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_fire.png", "每秒受到攻击力40%的伤害，影响周围敌人"),
-	"electrified": DebuffData.new("electrified", 3.0, 1, false, "", true, Color(0.8, 0.8, 0.0), 0.0, 0.0, 0.0, false, 0.5, 1.0, false, 40.0, "感电", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_thunder.png", "每秒受到攻击力50%的伤害"),
-	"light_accumulation": DebuffData.new("light_accumulation", 5.0, 5, false, "", true, Color(1.0, 1.0, 0.8), 0.0, 0.05, 0.0, false, 0.0, 1.0, false, 40.0, "蓄光", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/guangdan.png", "每层受到的光弹的伤害增加5%，最多5层"),
-	"corrosion": DebuffData.new("corrosion", 5.0, 1, false, "", true, Color(0.6, 0.8, 0.2), 0.0, 0.2, 0.0, false, 0.0, 1.0, false, 40.0, "腐蚀", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/duize.png", "受到的伤害增加20%"),
-	"corrosion2": DebuffData.new("corrosion2", 5.0, 1, false, "", true, Color(0.5, 0.9, 0.1), 0.0, 0.3, 0.0, false, 0.0, 1.0, false, 40.0, "腐蚀Ⅱ", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/duize.png", "受到的伤害增加30%")
+	"bleed": DebuffData.new("bleed", 5.0, 5, false, "", true, Color(0.9, 0.3, 0.3), 0.0, 0.0, 0.0, false, 0.15, 1.0, false, 40.0, "流血", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_blood.png", "每秒受到攻击力 15 % 的伤害，可叠加 5 层"),
+	"burn": DebuffData.new("burn", 3.0, 1, true, "res://Scenes/player/debuff_burn.tscn", true, Color(1.0, 0.6, 0.2), 0.0, 0.0, 0.0, false, 0.4, 1.0, true, 60.0, "燃烧", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_fire.png", "每秒受到攻击力 40 % 的伤害，对周围小范围敌人造成一半伤害"),
+	"electrified": DebuffData.new("electrified", 3.0, 1, false, "", true, Color(0.8, 0.8, 0.0), 0.0, 0.0, 0.0, false, 0.5, 1.0, false, 40.0, "感电", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_thunder.png", "每秒受到攻击力 50 % 的伤害"),
+	"light_accumulation": DebuffData.new("light_accumulation", 5.0, 5, false, "", true, Color(1.0, 1.0, 0.8), 0.0, 0.05, 0.0, false, 0.0, 1.0, false, 40.0, "蓄光", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/guangdan.png", "每层受到的光弹术的伤害增加 5 % ，最多 5 层"),
+	"corrosion": DebuffData.new("corrosion", 5.0, 1, false, "", true, Color(0.6, 0.8, 0.2), 0.0, 0.2, 0.0, false, 0.0, 1.0, false, 40.0, "腐蚀", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/duize.png", "受到的伤害增加 20 %"),
+	"corrosion2": DebuffData.new("corrosion2", 5.0, 1, false, "", true, Color(0.5, 0.9, 0.1), 0.0, 0.3, 0.0, false, 0.0, 1.0, false, 40.0, "腐蚀Ⅱ", "res://AssetBundle/Sprites/Sprite sheets/skillIcon/duize.png", "受到的伤害增加 30 %")
 }
 
 static var debuff_elite_boss_damage_bonus: Dictionary = {}
@@ -167,6 +167,9 @@ func add_debuff(debuff_id: String, extra_stacks_limit: int = 0, duration_overrid
 
 		_apply_debuff_effects(debuff_id)
 		debuff_added_signal.emit(debuff_id, 1)
+
+	if config.dot_damage_ratio > 0.0:
+		_trigger_dot_tick(debuff_id)
 
 func _apply_debuff_effects(debuff_id: String):
 	if not _has_valid_target() or not active_debuffs.has(debuff_id):
@@ -265,14 +268,12 @@ func get_damage_multiplier() -> float:
 			
 			# R35-UR35: 脆弱效果提升 (vulnerable)
 			if debuff_id == "vulnerable":
-				if PC.selected_rewards.has("UR35"): effect_multiplier += 0.325
-				elif PC.selected_rewards.has("SSR35"): effect_multiplier += 0.275
-				elif PC.selected_rewards.has("SR35"): effect_multiplier += 0.225
-				elif PC.selected_rewards.has("R35"): effect_multiplier += 0.175
+				effect_multiplier += PC.get_vulnerable_effect_bonus()
 				
 			# R36-UR36: 易伤效果提升 (vulnerability - 假设对应 penetrated 或其他易伤debuff，或者vulnerable本身)
 			# 但这里我们假设是针对 damage_taken_multiplier 类型的debuff
 			# 如果用户没有明确指定易伤是哪个debuff，我们先保留逻辑
+			effect_multiplier += PC.get_vulnerability_effect_bonus()
 			
 			multiplier += config.damage_taken_multiplier * effect_multiplier
 			
@@ -296,10 +297,7 @@ func get_speed_multiplier() -> float:
 			var multiplier_bonus = 1.0
 			if debuff_id == "slow":
 				# R34-UR34: 减速效果提升
-				if PC.selected_rewards.has("UR34"): multiplier_bonus += 0.325
-				elif PC.selected_rewards.has("SSR34"): multiplier_bonus += 0.275
-				elif PC.selected_rewards.has("SR34"): multiplier_bonus += 0.225
-				elif PC.selected_rewards.has("R34"): multiplier_bonus += 0.175
+				multiplier_bonus += PC.get_slow_effect_bonus()
 			speed_multiplier += config.speed_multiplier * multiplier_bonus
 	return speed_multiplier
 
@@ -359,48 +357,56 @@ func _process(delta: float) -> void:
 		dot_elapsed -= config.dot_tick_interval
 		debuff_entry["dot_elapsed"] = dot_elapsed
 		active_debuffs[debuff_id] = debuff_entry
-		var damage = PC.pc_atk * config.dot_damage_ratio * debuff_entry["stacks"]
-		damage *= _get_player_level_dot_damage_multiplier()
-		
-		# DoT damage bonus check
-		var dot_bonus_multiplier = 1.0
-		
-		if debuff_id == "electrified":
-			damage *= Faze.get_thunder_electrified_damage_multiplier(PC.faze_thunder_level)
-			# R38-UR38: 感电效果提升
-			if PC.selected_rewards.has("UR38"): dot_bonus_multiplier += 0.65
-			elif PC.selected_rewards.has("SSR38"): dot_bonus_multiplier += 0.55
-			elif PC.selected_rewards.has("SR38"): dot_bonus_multiplier += 0.45
-			elif PC.selected_rewards.has("R38"): dot_bonus_multiplier += 0.35
-			
-		elif debuff_id == "burn":
-			# SR38-UR38: 燃烧效果提升 (Assume IDs overlap or user intent, apply to burn too if present)
-			# Note: User listed R38 twice (Electrified and Burn). Assuming they share the ID slot or are distinct.
-			# Given the text input, let's assume if the reward is present, it applies to both or specific one.
-			# But since we use checking logic based on ID string, and IDs are same "R38", "SR38"...
-			# It implies R38 buffs BOTH Electrified AND Burn if the description text was just merged or typo.
-			# However, looking at the user input, they are separate entries.
-			# Since we are not modifying reward.csv, we must assume the user might have different IDs in their mind or csv.
-			# But based on the prompt "R38 ... 砺雷" and "R38 ... 灼烧", if they have same ID, they are same item.
-			# If they are same item, then picking R38 buffs both.
-			if PC.selected_rewards.has("UR38"): dot_bonus_multiplier += 0.65
-			elif PC.selected_rewards.has("SSR38"): dot_bonus_multiplier += 0.55
-			elif PC.selected_rewards.has("SR38"): dot_bonus_multiplier += 0.45
-			elif PC.selected_rewards.has("R38"): dot_bonus_multiplier += 0.35
-			
-		elif debuff_id == "bleed":
-			# R37-UR37: 流血效果提升
-			if PC.selected_rewards.has("UR37"): dot_bonus_multiplier += 0.65
-			elif PC.selected_rewards.has("SSR37"): dot_bonus_multiplier += 0.55
-			elif PC.selected_rewards.has("SR37"): dot_bonus_multiplier += 0.45
-			elif PC.selected_rewards.has("R37"): dot_bonus_multiplier += 0.35
+		_trigger_dot_tick(debuff_id)
 
-		damage *= dot_bonus_multiplier
-		_apply_dot_damage(debuff_id, damage)
+func _trigger_dot_tick(debuff_id: String) -> void:
+	if not _has_valid_target() or not active_debuffs.has(debuff_id):
+		return
+	var debuff_entry = active_debuffs[debuff_id]
+	var config: DebuffData = debuff_entry["config"]
+	if config.dot_damage_ratio <= 0.0:
+		return
+	var damage = PC.pc_atk * config.dot_damage_ratio * debuff_entry["stacks"]
+	damage *= _get_player_level_dot_damage_multiplier()
 
-		# 鸣雷法则：感电触发时有概率召唤鸣雷劈向目标
-		if debuff_id == "electrified" and _has_valid_target():
-			Faze.on_electrified_trigger(target_enemy)
+	var dot_bonus_multiplier = 1.0
+	if debuff_id == "electrified":
+		dot_bonus_multiplier += PC.get_electrified_damage_bonus()
+	elif debuff_id == "burn":
+		dot_bonus_multiplier += PC.fire_damage_multi
+		dot_bonus_multiplier += PC._get_best_selected_reward_bonus({
+			"SSR38a": 0.55,
+			"SR38a": 0.45,
+			"R38a": 0.35,
+		})
+	elif debuff_id == "bleed":
+		dot_bonus_multiplier += PC.bleed_damage_multi
+		dot_bonus_multiplier += PC._get_best_selected_reward_bonus({
+			"SSR37": 0.55,
+			"SR37": 0.45,
+			"R37": 0.35,
+		})
+
+	if PC.debuff_cross_damage_multi > 0.0 and _has_other_hell_debuff(debuff_id):
+		dot_bonus_multiplier += PC.debuff_cross_damage_multi
+
+	damage *= dot_bonus_multiplier
+	_apply_dot_damage(debuff_id, damage)
+
+	# 鸣雷法则：感电触发时有概率召唤鸣雷劈向目标
+	if debuff_id == "electrified" and _has_valid_target():
+		Faze.on_electrified_trigger(target_enemy)
+
+func _has_other_hell_debuff(debuff_id: String) -> bool:
+	match debuff_id:
+		"bleed":
+			return active_debuffs.has("electrified") or active_debuffs.has("burn")
+		"electrified":
+			return active_debuffs.has("bleed") or active_debuffs.has("burn")
+		"burn":
+			return active_debuffs.has("bleed") or active_debuffs.has("electrified")
+		_:
+			return false
 
 func _start_death_fade() -> void:
 	death_fade_started = true
@@ -520,7 +526,7 @@ static func _consume_dot_tick_budget() -> bool:
 	return true
 
 static func _get_player_level_dot_damage_multiplier() -> float:
-	return 1.0 + float(maxi(0, PC.pc_lv - 1)) * 0.02
+	return pow(1.02, float(maxi(0, PC.pc_lv)))
 
 static func _is_valid_dot_damage_target(area: Node) -> bool:
 	if area == null or not is_instance_valid(area):

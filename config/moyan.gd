@@ -8,6 +8,7 @@ extends Area2D
 var bullet_damage: float = 0.0
 var initial_damage: float = 0.0 # 保存初始伤害值
 var is_crit_hit: bool = false
+var crit_bonus_multiplier: float = 0.0
 
 # 射程和爆炸相关变量
 var start_position: Vector2 # 子弹起始位置
@@ -16,7 +17,7 @@ var is_exploding: bool = false # 是否正在爆炸
 @export var sprite: Sprite2D # 获取精灵节点引用
 @export var collision_shape: CollisionShape2D # 获取碰撞形状节点引用
 
-var distance_meters = 0 # 20像素=1米
+var distance_steps: float = 0.0 # 20世界像素=20距离
 # 魔焰相关变量
 var initial_scale: Vector2 # 保存初始碰撞形状大小
 static var moyan_count: int = 0 # 魔焰使用次数计数（静态变量以在实例间共享）
@@ -33,15 +34,11 @@ func _ready() -> void:
 	# 记录子弹起始位置
 	start_position = global_position
 	
-	# 初始化子弹伤害和暴击状态
-	initialize_bullet_damage()
-		
 	# 不要在 _ready 中连接 area_entered，改在发射逻辑中处理碰撞
 	if not area_entered.is_connected(_on_area_entered):
 		area_entered.connect(_on_area_entered)
-	
+
 	# 保存初始值
-	initial_damage = bullet_damage
 	initial_scale = collision_shape.scale
 	
 	# 检查是否为巨大魔焰
@@ -49,13 +46,17 @@ func _ready() -> void:
 	if PC.selected_rewards.has("Moyan23") and moyan_count >= 2:
 		is_giant_moyan = true
 		moyan_count = 0
-		bullet_damage *= 2.2 # 1.8 + 0.4 (额外40%伤害)
 		sprite.modulate = Color(1, 0.75, 0.75) # 红色滤镜
 	elif PC.selected_rewards.has("Moyan3") and moyan_count >= 3:
 		is_giant_moyan = true
 		moyan_count = 0
-		bullet_damage *= 1.8
 		sprite.modulate = Color(1, 0.75, 0.75) # 红色滤镜
+
+	# 初始化子弹伤害和暴击状态
+	initialize_bullet_damage()
+	if is_giant_moyan:
+		bullet_damage *= 2.2 if PC.selected_rewards.has("Moyan23") else 1.8
+	initial_damage = bullet_damage
 	
 	# 初始化时设置精灵方向
 	_update_sprite_rotation()
@@ -74,7 +75,7 @@ func _physics_process(delta: float) -> void:
 	
 	# 更新已飞行距离
 	traveled_distance = start_position.distance_to(global_position)
-	distance_meters = traveled_distance / 20.0 # 20像素=1米
+	distance_steps = PC.world_pixels_to_distance_steps(traveled_distance)
 	
 	# 检查是否超出射程
 	if traveled_distance >= bullet_range:
@@ -89,35 +90,23 @@ func _physics_process(delta: float) -> void:
 
 func _update_moyan_stats() -> void:
 	var damage_increase_multiplier = 1.0
-	var crit_damage_increase = 0.0
+	var crit_distance_multiplier = 1.0
 	scale_increase_multiplier = 1.0
 	
 	if is_giant_moyan:
 		scale_increase_multiplier = 1.6
-		
-	# 魔焰12：发射后的前2米，爆炸范围及伤害提升量提升至500%
-	if PC.selected_rewards.has("Moyan12"):
-		var dist_int = floor(distance_meters)
-		# 前2米的高额加成 (伤害+25%，范围+15%)
-		var boost_dist = min(dist_int, 2)
-		# 超过2米的部分，恢复普通加成 (伤害+5%，范围+3%)
-		var normal_dist = max(0, dist_int - 2)
-		
-		damage_increase_multiplier += boost_dist * 0.3 + normal_dist * 0.06
-		scale_increase_multiplier += boost_dist * 0.12 + normal_dist * 0.04
-	# 魔焰1：每前进1米，爆炸范围提升5%，伤害提升3%
-	elif PC.selected_rewards.has("Moyan1"):
-		damage_increase_multiplier += floor(distance_meters) * 0.06
-		scale_increase_multiplier += floor(distance_meters) * 0.04
 
-	# 魔焰13：每前进1米，魔焰爆击伤害额外提升10%
-	if PC.selected_rewards.has("Moyan13") and is_crit_hit:
-		crit_damage_increase = floor(distance_meters) * 0.10
-		if is_giant_moyan: # 暴击伤害对巨大魔焰的加成翻倍
-			crit_damage_increase *= 2
+	if PC.selected_rewards.has("Moyan1"):
+		var charge_steps := distance_steps
+		var charge_layers: int = mini(8, int(floor(charge_steps)))
+		damage_increase_multiplier += float(charge_layers) * 0.06
+		scale_increase_multiplier += float(charge_layers) * 0.04
+
+	if PC.selected_rewards.has("Moyan12") and is_crit_hit:
+		crit_distance_multiplier += floor(distance_steps) * 0.10
 
 	# 应用伤害和范围加成
-	bullet_damage = initial_damage * damage_increase_multiplier * (1 + crit_damage_increase)
+	bullet_damage = initial_damage * damage_increase_multiplier * crit_distance_multiplier
 	# 碰撞体缩放只影响爆炸范围，不影响飞行时的碰撞体（或者你可以选择也影响飞行）
 	# 这里假设飞行时的碰撞体大小不变，或者也随之变大
 	# 如果不希望飞行时变大太夸张，可以限制一下
@@ -137,7 +126,7 @@ func _play_explosion_and_die_deferred() -> void:
 	get_tree().current_scene.add_child(explosion)
 	explosion.global_position = global_position
 	# 在场景原始缩放基础上乘算全局伤害范围倍率与额外成长倍率
-	explosion.scale = explosion.scale * 1.2
+	explosion.scale = explosion.scale * 1.56
 	explosion.scale = explosion.scale * Global.get_attack_range_multiplier()
 	explosion.scale = explosion.scale * scale_increase_multiplier
 	collision_shape.scale = collision_shape.scale * scale_increase_multiplier
@@ -205,8 +194,11 @@ func _play_explosion_and_die_deferred() -> void:
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("enemies"):
-		if PC.selected_rewards.has("Moyan2") and distance_meters < 2:
-			bullet_damage *= 1.3
+		if PC.selected_rewards.has("Moyan2"):
+			if traveled_distance < 40.0:
+				bullet_damage *= 1.4
+			elif traveled_distance < 80.0:
+				bullet_damage *= 1.2
 		play_explosion_and_die()
 
 # 更新精灵旋转以匹配移动方向
@@ -230,6 +222,7 @@ func initialize_bullet_damage() -> void:
 	var base_damage: float = PC.pc_atk * damage_multiplier
 
 	is_crit_hit = false
+	crit_bonus_multiplier = 0.0
 	bullet_damage = base_damage
 	$CollisionShape2D.shape.radius = 5.7
 
@@ -238,11 +231,17 @@ func initialize_bullet_damage() -> void:
 	var crit_multiplier = crit_data["crit_multi"]
 	if randf() < crit_chance:
 		is_crit_hit = true
-		# 魔焰13: 巨大魔焰暴击伤害翻倍
-		if is_giant_moyan and PC.selected_rewards.has("Moyan13"):
-			crit_multiplier *= 2
+		crit_bonus_multiplier = _get_extra_crit_damage_bonus()
 		crit_multiplier *= Faze.get_destroy_crit_fluctuation_multiplier(PC.faze_destroy_level)
+		crit_multiplier += crit_bonus_multiplier
 		bullet_damage *= crit_multiplier
+
+func _get_extra_crit_damage_bonus() -> float:
+	if not PC.selected_rewards.has("Moyan4"):
+		return 0.0
+	if is_giant_moyan and PC.selected_rewards.has("Moyan34"):
+		return randf_range(0.2, 1.4)
+	return randf_range(0.0, 0.8)
 
 # 获取子弹的实际伤害，并返回是否暴击
 func get_bullet_damage_and_crit_status() -> Dictionary:

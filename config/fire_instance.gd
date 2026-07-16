@@ -24,7 +24,7 @@ func _physics_process(delta: float) -> void:
 		damage = 0.0
 		return
 	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
-	var damage_multiplier = 0.3 * PC.main_skill_ringFire_damage
+	var damage_multiplier = PC.main_skill_ringFire_damage
 	damage_multiplier += (Faze.get_fire_weapon_damage_multiplier(PC.faze_fire_level) - 1.0) # 火焰法则
 	damage_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(damage_multiplier, "ringFire", ["fire"])
 	damage = PC.pc_atk * damage_multiplier
@@ -49,11 +49,13 @@ func _on_area_entered(area: Area2D) -> void:
 	# 检查是否是敌人
 	if area.is_in_group("enemies"):
 		# 检查该火焰实例是否对这个敌人在冷却中
-		if not hit_cooldowns.has(area) or hit_cooldowns[area] <= 0:
+		if _try_consume_hit_cooldown(area):
 			# 造成伤害
 			if area.has_method("take_damage"):
 				var was_alive_for_bagua = area.get("hp") > 0 and not area.get("is_dead")
 				var final_damage = damage
+				if _should_apply_burn_bonus(area):
+					final_damage += _get_burn_bonus_damage()
 				var is_crit = false
 				if randf() < PC.crit_chance:
 					is_crit = true
@@ -64,21 +66,22 @@ func _on_area_entered(area: Area2D) -> void:
 				if PC.selected_rewards.has("RingFire4") and randf() < 0.2:
 					if area.has_signal("debuff_applied"):
 						area.emit_signal("debuff_applied", "burn")
-						
-				if PC.selected_rewards.has("RingFire33"):
-					if area.get("debuff_manager") and area.debuff_manager.has_method("has_debuff"):
-						if area.debuff_manager.has_debuff("burn"):
-							# 触发一次燃烧判定
-							# 假设 deubff_manager 有 _apply_dot_damage 方法，但它是私有的
-							# 我们可能需要手动触发伤害
-							# 或者给 deubff_manager 加一个 public 方法
-							# 这里先简单处理：造成一次较低的即时燃烧伤害
-							var burn_damage = PC.pc_atk * 0.2
-							var burn_is_crit = false
-							if randf() < PC.crit_chance:
-								burn_is_crit = true
-								burn_damage *= PC.crit_damage_multi
-							area.take_damage(burn_damage, burn_is_crit, false, "burn")
 							
-				# 设置该火焰实例对这个敌人的冷却时间
-				hit_cooldowns[area] = hit_cooldown
+func _try_consume_hit_cooldown(area: Area2D) -> bool:
+	var parent_node := get_parent()
+	if parent_node != null and parent_node.has_method("try_consume_ring_fire_hit_cooldown"):
+		return bool(parent_node.call("try_consume_ring_fire_hit_cooldown", area, hit_cooldown))
+	if hit_cooldowns.has(area) and float(hit_cooldowns[area]) > 0.0:
+		return false
+	hit_cooldowns[area] = hit_cooldown
+	return true
+
+func _should_apply_burn_bonus(area: Area2D) -> bool:
+	if not PC.selected_rewards.has("RingFire33"):
+		return false
+	if not area.get("debuff_manager") or not area.debuff_manager.has_method("has_debuff"):
+		return false
+	return area.debuff_manager.has_debuff("burn")
+
+func _get_burn_bonus_damage() -> float:
+	return PC.pc_atk * 0.05

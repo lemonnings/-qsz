@@ -10,6 +10,9 @@ var damage: float = 0.0
 var range_val: float = 0.0
 var heal_amount: int = 20
 var duration: float = 0.75
+const SECTOR_ANGLE: float = PI / 2.0
+const SECTOR_DAMAGE_RATIO: float = 0.4
+const EFFECT_BASE_RADIUS: float = 16.0
 
 # 特殊效果标志
 var enable_sector: bool = false # Water1: 水波
@@ -119,14 +122,15 @@ func _process(delta: float) -> void:
 				locked_direction = (enemy.global_position - global_position).normalized()
 				if sectorAnimate:
 					sectorAnimate.rotation = locked_direction.angle() + PI / 2
-				if sectorCollision:
-					sectorCollision.rotation = locked_direction.angle() + PI / 2
+		if sectorCollision:
+			sectorCollision.rotation = locked_direction.angle() + PI / 2
 					
 	# 持续伤害检测（处理扇形旋转或敌人移动进入）
 	var overlapping_areas = get_overlapping_areas()
 	for area in overlapping_areas:
 		if area.is_in_group("enemies"):
 			_process_enemy_hit(area)
+	_process_sector_candidates()
 
 func _update_visuals_and_collision() -> void:
 	# 设置圆形范围
@@ -136,7 +140,7 @@ func _update_visuals_and_collision() -> void:
 		circleCollision.shape = circle_shape
 		
 	if circleAnimate:
-		var scale_val = range_val / 16.0
+		var scale_val = range_val / EFFECT_BASE_RADIUS
 		circleAnimate.scale = Vector2(scale_val, scale_val)
 		
 	# 设置扇形范围 (Water1)
@@ -149,7 +153,7 @@ func _update_visuals_and_collision() -> void:
 			# 我们希望底部(16,32)在角色中心。所以offset y = -16
 			sectorAnimate.offset = Vector2(0, -16)
 			
-			var scale_val = range_val / 16.0
+			var scale_val = range_val / EFFECT_BASE_RADIUS
 			sectorAnimate.scale = Vector2(scale_val, scale_val)
 			
 			# 扇形朝向：指向最近的敌人并锁定
@@ -169,16 +173,27 @@ func _update_visuals_and_collision() -> void:
 				sectorAnimate.rotation = locked_direction.angle() + PI / 2
 					
 		if sectorCollision:
-			# 扇形碰撞体通常比较复杂，这里简化为圆形碰撞体的一部分，或者使用 ConvexPolygonShape2D
-			# 但 Area2D 的 shape 是共享的吗？不，是独立的节点。
-			# 我们可以简单地启用/禁用 CollisionShape2D 节点
+			sectorCollision.shape = _build_sector_shape(range_val, SECTOR_ANGLE)
+			sectorCollision.position = Vector2.ZERO
+			sectorCollision.scale = Vector2.ONE
 			sectorCollision.disabled = false
-			# 假设 sectorCollision 已经配置好了形状（例如 CollisionPolygon2D），这里只需要旋转
-			# 使用与视觉相同的锁定方向
 			sectorCollision.rotation = locked_direction.angle() + PI / 2
 	else:
 		if sectorCollision:
 			sectorCollision.disabled = true
+
+func _build_sector_shape(radius: float, angle: float) -> ConvexPolygonShape2D:
+	var points := PackedVector2Array()
+	points.append(Vector2.ZERO)
+	var half_angle := angle * 0.5
+	var segments := 8
+	for i in range(segments + 1):
+		var t := float(i) / float(segments)
+		var local_angle := -PI / 2.0 - half_angle + angle * t
+		points.append(Vector2(cos(local_angle), sin(local_angle)) * radius)
+	var shape := ConvexPolygonShape2D.new()
+	shape.points = points
+	return shape
 
 func _on_area_entered(area: Area2D) -> void:
 	if area.is_in_group("enemies"):
@@ -209,20 +224,35 @@ func _process_enemy_hit(area: Area2D) -> void:
 	# 扇形伤害判定 (Water1)
 	if enable_sector and player_ref:
 		if not hit_targets_sector.has(enemy_id):
-			var dir_to_enemy = (area.global_position - global_position).normalized()
-			
-			# 获取扇形的朝向（使用实时更新的锁定方向）
-			var sector_dir = locked_direction
-				
-			# 假设扇形是 90 度 (PI/2)，即左右各 45 度
-			var angle = sector_dir.angle_to(dir_to_enemy)
-			if abs(angle) < PI / 4: # 45度
+			if _is_enemy_in_sector(area):
 				hit_targets_sector[enemy_id] = true
 				should_deal_sector = true
 	
 	# 统一执行伤害
 	if should_deal_circle or should_deal_sector:
 		_deal_damage(area, should_deal_circle, should_deal_sector)
+
+func _process_sector_candidates() -> void:
+	if not enable_sector or not player_ref:
+		return
+	for enemy in get_tree().get_nodes_in_group("enemies"):
+		var area := enemy as Area2D
+		if area == null or not is_instance_valid(area):
+			continue
+		var enemy_id := area.get_instance_id()
+		if hit_targets_sector.has(enemy_id):
+			continue
+		if _is_enemy_in_sector(area):
+			hit_targets_sector[enemy_id] = true
+			_deal_damage(area, false, true)
+
+func _is_enemy_in_sector(enemy: Area2D) -> bool:
+	var to_enemy := enemy.global_position - global_position
+	var distance := to_enemy.length()
+	if distance > range_val or distance <= 0.001:
+		return false
+	var angle := locked_direction.angle_to(to_enemy / distance)
+	return abs(angle) <= SECTOR_ANGLE * 0.5
 
 func _deal_damage(enemy: Area2D, deal_circle: bool, deal_sector: bool) -> void:
 	var is_crit = false
@@ -244,7 +274,7 @@ func _deal_damage(enemy: Area2D, deal_circle: bool, deal_sector: bool) -> void:
 				if enemy.debuff_manager.has_debuff("slow"):
 					sector_bonus_mult = 1.75
 		
-		total_damage += damage * sector_bonus_mult
+		total_damage += damage * SECTOR_DAMAGE_RATIO * sector_bonus_mult
 	
 	# 统一造成伤害，避免因无敌帧导致第二次伤害丢失
 	if total_damage > 0:

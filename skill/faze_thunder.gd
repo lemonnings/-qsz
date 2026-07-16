@@ -69,21 +69,14 @@ func _deal_damage(enemy: Area2D) -> void:
 	var is_boss = enemy.is_in_group("boss")
 	
 	var final_damage = damage
-	final_damage += PC.pc_atk * SettingStudyTreeUp.get_total_damage_bonus("faze_thunder_strike")
 	
 	# 精英/首领额外伤害
 	if (is_elite or is_boss) and elite_bonus > 0.0:
 		final_damage *= (1.0 + elite_bonus)
 	
-	# 暴击判定
-	var is_crit = false
-	if randf() < PC.crit_chance:
-		is_crit = true
-		final_damage *= PC.crit_damage_multi
-	
 	# 应用伤害
 	if enemy.has_method("take_damage"):
-		enemy.take_damage(int(final_damage), is_crit, false, "faze_thunder_strike")
+		enemy.take_damage(int(round(final_damage)), false, false, "faze_thunder_strike")
 		HitParticleSpawner.spawn_by_weapon(get_tree(), enemy.global_position, "thunder")
 
 ## 对象池重置：清除状态供复用

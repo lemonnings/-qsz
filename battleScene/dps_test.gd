@@ -9,6 +9,7 @@ extends Node2D
 @export var riyan_scene: PackedScene
 
 const ZHUAZHUAJUCHUI_SCRIPT = preload("res://Script/skill/zhuazhuajuchui.gd")
+const THUNDER_GUN_SCRIPT = preload("res://Script/skill/thunder_gun.gd")
 const MAX_DUMMIES: int = 50
 const MAX_WEAPONS: int = 5
 const CONTROL_BUTTON_SIZE: Vector2 = Vector2(112, 32)
@@ -33,7 +34,10 @@ const PLAYER_ATTACK_NODE_NAMES: Array[String] = [
 	"HolyLight",
 	"DragonWind",
 	"Qigong",
+	"Riyan",
 	"Zhuazhuajuchui",
+	"SoulSickle",
+	"ThunderGun",
 ]
 const PLAYER_ATTACK_SCRIPT_PATHS: Array[String] = [
 	"res://Script/skill/blood_wave.gd",
@@ -51,9 +55,12 @@ const PLAYER_ATTACK_SCRIPT_PATHS: Array[String] = [
 	"res://Script/skill/dragon_wind.gd",
 	"res://Script/skill/qigong.gd",
 	"res://Script/config/moyan.gd",
+	"res://Script/config/riyan.gd",
 	"res://Script/config/branch.gd",
 	"res://Script/config/bullet.gd",
 	"res://Script/skill/zhuazhuajuchui.gd",
+	"res://Script/skill/soul_sickle.gd",
+	"res://Script/skill/thunder_gun.gd",
 ]
 const WEAPON_TIMER_PROPERTIES: Dictionary = {
 	"SwordQi": "fire_speed",
@@ -77,6 +84,8 @@ const WEAPON_TIMER_PROPERTIES: Dictionary = {
 	"DragonWind": "dragonwind_fire_speed",
 	"Qigong": "qigong_fire_speed",
 	"Zhuazhuajuchui": "zhuazhuajuchui_fire_speed",
+	"SoulSickle": "soul_sickle_fire_speed",
+	"ThunderGun": "thunder_gun_fire_speed",
 }
 const EXTRA_WEAPON_NAMES: Dictionary = {
 	"Zhuazhuajuchui": "爪爪巨锤",
@@ -87,9 +96,27 @@ const EXTRA_WEAPON_NAMES: Dictionary = {
 	"Zhuazhuajuchui11": "震击-震爆",
 	"Zhuazhuajuchui22": "震慑-震击",
 	"Zhuazhuajuchui33": "震撼-震爆",
+	"SoulSickle": "噬魂镰",
+	"SoulSickle1": "汲取",
+	"SoulSickle2": "掠魂",
+	"SoulSickle3": "勾魂",
+	"SoulSickle4": "锁魄",
+	"SoulSickle11": "汲取-摄魂",
+	"SoulSickle22": "勾魂-锁魄",
+	"SoulSickle33": "掠魂-锁魄",
+	"ThunderGun": "雷魂枪",
+	"ThunderGun1": "迸溅",
+	"ThunderGun2": "跃雷",
+	"ThunderGun3": "速射",
+	"ThunderGun4": "扩容",
+	"ThunderGun11": "扩容-速射",
+	"ThunderGun22": "迸溅-跃雷",
+	"ThunderGun33": "速射-跃雷",
 }
 const EXTRA_WEAP_TO_FACTION: Dictionary = {
 	"Zhuazhuajuchui": "Zhuazhuajuchui",
+	"SoulSickle": "SoulSickle",
+	"ThunderGun": "ThunderGun",
 }
 const EXTRA_ADVANCEMENTS: Dictionary = {
 	"Zhuazhuajuchui": [
@@ -101,7 +128,57 @@ const EXTRA_ADVANCEMENTS: Dictionary = {
 		{"id": "Zhuazhuajuchui22", "precondition": "check_Zhuazhuajuchui2", "requires": ["Zhuazhuajuchui2", "Zhuazhuajuchui1"]},
 		{"id": "Zhuazhuajuchui33", "precondition": "check_Zhuazhuajuchui3", "requires": ["Zhuazhuajuchui3", "Zhuazhuajuchui4"]},
 	],
+	"SoulSickle": [
+		{"id": "SoulSickle1", "precondition": "check_SoulSickle_condition", "requires": ["SoulSickle"]},
+		{"id": "SoulSickle2", "precondition": "check_SoulSickle_condition", "requires": ["SoulSickle"]},
+		{"id": "SoulSickle3", "precondition": "check_SoulSickle_condition", "requires": ["SoulSickle"]},
+		{"id": "SoulSickle4", "precondition": "check_SoulSickle_condition", "requires": ["SoulSickle"]},
+		{"id": "SoulSickle11", "precondition": "check_SoulSickle_condition1", "requires": ["SoulSickle1", "SoulSickle2"]},
+		{"id": "SoulSickle22", "precondition": "check_SoulSickle_condition2", "requires": ["SoulSickle3", "SoulSickle4"]},
+		{"id": "SoulSickle33", "precondition": "check_SoulSickle_condition3", "requires": ["SoulSickle2", "SoulSickle4"]},
+	],
+	"ThunderGun": [
+		{"id": "ThunderGun1", "precondition": "check_ThunderGun_condition", "requires": ["ThunderGun"]},
+		{"id": "ThunderGun2", "precondition": "check_ThunderGun_condition", "requires": ["ThunderGun"]},
+		{"id": "ThunderGun3", "precondition": "check_ThunderGun_condition", "requires": ["ThunderGun"]},
+		{"id": "ThunderGun4", "precondition": "check_ThunderGun_condition", "requires": ["ThunderGun"]},
+		{"id": "ThunderGun11", "precondition": "check_ThunderGun_condition1", "requires": ["ThunderGun4", "ThunderGun3"]},
+		{"id": "ThunderGun22", "precondition": "check_ThunderGun_condition2", "requires": ["ThunderGun1", "ThunderGun2"]},
+		{"id": "ThunderGun33", "precondition": "check_ThunderGun_condition3", "requires": ["ThunderGun3", "ThunderGun2"]},
+	],
 }
+const PLAYER_BASELINE_PROPERTIES: Array[String] = [
+	"pc_atk",
+	"base_atk",
+	"pc_hp",
+	"pc_max_hp",
+	"pc_lv",
+	"pc_exp",
+	"final_damage_bonus",
+	"damage_deal_multiplier",
+	"attack_speed_bonus",
+	"crit_chance",
+	"crit_damage_multi",
+	"damage_reduction_rate",
+	"knockback_bonus",
+	"heal_multi",
+	"sheild_multi",
+	"cooldown",
+	"active_skill_multi",
+	"pc_armor",
+	"pc_hp_regen",
+	"hp_regen_interval",
+	"summon_damage_multiplier",
+	"summon_interval_multiplier",
+	"summon_bullet_size_multiplier",
+	"summon_range_multiplier",
+	"summon_penetration_count",
+	"normal_monster_multi",
+	"boss_multi",
+	"enemy_move_speed_multiplier",
+	"enemy_hp_multiplier",
+	"enemy_damage_multiplier",
+]
 
 var point: int = 0
 var spirit: int = 0
@@ -126,6 +203,7 @@ var _add_weapon_button: Button
 var _adv_checkboxes: Dictionary = {}
 var _ui_update_accumulator: float = 0.0
 var _post_reset_weapon_cleanup_time: float = 0.0
+var _player_baseline_stats: Dictionary = {}
 
 func _enter_tree() -> void:
 	Global.current_stage_id = "dps_test"
@@ -139,6 +217,7 @@ func _enter_tree() -> void:
 	Global.reset_game_speed()
 	if PC != null and PC.has_method("reset_player_attr"):
 		PC.reset_player_attr()
+	_capture_player_baseline_stats()
 	_reset_dps_test_weapons(false)
 	Global.reset_dps_counter()
 	DpsManager.reset_dps_counter()
@@ -212,6 +291,7 @@ func _reset_dps_test_weapons(clear_config_selection: bool) -> void:
 	PC.selected_rewards.clear()
 	PC.current_weapon_num = 0
 	PC.new_weapon_obtained_count = 0
+	_restore_player_baseline_stats()
 	_reset_faze_state()
 	_reset_main_weapon_state()
 	_reset_first_weapon_flags()
@@ -259,10 +339,12 @@ func _reset_faze_state() -> void:
 	PC.faze_wide_level = 0
 	PC.faze_bagua_level = 0
 	PC.faze_treasure_level = 0
+	PC.faze_deep_level = 0
 	PC.faze_chaos_level = 0
 	PC.faze_skill_level = 0
 	PC.faze_sixsense_level = 0
 	PC.faze_wind_level = 0
+	PC.faze_shehun_level = 0
 	PC.faze_bagua_progress = 0
 	PC.faze_bagua_completed_layers = 0
 	PC.faze_bagua_next_threshold = 100
@@ -271,10 +353,19 @@ func _reset_faze_state() -> void:
 	PC.faze_wide_range_bonus = 0.0
 	PC.faze_wide_damage_bonus = 0.0
 	PC.faze_wide_range_to_damage_ratio = 0.0
+	PC.faze_wide_global_attack_range_bonus = 0.0
 	PC.faze_sword_coldlight_stack = 0
 	PC.faze_heal_shield_bonus = 0.0
+	PC.shehun_law_spirit_multi_bonus = 0.0
+	PC.shehun_law_crit_chance_bonus = 0.0
+	PC.shehun_law_final_damage_bonus = 0.0
+	PC.shehun_law_damage_reduction_bonus = 0.0
+	PC.shehun_law_spirit_next_threshold = 4000.0
+	PC.shehun_law_spirit_spent = 0.0
 	PC.has_summoned_bipolar_sword = false
 	PC.has_summoned_sword_spirit = false
+	if Faze.manager_instance != null and is_instance_valid(Faze.manager_instance):
+		Faze.manager_instance.reset_runtime_state()
 
 func _reset_main_weapon_state() -> void:
 	PC.main_skill_swordQi = 0
@@ -285,7 +376,7 @@ func _reset_main_weapon_state() -> void:
 	PC.swordQi_range = 132
 	PC.main_skill_moyan = 0
 	PC.main_skill_moyan_advance = 0
-	PC.main_skill_moyan_damage = 2.25
+	PC.main_skill_moyan_damage = 1.6
 	PC.moyan_range = 220.0
 	PC.main_skill_branch = 0
 	PC.main_skill_branch_advance = 0
@@ -295,16 +386,16 @@ func _reset_main_weapon_state() -> void:
 	PC.main_skill_riyan = 0
 	PC.main_skill_riyan_advance = 0
 	PC.main_skill_riyan_damage = 1.0
-	PC.riyan_range = 70.0
+	PC.riyan_range = 84.0
 	PC.riyan_cooldown = 1.0
 	PC.riyan_hp_max_damage = 0.08
-	PC.riyan_atk_damage = 0.24
+	PC.riyan_atk_damage = 0.30
 	PC.main_skill_ringFire = 0
 	PC.main_skill_ringFire_advance = 0
-	PC.main_skill_ringFire_damage = 0.35
+	PC.main_skill_ringFire_damage = 0.15
 	PC.main_skill_thunder = 0
 	PC.main_skill_thunder_advance = 0
-	PC.main_skill_thunder_damage = 0.85
+	PC.main_skill_thunder_damage = 0.75
 	PC.thunder_range = 260.0
 	PC.main_skill_bloodwave = 0
 	PC.main_skill_bloodwave_advance = 0
@@ -345,6 +436,14 @@ func _reset_main_weapon_state() -> void:
 	PC.main_skill_qigong_damage = 0.0
 	PC.main_skill_zhuazhuajuchui = 0
 	PC.main_skill_zhuazhuajuchui_advance = 0
+	PC.main_skill_soul_sickle = 0
+	PC.main_skill_soul_sickle_advance = 0
+	PC.main_skill_soul_sickle_damage = 0.30
+	PC.main_skill_thunder_gun = 0
+	PC.main_skill_thunder_gun_advance = 0
+	PC.main_skill_thunder_gun_damage = 0.65
+	PC.thunder_gun_ammo = 0
+	PC.thunder_gun_reloading = false
 
 func _reset_first_weapon_flags() -> void:
 	PC.first_has_swordqi = true
@@ -369,6 +468,8 @@ func _reset_first_weapon_flags() -> void:
 	PC.first_has_qigong = true
 	PC.first_has_dragonwind = true
 	PC.first_has_zhuazhuajuchui = true
+	PC.first_has_soul_sickle = true
+	PC.first_has_thunder_gun = true
 
 func _reset_weapon_runtime_data() -> void:
 	IceFlower.reset_data()
@@ -382,6 +483,7 @@ func _reset_weapon_runtime_data() -> void:
 	HolyLight.reset_data()
 	Qigong.sync_reward_modifiers()
 	ZHUAZHUAJUCHUI_SCRIPT.reset_data()
+	THUNDER_GUN_SCRIPT.reset_data()
 
 func _clear_active_weapon_nodes() -> void:
 	_clear_player_attack_group("bullet")
@@ -495,7 +597,7 @@ func _hide_all_skill_icons() -> void:
 		layer_ui.skill6, layer_ui.skill7, layer_ui.skill8, layer_ui.skill9, layer_ui.skill10,
 		layer_ui.skill11, layer_ui.skill12, layer_ui.skill13, layer_ui.skill14, layer_ui.skill15,
 		layer_ui.skill16, layer_ui.skill17, layer_ui.skill18, layer_ui.skill19, layer_ui.skill20,
-		layer_ui.skill21
+		layer_ui.skill21, layer_ui.skill23, layer_ui.skill24
 	]
 	for icon in skills:
 		if icon != null:
@@ -988,7 +1090,20 @@ func _on_player_level_up_pressed() -> void:
 	if Global.current_stage_difficulty != Global.STAGE_DIFFICULTY_POETRY:
 		LvUp.pre_apply_level_growth_for_pending_level()
 	Global.emit_signal("player_lv_up")
+	if _added_weapons.is_empty():
+		_capture_player_baseline_stats()
 	_update_battle_ui(0.0)
+
+func _capture_player_baseline_stats() -> void:
+	_player_baseline_stats.clear()
+	for property_name in PLAYER_BASELINE_PROPERTIES:
+		_player_baseline_stats[property_name] = PC.get(property_name)
+
+func _restore_player_baseline_stats() -> void:
+	if _player_baseline_stats.is_empty():
+		_capture_player_baseline_stats()
+	for property_name in _player_baseline_stats:
+		PC.set(str(property_name), _player_baseline_stats[property_name])
 
 func _on_reset_weapons_pressed() -> void:
 	_reset_dps_test_weapons(true)

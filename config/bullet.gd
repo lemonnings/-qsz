@@ -264,8 +264,9 @@ func handle_penetration() -> bool:
 	var frame = Engine.get_process_frames()
 	if PC.swordQi_penetration_count > 1 and not is_summon_bullet and not if_summon:
 		var now_penetration_count = PC.swordQi_penetration_count - penetration_count + 1
-		var retained_damage = 0.70 if PC.selected_rewards.has("SplitSwordQi31") else 0.35
-		bullet_damage = bullet_damage * pow(retained_damage, now_penetration_count)
+		var retained_damage = 0.70 if PC.selected_rewards.has("SplitSwordQi31") else 0.40
+		if now_penetration_count > 1:
+			bullet_damage *= retained_damage
 	# 如果是新的一帧，重置处理标志
 	if frame != current_frame:
 		current_frame = frame

@@ -62,16 +62,19 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 		return
 		
 	# 确保剑已初始化
-	if not qian_instance or not is_instance_valid(qian_instance) or not kun_instance or not is_instance_valid(kun_instance):
+	var has_qian := qian_instance != null and is_instance_valid(qian_instance) and qian_instance.is_inside_tree()
+	var has_kun := kun_instance != null and is_instance_valid(kun_instance) and kun_instance.is_inside_tree()
+	if not has_qian or not has_kun:
 		init_instances(scene, tree, origin_pos)
+		return
 		
 	# 更新属性
-	if qian_instance and is_instance_valid(qian_instance) and qian_instance.has_method("update_stats"):
+	if qian_instance and is_instance_valid(qian_instance) and qian_instance.is_inside_tree() and qian_instance.has_method("update_stats"):
 		qian_instance.update_stats()
 		if qian_instance.has_method("launch"):
 			qian_instance.launch()
 			
-	if kun_instance and is_instance_valid(kun_instance) and kun_instance.has_method("update_stats"):
+	if kun_instance and is_instance_valid(kun_instance) and kun_instance.is_inside_tree() and kun_instance.has_method("update_stats"):
 		kun_instance.update_stats()
 		if kun_instance.has_method("launch"):
 			kun_instance.launch()
@@ -106,8 +109,8 @@ static func init_instances(scene: PackedScene, tree: SceneTree, origin_pos: Vect
 	qian_instance = scene.instantiate() as Node2D
 	if qian_instance == null:
 		return
-	parent_node.add_child(qian_instance)
-	qian_instance.setup(origin_pos, true)
+	parent_node.call_deferred("add_child", qian_instance)
+	qian_instance.call_deferred("setup", origin_pos, true)
 	
 	# Spawn Kun
 	kun_instance = scene.instantiate() as Node2D
@@ -116,8 +119,8 @@ static func init_instances(scene: PackedScene, tree: SceneTree, origin_pos: Vect
 			qian_instance.queue_free()
 		qian_instance = null
 		return
-	parent_node.add_child(kun_instance)
-	kun_instance.setup(origin_pos, false)
+	parent_node.call_deferred("add_child", kun_instance)
+	kun_instance.call_deferred("setup", origin_pos, false)
 
 
 func _process(delta: float) -> void:
@@ -211,6 +214,9 @@ func _process(delta: float) -> void:
 				rotation = lerp_angle(rotation, angle, 10.0 * delta)
 
 func setup(pos: Vector2, _is_qian: bool) -> void:
+	if not is_inside_tree():
+		call_deferred("setup", pos, _is_qian)
+		return
 	CharacterEffects.include_enemy_collision_mask(self)
 	global_position = pos
 	is_qian = _is_qian
@@ -257,14 +263,6 @@ func update_stats() -> void:
 	crit_on_3_debuffs = qiankun_crit_on_3_debuffs # 搜寻-乘虚
 	
 	# Upgrades logic
-	# Qiankun1: 飞速
-	if PC.selected_rewards.has("Qiankun1"):
-		speed *= 1.5
-		
-	# Qiankun2: 搜寻
-	if PC.selected_rewards.has("Qiankun2"):
-		search_range *= 1.5
-		
 	# Qiankun3: 激发（speed_per_enemy 已由 qiankun_speed_per_enemy 静态变量正确读取，值为0.02，无需重复覆盖）
 		
 	# Qiankun4: 乘虚
@@ -287,6 +285,9 @@ func update_stats() -> void:
 	damage = PC.pc_atk * damage_multiplier * final_damage_multi
 
 func launch(extra_attack_multiplier: float = 0.0) -> void:
+	if not is_inside_tree():
+		call_deferred("launch", extra_attack_multiplier)
+		return
 	if state != State.IDLE and state != State.RETURN:
 		# 如果正在攻击，可以选择忽略，或者重置攻击
 		# 这里我们选择重置并立即开始新一轮攻击
@@ -406,6 +407,8 @@ func _on_area_entered(area: Area2D) -> void:
 		# Apply final total damage multiplier
 		if qiankun_final_damage_multi > 1.0:
 			final_damage *= qiankun_final_damage_multi
+		if area.is_in_group("boss") and PC.selected_rewards.has("Qiankun2"):
+			final_damage *= 1.5
 			
 		if area.has_method("take_damage"):
 			var was_alive_for_bagua = area.get("hp") > 0 and not area.get("is_dead")

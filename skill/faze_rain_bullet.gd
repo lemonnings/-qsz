@@ -10,8 +10,11 @@ var direction: Vector2 = Vector2.RIGHT
 var start_position: Vector2
 var traveled_distance: float = 0.0
 var has_hit: bool = false
+var hit_targets: Dictionary = {}
+var pierce_hit_count: int = 0
 var shared_wave_hit_counts: Dictionary = {}
 var shared_wave_hit_limit: int = 0
+const PIERCE_DAMAGE_DECAY: float = 0.70
 
 func _ready() -> void:
 	CharacterEffects.include_enemy_collision_mask(self)
@@ -56,26 +59,25 @@ func _process(delta: float) -> void:
 		ObjectPool.recycle(self )
 
 func _on_area_entered(area: Area2D) -> void:
-	if has_hit:
-		return
 	if not area.is_in_group("enemies"):
 		return
-	has_hit = true
+	var enemy_id := area.get_instance_id()
+	if hit_targets.has(enemy_id):
+		return
+	hit_targets[enemy_id] = true
 	if shared_wave_hit_limit > 0:
-		var enemy_id := area.get_instance_id()
 		var shared_hit_count: int = int(shared_wave_hit_counts.get(enemy_id, 0))
 		if shared_hit_count >= shared_wave_hit_limit:
-			ObjectPool.recycle(self )
 			return
 		shared_wave_hit_counts[enemy_id] = shared_hit_count + 1
 	var is_crit = false
-	var final_damage = damage
+	var final_damage = damage * pow(PIERCE_DAMAGE_DECAY, pierce_hit_count)
 	if randf() < PC.crit_chance:
 		is_crit = true
 		final_damage *= PC.crit_damage_multi
 	if area.has_method("take_damage"):
 		area.take_damage(int(final_damage), is_crit, false, "faze_rain")
-	ObjectPool.recycle(self )
+	pierce_hit_count += 1
 
 ## 对象池重置：清除状态供复用
 func reset_for_pool() -> void:
@@ -84,6 +86,8 @@ func reset_for_pool() -> void:
 	start_position = Vector2.ZERO
 	traveled_distance = 0.0
 	has_hit = false
+	hit_targets = {}
+	pierce_hit_count = 0
 	shared_wave_hit_counts = {}
 	shared_wave_hit_limit = 0
 	modulate.a = 1.0

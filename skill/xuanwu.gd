@@ -253,6 +253,8 @@ func _handle_hit(target: Node):
 				final_damage *= PC.crit_damage_multi
 			if target.is_in_group("elite") or target.is_in_group("boss"):
 				final_damage = final_damage * Faze.get_treasure_elite_boss_multiplier(PC.faze_treasure_level, PC.get_lucky_level())
+			if target.is_in_group("boss") and PC.selected_rewards.has("Xuanwu2"):
+				final_damage *= 1.5
 				
 			target.take_damage(int(final_damage), is_crit, false, "xuanwu")
 			current_damage_multiplier *= DAMAGE_DECAY_PER_HIT

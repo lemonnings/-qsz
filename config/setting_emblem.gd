@@ -21,7 +21,7 @@ var emblem_configs: Dictionary = {}
 const START_WEAPON_MAP := {
 	"SwordQi": {"skill_id": "swordqi", "display_name": "剑气诀"},
 	"Qigong": {"skill_id": "qigong", "display_name": "气功波"},
-	"LightBullet": {"skill_id": "light bullet", "display_name": "光弹"},
+	"LightBullet": {"skill_id": "light bullet", "display_name": "光弹术"},
 	"Ice": {"skill_id": "ice", "display_name": "冰刺术"},
 	"Xunfeng": {"skill_id": "xunfeng", "display_name": "巽风诀"},
 	"Genshan": {"skill_id": "genshan", "display_name": "艮山诀"},

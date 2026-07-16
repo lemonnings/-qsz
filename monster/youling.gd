@@ -1,14 +1,17 @@
 extends "res://Script/monster/monster_base.gd"
 
 const POISON_SCENE: PackedScene = preload("res://Scenes/moster/poison.tscn")
-const SECTOR_TRIGGER_DISTANCE: float = 30.0
-const SECTOR_RANGE: float = 40.0
+const SECTOR_TRIGGER_DISTANCE: float = 60.0
+const SECTOR_RANGE: float = 80.0
 const SECTOR_ANGLE_DEGREES: float = 45.0
-const SECTOR_WARNING_TIME: float = 0.8
+const SECTOR_WARNING_TIME: float = 1.1
+const SECTOR_POST_CAST_MOVE_LOCK_TIME: float = 0.3
 const SECTOR_COOLDOWN: float = 4.0
 const POISON_DEFAULT_DIRECTION: Vector2 = Vector2.DOWN
-const POISON_VISUAL_SCALE: float = 0.85
+const POISON_VISUAL_SCALE: float = 1.7
 const SWORD_WAVE_DAMAGE_INTERVAL: float = 0.25
+const FLOAT_AMPLITUDE: float = 8.0
+const FLOAT_SPEED: float = 3.0
 
 @onready var sprite = $AnimatedSprite2D
 
@@ -23,20 +26,27 @@ var get_exp: int = SettingMoster.youling("exp")
 var last_sword_wave_damage_time: float = 0.0
 var sector_cooldown_remaining: float = 0.0
 var sector_warning_active: bool = false
+var sector_post_cast_lock_remaining: float = 0.0
 var active_sector_warning: WarnSectorUtil = null
+var sprite_base_position: Vector2 = Vector2.ZERO
+var float_phase: float = 0.0
 
 
 func _ready() -> void:
 	setup_monster_base(is_elite)
 	speed = base_speed
 	health_bar_offset = Vector2(-15, -20)
-	CharacterEffects.create_shadow(self, 16.0, 5.0, 12.0)
+	sprite_base_position = sprite.position
+	float_phase = randf() * TAU
+	CharacterEffects.create_shadow(self, 24.0, 7.0, 13.0)
 
 
 func _physics_process(delta: float) -> void:
 	if hp <= 0:
 		await _handle_death()
 		return
+	if not is_dead:
+		_update_float_animation(delta)
 
 	update_offscreen_status()
 	if not _is_offscreen and hp < hpMax:
@@ -49,11 +59,24 @@ func _physics_process(delta: float) -> void:
 
 	_update_sector_skill(delta)
 
+	if sector_warning_active:
+		return
+	if sector_post_cast_lock_remaining > 0.0:
+		sector_post_cast_lock_remaining = maxf(0.0, sector_post_cast_lock_remaining - delta)
+		return
+
 	if not is_dead and not _is_offscreen:
 		CharacterEffects.apply_separation(self, 10.0, 12.0)
 
 	if not is_dead:
 		_update_movement(delta)
+
+
+func _update_float_animation(delta: float) -> void:
+	if sprite == null or not is_instance_valid(sprite):
+		return
+	float_phase += delta * FLOAT_SPEED
+	sprite.position = sprite_base_position + Vector2(0.0, sin(float_phase) * FLOAT_AMPLITUDE)
 
 
 func _handle_death() -> void:
@@ -152,6 +175,7 @@ func _cast_sector_skill(direction: Vector2) -> void:
 
 func _on_sector_warning_finished(warning: WarnSectorUtil, direction: Vector2) -> void:
 	sector_warning_active = false
+	sector_post_cast_lock_remaining = SECTOR_POST_CAST_MOVE_LOCK_TIME
 	if warning == active_sector_warning:
 		active_sector_warning = null
 	if not is_dead and is_inside_tree():
@@ -168,18 +192,26 @@ func _spawn_poison_visual(direction: Vector2) -> void:
 	var poison := POISON_SCENE.instantiate() as Node2D
 	if poison == null:
 		return
-	poison.global_position = global_position + direction.normalized() * (SECTOR_RANGE * 0.5)
-	poison.rotation = direction.angle() - POISON_DEFAULT_DIRECTION.angle()
-	poison.scale = Vector2.ONE * POISON_VISUAL_SCALE
 	get_tree().current_scene.add_child(poison)
+	var attack_direction := direction.normalized()
+	poison.global_position = global_position + attack_direction * (SECTOR_RANGE * 0.5)
+	poison.global_rotation = _get_poison_visual_rotation(attack_direction)
+	poison.scale = Vector2.ONE * POISON_VISUAL_SCALE
 	var poison_sprite := poison.get_node_or_null("AnimatedSprite2D") as AnimatedSprite2D
 	if poison_sprite != null:
 		poison_sprite.play("default")
 	get_tree().create_timer(1.0).timeout.connect(Callable(poison, "queue_free"), CONNECT_ONE_SHOT)
 
 
+func _get_poison_visual_rotation(direction: Vector2) -> float:
+	if direction.length_squared() <= 0.001:
+		return 0.0
+	return direction.angle() - POISON_DEFAULT_DIRECTION.angle()
+
+
 func _cleanup_sector_warning() -> void:
 	sector_warning_active = false
+	sector_post_cast_lock_remaining = 0.0
 	if active_sector_warning != null and is_instance_valid(active_sector_warning):
 		active_sector_warning.cleanup()
 	active_sector_warning = null

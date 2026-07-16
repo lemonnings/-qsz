@@ -11,6 +11,9 @@ extends "res://Script/battleScene/base_stage.gd"
 const SPAWN_TOP_X_MIN := -10.0
 const SPAWN_TOP_X_MAX := 150.0
 const SPAWN_TOP_Y := 130.0
+const SPAWN_BOTTOM_X_MIN := -360.0
+const SPAWN_BOTTOM_X_MAX := 360.0
+const SPAWN_BOTTOM_Y := 740.0
 const SPAWN_LEFT_X := -420.0
 const SPAWN_LEFT_Y_MIN := 350.0
 const SPAWN_LEFT_Y_MAX := 540.0
@@ -200,17 +203,17 @@ func _get_spawn_position() -> Vector2:
 	return _get_player_spawn_safe_position(_get_raw_spawn_position(), Callable(self , "_get_raw_spawn_position"))
 
 func _get_raw_spawn_position() -> Vector2:
-	var spawn_edge: int = randi_range(0, 2)
+	var spawn_edge: int = randi_range(0, 3)
 	var resolved_edge: int = spawn_edge
 	var fallback_position := Vector2.ZERO
 	match spawn_edge:
 		0:
 			fallback_position = Vector2(randf_range(SPAWN_TOP_X_MIN, SPAWN_TOP_X_MAX), SPAWN_TOP_Y)
 		1:
-			resolved_edge = 2
+			fallback_position = Vector2(randf_range(SPAWN_BOTTOM_X_MIN, SPAWN_BOTTOM_X_MAX), SPAWN_BOTTOM_Y)
+		2:
 			fallback_position = Vector2(SPAWN_LEFT_X, randf_range(SPAWN_LEFT_Y_MIN, SPAWN_LEFT_Y_MAX))
 		_:
-			resolved_edge = 3
 			fallback_position = Vector2(SPAWN_RIGHT_X, randf_range(SPAWN_RIGHT_Y_MIN, SPAWN_RIGHT_Y_MAX))
 	return _get_monster_spawn_position_for_edge(resolved_edge, fallback_position)
 
@@ -229,6 +232,7 @@ func _spawn_single_slime() -> void:
 		spawn_position = _clamp_point_to_rect(spawn_position, _shrink_rect(bounds, 24.0))
 	slime_node.position = spawn_position
 	get_tree().current_scene.add_child(slime_node)
+	_record_guide_enemy_seen(slime_node, true)
 	_mark_spirit_enemy_type(slime_node, true)
 	_try_make_elite(slime_node)
 	_apply_dynamic_hp_reduction(slime_node)
@@ -251,6 +255,7 @@ func _spawn_single_bat() -> void:
 	var spawn_position = _get_spawn_position()
 	bat_node.position = spawn_position
 	get_tree().current_scene.add_child(bat_node)
+	_record_guide_enemy_seen(bat_node, false)
 	_mark_spirit_enemy_type(bat_node, false)
 	_try_make_elite(bat_node)
 	_apply_dynamic_hp_reduction(bat_node)
@@ -273,6 +278,7 @@ func _spawn_single_frog() -> void:
 		spawn_position = _clamp_point_to_rect(spawn_position, _shrink_rect(bounds, 24.0))
 	frog_node.position = spawn_position
 	get_tree().current_scene.add_child(frog_node)
+	_record_guide_enemy_seen(frog_node, true)
 	_mark_spirit_enemy_type(frog_node, true)
 	_try_make_elite(frog_node)
 	_apply_dynamic_hp_reduction(frog_node)
@@ -293,6 +299,7 @@ func _spawn_single_extra() -> void:
 	var spawn_position = _get_spawn_position()
 	extra_node.position = spawn_position
 	get_tree().current_scene.add_child(extra_node)
+	_record_guide_enemy_seen(extra_node, false)
 	_mark_spirit_enemy_type(extra_node, false)
 	_try_make_elite(extra_node)
 	_apply_dynamic_hp_reduction(extra_node)

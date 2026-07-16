@@ -13,7 +13,9 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 		"final_damage": 0.0,
 		"should_rebound": false,
 		"should_delete_bullet": true,
-		"is_crit": false
+		"is_crit": false,
+		"is_summon_bullet": false,
+		"weapon_tag": ""
 	}
 	
 	if not area or not enemy:
@@ -64,6 +66,8 @@ static func handle_bullet_collision_full(area: Area2D, enemy: Node, is_boss: boo
 	
 	result["final_damage"] = final_damage_val
 	result["is_crit"] = is_crit
+	result["is_summon_bullet"] = is_summon_bullet
+	result["weapon_tag"] = weapon_tag
 	var actual_damage_for_stats: float = final_damage_val
 	if enemy.has_method("get"):
 		actual_damage_for_stats = minf(float(final_damage_val), maxf(float(enemy.get("hp")), 0.0))

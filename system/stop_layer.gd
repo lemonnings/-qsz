@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 const ZHUAZHUAJUCHUI_SCRIPT = preload("res://Script/skill/zhuazhuajuchui.gd")
+const TIP_SCENE := preload("res://Scenes/global/tip.tscn")
 
 @export var continue_button: Button
 @export var dps_button: Button
@@ -56,6 +57,8 @@ var weapon_discard_page_data: Dictionary = {}
 var weapon_discard_hold_elapsed: float = 0.0
 var weapon_discard_hold_active: bool = false
 var weapon_discard_hold_completed: bool = false
+var weapon_discard_tip: Panel = null
+var _pause_process_mode_snapshot: Dictionary = {}
 
 const FADE_DURATION: float = 0.15
 const PAGE_FADE_DURATION: float = 0.08
@@ -63,11 +66,12 @@ const WEAPON_DISCARD_HOLD_SECONDS: float = 1.0
 const PAUSE_MENU_LAYER: int = 9999
 const DPS_PANEL_LAYER: int = 9999
 const DPS_PANEL_Z_INDEX: int = 4096
-const SETTING_PANEL_Z_INDEX: int = 4097
+const SETTING_PANEL_Z_INDEX: int = 4094
+const WEAPON_DISCARD_TIP_Z_INDEX: int = 4095
 const DPS_ENTRY_WEAPON_ICON_SIZE: Vector2 = Vector2(72.0, 72.0)
 const ATTRS_PER_PAGE: int = 13
 const ATTR_TOOLTIP_WIDTH: float = 260.0
-const LINGWU_FALLBACK_PER_PAGE: int = 5
+const LINGWU_ITEMS_PER_PAGE: int = 50
 const WEAPON_PANEL_ORDER: Array[Dictionary] = [
 	{"faction": "swordqi", "reward_id": "SwordQi", "level": "main_skill_swordQi"},
 	{"faction": "branch", "reward_id": "Branch", "level": "main_skill_branch"},
@@ -90,7 +94,38 @@ const WEAPON_PANEL_ORDER: Array[Dictionary] = [
 	{"faction": "dragonwind", "reward_id": "DragonWind", "level": "main_skill_dragonwind"},
 	{"faction": "qigong", "reward_id": "Qigong", "level": "main_skill_qigong"},
 	{"faction": "zhuazhuajuchui", "reward_id": "Zhuazhuajuchui", "level": "main_skill_zhuazhuajuchui"},
+	{"faction": "soul_sickle", "reward_id": "SoulSickle", "level": "main_skill_soul_sickle"},
+	{"faction": "thunder_gun", "reward_id": "ThunderGun", "level": "main_skill_thunder_gun"},
 	{"faction": "yujian", "reward_id": "Yujian", "level": "main_skill_yujian"}
+]
+const SUMMON_PANEL_ICON_PATH: String = "res://AssetBundle/Sprites/Sprite sheets/skillIcon/huanwu.png"
+const SUMMON_PANEL_MARKER_TO_REWARD_ID: Dictionary = {
+	"blue_summon": "R20",
+	"darkorchid_summon": "SR20",
+	"gold_summon": "SSR20",
+	"red_summon": "UR20",
+	"red_special_summon": "UR20Special",
+	"darkorchid_heal_summon": "SR21",
+	"gold_heal_summon": "SSR21",
+	"red_heal_summon": "UR21",
+	"darkorchid_aux_summon": "SR22",
+	"gold_aux_summon": "SSR22",
+	"red_aux_summon": "UR22",
+	"yujian_blue_summon": "R20",
+	"yujian_darkorchid_summon": "SR20",
+}
+const SUMMON_PANEL_REWARD_IDS: Array[String] = [
+	"R20",
+	"SR20",
+	"SSR20",
+	"UR20",
+	"UR20Special",
+	"SR21",
+	"SSR21",
+	"UR21",
+	"SR22",
+	"SSR22",
+	"UR22",
 ]
 
 func _ready() -> void:
@@ -770,11 +805,17 @@ func _add_weapon_page(page_data: Dictionary) -> void:
 	var value_label: RichTextLabel = panel.get_node_or_null("Value") as RichTextLabel
 	var detail_label: RichTextLabel = panel.get_node_or_null("Detail") as RichTextLabel
 	var sprite: Sprite2D = panel.get_node_or_null("Sprite2D") as Sprite2D
+	var is_summon_page: bool = bool(page_data.get("is_summon_page", false))
 	if name_label:
 		name_label.text = str(page_data.get("name", ""))
 	if value_label:
-		value_label.text = "Lv. %d\n伤害加成：%s" % [int(page_data.get("level", 0)), _format_percent_ratio(float(page_data.get("damage_bonus", 0.0)))]
+		value_label.visible = not is_summon_page
+		if is_summon_page:
+			value_label.text = ""
+		else:
+			value_label.text = "Lv. %d\n伤害加成：%s" % [int(page_data.get("level", 0)), _format_percent_ratio(float(page_data.get("damage_bonus", 0.0)))]
 	if detail_label:
+		detail_label.bbcode_enabled = true
 		detail_label.text = str(page_data.get("detail", "暂无领悟项"))
 		detail_label.scroll_active = true
 	if sprite:
@@ -782,7 +823,9 @@ func _add_weapon_page(page_data: Dictionary) -> void:
 		sprite.texture = load(icon_path) if not icon_path.is_empty() and ResourceLoader.exists(icon_path) else null
 	var discard_button := _get_weapon_discard_button(panel)
 	if discard_button:
-		_connect_weapon_discard_button(discard_button, page_data)
+		discard_button.visible = not is_summon_page
+		if not is_summon_page:
+			_connect_weapon_discard_button(discard_button, page_data)
 
 func _add_lingwu_page(page_items: Array) -> void:
 	for i in range(page_items.size()):
@@ -821,9 +864,9 @@ func _connect_weapon_discard_button(button: Button, page_data: Dictionary) -> vo
 	button.set_meta("weapon_page_data", page_data)
 	weapon_discard_button = button
 	weapon_discard_page_data = page_data
-	var button_down_callable := Callable(self, "_on_weapon_discard_button_down").bind(button)
-	var button_up_callable := Callable(self, "_on_weapon_discard_button_up").bind(button)
-	var gui_input_callable := Callable(self, "_on_weapon_discard_button_gui_input").bind(button)
+	var button_down_callable := Callable(self , "_on_weapon_discard_button_down").bind(button)
+	var button_up_callable := Callable(self , "_on_weapon_discard_button_up").bind(button)
+	var gui_input_callable := Callable(self , "_on_weapon_discard_button_gui_input").bind(button)
 	for conn in button.button_down.get_connections():
 		if conn.callable.get_object() == self:
 			button.button_down.disconnect(conn.callable)
@@ -952,24 +995,22 @@ func _get_owned_weapon_count() -> int:
 	return count
 
 func _show_weapon_discard_tip(message: String) -> void:
-	var current_scene := get_tree().current_scene if get_tree() else null
-	if current_scene != null:
-		var canvas_layer := current_scene.get_node_or_null("CanvasLayer")
-		if canvas_layer != null:
-			if canvas_layer.has_method("_show_level_up_tip"):
-				canvas_layer._show_level_up_tip(message)
-				return
-			var tip = canvas_layer.get("lv_up_tip")
-			if tip != null and tip.has_method("start_animation"):
-				tip.start_animation(message, 0.5)
-				return
-			var fallback_tip := canvas_layer.get_node_or_null("TipsLayer/Tip")
-			if fallback_tip != null and fallback_tip.has_method("start_animation"):
-				fallback_tip.start_animation(message, 0.5)
-				return
-		var scene_tip = current_scene.get("tip") if "tip" in current_scene else null
-		if scene_tip != null and scene_tip.has_method("start_animation"):
-			scene_tip.start_animation(message, 0.5)
+	var tip := _get_weapon_discard_tip()
+	if tip != null and tip.has_method("start_animation"):
+		tip.start_animation(message, 0.5)
+
+func _get_weapon_discard_tip() -> Panel:
+	if weapon_discard_tip != null and is_instance_valid(weapon_discard_tip):
+		return weapon_discard_tip
+	weapon_discard_tip = TIP_SCENE.instantiate() as Panel
+	if weapon_discard_tip == null:
+		return null
+	weapon_discard_tip.name = "WeaponDiscardTip"
+	weapon_discard_tip.z_as_relative = false
+	weapon_discard_tip.z_index = WEAPON_DISCARD_TIP_Z_INDEX
+	weapon_discard_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(weapon_discard_tip)
+	return weapon_discard_tip
 
 func _discard_weapon_from_page_data(page_data: Dictionary) -> void:
 	var faction := str(page_data.get("faction", ""))
@@ -977,19 +1018,31 @@ func _discard_weapon_from_page_data(page_data: Dictionary) -> void:
 	var reward_id := str(page_data.get("reward_id", ""))
 	if faction.is_empty() or level_prop.is_empty():
 		return
-	var removed_any := _remove_selected_rewards_for_weapon(faction, reward_id)
-	if not removed_any and not reward_id.is_empty():
+	var removed_reward_ids := _remove_selected_rewards_for_weapon(faction, reward_id)
+	if removed_reward_ids.is_empty() and not reward_id.is_empty():
 		if PC.selected_rewards.has(reward_id):
 			PC.selected_rewards.erase(reward_id)
-			removed_any = true
+			removed_reward_ids.append(reward_id)
+	_remove_faze_levels_from_discarded_rewards(removed_reward_ids)
 	PC.set(level_prop, 0)
 	var advance_prop := "%s_advance" % level_prop
 	PC.set(advance_prop, 0)
 	if reward_id == "Yujian":
 		_reset_yujian_discard_state()
-	if removed_any:
+	_hide_discarded_weapon_skill_icon(reward_id)
+	if not removed_reward_ids.is_empty():
 		PC.current_weapon_num = maxi(0, PC.current_weapon_num - 1)
+	_refresh_battle_faze_ui()
 	_refresh_weapon_panel()
+
+func _hide_discarded_weapon_skill_icon(reward_id: String) -> void:
+	if reward_id.is_empty():
+		return
+	var canvas_layer := get_parent()
+	if canvas_layer == null or not canvas_layer.has_method("hide_discarded_weapon_skill_icon"):
+		canvas_layer = get_tree().current_scene.get_node_or_null("CanvasLayer")
+	if canvas_layer != null and canvas_layer.has_method("hide_discarded_weapon_skill_icon"):
+		canvas_layer.hide_discarded_weapon_skill_icon(reward_id)
 
 func _reset_yujian_discard_state() -> void:
 	if PC.yujian_applied_summon_damage_bonus != 0.0:
@@ -1007,8 +1060,8 @@ func _reset_yujian_discard_state() -> void:
 		if player.has_method("update_summons_properties"):
 			player.update_summons_properties()
 
-func _remove_selected_rewards_for_weapon(faction: String, base_reward_id: String) -> bool:
-	var removed_any := false
+func _remove_selected_rewards_for_weapon(faction: String, base_reward_id: String) -> Array[String]:
+	var removed_reward_ids: Array[String] = []
 	var normalized_faction := faction.to_lower()
 	for i in range(PC.selected_rewards.size() - 1, -1, -1):
 		var selected_id := str(PC.selected_rewards[i])
@@ -1016,12 +1069,87 @@ func _remove_selected_rewards_for_weapon(faction: String, base_reward_id: String
 		if reward == null:
 			if selected_id == base_reward_id:
 				PC.selected_rewards.remove_at(i)
-				removed_any = true
+				removed_reward_ids.append(selected_id)
 			continue
 		if str(reward.faction).to_lower() == normalized_faction:
 			PC.selected_rewards.remove_at(i)
-			removed_any = true
-	return removed_any
+			removed_reward_ids.append(selected_id)
+	return removed_reward_ids
+
+func _remove_faze_levels_from_discarded_rewards(reward_ids: Array[String]) -> void:
+	for reward_id in reward_ids:
+		var reward = _get_reward_data(reward_id)
+		if reward == null:
+			continue
+		var law_levels := _extract_faze_levels_from_reward_detail(str(reward.detail))
+		for law_prop in law_levels.keys():
+			var current_level := int(PC.get(law_prop))
+			var remove_level := int(law_levels[law_prop])
+			PC.set(law_prop, maxi(0, current_level - remove_level))
+
+func _extract_faze_levels_from_reward_detail(detail: String) -> Dictionary:
+	var result := {}
+	var regex := RegEx.new()
+	var compile_error := regex.compile("【([^】]+)】\\s*([0-9]+)")
+	if compile_error != OK:
+		return result
+	for match_result in regex.search_all(detail):
+		var law_name := match_result.get_string(1)
+		var law_prop := _get_faze_prop_by_chinese_name(law_name)
+		if law_prop.is_empty():
+			continue
+		var level := int(match_result.get_string(2))
+		result[law_prop] = int(result.get(law_prop, 0)) + level
+	return result
+
+func _get_faze_prop_by_chinese_name(law_name: String) -> String:
+	match law_name:
+		"浴血":
+			return "faze_blood_level"
+		"刀剑":
+			return "faze_sword_level"
+		"鸣雷":
+			return "faze_thunder_level"
+		"愈疗":
+			return "faze_heal_level"
+		"御灵":
+			return "faze_summon_level"
+		"护佑":
+			return "faze_shield_level"
+		"炽焰":
+			return "faze_fire_level"
+		"破坏":
+			return "faze_destroy_level"
+		"生灵":
+			return "faze_life_level"
+		"弹雨":
+			return "faze_bullet_level"
+		"广域":
+			return "faze_wide_level"
+		"八卦":
+			return "faze_bagua_level"
+		"宝器":
+			return "faze_treasure_level"
+		"混沌":
+			return "faze_chaos_level"
+		"技艺":
+			return "faze_skill_level"
+		"六识":
+			return "faze_sixsense_level"
+		"啸风":
+			return "faze_wind_level"
+		"沉渊":
+			return "faze_deep_level"
+		"摄魂":
+			return "faze_shehun_level"
+	return ""
+
+func _refresh_battle_faze_ui() -> void:
+	var canvas_layer := get_parent()
+	if canvas_layer == null or not canvas_layer.has_method("refresh_faze_ui"):
+		canvas_layer = get_tree().current_scene.get_node_or_null("CanvasLayer")
+	if canvas_layer != null and canvas_layer.has_method("refresh_faze_ui"):
+		canvas_layer.refresh_faze_ui()
 
 func _apply_lingwu_border(panel: Panel, rarity: String) -> void:
 	var style: StyleBoxFlat = StyleBoxFlat.new()
@@ -1133,7 +1261,7 @@ func _show_attr_tooltip(panel: Panel, entry_data: Dictionary) -> void:
 	_set_tooltip_value_section_visible(true)
 	_set_tooltip_title_color(Color.WHITE)
 	attr_tooltip_title.text = str(entry_data.get("name", ""))
-	attr_tooltip_value.text = "当前数值：" + str(entry_data.get("value", ""))
+	attr_tooltip_value.text = "当前数值：" + str(entry_data.get("tooltip_value", entry_data.get("value", "")))
 	attr_tooltip_desc.text = str(entry_data.get("desc", ""))
 	attr_tooltip_panel.size = Vector2.ZERO
 	attr_tooltip_panel.custom_minimum_size = Vector2.ZERO
@@ -1257,12 +1385,14 @@ func _build_attr_entries() -> Array[Dictionary]:
 	entries.append(_make_attr("护甲", "%d" % int(PC.pc_armor), "受击时提供额外减伤。当前护甲减伤为 %s。" % _format_percent_ratio(_get_armor_reduction())))
 	entries.append(_make_attr("生命恢复", _format_percent_value(PC.pc_hp_regen), "默认每5秒生效一次，按最大体力的百分比恢复体力。"))
 	entries.append(_make_attr("攻击速度", _format_signed_percent(PC.get_total_attack_speed_bonus()), "提高多数武器与部分攻击循环的频率，超过80%后收益会递减。"))
-	entries.append(_make_attr("移动速度", _format_signed_percent(PC.get_total_move_speed_bonus()), "影响玩家战斗中的移动速度，超过80%后收益会递减。"))
+	var move_distance_per_second := _format_distance_value(_get_current_move_distance_per_second())
+	var move_speed_value := _format_signed_percent(PC.get_total_move_speed_bonus())
+	entries.append(_make_attr("移动速度", move_speed_value, "影响玩家战斗中的移动速度，超过80%后收益会递减。当前移动速度约等于每秒移动 " + move_distance_per_second + " 距离。", move_speed_value + "（约" + move_distance_per_second + "距离/秒）"))
 	entries.append(_make_attr("暴击率", _format_percent_ratio(PC.crit_chance), "攻击发生暴击的概率,暴击后伤害会乘以暴击伤害倍率。"))
 	entries.append(_make_attr("暴击伤害", _format_percent_ratio(PC.crit_damage_multi), "暴击发生后的伤害倍率。"))
 	entries.append(_make_attr("最终伤害", _format_signed_percent(_get_current_final_damage_bonus()), "当前实际最终伤害乘区，包含全局最终伤害与已生效的纹章最终伤害。"))
 	entries.append(_make_attr("减伤率", _format_percent_ratio(PC.get_total_damage_reduction_rate()), "受到伤害后会先按此比例降低伤害。"))
-	entries.append(_make_attr("天命", str(PC.now_lunky_level), "影响领悟与灵气漩涡中高阶选项概率。每点天命提升逆天（红色）0.02%概率、臻境（金色）0.25%概率、悟道（紫色）0.6%概率。"))
+	entries.append(_make_attr("天命", str(PC.now_lunky_level), "影响领悟与灵气漩涡中高阶选项概率。每点天命提升逆天（红色）0.01%概率、臻境（金色）0.175%概率、悟道（紫色）0.5%概率。"))
 	entries.append(_make_attr("通明概率", _format_percent_value(PC.now_blue_p), "领悟抽选中蓝色品质的概率。"))
 	entries.append(_make_attr("悟道概率", _format_percent_value(PC.now_darkorchid_p), "领悟抽选中紫色品质的概率。"))
 	entries.append(_make_attr("臻境概率", _format_percent_value(PC.now_gold_p), "领悟抽选中金色品质的概率。"))
@@ -1276,6 +1406,11 @@ func _build_attr_entries() -> Array[Dictionary]:
 	entries.append(_make_attr("体型大小", _format_percent_ratio(PC.body_size), "影响角色显示体型与受击判定。"))
 	entries.append(_make_attr("攻击范围", _format_signed_percent(Global.get_attack_range_multiplier() - 1.0), "影响大部分武器、主动技能的范围。"))
 	entries.append(_make_attr("击退幅度", _format_signed_percent(PC.get_knockback_multiplier() - 1.0), "影响玩家造成的击退距离。仙枝、气功波、爪爪巨锤、破坏圣锤等击退效果会受到该属性影响；风龙杖吸附不受影响。"))
+	entries.append(_make_attr("燃烧伤害提升", _format_signed_percent(PC.get_burn_damage_bonus()), "燃烧造成的持续伤害提升。"))
+	entries.append(_make_attr("感电伤害提升", _format_signed_percent(PC.get_electrified_damage_bonus()), "感电造成的持续伤害提升。"))
+	entries.append(_make_attr("流血伤害提升", _format_signed_percent(PC.get_bleed_damage_bonus()), "流血造成的持续伤害提升。"))
+	entries.append(_make_attr("易伤效果提升", _format_signed_percent(PC.get_vulnerability_effect_bonus()), "易伤造成的受伤加深效果提升。"))
+	entries.append(_make_attr("减速效果提升", _format_signed_percent(PC.get_slow_effect_bonus()), "减速造成的移动速度降低效果提升。"))
 	entries.append(_make_attr("治疗加成", _format_signed_percent(PC.heal_multi), "治疗量提升。"))
 	entries.append(_make_attr("护盾加成", _format_signed_percent(PC.sheild_multi), "护盾获取量提升。"))
 	entries.append(_make_attr("对小怪增伤", _format_signed_percent(PC.normal_monster_multi + Global.study_normal_monster_damage_bonus), "攻击普通敌人增伤。"))
@@ -1303,7 +1438,7 @@ func _build_attr_entries() -> Array[Dictionary]:
 
 func _get_current_final_damage_bonus() -> float:
 	var global_buff_bonus := BulletCalculator.get_global_buff_damage_multiplier() - 1.0
-	return maxf(0.0, 1.0 + Faze.get_final_damage_additive_bonus() + global_buff_bonus) * Global.get_stage_boss_player_damage_multiplier() * PC.damage_deal_multiplier - 1.0
+	return maxf(0.0, 1.0 + Faze.get_final_damage_additive_bonus() + global_buff_bonus) * PC.damage_deal_multiplier - 1.0
 
 func _build_weapon_pages() -> Array[Dictionary]:
 	var pages: Array[Dictionary] = []
@@ -1325,7 +1460,44 @@ func _build_weapon_pages() -> Array[Dictionary]:
 			"damage_bonus": _get_weapon_damage_bonus(faction),
 			"detail": _build_weapon_advance_detail(faction)
 		})
+	var summon_page: Dictionary = _build_summon_weapon_page()
+	if not summon_page.is_empty():
+		pages.append(summon_page)
 	return pages
+
+func _build_summon_weapon_page() -> Dictionary:
+	var detail: String = _build_summon_panel_detail()
+	if detail.is_empty():
+		return {}
+	return {
+		"is_summon_page": true,
+		"faction": "Summon",
+		"reward_id": "Summon",
+		"name": "召唤物",
+		"icon_path": SUMMON_PANEL_ICON_PATH,
+		"detail": detail,
+	}
+
+func _build_summon_panel_detail() -> String:
+	var lines: Array[String] = []
+	for raw_id in PC.selected_rewards:
+		var reward_id: String = _get_summon_panel_reward_id(str(raw_id))
+		if reward_id.is_empty():
+			continue
+		var reward = _get_reward_data(reward_id)
+		if reward == null:
+			continue
+		lines.append("%s\n%s" % [reward.reward_name, reward.detail])
+	return "\n\n".join(lines)
+
+func _get_summon_panel_reward_id(raw_id: String) -> String:
+	var trimmed_id := raw_id.strip_edges()
+	if SUMMON_PANEL_MARKER_TO_REWARD_ID.has(trimmed_id):
+		return str(SUMMON_PANEL_MARKER_TO_REWARD_ID[trimmed_id])
+	for reward_id in SUMMON_PANEL_REWARD_IDS:
+		if trimmed_id.to_lower() == reward_id.to_lower():
+			return reward_id
+	return ""
 
 func _build_lingwu_pages() -> Array[Array]:
 	var ordered_items: Array = []
@@ -1361,21 +1533,7 @@ func _build_lingwu_pages() -> Array[Array]:
 	return pages
 
 func _get_lingwu_items_per_page() -> int:
-	if lingwu_container == null or lingwu_panel_example == null:
-		return LINGWU_FALLBACK_PER_PAGE
-	var container_size: Vector2 = lingwu_container.size
-	if container_size.x <= 0.0 or container_size.y <= 0.0:
-		container_size = lingwu_container.custom_minimum_size
-	var item_size: Vector2 = lingwu_panel_example.custom_minimum_size
-	if item_size.x <= 0.0 or item_size.y <= 0.0:
-		item_size = lingwu_panel_example.size
-	if container_size.x <= 0.0 or container_size.y <= 0.0 or item_size.x <= 0.0 or item_size.y <= 0.0:
-		return LINGWU_FALLBACK_PER_PAGE
-	var h_sep: int = lingwu_container.get_theme_constant("h_separation")
-	var v_sep: int = lingwu_container.get_theme_constant("v_separation")
-	var columns: int = maxi(1, int(floor((container_size.x + float(h_sep)) / (item_size.x + float(h_sep)))))
-	var rows: int = maxi(1, int(floor((container_size.y + float(v_sep)) / (item_size.y + float(v_sep)))))
-	return maxi(1, columns * rows)
+	return LINGWU_ITEMS_PER_PAGE
 
 func _get_owned_weapon_reward_id(weapon_data: Dictionary) -> String:
 	var reward_id: String = str(weapon_data.get("reward_id", "")).to_lower()
@@ -1418,7 +1576,10 @@ func _build_weapon_advance_detail(faction: String) -> String:
 	return "\n\n".join(lines)
 
 func _is_reward_for_weapon(reward, faction: String) -> bool:
-	return str(reward.faction).to_lower() == faction.to_lower()
+	return _normalize_weapon_faction(str(reward.faction)) == _normalize_weapon_faction(faction)
+
+func _normalize_weapon_faction(faction: String) -> String:
+	return faction.strip_edges().to_lower().replace("_", "")
 
 func _get_weapon_damage_bonus(faction: String) -> float:
 	var weapon_tag: String = _get_weapon_damage_bonus_tag(faction)
@@ -1427,7 +1588,7 @@ func _get_weapon_damage_bonus(faction: String) -> float:
 	return bonus
 
 func _get_weapon_damage_bonus_tag(faction: String) -> String:
-	match faction.to_lower():
+	match _normalize_weapon_faction(faction):
 		"bloodwave":
 			return "blood_wave"
 		"bloodboardsword":
@@ -1436,8 +1597,12 @@ func _get_weapon_damage_bonus_tag(faction: String) -> String:
 			return "ice_flower"
 		"thunderbreak":
 			return "thunder_break"
+		"thundergun":
+			return "thunder_gun"
 		"lightbullet":
 			return "light_bullet"
+		"soulsickle":
+			return "soul_sickle"
 	return faction.to_lower()
 
 func _get_skill_own_damage_bonus(weapon_tag: String) -> float:
@@ -1446,10 +1611,12 @@ func _get_skill_own_damage_bonus(weapon_tag: String) -> float:
 			return Qigong.main_skill_qigong_damage
 		"dragonwind":
 			return maxf(0.0, DragonWind.dragonwind_final_damage_multi - 1.0)
+		"thunder_break":
+			return maxf(0.0, PC.thunder_break_final_damage_multi - 1.0)
 	return 0.0
 
 func _get_weapon_damage_multiplier(faction: String) -> float:
-	match faction:
+	match _normalize_weapon_faction(faction):
 		"swordqi":
 			return PC.main_skill_swordQi_damage
 		"branch":
@@ -1469,7 +1636,7 @@ func _get_weapon_damage_multiplier(faction: String) -> float:
 		"ice":
 			return IceFlower.main_skill_ice_damage
 		"thunderbreak":
-			return PC.main_skill_thunder_break_damage * PC.thunder_break_final_damage_multi
+			return _get_thunder_break_damage_multiplier()
 		"lightbullet":
 			return PC.main_skill_light_bullet_damage * PC.light_bullet_final_damage_multi
 		"water":
@@ -1492,9 +1659,28 @@ func _get_weapon_damage_multiplier(faction: String) -> float:
 			return Qigong.QIGONG_BASE_DAMAGE_MULTIPLIER + Qigong.main_skill_qigong_damage
 		"zhuazhuajuchui":
 			return ZHUAZHUAJUCHUI_SCRIPT.main_skill_zhuazhuajuchui_damage
+		"soulsickle":
+			return PC.main_skill_soul_sickle_damage
+		"thundergun":
+			return PC.main_skill_thunder_gun_damage
 		"yujian":
 			return PC.summon_damage_multiplier
 	return 0.0
+
+func _get_thunder_break_damage_multiplier() -> float:
+	var result := PC.main_skill_thunder_break_damage
+	result += maxf(0.0, PC.thunder_break_final_damage_multi - 1.0)
+	if PC.selected_rewards.has("ThunderBreak1"):
+		result += 0.1
+	if PC.selected_rewards.has("ThunderBreak2"):
+		result += 0.15
+	if PC.selected_rewards.has("ThunderBreak11"):
+		result += 0.1
+	if PC.selected_rewards.has("ThunderBreak22"):
+		result += 0.1
+	if PC.selected_rewards.has("ThunderBreak33"):
+		result += 0.1
+	return result
 
 func _get_lingwu_rarity_color(rarity: String) -> Color:
 	var normalized: String = rarity.to_lower()
@@ -1524,7 +1710,8 @@ func _add_weapon_category_attrs(entries: Array[Dictionary]) -> void:
 		{"name": "八卦系伤害", "category": "bagua", "global": Global.study_bagua_damage_bonus},
 		{"name": "愈疗系伤害", "category": "heal", "global": Global.study_heal_damage_bonus},
 		{"name": "宝器系伤害", "category": "treasure", "global": Global.study_treasure_damage_bonus},
-		{"name": "沉渊系伤害", "category": "deep", "global": 0.0}
+		{"name": "沉渊系伤害", "category": "deep", "global": 0.0},
+		{"name": "摄魂系伤害", "category": "shehun", "global": 0.0}
 	]
 	for category_data in categories:
 		var category_id: String = str(category_data.get("category", ""))
@@ -1558,14 +1745,19 @@ func _get_law_category_damage_bonus(category: String) -> float:
 			return Faze.get_treasure_weapon_damage_multiplier(PC.faze_treasure_level, PC.get_lucky_level()) - 1.0
 		"deep":
 			return Faze.get_deep_weapon_damage_bonus(PC.faze_deep_level)
+		"shehun":
+			return Faze.get_shehun_weapon_damage_multiplier(PC.faze_shehun_level) - 1.0
 	return 0.0
 
-func _make_attr(attr_name: String, attr_value: String, attr_desc: String) -> Dictionary:
-	return {
+func _make_attr(attr_name: String, attr_value: String, attr_desc: String, tooltip_value: String = "") -> Dictionary:
+	var data := {
 		"name": " " + attr_name,
 		"value": attr_value + " ",
 		"desc": attr_desc
 	}
+	if not tooltip_value.is_empty():
+		data["tooltip_value"] = tooltip_value + " "
+	return data
 
 func _format_percent_ratio(value: float) -> String:
 	return "%.1f%%" % (value * 100.0)
@@ -1579,11 +1771,23 @@ func _format_signed_percent(value: float) -> String:
 		return "%.1f%%" % percent
 	return "%.1f%%" % percent
 
+func _format_distance_value(value: float) -> String:
+	if absf(value - round(value)) < 0.05:
+		return str(int(round(value)))
+	return "%.1f" % value
+
 func _get_armor_reduction() -> float:
 	return PC.pc_armor / (PC.pc_armor + 500.0) if PC.pc_armor > 0.0 else 0.0
 
 func _get_total_move_speed_bonus() -> float:
 	return PC.get_total_move_speed_bonus()
+
+func _get_current_move_distance_per_second() -> float:
+	if PC.player_instance != null and is_instance_valid(PC.player_instance):
+		var current_speed = PC.player_instance.get("move_speed")
+		if current_speed != null:
+			return maxf(0.0, float(current_speed))
+	return maxf(0.0, 100.0 * (1.0 + PC.get_total_move_speed_bonus()))
 
 func _get_summon_damage_multiplier() -> float:
 	return maxf(0.0, PC.summon_damage_multiplier + Global.study_summon_damage_bonus + Global.get_achievement_summon_damage_bonus())
@@ -1663,7 +1867,7 @@ func _add_dps_entry(source: Dictionary) -> void:
 		if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
 			var icon_texture: Texture2D = load(icon_path) as Texture2D
 			sprite.texture = icon_texture
-			_fit_dps_icon(sprite, icon_texture, str(source.get("category", "")))
+			_fit_dps_icon(sprite, icon_texture, str(source.get("category", "")), str(source.get("source_id", "")))
 		else:
 			sprite.texture = null
 			sprite.scale = Vector2.ONE
@@ -1690,7 +1894,7 @@ func _add_heal_shield_entry(source: Dictionary) -> void:
 		if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
 			var icon_texture: Texture2D = load(icon_path) as Texture2D
 			sprite.texture = icon_texture
-			_fit_dps_icon(sprite, icon_texture, str(source.get("category", "")))
+			_fit_dps_icon(sprite, icon_texture, str(source.get("category", "")), str(source.get("source_id", "")))
 		else:
 			sprite.texture = null
 			sprite.scale = Vector2.ONE
@@ -1739,9 +1943,10 @@ func _prepare_dps_detail_label(detail: RichTextLabel) -> void:
 	if detail.size.y < 90.0:
 		detail.size.y = 100.0
 
-func _fit_dps_icon(sprite: Sprite2D, icon_texture: Texture2D, category: String) -> void:
+func _fit_dps_icon(sprite: Sprite2D, icon_texture: Texture2D, category: String, source_id: String = "") -> void:
 	sprite.scale = Vector2.ONE
-	if category != Global.DPS_DETAIL_CATEGORY_FAZE:
+	var should_fit_icon := category == Global.DPS_DETAIL_CATEGORY_FAZE or Global._normalize_dps_source_id(source_id) == "summon"
+	if not should_fit_icon:
 		return
 	if icon_texture == null:
 		return
@@ -1775,6 +1980,7 @@ func _on_exit_pressed() -> void:
 	tween.tween_property(tips_panel, "modulate:a", 1.0, FADE_DURATION)
 
 func _on_ok_pressed() -> void:
+	_pause_process_mode_snapshot.clear()
 	get_tree().paused = false
 	Global.in_menu = false
 	Global.reset_game_speed()
@@ -1823,40 +2029,51 @@ func _pause_all_animations() -> void:
 	var tree = get_tree()
 	if not tree:
 		return
-	# 暂停玩家动画
-	for player in tree.get_nodes_in_group("player"):
-		var sprite = player.get_node_or_null("AnimatedSprite2D")
-		if sprite and sprite is AnimatedSprite2D:
-			sprite.pause()
-	# 通过 PC.player_instance 兜底
-	if PC.player_instance and is_instance_valid(PC.player_instance):
-		var sprite = PC.player_instance.get_node_or_null("AnimatedSprite2D")
-		if sprite and sprite is AnimatedSprite2D and not sprite.is_playing():
-			pass # 已经暂停
-		elif sprite and sprite is AnimatedSprite2D:
-			sprite.pause()
-	# 暂停敌人动画
-	for enemy in tree.get_nodes_in_group("enemies"):
-		var sprite = enemy.get_node_or_null("AnimatedSprite2D")
-		if sprite and sprite is AnimatedSprite2D:
-			sprite.pause()
+	_pause_process_mode_snapshot.clear()
+	var paused_roots := _get_pause_control_roots(tree)
+	for root in paused_roots:
+		_force_subtree_pausable(root)
 
 func _resume_all_animations() -> void:
-	var tree = get_tree()
-	if not tree:
-		return
-	# 恢复玩家动画
-	for player in tree.get_nodes_in_group("player"):
-		var sprite = player.get_node_or_null("AnimatedSprite2D")
-		if sprite and sprite is AnimatedSprite2D:
-			sprite.play()
-	# 通过 PC.player_instance 兜底
+	for node in _pause_process_mode_snapshot.keys():
+		if is_instance_valid(node):
+			node.process_mode = int(_pause_process_mode_snapshot[node])
+	_pause_process_mode_snapshot.clear()
+
+func _get_pause_control_roots(tree: SceneTree) -> Array[Node]:
+	var roots: Array[Node] = []
+	var seen := {}
+	var groups := [
+		"player",
+		"enemies",
+		"boss",
+		"boss_projectile",
+		"boss_bullet",
+		"boss_a_petal",
+		"boss_a_poison_circle",
+		"mud_pool",
+	]
+	for group_name in groups:
+		for node in tree.get_nodes_in_group(group_name):
+			_add_pause_control_root(node, roots, seen)
 	if PC.player_instance and is_instance_valid(PC.player_instance):
-		var sprite = PC.player_instance.get_node_or_null("AnimatedSprite2D")
-		if sprite and sprite is AnimatedSprite2D:
-			sprite.play()
-	# 恢复敌人动画
-	for enemy in tree.get_nodes_in_group("enemies"):
-		var sprite = enemy.get_node_or_null("AnimatedSprite2D")
-		if sprite and sprite is AnimatedSprite2D:
-			sprite.play()
+		_add_pause_control_root(PC.player_instance, roots, seen)
+	return roots
+
+func _add_pause_control_root(node: Node, roots: Array[Node], seen: Dictionary) -> void:
+	if node == null or not is_instance_valid(node):
+		return
+	var id := node.get_instance_id()
+	if seen.has(id):
+		return
+	seen[id] = true
+	roots.append(node)
+
+func _force_subtree_pausable(node: Node) -> void:
+	if node == null or not is_instance_valid(node):
+		return
+	if not _pause_process_mode_snapshot.has(node):
+		_pause_process_mode_snapshot[node] = node.process_mode
+	node.process_mode = Node.PROCESS_MODE_PAUSABLE
+	for child in node.get_children():
+		_force_subtree_pausable(child)

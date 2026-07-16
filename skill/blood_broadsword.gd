@@ -109,6 +109,7 @@ func _build_attack_data() -> Dictionary:
 	
 	range_multiplier *= custom_range_multiplier
 	
+	damage_ratio += Faze.get_blood_weapon_damage_multiplier(PC.faze_blood_level) - 1.0
 	var damage = PC.pc_atk * damage_ratio
 	
 	return {

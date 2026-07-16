@@ -37,7 +37,7 @@ const WEAPON_LEVEL_PROPS: Array = [
 	{"prop": "main_skill_bloodboardsword", "name": "饮血刀"},
 	{"prop": "main_skill_ice", "name": "冰刺术"},
 	{"prop": "main_skill_thunder_break", "name": "天雷破"},
-	{"prop": "main_skill_light_bullet", "name": "光弹"},
+	{"prop": "main_skill_light_bullet", "name": "光弹术"},
 	{"prop": "main_skill_water", "name": "坎水诀"},
 	{"prop": "main_skill_qiankun", "name": "乾坤双剑"},
 	{"prop": "main_skill_xuanwu", "name": "玄武盾"},
@@ -67,6 +67,7 @@ const LAW_LEVEL_PROPS: Array = [
 	{"prop": "faze_skill_level", "name": "技艺法则"},
 	{"prop": "faze_sixsense_level", "name": "六识法则"},
 	{"prop": "faze_wind_level", "name": "啸风法则"},
+	{"prop": "faze_shehun_level", "name": "摄魂法则"},
 ]
 
 const QI_VORTEX_DIALOGUES: Dictionary = {

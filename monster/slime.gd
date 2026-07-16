@@ -67,6 +67,7 @@ func _physics_process(delta: float) -> void:
 			poison_circle.damage_per_tick = atk * 0.5
 			poison_circle.instant_damage_on_enter = false
 			poison_circle.tick_interval = 0.5
+			poison_circle.duration = 4.0
 			poison_circle.global_position = global_position
 			get_tree().current_scene.add_child(poison_circle)
 			await get_tree().create_timer(0.35).timeout

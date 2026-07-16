@@ -1,43 +1,66 @@
 extends MonsterBase
 class_name BossBase
 
-const BOSS_DPS_HP_MULTIPLIER: float = 11.0
-const BOSS_DEEP_DPS_HP_MULTIPLIER: float = 1.05
-const BOSS_CORE_DPS_HP_MULTIPLIER: float = 1.1
+const BOSS_SINGLE_TARGET_DPS_SECONDS: float = 12.0
+const BOSS_REFERENCE_SMALL_MONSTER_HP_MULTIPLIER: float = 55.0
+const BOSS_SINGLE_TARGET_DPS_MAX_SECONDS: float = 90.0
 const BOSS_GLOBAL_HP_MULTIPLIER: float = 1.5
 const BOSS_CORE_EXTRA_HP_MULTIPLIER: float = 1.1
 const BOSS_SHALLOW_ATK_MULTIPLIER: float = 0.75
+const POETRY_FIRST_STAGE_ATK_MULTIPLIER: float = 0.9
 const BOSS_BODY_BLOCKER_NAME: String = "BossBodyBlocker"
 
 func setup_boss_base(boss_id: String, use_difficulty_hp_multiplier: bool = false) -> String:
 	add_to_group("boss")
 	process_mode = Node.PROCESS_MODE_PAUSABLE
 	var difficulty := Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
-	if use_difficulty_hp_multiplier:
-		set("hpMax", float(get("hpMax")) * get_boss_difficulty_hp_multiplier(difficulty))
 	if difficulty == Global.STAGE_DIFFICULTY_POETRY:
+		if use_difficulty_hp_multiplier:
+			set("hpMax", float(get("hpMax")) * get_boss_difficulty_hp_multiplier(difficulty))
 		set("hpMax", Global.get_poetry_boss_max_hp(boss_id, float(get("hpMax"))))
+		set("hpMax", float(get("hpMax")) * get_boss_global_hp_multiplier(difficulty))
 	else:
-		set("hpMax", float(get("hpMax")) + get_boss_dps_hp_bonus(difficulty))
-	set("hpMax", float(get("hpMax")) * get_boss_global_hp_multiplier(difficulty))
+		set("hpMax", get_boss_standard_max_hp(difficulty))
 	set("hp", float(get("hpMax")))
 	if difficulty == Global.STAGE_DIFFICULTY_SHALLOW and _has_property_uncached("atk"):
 		set("atk", float(get("atk")) * BOSS_SHALLOW_ATK_MULTIPLIER)
+	if difficulty == Global.STAGE_DIFFICULTY_POETRY and boss_id == "boss_a" and _has_property_uncached("atk"):
+		set("atk", float(get("atk")) * POETRY_FIRST_STAGE_ATK_MULTIPLIER)
 	setup_monster_base()
 	_setup_boss_body_blocker()
 	return difficulty
 
-func get_boss_dps_hp_bonus(difficulty: String) -> float:
-	return Global.get_current_dps() * get_boss_dps_hp_multiplier(difficulty)
+func get_boss_standard_max_hp(difficulty: String) -> float:
+	Global.refresh_dps_counter()
+	var single_target_dps := Global.get_current_boss_scaling_dps()
+	var reference_small_monster_hp := get_reference_small_monster_hp()
+	var max_hp := single_target_dps * BOSS_SINGLE_TARGET_DPS_SECONDS + reference_small_monster_hp * BOSS_REFERENCE_SMALL_MONSTER_HP_MULTIPLIER
+	if single_target_dps > 0.0:
+		max_hp = minf(max_hp, single_target_dps * BOSS_SINGLE_TARGET_DPS_MAX_SECONDS)
+	return max_hp * get_boss_standard_difficulty_hp_multiplier(difficulty)
 
-func get_boss_dps_hp_multiplier(difficulty: String) -> float:
-	var multiplier := BOSS_DPS_HP_MULTIPLIER
+func get_reference_small_monster_hp() -> float:
+	match str(Global.current_stage_id):
+		"ruin":
+			return float(SettingMoster.paper("hp"))
+		"cave":
+			return float(SettingMoster.armor_stone("hp"))
+		"forest":
+			return float(SettingMoster.shen("hp"))
+		"difu":
+			return float(SettingMoster.youling("hp"))
+		_:
+			return float(SettingMoster.slime_blue("hp"))
+
+func get_boss_standard_difficulty_hp_multiplier(difficulty: String) -> float:
 	match difficulty:
 		Global.STAGE_DIFFICULTY_DEEP:
-			multiplier *= BOSS_DEEP_DPS_HP_MULTIPLIER
+			return 1.15
 		Global.STAGE_DIFFICULTY_CORE:
-			multiplier *= BOSS_CORE_DPS_HP_MULTIPLIER
-	return multiplier
+			var core_depth := maxi(Global.CORE_DEPTH_MIN, Global.get_current_core_depth())
+			return 1.3 + float(core_depth - Global.CORE_DEPTH_MIN) * 0.02
+		_:
+			return 1.0
 
 func get_boss_difficulty_hp_multiplier(difficulty: String) -> float:
 	match difficulty:

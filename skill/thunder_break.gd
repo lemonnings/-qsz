@@ -20,9 +20,11 @@ var apply_vulnerable: bool = false # ThunderBreak33: 脆弱
 
 # 内部变量
 var hit_targets: Dictionary = {}
+var hit_count: int = 0
 var created_sprites: Array = []
 var base_scale: Vector2 = Vector2(1.24, 1.32)
 var default_width: float = 40.0
+const BOSS_DAMAGE_MULTIPLIER: float = 1.75
 
 func _ready() -> void:
 	CharacterEffects.include_enemy_collision_mask(self)
@@ -179,19 +181,26 @@ func _update_collision() -> void:
 
 func _check_overlapping_enemies() -> void:
 	var areas = get_overlapping_areas()
+	areas.sort_custom(func(a, b): return _get_target_forward_distance(a) < _get_target_forward_distance(b))
 	for area in areas:
 		_on_area_entered(area)
 
+func _get_target_forward_distance(target: Node2D) -> float:
+	if target == null:
+		return INF
+	return to_local(target.global_position).x
+
 func _on_area_entered(area: Area2D) -> void:
-	if area.is_in_group("enemies"):
+	if area.is_in_group("enemies") or area.is_in_group("boss"):
 		var enemy_id = area.get_instance_id()
 		if hit_targets.has(enemy_id):
 			return
 		hit_targets[enemy_id] = true
 		
-		_deal_damage(area)
+		_deal_damage(area, pow(0.8, hit_count))
+		hit_count += 1
 
-func _deal_damage(enemy: Area2D) -> void:
+func _deal_damage(enemy: Area2D, hit_damage_multiplier: float = 1.0) -> void:
 	var dist = global_position.distance_to(enemy.global_position)
 	
 	# 法则伤害加成累加（不是乘法），避免奖励加成 × 法则加成的双重叠加
@@ -200,13 +209,17 @@ func _deal_damage(enemy: Area2D) -> void:
 	law_bonus += (Faze.get_thunder_weapon_damage_multiplier(PC.faze_thunder_level) - 1.0) # 雷鸣法则
 	var atk_base: float = maxf(1.0, float(PC.pc_atk))
 	var base_multiplier: float = damage / atk_base
+	base_multiplier += maxf(0.0, PC.thunder_break_final_damage_multi - 1.0)
 	base_multiplier += law_bonus
 	base_multiplier = SettingStudyTreeUp.apply_total_damage_bonus_to_base_multiplier_excluding(base_multiplier, "thunder_break", ["destroy", "thunder"])
 	var final_damage = float(PC.pc_atk) * base_multiplier
+	final_damage *= hit_damage_multiplier
 	
 	if enemy.get("debuff_manager") and enemy.debuff_manager.has_method("has_debuff"):
 		if enemy.debuff_manager.has_debuff("electrified"):
 			final_damage *= (1.0 + Faze.get_thunder_damage_vs_electrified_bonus(PC.faze_thunder_level))
+	if enemy.is_in_group("boss"):
+		final_damage *= BOSS_DAMAGE_MULTIPLIER
 	
 	var is_crit = false
 	
@@ -235,10 +248,6 @@ func _deal_damage(enemy: Area2D) -> void:
 	if is_crit:
 		crit_multiplier *= Faze.get_destroy_crit_fluctuation_multiplier(PC.faze_destroy_level)
 		final_damage *= crit_multiplier
-		
-	# Apply final total damage multiplier
-	if PC.thunder_break_final_damage_multi > 1.0:
-		final_damage *= PC.thunder_break_final_damage_multi
 		
 	# 应用伤害
 	if enemy.has_method("take_damage"):

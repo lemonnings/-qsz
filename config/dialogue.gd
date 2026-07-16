@@ -22,6 +22,7 @@ func setup(speaker_texture: Texture2D, text: String) -> void:
 	if sprite:
 		sprite.texture = speaker_texture
 	if dialogue_detail:
+		dialogue_detail.bbcode_enabled = true
 		dialogue_detail.text = text
 
 

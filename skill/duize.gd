@@ -9,6 +9,7 @@ static var duize_final_damage_multi: float = 1.0
 const BASE_RANGE: float = 60.0
 static var duize_range: float = BASE_RANGE
 static var duize_slow_ratio: float = 0.2
+const BOSS_DAMAGE_MULTIPLIER: float = 2.0
 
 static func reset_data() -> void:
 	main_skill_duize_damage = 0.24
@@ -47,6 +48,7 @@ static func fire_skill(scene: PackedScene, origin_pos: Vector2, tree: SceneTree)
 
 static func _find_best_target_pos(origin: Vector2, tree: SceneTree) -> Vector2:
 	var enemies = tree.get_nodes_in_group("enemies")
+	enemies.append_array(tree.get_nodes_in_group("boss"))
 	var candidates = []
 	var search_range = 150.0
 	var search_range_sq = search_range * search_range
@@ -187,7 +189,7 @@ func _process(delta: float) -> void:
 		_deal_damage_to_all()
 
 func _on_area_entered(area: Area2D) -> void:
-	if area.is_in_group("enemies"):
+	if area.is_in_group("enemies") or area.is_in_group("boss"):
 		if not enemies_in_range.has(area):
 			enemies_in_range.append(area)
 			_apply_slow(area)
@@ -196,7 +198,7 @@ func _on_area_entered(area: Area2D) -> void:
 				_apply_corrosion(area)
 
 func _on_area_exited(area: Area2D) -> void:
-	if area.is_in_group("enemies"):
+	if area.is_in_group("enemies") or area.is_in_group("boss"):
 		if enemies_in_range.has(area):
 			enemies_in_range.erase(area)
 			_remove_slow(area)
@@ -251,6 +253,8 @@ func _deal_single_damage(enemy: Area2D) -> void:
 			
 			if debuff_count > 0:
 				final_damage *= (1.0 + debuff_count * damage_per_debuff_ratio)
+	if enemy.is_in_group("boss"):
+		final_damage *= BOSS_DAMAGE_MULTIPLIER
 	
 	# 暴击
 	var is_crit = false

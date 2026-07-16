@@ -20,6 +20,7 @@ func get_kill_count() -> int:
 
 func _on_monster_killed() -> void:
 	add_kill_count(1)
+	Global.record_kill_for_dps()
 	SEManager.play("200")
 
 func parse_rect_from_func_string(rect_str: String) -> Rect2:

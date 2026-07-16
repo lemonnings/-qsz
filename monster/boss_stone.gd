@@ -1453,14 +1453,14 @@ func _on_area_entered(area: Area2D) -> void:
 		if collision_result["should_rebound"]: area.call_deferred("create_rebound")
 		if collision_result["should_delete_bullet"]: area.queue_free()
 		var raw_dmg = get_common_bullet_damage_value(collision_result["final_damage"])
-		take_damage(int(raw_dmg), collision_result["is_crit"], false, "bullet")
+		take_damage(int(raw_dmg), collision_result["is_crit"], bool(collision_result.get("is_summon_bullet", false)), "bullet")
 
 func take_damage(damage: int, is_crit: bool, is_summon: bool, damage_type: String) -> void:
 	if is_dead: return
 	# 石甲减伤：每层降低10%受到的伤害
 	var armor_reduction = 1.0 - stone_armor * 0.1
 	var adjusted_damage = max(1, int(damage * armor_reduction))
-	var res = apply_common_take_damage(adjusted_damage, is_crit, is_summon, damage_type, {"use_debuff_multiplier": false, "update_boss_hp_bar": true, "play_hit_animation": true, "randomize_popup_offset": true})
+	var res = apply_common_take_damage(adjusted_damage, is_crit, is_summon, damage_type, {"use_debuff_multiplier": false, "update_boss_hp_bar": true, "play_hit_animation": true, "randomize_popup_offset": true, "show_damage_popup": damage_type != "bullet"})
 	if res["applied"] and hp <= 0:
 		_die()
 

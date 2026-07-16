@@ -153,8 +153,8 @@ func get_total_increase_hp(level) -> String:
 
 func get_exp_for_level(level: int) -> int:
 	level = level + 1
-	var base_exp = 20
-	var increment = 12
+	var base_exp = 2
+	var increment = 1.2
 	var multiplier = 1.025
 	var exp_now = base_exp
 	for i in range(1, level):
@@ -163,8 +163,8 @@ func get_exp_for_level(level: int) -> int:
 
 func get_exp_for_level_more(level: int) -> int:
 	level = level + 1
-	var base_exp = 40
-	var increment = 30
+	var base_exp = 4
+	var increment = 3
 	var multiplier = 1.1
 	var exp_now = base_exp
 	for i in range(1, level):
@@ -173,8 +173,8 @@ func get_exp_for_level_more(level: int) -> int:
 
 func get_exp_for_level_most(level: int) -> int:
 	level = level + 1
-	var base_exp = 60
-	var increment = 40
+	var base_exp = 6
+	var increment = 4
 	var multiplier = 1.2
 	var exp_now = base_exp
 	for i in range(1, level):

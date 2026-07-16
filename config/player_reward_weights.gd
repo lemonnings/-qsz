@@ -15,7 +15,8 @@ const WEAPON_FACTIONS: Array[String] = [
 	"Branch", "Moyan", "Riyan", "RingFire", "ThunderBreak", "SwordQi",
 	"Thunder", "Bloodwave", "BloodBoardSword", "LightBullet", "Water",
 	"Qiankun", "Xuanwu", "Xunfeng", "Genshan", "Duize", "Qigong",
-	"HolyLight", "Ice", "DragonWind", "Zhuazhuajuchui", "Yujian"
+	"HolyLight", "Ice", "DragonWind", "Zhuazhuajuchui", "SoulSickle",
+	"ThunderGun", "Yujian"
 ]
 
 const WEAPON_LAWS: Dictionary = {
@@ -40,10 +41,13 @@ const WEAPON_LAWS: Dictionary = {
 	"Ice": ["destroy", "bullet"],
 	"DragonWind": ["treasure", "wind"],
 	"Zhuazhuajuchui": ["deep", "blood"],
+	"SoulSickle": ["shehun", "deep"],
+	"ThunderGun": ["thunder", "shehun"],
 	"Yujian": ["summon"],
 }
 
 const WEAPON_UPGRADE_LAW_DECAY_PER_COUNT: float = 0.05
+const WEAPON_UPGRADE_LAW_DECAY_MIN_MULTIPLIER: float = 0.5
 const NEW_WEAPON_LAW_COUNT_2_MULTIPLIER: float = 0.8
 const NEW_WEAPON_LAW_COUNT_3_MULTIPLIER: float = 0.3
 const NEW_WEAPON_LAW_COUNT_4_PLUS_MULTIPLIER: float = 0.1
@@ -56,9 +60,9 @@ const C_BASE_WEIGHTS: Dictionary = {
 	"Normal": 70.0,
 	"Live": 30.0,
 	"Debuff": 15.0,
-	"Summon": 20.0,
+	"Summon": 18.0,
 	"Lucky": 20.0,
-	"Six": 12.0
+	"Six": 7.0
 }
 
 # 需要修习树解锁的武器派系 → 对应的 Global 解锁变量名
@@ -79,13 +83,26 @@ const HERO_UNLOCK_MAP: Dictionary = {
 	"Ice": "unlock_kansel",
 }
 
+const ACHIEVEMENT_UNLOCK_MAP: Dictionary = {
+	"SoulSickle": "ach_158",
+}
+
 func _init():
 	print("PlayerRewardWeights initialized.")
 	reset_all_weights()
 
-# 检查某武器派系是否可用。当前版本所有武器默认解锁，不再由修习树或角色解锁门槛控制。
-func is_faction_study_unlocked(_faction: String) -> bool:
+# 检查某武器派系是否可用。部分后期武器需要先完成对应成就才会进入局内刷新池。
+func is_faction_study_unlocked(faction: String) -> bool:
+	var normalized_faction := _normalize_weapon_faction(faction)
+	if ACHIEVEMENT_UNLOCK_MAP.has(normalized_faction):
+		return _is_achievement_unlocked(str(ACHIEVEMENT_UNLOCK_MAP[normalized_faction]))
 	return true
+
+func _is_achievement_unlocked(achievement_id: String) -> bool:
+	var achievement_manager = get_node_or_null("/root/AchievementManager")
+	if achievement_manager != null and achievement_manager.has_method("is_unlocked"):
+		return bool(achievement_manager.call("is_unlocked", achievement_id))
+	return false
 
 # 返回当前修习树已解锁的武器派系列表（未解锁的武器不参与权重计算）
 func get_available_weapon_factions() -> Array[String]:
@@ -154,7 +171,7 @@ func apply_summon_level_up_decay() -> void:
 func get_owned_weapon_factions() -> Array[String]:
 	var owned: Array[String] = []
 	var sr = PC.selected_rewards
-	for faction in WEAPON_FACTIONS:
+	for faction in get_available_weapon_factions():
 		if not is_faction_study_unlocked(faction):
 			continue
 		# 检查 selected_rewards 中是否有该派系（注意大小写需与 reward 函数 append 的一致）
@@ -193,7 +210,7 @@ func _get_weapon_upgrade_law_decay_multiplier(faction: String) -> float:
 		var count := int(PC.weapon_upgrade_law_decay_counts.get(law, 0))
 		if count > 0:
 			decay += WEAPON_UPGRADE_LAW_DECAY_PER_COUNT * float(count)
-	return maxf(0.0, 1.0 - decay)
+	return maxf(WEAPON_UPGRADE_LAW_DECAY_MIN_MULTIPLIER, 1.0 - decay)
 
 func _get_owned_weapon_law_counts(owned_weapons: Array[String]) -> Dictionary:
 	var counts: Dictionary = {}
@@ -227,6 +244,10 @@ func _normalize_weapon_faction(faction: String) -> String:
 			return "DragonWind"
 		"zhuazhuajuchui", "zhuazhuachui":
 			return "Zhuazhuajuchui"
+		"soulsickle", "soul_sickle", "shihunlian":
+			return "SoulSickle"
+		"thundergun", "thunder_gun", "leihunqiang":
+			return "ThunderGun"
 	for weapon in WEAPON_FACTIONS:
 		if weapon.to_lower() == lower:
 			return weapon
@@ -249,9 +270,9 @@ func get_level_up_weights(rarity: String) -> Dictionary:
 
 	if rarity == "darkorchid":
 		if weapon_count <= 1:
-			new_weapon_total = 100.0
+			new_weapon_total = 80.0
 			weapon_upgrade_total = 0.0
-			other_total = 0.0
+			other_total = 20.0
 		else:
 			new_weapon_total = 60.0
 			weapon_upgrade_total = 5.0
@@ -265,11 +286,11 @@ func get_level_up_weights(rarity: String) -> Dictionary:
 		new_weapon_total = 0.0
 		# 根据武器数量动态调整武器升级权重
 		if weapon_count <= 1:
-			weapon_upgrade_total = 4
+			weapon_upgrade_total = 6
 		elif weapon_count == 2:
-			weapon_upgrade_total = 8.5
+			weapon_upgrade_total = 9
 		elif weapon_count == 3:
-			weapon_upgrade_total = 13.5
+			weapon_upgrade_total = 13
 		elif weapon_count == 4:
 			weapon_upgrade_total = 18
 		else:
@@ -285,14 +306,17 @@ func get_level_up_weights(rarity: String) -> Dictionary:
 	# 权重B：已有武器按武器系升级加成分配总权重
 	if weapon_count > 0:
 		var weighted_sum := 0.0
+		var faction_multipliers: Dictionary = {}
 		for faction in owned_weapons:
 			var faction_multiplier := _get_weapon_upgrade_law_bonus_multiplier(faction) * _get_weapon_upgrade_law_decay_multiplier(faction)
+			faction_multipliers[faction] = faction_multiplier
 			weighted_sum += faction_multiplier
 		if weighted_sum <= 0.0:
-			weighted_sum = float(weapon_count)
-		for faction in owned_weapons:
-			var faction_multiplier := _get_weapon_upgrade_law_bonus_multiplier(faction) * _get_weapon_upgrade_law_decay_multiplier(faction)
-			result[faction] = weapon_upgrade_total * faction_multiplier / weighted_sum
+			for faction in owned_weapons:
+				result[faction] = weapon_upgrade_total / float(weapon_count)
+		else:
+			for faction in owned_weapons:
+				result[faction] = weapon_upgrade_total * float(faction_multipliers.get(faction, 0.0)) / weighted_sum
 
 	# 权重A：未拥有且已解锁的武器按已拥有法则密度分配新武器总权重
 	var available_factions: Array[String] = get_available_weapon_factions()

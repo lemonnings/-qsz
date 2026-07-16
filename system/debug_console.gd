@@ -11,6 +11,8 @@ extends CanvasLayer
 ##   mapmech_min     — 将当前关卡的 map_mechanism_num 重置为 0
 ##   boss            — 立即进入当前关卡的 Boss 阶段
 ##   test            — 进入 DPS 测试场景
+##   guide           — 解锁全部万象录图鉴
+##   deguide         — 清空全部万象录图鉴
 ##   mobile          — 切换为移动设备输入模式
 ##   pc              — 切换为 PC 输入模式
 
@@ -123,6 +125,9 @@ func _execute(cmd: String) -> void:
 		_log_append("")
 		_log_append("[color=yellow]test[/color]            — 进入 DPS 测试场景")
 		_log_append("")
+		_log_append("[color=yellow]guide[/color]           — 解锁全部万象录图鉴")
+		_log_append("[color=yellow]deguide[/color]         — 清空全部万象录图鉴")
+		_log_append("")
 		_log_append("[color=yellow]mobile[/color]          — 切换为移动设备输入模式")
 		_log_append("[color=yellow]pc[/color]              — 切换为 PC 输入模式")
 		_log_append("")
@@ -137,6 +142,24 @@ func _execute(cmd: String) -> void:
 		_visible = false
 		visible = false
 		SceneChange.change_scene("res://Scenes/level/dps_test.tscn", true)
+		return
+
+	if normalized_cmd == "guide":
+		var guide_manager := _get_guide_manager()
+		if guide_manager != null and guide_manager.has_method("debug_unlock_all_entries"):
+			var count := int(guide_manager.call("debug_unlock_all_entries"))
+			_log_append("[color=green]万象录已全部解锁（%d 条）[/color]" % count)
+		else:
+			_log_append("[color=red]未找到 GuideManager.debug_unlock_all_entries()[/color]")
+		return
+
+	if normalized_cmd == "deguide":
+		var guide_manager := _get_guide_manager()
+		if guide_manager != null and guide_manager.has_method("debug_clear_all_entries"):
+			var count := int(guide_manager.call("debug_clear_all_entries"))
+			_log_append("[color=green]万象录已全部设为未解锁（清空 %d 条）[/color]" % count)
+		else:
+			_log_append("[color=red]未找到 GuideManager.debug_clear_all_entries()[/color]")
 		return
 
 	if cmd == "boss":
@@ -258,6 +281,12 @@ func _get_current_stage():
 	if not tree or not tree.current_scene:
 		return null
 	return tree.current_scene
+
+func _get_guide_manager() -> Node:
+	var tree := get_tree()
+	if tree == null or tree.root == null:
+		return null
+	return tree.root.get_node_or_null("GuideManager")
 
 func _log_append(bbcode: String) -> void:
 	_log.append_text(bbcode + "\n")

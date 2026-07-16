@@ -90,7 +90,7 @@ const TOWN_NPC_KEY_ALIASES := {
 
 const TOWN_NPC_DIALOGS := {
 	"npc_kan_1": [
-		{"dialog": "今日铺子开张，灵石、材料、丹药都擦得亮亮的~"},
+		{"dialog": "今日铺子开张，灵石、材料、丹药都擦得亮亮的!"},
 	],
 	"npc_kan_2": [
 		{"dialog": "我卖的东西贵吗？不贵不贵，贵的是机缘啦~"},
@@ -110,7 +110,7 @@ const TOWN_NPC_DIALOGS := {
 		{"dialog": "天赋修炼讲究顺势而为，根基稳了，后面的路才不易偏。"},
 	],
 	"npc_kun_2": [
-		{"dialog": "修行急不得。今日多悟一分，明日便少走一步弯路。"},
+		{"dialog": "修行急不得。当下每多打坐修行一刻，未来便可少走一步弯路。"},
 	],
 	"npc_kun_3": [
 		{"dialog": "能走多远，还要看心性。"},

@@ -5,7 +5,8 @@ class_name Zhuazhuajuchui
 @export var collision_shape: CollisionShape2D
 @export var search_radius: float = 120.0
 
-const BASE_DAMAGE_RATIO: float = 0.80
+const BASE_DAMAGE_RATIO: float = 0.72
+const BOSS_DAMAGE_MULTIPLIER: float = 2.0
 const BASE_KNOCKBACK: float = 12.0
 const VULNERABLE_DURATION: float = 5.0
 const DEFAULT_HIT_TIME: float = 0.25
@@ -68,7 +69,7 @@ func _ready() -> void:
 		collision_shape.set_deferred("disabled", false)
 	damage_active = true
 	await get_tree().create_timer(float(cached_attack_data.get("hit_time", DEFAULT_HIT_TIME))).timeout
-	GU.screen_shake(1.2, 0.08)
+	GU.screen_shake(1.45, 0.08)
 	damage_active = false
 	if collision_shape != null:
 		collision_shape.set_deferred("disabled", true)
@@ -104,6 +105,8 @@ func _build_attack_data() -> Dictionary:
 		vulnerable_damage_bonus = 0.30
 		vulnerable_knockback_bonus = 8.0
 	
+	damage_ratio += Faze.get_blood_weapon_damage_multiplier(PC.faze_blood_level) - 1.0
+	
 	var empowered := PC.selected_rewards.has("Zhuazhuajuchui3") and zhuazhuajuchui_slam_count % 3 == 0
 	if empowered:
 		var empowered_bonus := 1.00 if PC.selected_rewards.has("Zhuazhuajuchui33") else 0.50
@@ -113,7 +116,6 @@ func _build_attack_data() -> Dictionary:
 		knockback *= 1.0 + empowered_knockback_bonus
 		position_offset = EMPOWERED_POSITION_OFFSET
 	
-	damage_ratio += Faze.get_deep_weapon_damage_bonus(PC.faze_deep_level)
 	knockback *= Faze.get_deep_knockback_multiplier(PC.faze_deep_level)
 	knockback *= PC.get_knockback_multiplier()
 	var damage := float(PC.pc_atk) * damage_ratio * custom_damage_multiplier
@@ -121,6 +123,7 @@ func _build_attack_data() -> Dictionary:
 	
 	return {
 		"damage": damage,
+		"deep_base_damage": damage,
 		"knockback": knockback,
 		"range_multiplier": range_multiplier,
 		"apply_vulnerable": apply_vulnerable,
@@ -215,9 +218,12 @@ func _apply_damage(attack_data: Dictionary) -> void:
 			continue
 		hit_targets[area_id] = true
 		var damage := float(attack_data.get("damage", 0.0))
+		var deep_base_damage := float(attack_data.get("deep_base_damage", damage))
 		var is_vulnerable := _has_debuff(area, "vulnerable")
 		if is_vulnerable:
 			damage *= 1.0 + float(attack_data.get("vulnerable_damage_bonus", 0.0))
+		if area.is_in_group("boss"):
+			damage *= BOSS_DAMAGE_MULTIPLIER
 		var is_crit := false
 		if randf() < PC.crit_chance:
 			is_crit = true
@@ -230,10 +236,10 @@ func _apply_damage(attack_data: Dictionary) -> void:
 			knockback += float(attack_data.get("vulnerable_knockback_bonus", 0.0))
 		var is_boss := area.is_in_group("boss")
 		if is_boss:
-			Faze.apply_deep_displacement_damage(area, damage, knockback, "zhuazhuajuchui")
+			Faze.apply_deep_displacement_damage(area, deep_base_damage, knockback, "zhuazhuajuchui")
 		else:
 			_apply_knockback(area, knockback)
-			Faze.apply_deep_displacement_damage(area, damage, knockback, "zhuazhuajuchui")
+			Faze.apply_deep_displacement_damage(area, deep_base_damage, knockback, "zhuazhuajuchui")
 		HitParticleSpawner.spawn_by_weapon(get_tree(), area.global_position, "zhuazhuajuchui")
 
 func _apply_knockback(target: Node2D, knockback: float) -> void:

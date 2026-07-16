@@ -152,9 +152,13 @@ func _get_player_spawn_safe_position(candidate: Vector2, reroll_callable: Callab
 	var player_pos: Vector2 = _get_current_player_position()
 	if player_pos == Vector2.INF:
 		return candidate
+	if _is_position_outside_camera_view(candidate):
+		return candidate
 	var resolved: Vector2 = candidate
 	if reroll_callable.is_valid():
 		for i in range(PLAYER_SPAWN_SAFE_REROLL_ATTEMPTS):
+			if _is_position_outside_camera_view(resolved):
+				return resolved
 			if resolved.distance_squared_to(player_pos) >= PLAYER_SPAWN_SAFE_RADIUS_SQ:
 				return resolved
 			var next_candidate: Variant = reroll_callable.call()
@@ -166,6 +170,14 @@ func _get_player_spawn_safe_position(candidate: Vector2, reroll_callable: Callab
 	if from_player.length_squared() < 0.0001:
 		from_player = Vector2.RIGHT
 	return player_pos + from_player.normalized() * PLAYER_SPAWN_SAFE_RADIUS
+
+func _is_position_outside_camera_view(position: Vector2, margin: float = 8.0) -> bool:
+	var player := $Player as Node2D
+	var camera := (player.get_node_or_null("Camera2D") as Camera2D) if player != null else null
+	var visible_rect := _get_camera_visible_rect(camera)
+	if visible_rect.size == Vector2.ZERO:
+		return false
+	return not visible_rect.grow(margin).has_point(position)
 
 func _get_current_player_position() -> Vector2:
 	if PC.player_instance != null and is_instance_valid(PC.player_instance):
@@ -222,6 +234,8 @@ func _ready() -> void:
 		_apply_poetry_init()
 		if $Player.has_method("_update_start_weapon_timers"):
 			$Player.call("_update_start_weapon_timers")
+	if $Player.has_method("activate_current_weapon_runtimes_after_stage_ready"):
+		$Player.call_deferred("activate_current_weapon_runtimes_after_stage_ready")
 
 	# 连接关卡特定信号
 	Global.connect("boss_defeated", Callable(self , "_on_boss_defeated"))
@@ -417,9 +431,14 @@ func _apply_poetry_weapon_damage_bonus(w_id: String, level: int) -> void:
 			DragonWind.dragonwind_final_damage_multi += bonus
 			PC.main_skill_dragonwind_damage = DragonWind.dragonwind_final_damage_multi
 		"Qigong":
-			Qigong.main_skill_qigong_damage += bonus
+			PC.main_skill_qigong_damage += bonus
+			Qigong.sync_reward_modifiers()
 		"Zhuazhuajuchui":
 			ZHUAZHUAJUCHUI_SCRIPT.main_skill_zhuazhuajuchui_damage += bonus
+		"SoulSickle":
+			PC.main_skill_soul_sickle_damage += bonus
+		"ThunderGun":
+			PC.main_skill_thunder_gun_damage += bonus
 
 func _normalize_poetry_weapon_id(w_id: String) -> String:
 	match str(w_id):
@@ -640,6 +659,7 @@ func _check_level_up() -> void:
 # ============== Boss事件 ==============
 func _trigger_boss_event() -> void:
 	print("Boss event triggered!")
+	_record_guide_boss_seen()
 	monster_spawn_timer.stop()
 	if _corrupted_elite_timer != null and is_instance_valid(_corrupted_elite_timer):
 		_corrupted_elite_timer.stop()
@@ -652,6 +672,11 @@ func _trigger_boss_event() -> void:
 	layer_ui.play_warning_animation()
 
 	_on_warning_finished()
+
+func _record_guide_boss_seen() -> void:
+	var guide_manager = get_node_or_null("/root/GuideManager")
+	if guide_manager != null and guide_manager.has_method("record_boss_seen"):
+		guide_manager.record_boss_seen(STAGE_ID)
 
 func debug_enter_boss_phase() -> bool:
 	if boss_event_triggered:
@@ -786,6 +811,9 @@ func _spawn_corrupted_elite() -> void:
 	if monster_node.get("move_direction") != null:
 		monster_node.set("move_direction", 2)
 	get_tree().current_scene.add_child(monster_node)
+	var guide_manager = get_node_or_null("/root/GuideManager")
+	if guide_manager != null and guide_manager.has_method("record_enemy_seen"):
+		guide_manager.record_enemy_seen(monster_id, STAGE_ID, spawn_data.get("is_special_enemy", not BASIC_TYPES.has(spawn_type)) == true)
 	_mark_spirit_enemy_type(monster_node, spawn_data.get("is_special_enemy", not BASIC_TYPES.has(spawn_type)) == true)
 	_make_corrupted_elite(monster_node, monster_id)
 	_apply_dynamic_hp_reduction(monster_node)
@@ -856,7 +884,7 @@ func _get_corrupted_elite_spawn_position() -> Vector2:
 	var camera := (player.get_node_or_null("Camera2D") as Camera2D) if player != null else null
 	var visible_rect := _get_camera_visible_rect(camera)
 	if visible_rect.size == Vector2.ZERO:
-		var viewport_size := get_viewport().get_visible_rect().size
+		var viewport_size := _get_safe_viewport_size()
 		visible_rect = Rect2(player.global_position - viewport_size * 0.5, viewport_size) if player != null else Rect2(Vector2(-320.0, -180.0), Vector2(640.0, 360.0))
 	var edge := randi_range(0, 3)
 	var spawn_position := Vector2.ZERO
@@ -915,6 +943,7 @@ func _update_wave_monster_limit() -> void:
 	if PC.selected_rewards.has("SSR53"): extra_mult += 0.12
 	elif PC.selected_rewards.has("SR53"): extra_mult += 0.08
 	elif PC.selected_rewards.has("R53"): extra_mult += 0.05
+	extra_mult += Faze.get_shehun_enemy_count_bonus(PC.faze_shehun_level)
 
 	max_monster_limit = int(base_limit * (1.0 + extra_mult))
 
@@ -1063,7 +1092,20 @@ func _on_elite_monster_tree_exiting() -> void:
 func add_kill_rewards(monster_node: Node, point_gain: int) -> void:
 	point += point_gain
 	Global.total_points += point_gain
-	add_spirit(_calculate_spirit_gain(monster_node) + PC.get_kill_spirit_bonus())
+	add_spirit(_calculate_spirit_gain(monster_node) + PC.get_kill_spirit_bonus() + _get_weapon_extra_spirit(monster_node))
+
+func _get_soul_sickle_extra_spirit(monster_node: Node) -> float:
+	if monster_node == null:
+		return 0.0
+	return float(monster_node.get_meta("soul_sickle_extra_spirit", 0))
+
+func _get_weapon_extra_spirit(monster_node: Node) -> float:
+	if monster_node == null:
+		return 0.0
+	return maxf(
+		float(monster_node.get_meta("soul_sickle_extra_spirit", 0)),
+		float(monster_node.get_meta("weapon_extra_spirit", 0))
+	)
 
 func add_spirit(amount: float) -> void:
 	if amount <= 0:
@@ -1160,7 +1202,7 @@ func _spawn_core_missile_wave() -> void:
 	var camera := player.get_node_or_null("Camera2D") as Camera2D
 	var visible_rect := _get_camera_visible_rect(camera)
 	if visible_rect.size == Vector2.ZERO:
-		var viewport_size := get_viewport().get_visible_rect().size
+		var viewport_size := _get_safe_viewport_size()
 		visible_rect = Rect2(player.global_position - viewport_size * 0.5, viewport_size)
 	var missile_count := randi_range(CORE_MISSILE_MIN_COUNT, CORE_MISSILE_MAX_COUNT)
 	var used_edges: Array[int] = []
@@ -1246,7 +1288,7 @@ func _get_camera_limit_rect(camera: Camera2D) -> Rect2:
 func _get_camera_visible_rect(camera: Camera2D) -> Rect2:
 	if camera == null:
 		return Rect2(Vector2.ZERO, Vector2.ZERO)
-	var viewport_size := get_viewport().get_visible_rect().size
+	var viewport_size := _get_safe_viewport_size()
 	var zoom_value := camera.zoom
 	var half_size := Vector2(
 		viewport_size.x / max(zoom_value.x, 0.01),
@@ -1255,16 +1297,24 @@ func _get_camera_visible_rect(camera: Camera2D) -> Rect2:
 	var center := camera.get_screen_center_position()
 	return Rect2(center - half_size, half_size * 2.0)
 
+func _get_safe_viewport_size() -> Vector2:
+	var viewport := get_viewport()
+	if viewport == null:
+		return Vector2(640.0, 360.0)
+	return viewport.get_visible_rect().size
+
 func _get_monster_spawn_position_for_edge(edge: int, fallback_position: Vector2) -> Vector2:
 	var player := $Player as Node2D
 	var camera := (player.get_node_or_null("Camera2D") as Camera2D) if player != null else null
 	var visible_rect := _get_camera_visible_rect(camera)
 	if camera == null or visible_rect.size == Vector2.ZERO:
 		return fallback_position
-	var limit_rect := Rect2(
-		Vector2(float(camera.limit_left), float(camera.limit_top)),
-		Vector2(float(camera.limit_right - camera.limit_left), float(camera.limit_bottom - camera.limit_top))
-	)
+	var limit_rect := _get_scene_boundary_rect()
+	if limit_rect.size.x <= 1.0 or limit_rect.size.y <= 1.0:
+		limit_rect = Rect2(
+			Vector2(float(camera.limit_left), float(camera.limit_top)),
+			Vector2(float(camera.limit_right - camera.limit_left), float(camera.limit_bottom - camera.limit_top))
+		)
 	if limit_rect.size.x <= 1.0 or limit_rect.size.y <= 1.0:
 		return fallback_position
 	var left := limit_rect.position.x
@@ -1273,24 +1323,16 @@ func _get_monster_spawn_position_for_edge(edge: int, fallback_position: Vector2)
 	var bottom := limit_rect.position.y + limit_rect.size.y
 	match edge:
 		0:
-			var spawn_y := visible_rect.position.y - MONSTER_SPAWN_OFFSCREEN_MARGIN
-			if spawn_y < top:
-				return fallback_position
+			var spawn_y := clampf(visible_rect.position.y - MONSTER_SPAWN_OFFSCREEN_MARGIN, top, bottom)
 			return Vector2(clamp(fallback_position.x, left, right), spawn_y)
 		1:
-			var spawn_y := visible_rect.position.y + visible_rect.size.y + MONSTER_SPAWN_OFFSCREEN_MARGIN
-			if spawn_y > bottom:
-				return fallback_position
+			var spawn_y := clampf(visible_rect.position.y + visible_rect.size.y + MONSTER_SPAWN_OFFSCREEN_MARGIN, top, bottom)
 			return Vector2(clamp(fallback_position.x, left, right), spawn_y)
 		2:
-			var spawn_x := visible_rect.position.x - MONSTER_SPAWN_OFFSCREEN_MARGIN
-			if spawn_x < left:
-				return fallback_position
+			var spawn_x := clampf(visible_rect.position.x - MONSTER_SPAWN_OFFSCREEN_MARGIN, left, right)
 			return Vector2(spawn_x, clamp(fallback_position.y, top, bottom))
 		_:
-			var spawn_x := visible_rect.position.x + visible_rect.size.x + MONSTER_SPAWN_OFFSCREEN_MARGIN
-			if spawn_x > right:
-				return fallback_position
+			var spawn_x := clampf(visible_rect.position.x + visible_rect.size.x + MONSTER_SPAWN_OFFSCREEN_MARGIN, left, right)
 			return Vector2(spawn_x, clamp(fallback_position.y, top, bottom))
 
 func _random_point_in_rect(rect: Rect2) -> Vector2:
@@ -1524,7 +1566,7 @@ func _update_qi_vortex_indicator() -> void:
 		qi_vortex_indicator.visible = false
 		qi_vortex_indicator.modulate.a = QI_VORTEX_INDICATOR_ALPHA
 		return
-	var viewport_size := get_viewport().get_visible_rect().size
+	var viewport_size := _get_safe_viewport_size()
 	var zoom_value := camera.zoom
 	var target_screen_pos := Vector2(
 		(active_qi_vortex.global_position.x - visible_rect.position.x) * max(zoom_value.x, 0.01),
@@ -1595,6 +1637,7 @@ func _mark_spirit_enemy_type(monster_node: Node, is_special_enemy: bool) -> void
 func _register_spawned_monster(monster_node: Node, is_special_enemy: bool, allow_elite: bool = true, connect_other_type_counter: bool = false) -> void:
 	if monster_node == null:
 		return
+	_record_guide_enemy_seen(monster_node, is_special_enemy)
 	_mark_spirit_enemy_type(monster_node, is_special_enemy)
 	if allow_elite:
 		_try_make_elite(monster_node)
@@ -1608,6 +1651,30 @@ func _register_spawned_monster(monster_node: Node, is_special_enemy: bool, allow
 	monster_node.connect("tree_exiting", Callable(self, "_on_monster_defeated"))
 	if connect_other_type_counter:
 		monster_node.connect("tree_exiting", Callable(self, "_on_other_type_monster_tree_exiting"))
+
+func _record_guide_enemy_seen(monster_node: Node, is_special_enemy: bool) -> void:
+	var guide_manager = get_node_or_null("/root/GuideManager")
+	if guide_manager == null or not guide_manager.has_method("record_enemy_seen"):
+		return
+	var monster_id := _get_monster_node_guide_id(monster_node)
+	if monster_id.is_empty():
+		return
+	guide_manager.record_enemy_seen(monster_id, STAGE_ID, is_special_enemy)
+
+func _get_monster_node_guide_id(monster_node: Node) -> String:
+	if monster_node == null:
+		return ""
+	if monster_node.has_meta("corrupted_elite_monster_id"):
+		return str(monster_node.get_meta("corrupted_elite_monster_id", ""))
+	var scene_path := str(monster_node.scene_file_path)
+	if not scene_path.is_empty():
+		return scene_path.get_file().get_basename()
+	var script: Script = monster_node.get_script() as Script
+	if script != null:
+		var script_path := str(script.resource_path)
+		if not script_path.is_empty():
+			return script_path.get_file().get_basename()
+	return monster_node.name
 
 ## 尝试将怪物升级为精英怪（2%概率）
 func _try_make_elite(monster_node: Node) -> void:
@@ -1775,6 +1842,19 @@ func _get_boss_defeat_elapsed_time() -> float:
 		return Global.stage_boss_fight_time
 	return PC.real_time
 
+func _get_ten_step_deadline_seconds() -> float:
+	var difficulty_id := Global.validate_stage_difficulty_id(Global.current_stage_difficulty)
+	match difficulty_id:
+		Global.STAGE_DIFFICULTY_DEEP:
+			return 425.0 + 10.0
+		Global.STAGE_DIFFICULTY_CORE:
+			return 485.0 + 10.0
+		_:
+			return 365.0 + 10.0
+
+func _is_ten_step_boss_killed() -> bool:
+	return PC.real_time <= _get_ten_step_deadline_seconds()
+
 func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 	if not PC.is_game_over:
 		# 标记游戏结束状态，防止后续逻辑触发
@@ -1792,7 +1872,8 @@ func _on_boss_defeated(_get_point: int, boss_position: Vector2):
 			Global.get_highest_dps(),
 			battle_lost_hp,
 			point,
-			spirit
+			spirit,
+			_is_ten_step_boss_killed()
 		)
 		AchievementManager.record_stage_result(victory_snapshot)
 		

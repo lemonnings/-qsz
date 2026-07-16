@@ -4,11 +4,14 @@ extends Node
 const CONFIG_PATH = "user://game_config.cfg"
 const SaveCrypto := preload("res://Script/system/save_crypto.gd")
 const LINGSHI_ITEM_ID := "item_084"
+const JIUYOU_KEY_ITEM_ID := "item_006"
 const INITIAL_REFRESH_BASE_NUM: int = 2
 const LEGACY_INITIAL_REFRESH_BASE_NUM: int = 5
 const REFRESH_BASE_VERSION: int = 2
+const ZHENQI_ECONOMY_VERSION: int = 2
+const ZHENQI_ECONOMY_SCALE: float = 0.1
 
-const DEBUG_F1_ZHENQI_AMOUNT := 1000000
+const DEBUG_F1_ZHENQI_AMOUNT := 100000
 var DEBUG_COMMANDS_ENABLED: bool = false
 
 const INPUT_DEVICE_MODE_PC: String = "pc"
@@ -19,6 +22,7 @@ var is_test: bool = false
 var time_slow_enabled: bool = false
 var is_debug: bool = true
 var input_device_mode: String = INPUT_DEVICE_MODE_PC
+var _mobile_input_restore_request_id: int = 0
 
 # 战斗速度倍率（由速度切换按钮控制）
 var game_speed: float = 1.0
@@ -48,6 +52,16 @@ const STAGE_DIFFICULTY_LIST := [
 	STAGE_DIFFICULTY_CORE,
 	STAGE_DIFFICULTY_POETRY
 ]
+const STAGE_BOSS_MODIFIER_DELAY_SECONDS: float = 15.0
+const STAGE_BOSS_MODIFIER_STEP_SECONDS: float = 5.0
+const STAGE_BOSS_PLAYER_MODIFIER_BASE_BONUS: float = 0.05
+const STAGE_BOSS_DAMAGE_MODIFIER_BASE_BONUS: float = 0.02
+const STAGE_BOSS_MODIFIER_STEP_BONUS: float = 0.01
+const STAGE_BOSS_MODIFIER_START_TIMES := {
+	STAGE_DIFFICULTY_SHALLOW: 360.0,
+	STAGE_DIFFICULTY_DEEP: 420.0,
+	STAGE_DIFFICULTY_CORE: 480.0
+}
 
 # 关卡ID列表。
 # 关卡列表，包含正式关卡与已开放的秘境关卡。
@@ -138,9 +152,9 @@ const POETRY_BOSS_HP_OUTPUT_SCALE := 900.0
 const POETRY_BOSS_HP_FINAL_MULTIPLIER := 0.95
 const POETRY_BOSS_HP_FACTORS := {
 	"boss_a": 0.81,
-	"boss_stone": 0.6525,
-	"boss_cansel": 0.63,
-	"boss_stele": 1.17
+	"boss_stone": 0.8525,
+	"boss_cansel": 0.73,
+	"boss_stele": 1.37
 }
 const DEFAULT_START_WEAPON_BY_HERO := {
 	"moning": "Qigong",
@@ -187,6 +201,7 @@ const FAZE_LEVEL_PROPERTIES := [
 	"faze_bagua_level",
 	"faze_treasure_level",
 	"faze_deep_level",
+	"faze_shehun_level",
 	"faze_chaos_level",
 	"faze_skill_level",
 	"faze_sixsense_level",
@@ -272,7 +287,7 @@ var equipment_manager = preload("res://Script/config/equipment_manager.gd").new(
 # 经验光点系统
 var exp_orb_system = preload("res://Script/system/exp_orb_system.gd").new()
 
-@export var total_points: int = 1000
+@export var total_points: int = 100
 
 @export var unlock_moning: bool = true
 @export var unlock_yiqiu: bool = true
@@ -315,7 +330,7 @@ var player_inventory: Dictionary = {}
 @export var lingshi: int = 0
 @export var shop_level: int = 1
 @export var shop_battle_refresh_count: int = 0
-@export var shop_lingshi_unit_price: int = 50
+@export var shop_lingshi_unit_price: float = 5.0
 
 # 仅在当前存档第一次进入货摊时自动刷新一次
 @export var shop_first_entered: bool = false
@@ -391,8 +406,8 @@ var stage_boss_fight_time: float = 0.0
 @export var lunky_level: int = 1
 @export var red_p: float = 0.2
 @export var gold_p: float = 4
-@export var darkorchid_p: float = 25.5
-@export var blue_p: float = 70
+@export var darkorchid_p: float = 20.5
+@export var blue_p: float = 75
 
 # 刷新次数
 @export var refresh_max_num: int = INITIAL_REFRESH_BASE_NUM
@@ -458,6 +473,9 @@ var stage_boss_fight_time: float = 0.0
 @export var study_bagua_damage_bonus: float = 0.0 # 八卦系
 @export var study_heal_damage_bonus: float = 0.0 # 治愈系
 @export var study_treasure_damage_bonus: float = 0.0 # 宝器系
+@export var study_blood_damage_bonus: float = 0.0 # 浴血系
+@export var study_deep_damage_bonus: float = 0.0 # 沉渊系
+@export var study_shehun_damage_bonus: float = 0.0 # 摄魂系
 
 # ---- 修习树 · 武器解锁标记 ----
 @export var study_unlock_qiankun: bool = true # 乾坤双剑
@@ -710,6 +728,7 @@ signal level_up_selection_complete
 signal manual_level_up_pending
 @warning_ignore("unused_signal")
 signal mobile_input_reset_requested
+signal mobile_input_restore_requested
 @warning_ignore("unused_signal")
 signal player_heal
 @warning_ignore("unused_signal")
@@ -812,6 +831,10 @@ signal skill_cooldown_complete_dragonwind(skill_id)
 @warning_ignore("unused_signal")
 signal skill_cooldown_complete_zhuazhuajuchui(skill_id)
 @warning_ignore("unused_signal")
+signal skill_cooldown_complete_soul_sickle(skill_id)
+@warning_ignore("unused_signal")
+signal skill_cooldown_complete_thunder_gun(skill_id)
+@warning_ignore("unused_signal")
 signal riyan_damage_triggered
 @warning_ignore("unused_signal")
 signal ringFire_damage_triggered
@@ -839,12 +862,15 @@ signal input_device_mode_changed(mode: String)
 # --------------------------
 # --- DPS 计数逻辑 ---
 const DPS_WINDOW_SECONDS: int = 30
+const DPS_SINGLE_TARGET_KILL_COUNT_EXPONENT: float = 0.65
+const DPS_TEST_MIN_DISPLAY_SECONDS: float = 1.0
 const DPS_DETAIL_CATEGORY_WEAPON: String = "weapon"
 const DPS_DETAIL_CATEGORY_DEBUFF: String = "debuff"
 const DPS_DETAIL_CATEGORY_ACTIVE_SKILL: String = "active_skill"
 const DPS_DETAIL_CATEGORY_FAZE: String = "faze"
 const DPS_DETAIL_CATEGORY_OTHER: String = "other"
 const DPS_DETAIL_DEFAULT_ICON: String = "res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianqi.png"
+const DPS_DETAIL_OTHER_ICON: String = "res://AssetBundle/Sprites/Sprite sheets/skillIcon/suming.png"
 const DPS_DETAIL_DEBUFF_SOURCES: Dictionary = {
 	"burn": {"name": "燃烧", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/zhuoshao.png"},
 	"electrified": {"name": "感电", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/lilei.png"},
@@ -861,7 +887,12 @@ const DPS_DETAIL_ACTIVE_SKILL_SOURCES: Dictionary = {
 	"beastify": {"name": "兽化", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shouhua.png"},
 	"destructive_hammer": {"name": "破坏圣锤", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/juchui.png"},
 	"zhuazhuajuchui": {"name": "爪爪巨锤", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/zhuazhuachui.png"},
-	"summon": {"name": "召唤物", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/zhaohuan.png"},
+	"soul_sickle": {"name": "噬魂镰", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shihunlian.png"},
+	"thunder_gun": {"name": "雷魂枪", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_thunder.png"},
+	"summon": {"name": "唤物", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/huanwu.png"},
+	"reflection": {"name": "反伤", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/tiegu.png"},
+	"hp_regen": {"name": "生命恢复", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shengshengbuxi.png"},
+	"pain_relief": {"name": "痛楚减弱", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/shanghen.png"},
 }
 const ACTIVE_SKILL_STUDY_LEVEL_NODES: Dictionary = {
 	"mizongbu": "skill2-1-1",
@@ -886,6 +917,7 @@ const DPS_DETAIL_FAZE_SOURCES: Dictionary = {
 	"faze_heal": {"name": "愈疗法则", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_heal.png"},
 	"faze_sacred_light": {"name": "生灵法则", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/faze_life.png"},
 	"faze_deep": {"name": "沉渊法则", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_chenyuan.png"},
+	"faze_shehun": {"name": "摄魂法则", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/buff_shehun.png"},
 }
 const DPS_DETAIL_FAZE_ICON_BY_KEY: Dictionary = {
 	"bagua": "faze_bagua",
@@ -911,6 +943,7 @@ const DPS_DETAIL_FAZE_ICON_BY_KEY: Dictionary = {
 	"thunder": "faze_thunder",
 	"treasure": "faze_treasure",
 	"deep": "buff_chenyuan",
+	"shehun": "buff_shehun",
 	"wide": "faze_wide",
 	"wind": "faze_wind",
 }
@@ -928,7 +961,7 @@ const DPS_DETAIL_WEAPON_SOURCES: Dictionary = {
 	"ice_flower": {"name": "冰刺术", "reward_id": "Ice", "icon": "binghua"},
 	"ice": {"name": "冰刺术", "reward_id": "Ice", "icon": "binghua"},
 	"thunder_break": {"name": "天雷破", "reward_id": "ThunderBreak", "icon": "tianleipo2"},
-	"light_bullet": {"name": "光弹", "reward_id": "LightBullet", "icon": "guangdan"},
+	"light_bullet": {"name": "光弹术", "reward_id": "LightBullet", "icon": "guangdan"},
 	"water": {"name": "坎水诀", "reward_id": "Water", "icon": "kanshui"},
 	"qiankun": {"name": "乾坤双剑", "reward_id": "Qiankun", "icon": "qiankun"},
 	"xuanwu": {"name": "玄武盾", "reward_id": "Xuanwu", "icon": "xuanwu"},
@@ -940,7 +973,10 @@ const DPS_DETAIL_WEAPON_SOURCES: Dictionary = {
 	"dragonwind": {"name": "风龙杖", "reward_id": "DragonWind", "icon": "fenglongzhang"},
 }
 var dps_damage_buckets: Array = []
+var dps_potential_damage_buckets: Array = []
 @export var current_dps: float = 0.0
+var current_boss_scaling_dps: float = 0.0
+var current_dps_window_kill_count: int = 0
 var highest_dps: float = 0.0
 var weapon_dps: Dictionary = {}
 var dps_detail_source_dps: Dictionary = {}
@@ -1012,6 +1048,7 @@ var faze_light_pool: ObjectPool
 
 func _init_dps_counter() -> void:
 	_reset_dps_buckets()
+	_reset_dps_potential_buckets()
 	_reset_heal_shield_buckets()
 	dps_timer = Timer.new()
 	dps_timer.wait_time = 1.0
@@ -1038,6 +1075,31 @@ func record_damage_for_dps(damage: float, weapon_name: String = "Unknown") -> vo
 	_record_dps_detail_damage(bucket, damage, weapon_name)
 	_record_dps_test_damage(damage, weapon_name)
 
+func record_potential_damage_for_boss_dps(damage: float) -> void:
+	if damage <= 0.0:
+		return
+	var current_second: int = _get_dps_battle_second()
+	_ensure_dps_potential_buckets()
+	var bucket_index: int = current_second % DPS_WINDOW_SECONDS
+	var bucket: Dictionary = dps_potential_damage_buckets[bucket_index]
+	if int(bucket.get("second", -1)) != current_second:
+		bucket["second"] = current_second
+		bucket["total"] = 0.0
+	bucket["total"] = float(bucket.get("total", 0.0)) + damage
+
+func record_kill_for_dps() -> void:
+	var current_second: int = _get_dps_battle_second()
+	_ensure_dps_buckets()
+	var bucket_index: int = current_second % DPS_WINDOW_SECONDS
+	var bucket: Dictionary = dps_damage_buckets[bucket_index]
+	if int(bucket.get("second", -1)) != current_second:
+		bucket["second"] = current_second
+		bucket["total"] = 0.0
+		bucket["weapons"] = {}
+		bucket["details"] = {}
+		bucket["kills"] = 0
+	bucket["kills"] = int(bucket.get("kills", 0)) + 1
+
 func _record_dps_detail_damage(bucket: Dictionary, damage: float, source_id: String) -> void:
 	var source_info: Dictionary = _get_dps_source_info(source_id)
 	var detail_key: String = str(source_info.get("key", source_id))
@@ -1060,14 +1122,18 @@ func _calculate_dps() -> void:
 	var current_second: int = _get_dps_battle_second()
 	var first_second: int = current_second - DPS_WINDOW_SECONDS + 1
 	var total_damage: float = 0.0
+	var total_potential_damage: float = 0.0
+	var total_kills: int = 0
 	var weapon_totals: Dictionary = {}
 	var detail_totals: Dictionary = {}
 	_ensure_dps_buckets()
+	_ensure_dps_potential_buckets()
 	for bucket in dps_damage_buckets:
 		var bucket_second: int = int(bucket.get("second", -1))
 		if bucket_second < first_second or bucket_second > current_second:
 			continue
 		total_damage += float(bucket.get("total", 0.0))
+		total_kills += int(bucket.get("kills", 0))
 		var weapons: Dictionary = bucket.get("weapons", {})
 		for w_name in weapons:
 			weapon_totals[w_name] = weapon_totals.get(w_name, 0.0) + float(weapons[w_name])
@@ -1078,7 +1144,14 @@ func _calculate_dps() -> void:
 				detail_totals[detail_key] = detail_entry.duplicate(true)
 				detail_totals[detail_key]["damage"] = 0.0
 			detail_totals[detail_key]["damage"] = float(detail_totals[detail_key].get("damage", 0.0)) + float(detail_entry.get("damage", 0.0))
+	for bucket in dps_potential_damage_buckets:
+		var bucket_second: int = int(bucket.get("second", -1))
+		if bucket_second < first_second or bucket_second > current_second:
+			continue
+		total_potential_damage += float(bucket.get("total", 0.0))
 	current_dps = total_damage / float(DPS_WINDOW_SECONDS)
+	current_boss_scaling_dps = maxf(current_dps, total_potential_damage / float(DPS_WINDOW_SECONDS))
+	current_dps_window_kill_count = total_kills
 	highest_dps = max(highest_dps, current_dps)
 	weapon_dps.clear()
 	for w_name in weapon_totals:
@@ -1098,10 +1171,20 @@ func _ensure_dps_buckets() -> void:
 		return
 	_reset_dps_buckets()
 
+func _ensure_dps_potential_buckets() -> void:
+	if dps_potential_damage_buckets.size() == DPS_WINDOW_SECONDS:
+		return
+	_reset_dps_potential_buckets()
+
 func _reset_dps_buckets() -> void:
 	dps_damage_buckets.clear()
 	for i in range(DPS_WINDOW_SECONDS):
-		dps_damage_buckets.append({"second": - 1, "total": 0.0, "weapons": {}, "details": {}})
+		dps_damage_buckets.append({"second": - 1, "total": 0.0, "weapons": {}, "details": {}, "kills": 0})
+
+func _reset_dps_potential_buckets() -> void:
+	dps_potential_damage_buckets.clear()
+	for i in range(DPS_WINDOW_SECONDS):
+		dps_potential_damage_buckets.append({"second": - 1, "total": 0.0})
 
 func record_heal_shield_for_stats(kind: String, amount: float, source_id: String = "unknown") -> void:
 	if amount <= 0.0:
@@ -1126,7 +1209,7 @@ func _should_ignore_heal_shield_source(source_id: String) -> bool:
 	return normalized == "heal_aura" or normalized == "qi_vortex" or normalized == "boss_cansel"
 
 func _record_heal_shield_detail(bucket: Dictionary, kind: String, amount: float, source_id: String) -> void:
-	var source_info: Dictionary = _get_dps_source_info(source_id)
+	var source_info: Dictionary = _get_heal_shield_source_info(source_id)
 	var detail_key: String = str(source_info.get("key", source_id))
 	var details: Dictionary = bucket.get("details", {})
 	if not details.has(detail_key):
@@ -1226,9 +1309,9 @@ func _get_dps_source_info(source_id: String) -> Dictionary:
 	if normalized == "" or normalized == "unknown":
 		return {
 			"key": "other:unknown",
-			"name": "未知来源",
+			"name": "其他来源",
 			"category": DPS_DETAIL_CATEGORY_OTHER,
-			"icon": DPS_DETAIL_DEFAULT_ICON,
+			"icon": DPS_DETAIL_OTHER_ICON,
 		}
 	return {
 		"key": "weapon:" + normalized,
@@ -1236,6 +1319,10 @@ func _get_dps_source_info(source_id: String) -> Dictionary:
 		"category": DPS_DETAIL_CATEGORY_WEAPON,
 		"icon": DPS_DETAIL_DEFAULT_ICON,
 	}
+
+func _get_heal_shield_source_info(source_id: String) -> Dictionary:
+	var normalized: String = _normalize_dps_source_id(source_id)
+	return _get_dps_source_info(normalized)
 
 func _resolve_dps_faze_icon_path(source_id: String) -> String:
 	var normalized := source_id.to_lower()
@@ -1262,8 +1349,12 @@ func _normalize_dps_source_id(source_id: String) -> String:
 		return "unknown"
 	var lower: String = normalized.to_lower()
 	match lower:
-		"swordqi", "sword_qi", "sword", "bullet":
+		"swordqi", "sword_qi", "sword":
 			return "swordqi"
+		"bullet":
+			return "unknown"
+		"reflection", "reflaction":
+			return "reflection"
 		"ringfire", "ring_fire":
 			return "ringfire"
 		"bloodwave", "blood_wave":
@@ -1302,13 +1393,15 @@ func _normalize_dps_source_id(source_id: String) -> String:
 			return "holy_fire"
 		"heal_hot", "heal":
 			return "heal_hot"
+		"hp_regen", "life_regen", "health_regen":
+			return "hp_regen"
 		"water_sheild", "water_shield":
 			return "water_sheild"
 		"beastify":
 			return "beastify"
 		"destructive_hammer", "xueming_chongzhuang", "po_huai_luan_chui":
 			return "destructive_hammer"
-		"summon":
+		"summon", "huanwu":
 			return "summon"
 		_:
 			return lower
@@ -1351,7 +1444,7 @@ func _record_heal_shield_test_value(kind: String, amount: float, source_id: Stri
 	if not dps_test_timer_active:
 		return
 	heal_shield_test_total += amount
-	var source_info: Dictionary = _get_dps_source_info(source_id)
+	var source_info: Dictionary = _get_heal_shield_source_info(source_id)
 	var detail_key: String = str(source_info.get("key", source_id))
 	if not heal_shield_test_source_totals.has(detail_key):
 		heal_shield_test_source_totals[detail_key] = {
@@ -1415,11 +1508,11 @@ func _update_dps_test_elapsed() -> void:
 		dps_test_elapsed_seconds = maxf(0.0, _get_dps_time_source() - dps_test_start_battle_time)
 
 func _get_dps_test_total_dps() -> float:
-	var elapsed: float = max(get_dps_test_elapsed_seconds(), 0.001)
+	var elapsed: float = max(get_dps_test_elapsed_seconds(), DPS_TEST_MIN_DISPLAY_SECONDS)
 	return dps_test_total_damage / elapsed
 
 func _get_heal_shield_test_total_rate() -> float:
-	var elapsed: float = max(get_dps_test_elapsed_seconds(), 0.001)
+	var elapsed: float = max(get_dps_test_elapsed_seconds(), DPS_TEST_MIN_DISPLAY_SECONDS)
 	return heal_shield_test_total / elapsed
 
 func get_dps_test_total_dps() -> float:
@@ -1444,7 +1537,7 @@ func get_heal_shield_detail_snapshot() -> Dictionary:
 
 func _get_dps_test_detail_snapshot() -> Dictionary:
 	_update_dps_test_elapsed()
-	var elapsed: float = max(dps_test_elapsed_seconds, 0.001)
+	var elapsed: float = max(dps_test_elapsed_seconds, DPS_TEST_MIN_DISPLAY_SECONDS)
 	var source_dps: Dictionary = {}
 	for detail_key in dps_test_source_totals:
 		var entry: Dictionary = dps_test_source_totals[detail_key].duplicate(true)
@@ -1454,7 +1547,7 @@ func _get_dps_test_detail_snapshot() -> Dictionary:
 
 func _get_heal_shield_test_detail_snapshot() -> Dictionary:
 	_update_dps_test_elapsed()
-	var elapsed: float = max(dps_test_elapsed_seconds, 0.001)
+	var elapsed: float = max(dps_test_elapsed_seconds, DPS_TEST_MIN_DISPLAY_SECONDS)
 	var source_rates: Dictionary = {}
 	for detail_key in heal_shield_test_source_totals:
 		var entry: Dictionary = heal_shield_test_source_totals[detail_key].duplicate(true)
@@ -1556,25 +1649,29 @@ func is_mobile_input_mode() -> bool:
 func reset_mobile_input_now() -> void:
 	if not is_mobile_input_mode():
 		return
+	_mobile_input_restore_request_id += 1
 	emit_signal("mobile_input_reset_requested")
 
 func request_mobile_input_restore() -> void:
 	if not is_mobile_input_mode():
 		return
-	_restore_mobile_input_when_ready()
+	_mobile_input_restore_request_id += 1
+	_restore_mobile_input_when_ready(_mobile_input_restore_request_id)
 
-func _restore_mobile_input_when_ready() -> void:
+func _restore_mobile_input_when_ready(request_id: int) -> void:
 	var tree := get_tree()
 	if tree == null:
-		emit_signal("mobile_input_reset_requested")
+		emit_signal("mobile_input_restore_requested")
 		return
 	for _i in range(4):
+		if request_id != _mobile_input_restore_request_id:
+			return
 		if not is_level_up and not tree.paused:
 			break
 		await tree.process_frame
-	emit_signal("mobile_input_reset_requested")
-	await tree.process_frame
-	emit_signal("mobile_input_reset_requested")
+	if request_id != _mobile_input_restore_request_id:
+		return
+	emit_signal("mobile_input_restore_requested")
 
 func get_input_device_mode_display_name() -> String:
 	if input_device_mode == INPUT_DEVICE_MODE_MOBILE:
@@ -1881,6 +1978,10 @@ func add_item_count(item_id: String, count: int) -> void:
 		lingshi = max(lingshi + count, 0)
 		return
 	player_inventory[item_id] = player_inventory.get(item_id, 0) + count
+	if count > 0:
+		var guide_manager = get_node_or_null("/root/GuideManager")
+		if guide_manager != null and guide_manager.has_method("record_item_obtained"):
+			guide_manager.record_item_obtained(item_id)
 	if player_inventory[item_id] <= 0:
 		player_inventory.erase(item_id)
 
@@ -1891,6 +1992,34 @@ func consume_item_count(item_id: String, count: int) -> bool:
 		return false
 	add_item_count(item_id, -count)
 	return true
+
+func is_difu_mijing_unlocked() -> bool:
+	return is_stage_cleared("forest")
+
+func get_difu_required_key_count(difficulty_id: String = "", core_depth: int = 0) -> int:
+	var valid_difficulty := validate_stage_difficulty_id(difficulty_id)
+	if valid_difficulty == STAGE_DIFFICULTY_POETRY:
+		return 0
+	if valid_difficulty == STAGE_DIFFICULTY_DEEP:
+		return 3
+	if valid_difficulty == STAGE_DIFFICULTY_CORE:
+		var depth := clamp_core_depth(core_depth if core_depth >= CORE_DEPTH_MIN else selected_core_depth)
+		if depth >= 10:
+			return 7
+		if depth >= 7:
+			return 6
+		if depth >= 4:
+			return 5
+		return 4
+	return 2
+
+func get_mijing_stage_key_requirement(stage_id: String, difficulty_id: String = "", core_depth: int = 0) -> Dictionary:
+	if stage_id == "difu":
+		return {
+			"item_id": JIUYOU_KEY_ITEM_ID,
+			"required": get_difu_required_key_count(difficulty_id, core_depth)
+		}
+	return {"item_id": "", "required": 0}
 
 func add_shop_battle_refresh(count: int = 1) -> void:
 	shop_battle_refresh_count = clampi(shop_battle_refresh_count + count, 0, refresh_max_num)
@@ -2149,19 +2278,27 @@ func get_poetry_boss_cultivation_damage_bonus() -> float:
 func get_stage_boss_modifier_step_count() -> int:
 	if is_current_poetry_difficulty():
 		return 0
-	if not [STAGE_DIFFICULTY_SHALLOW, STAGE_DIFFICULTY_DEEP, STAGE_DIFFICULTY_CORE].has(validate_stage_difficulty_id(current_stage_difficulty)):
+	var difficulty_id := validate_stage_difficulty_id(current_stage_difficulty)
+	if not STAGE_BOSS_MODIFIER_START_TIMES.has(difficulty_id):
 		return 0
-	return maxi(0, int(floor(maxf(0.0, stage_boss_fight_time) / POETRY_MODIFIER_STEP_SECONDS)))
+	var start_time := float(STAGE_BOSS_MODIFIER_START_TIMES.get(difficulty_id, 0.0))
+	var elapsed := PC.real_time - start_time
+	if elapsed < STAGE_BOSS_MODIFIER_DELAY_SECONDS:
+		return 0
+	return maxi(0, int(floor((elapsed - STAGE_BOSS_MODIFIER_DELAY_SECONDS) / STAGE_BOSS_MODIFIER_STEP_SECONDS)) + 1)
 
-func get_stage_boss_player_damage_multiplier() -> float:
+func get_stage_boss_damage_escalation_multiplier(base_bonus: float = STAGE_BOSS_PLAYER_MODIFIER_BASE_BONUS) -> float:
 	var step_count := get_stage_boss_modifier_step_count()
 	var multiplier := 1.0
 	for i in range(step_count):
-		multiplier *= 1.0 + 0.08 + float(mini(i, 5)) * 0.02
+		multiplier *= 1.0 + base_bonus + float(i) * STAGE_BOSS_MODIFIER_STEP_BONUS
 	return multiplier
 
+func get_stage_boss_player_damage_multiplier() -> float:
+	return get_stage_boss_damage_escalation_multiplier(STAGE_BOSS_PLAYER_MODIFIER_BASE_BONUS)
+
 func get_stage_boss_damage_multiplier() -> float:
-	return 1.0 + float(get_stage_boss_modifier_step_count()) * 0.05
+	return get_stage_boss_damage_escalation_multiplier(STAGE_BOSS_DAMAGE_MODIFIER_BASE_BONUS)
 
 func is_boss_damage_source(attacker: Node) -> bool:
 	if attacker == null or not is_instance_valid(attacker):
@@ -2537,7 +2674,7 @@ func _get_start_weapon_config() -> Dictionary:
 	return {
 		"SwordQi": {"id": "SwordQi", "display_name": "剑气诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/jianqi.png", "faze_levels": {"faze_sword_level": 3, "faze_bullet_level": 3}, "faze_text": "刀剑法则+3，弹雨法则+3"},
 		"Qigong": {"id": "Qigong", "display_name": "气功波", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/qigong.png", "faze_levels": {"faze_wind_level": 3, "faze_wide_level": 3}, "faze_text": "啸风法则+3，广域法则+3"},
-		"LightBullet": {"id": "LightBullet", "display_name": "光弹", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/guangdan.png", "faze_levels": {"faze_life_level": 3, "faze_bullet_level": 3}, "faze_text": "生灵法则+3，弹雨法则+3"},
+		"LightBullet": {"id": "LightBullet", "display_name": "光弹术", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/guangdan.png", "faze_levels": {"faze_life_level": 3, "faze_bullet_level": 3}, "faze_text": "生灵法则+3，弹雨法则+3"},
 		"Ice": {"id": "Ice", "display_name": "冰刺术", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/binghua.png", "faze_levels": {"faze_destroy_level": 3, "faze_bullet_level": 3}, "faze_text": "破坏法则+3，弹雨法则+3"},
 		"Xunfeng": {"id": "Xunfeng", "display_name": "巽风诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/xunfeng.png", "faze_levels": {"faze_wind_level": 3, "faze_bullet_level": 3}, "faze_text": "啸风法则+3，弹雨法则+3"},
 		"Genshan": {"id": "Genshan", "display_name": "艮山诀", "icon": "res://AssetBundle/Sprites/Sprite sheets/skillIcon/genshan.png", "faze_levels": {"faze_bagua_level": 3, "faze_shield_level": 3}, "faze_text": "八卦法则+3，护佑法则+3"},
@@ -2824,6 +2961,7 @@ func save_game(force_now: bool = false):
 		"lingshi": lingshi,
 		"shop_level": shop_level,
 		"shop_battle_refresh_count": shop_battle_refresh_count,
+		"zhenqi_economy_version": ZHENQI_ECONOMY_VERSION,
 		"shop_lingshi_unit_price": shop_lingshi_unit_price,
 		"has_seen_battle_tutorial": has_seen_battle_tutorial,
 		"has_seen_town_tutorial": has_seen_town_tutorial,
@@ -2901,6 +3039,9 @@ func save_game(force_now: bool = false):
 		"study_bagua_damage_bonus": study_bagua_damage_bonus,
 		"study_heal_damage_bonus": study_heal_damage_bonus,
 		"study_treasure_damage_bonus": study_treasure_damage_bonus,
+		"study_blood_damage_bonus": study_blood_damage_bonus,
+		"study_deep_damage_bonus": study_deep_damage_bonus,
+		"study_shehun_damage_bonus": study_shehun_damage_bonus,
 		# 修习树武器解锁
 		"study_unlock_qiankun": study_unlock_qiankun,
 		"study_unlock_dragonwind": study_unlock_dragonwind,
@@ -2987,6 +3128,7 @@ func save_game(force_now: bool = false):
 		"available_start_weapons": available_start_weapons,
 		"selected_start_weapons_by_hero": selected_start_weapons_by_hero,
 		"achievement_data": get_node_or_null("/root/AchievementManager").export_save_data() if get_node_or_null("/root/AchievementManager") != null else {},
+		"guide_data": get_node_or_null("/root/GuideManager").export_save_data() if get_node_or_null("/root/GuideManager") != null else {},
 		"max_main_skill_num": max_main_skill_num,
 		"max_weapon_num": max_weapon_num,
 		"emblem_slots_max": emblem_slots_max,
@@ -3069,11 +3211,30 @@ func _is_battle_running_for_save_defer() -> bool:
 	var scene_stage_id = current_scene.get("STAGE_ID")
 	return scene_stage_id != null and not str(scene_stage_id).is_empty()
 
+func _migrate_zhenqi_economy_if_needed(loaded_version: int) -> void:
+	if loaded_version >= ZHENQI_ECONOMY_VERSION:
+		return
+	total_points = int(round(float(total_points) * ZHENQI_ECONOMY_SCALE))
+	shop_lingshi_unit_price = maxf(shop_lingshi_unit_price * ZHENQI_ECONOMY_SCALE, 5.0)
+	for i in range(shop_saved_items.size()):
+		var offer = shop_saved_items[i]
+		if typeof(offer) != TYPE_DICTIONARY:
+			continue
+		var offer_dict := offer as Dictionary
+		if str(offer_dict.get("cost_resource", "")) != "point":
+			continue
+		if str(offer_dict.get("product_type", "")) == "lingshi_pack":
+			offer_dict["cost"] = int(round(float(offer_dict.get("quantity", 0)) * shop_lingshi_unit_price))
+		else:
+			offer_dict["cost"] = int(round(float(offer_dict.get("cost", 0)) * ZHENQI_ECONOMY_SCALE))
+		shop_saved_items[i] = offer_dict
+
 func load_game():
 	var config = ConfigFile.new()
 	var err = SaveCrypto.load_config(config, CONFIG_PATH)
 	if err != OK: return
 	
+	var loaded_zhenqi_economy_version := int(config.get_value("save", "zhenqi_economy_version", 1))
 	total_points = config.get_value("save", "total_points", total_points)
 	PC.player_name = config.get_value("save", "player_name", PC.player_name)
 	world_level = config.get_value("save", "world_level", world_level)
@@ -3082,8 +3243,8 @@ func load_game():
 	lunky_level = config.get_value("save", "lunky_level", lunky_level)
 	red_p = 0.2
 	gold_p = 4
-	darkorchid_p = 25.5
-	blue_p = 70
+	darkorchid_p = 20.5
+	blue_p = 75
 	exp_multi = config.get_value("save", "exp_multi", exp_multi)
 	drop_multi = config.get_value("save", "drop_multi", drop_multi)
 	body_size = config.get_value("save", "body_size", body_size)
@@ -3106,7 +3267,7 @@ func load_game():
 	refresh_max_num = maxi(INITIAL_REFRESH_BASE_NUM, loaded_refresh_max_num)
 	shop_level = clampi(int(config.get_value("save", "shop_level", shop_level)), 1, 8)
 	shop_battle_refresh_count = clampi(int(config.get_value("save", "shop_battle_refresh_count", shop_battle_refresh_count)), 0, refresh_max_num)
-	shop_lingshi_unit_price = max(int(config.get_value("save", "shop_lingshi_unit_price", shop_lingshi_unit_price)), 50)
+	shop_lingshi_unit_price = maxf(float(config.get_value("save", "shop_lingshi_unit_price", shop_lingshi_unit_price)), 5.0)
 	shop_first_entered = config.get_value("save", "shop_first_entered", shop_first_entered) == true
 	has_visited_town = config.get_value("save", "has_visited_town", false) == true
 	is_first_game = config.get_value("save", "is_first_game", true) == true
@@ -3141,6 +3302,7 @@ func load_game():
 		shop_saved_items = (loaded_shop_items as Array).duplicate(true)
 	else:
 		shop_saved_items = []
+	_migrate_zhenqi_economy_if_needed(loaded_zhenqi_economy_version)
 	var loaded_stage_clear_progress = config.get_value("save", "stage_difficulty_clear_progress", stage_difficulty_clear_progress)
 	if typeof(loaded_stage_clear_progress) == TYPE_DICTIONARY:
 		stage_difficulty_clear_progress = (loaded_stage_clear_progress as Dictionary).duplicate(true)
@@ -3189,7 +3351,15 @@ func load_game():
 	cultivation_liejin_level_max = config.get_value("save", "cultivation_liejin_level_max", 50)
 	var loaded_study_data = config.get_value("save", "player_study_data", player_study_data)
 	for p_name in loaded_study_data.keys():
-		if not loaded_study_data[p_name].has("zhenqi_points"): loaded_study_data[p_name]["zhenqi_points"] = 100
+		if typeof(loaded_study_data[p_name]) != TYPE_DICTIONARY:
+			continue
+		var study_data := loaded_study_data[p_name] as Dictionary
+		if study_data.has("zhenqi_points"):
+			if loaded_zhenqi_economy_version < ZHENQI_ECONOMY_VERSION:
+				study_data["zhenqi_points"] = int(round(float(study_data.get("zhenqi_points", 0)) * ZHENQI_ECONOMY_SCALE))
+		else:
+			study_data["zhenqi_points"] = 10
+		loaded_study_data[p_name] = study_data
 	player_study_data = loaded_study_data
 	player_study_tree = config.get_value("save", "player_study_tree", player_study_tree)
 	# 修习树武器伤害加成
@@ -3206,6 +3376,9 @@ func load_game():
 	study_bagua_damage_bonus = config.get_value("save", "study_bagua_damage_bonus", 0.0)
 	study_heal_damage_bonus = config.get_value("save", "study_heal_damage_bonus", 0.0)
 	study_treasure_damage_bonus = config.get_value("save", "study_treasure_damage_bonus", 0.0)
+	study_blood_damage_bonus = config.get_value("save", "study_blood_damage_bonus", 0.0)
+	study_deep_damage_bonus = config.get_value("save", "study_deep_damage_bonus", 0.0)
+	study_shehun_damage_bonus = config.get_value("save", "study_shehun_damage_bonus", 0.0)
 	# 修习树武器解锁
 	study_unlock_qiankun = true
 	study_unlock_dragonwind = true
@@ -3336,6 +3509,11 @@ func load_game():
 			achievement_manager.import_save_data(achievement_data)
 		sync_available_start_weapons()
 		_normalize_selected_start_weapon_overrides()
+	var guide_manager = get_node_or_null("/root/GuideManager")
+	if guide_manager != null and guide_manager.has_method("import_save_data"):
+		var guide_data = config.get_value("save", "guide_data", {})
+		if typeof(guide_data) == TYPE_DICTIONARY:
+			guide_manager.import_save_data(guide_data)
 	# 旧存档兼容：扁平格式（顶层键含 "space"）→ 迁移为角色嵌套格式
 	if player_now_active_skill.has("space"):
 		var _old_config = player_now_active_skill.duplicate(true)
@@ -3531,6 +3709,19 @@ func get_current_dps() -> float:
 	if poetry_dps_override >= 0.0:
 		return poetry_dps_override
 	return current_dps
+func get_current_single_target_dps() -> float:
+	if poetry_dps_override >= 0.0:
+		return poetry_dps_override
+	if current_dps_window_kill_count <= 0:
+		return current_dps
+	var effective_kill_count := pow(float(current_dps_window_kill_count), DPS_SINGLE_TARGET_KILL_COUNT_EXPONENT)
+	return current_dps / maxf(1.0, effective_kill_count)
+func get_current_boss_scaling_dps() -> float:
+	if poetry_dps_override >= 0.0:
+		return poetry_dps_override
+	return maxf(current_dps, current_boss_scaling_dps)
+func get_current_dps_window_kill_count() -> int:
+	return current_dps_window_kill_count
 func get_highest_dps() -> float:
 	if poetry_dps_override >= 0.0:
 		return max(highest_dps, poetry_dps_override)
@@ -3539,7 +3730,7 @@ func get_weapon_dps() -> Dictionary: return weapon_dps
 
 # 兼容旧逻辑函数
 func reset_dps_counter() -> void:
-	_reset_dps_buckets(); current_dps = 0.0; highest_dps = 0.0; weapon_dps.clear(); dps_detail_source_dps.clear()
+	_reset_dps_buckets(); _reset_dps_potential_buckets(); current_dps = 0.0; current_boss_scaling_dps = 0.0; current_dps_window_kill_count = 0; highest_dps = 0.0; weapon_dps.clear(); dps_detail_source_dps.clear()
 	_reset_heal_shield_buckets(); heal_shield_detail_source_rates.clear()
 	reset_dps_test_timer()
 	poetry_dps_override = -1.0
